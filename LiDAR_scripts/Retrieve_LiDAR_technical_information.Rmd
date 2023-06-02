@@ -1,0 +1,206 @@
+---
+title: "Retrieve_LiDAR_technical_information"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+Objectifs : 
+Nous voulons utiliser AMAPvox pour calculer la transmittance de la lumière dans chacun des voxels de la foret scannée au LiDAR mobile terrestre (MLS).  
+
+La transmittance = *intensité* des *retours*/des entrées du signal du LiDAR dans le milieu. 
+
+De la transmittance on peut déduire la Plant Area density (PAD) 
+
+AMAPvox à partir de la trajectoire et du nuage de points du LiDAR retouve le chemin de chaque inpulsion émise par le LiDAR.
+
+Problème : le MLS tire vers le haut donc certaines impulsions ne rencontrent jamais d'obstacle et ne reviennent donc jamais, ce sont les *non-retours* (= extinction du signal). De plus le MLS ne renvoie pas certaines informations nécessaires à AMAPvox pour calculer la transmittance.  
+
+On veut donc comptabiliser les *non-retours*
+
+Il faut donc reconstruire les trajectoires des faisceaux du LiDAR dans le temps.
+
+Données MLS nécessaires :
+- coordonnées de chaque position de la trajectoire : x,y,z
+- *t, i (intensity)*
+- nombre de faisceaux
+- temps (vitesse de révolution *et autre ?*)
+- orientation (angle de balayage)
+- angle de tir (et variations d'angles)
+- angles entre les faisceaux
+
+à vérifier :
+- les données constructeurs : angles et vitesses *autres ?*
+- la conformité du timestamp
+- comparer la portée (range) et les distances calculées
+
+-> faire le lien entre temps gps et trajectoire de rotation
+-> recalculer les vecteurs
+-> recalculer les vitesses angulaires
+
+Fichiers de travail : trajectoire, nuage de points (.las ou .laz)
+
+# Packages
+```{r, include = F}
+library(zoo) # permet de synchroniser temps gps et tirs
+library(lidR)
+library(data.table)
+library(rgl) # visulaisation 3D
+```
+
+# The different LiDAR scanners
+```{r}
+Zeb_path <- "Z:/users/VincyaneBadouard/ZebHorizon/LiDAR_Manu/2022-09-07_15-46-34.laz"
+Hovermap_path <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
+Trion_path <- "Z:/users/VincyaneBadouard/Lidar/S1_TRION/points_cloud_file/Forestry/2023-02-02-15-13-57_5.las"
+
+Zeb_traj <- "Z:/users/VincyaneBadouard/ZebHorizon/LiDAR_Manu/2022-09-07_15-46-34.gs-traj"
+Hovermap_traj <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
+Trion_traj <- "Z:/users/VincyaneBadouard/Lidar/S1_TRION/points_cloud_file/Forestry/2023-02-02-15-13-57-trajectory - Cloud.pts" # ce n'est pas une trajectoire
+```
+
+# Import the points cloud
+```{r}
+ST <- readLAS(Trion_path)
+hist(ST@data$Intensity)
+# hist(ST@data$Ring) # YA PAS 
+hist(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
+table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
+ST@data
+
+plot(ST) # trop lourd
+```
+
+# Import the trajectory
+```{r}
+traj <- fread(Trion_traj)
+traj # je sais pas où est le temps gps
+
+#traj<-traj[order(gpstime),]
+plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
+
+options(digits=12)
+```
+
+# Create functions to calculate distances
+```{r}
+# distance calculation function (for mapply, see below)
+dfdist <- function(x_s, y_s, z_s, x,y,z) # pour calculer quelles distances ?
+{
+  sqrt((x_s-x)^2+(y_s-y)^2+(z_s-z)^2)
+}
+
+# distance between two R3 points (c'est quoi R3 ?)
+pdist <- function(P1,P2)
+{
+  sqrt(sum((P1-P2)^2)) # distance euclidienne
+}
+```
+
+# Compute vectors
+Create an empty 3-column matrix for GPS time
+```{r}
+TGPS <- matrix(data=NA, nrow=length(traj$gpstime), ncol=3)
+# 1st column: allocate GPS time (trajectory)
+TGPS[,1] <- traj$gpstime
+TGPS[,2] <- 0
+# 3rd column: allocate index
+TGPS[,3] <- 1:length(traj$gpstime)
+```
+
+Create an empty 3-column matrix for LIDAR time
+```{r}
+TLIDAR <- matrix(data=NA, nrow=length(ST@data$gpstime), ncol=3)
+# 1st column: allocate GPS time (LIDAR)
+TLIDAR[,1] <- ST@data$gpstime
+TLIDAR[,2] <- 1
+# 3rd column: allocate index
+TLIDAR[,3] <- 1:length(ST@data$gpstime)
+```
+
+Bind the 2 matrices
+```{r}
+fusion <- rbind(TGPS,TLIDAR)
+
+# order by time
+fusion_ordre <- fusion[order(fusion[,1]),]
+
+# For LiDAr rows, keep GPS and write NAs for the remaining
+fusion_ordre[which(fusion_ordre[,2]==1),1] <- NA # pourquoi avoir mis les gpstime pour maintenant les enlever ?
+```
+
+```{r}
+#fill empty spaces from left to rights
+#(1 point LIDAR prend le temps GPS le plus proche inférieur)
+#### préférer une interpolation entre les dates trajecto? (1/100°)*****
+fusion_ordre[,1] <- na.locf(fusion_ordre[,1]) # na.locf : replace each NA with the most recent non-NA prior to it.
+# Pourquoi ?
+
+#keep only LIDAR points
+fusion_ordre <- fusion_ordre[which(fusion_ordre[,2]==1),]
+
+#On ordonne par la 3e colonne (indices)
+fusion_ordre <- fusion_ordre[order(fusion_ordre[,3]),]
+
+#On peut alors joindre ST qui a aussi les ID dans l'ordre par definition
+ST@data$tgps <- fusion_ordre[,1]
+
+#Fusion de ST et traj par le temps
+ST@data <- merge(ST@data,traj,by.x="tgps", by.y="gpstime", all.x=T) 
+
+```
+
+# Calcul de distances
+```{r}
+#Calcul de distance 'APPROXIMATIF SI PAS DE TRANSLATION des coord UTM!)
+ST@data$range <- mapply(dfdist,ST@data$X,ST@data$Y,ST@data$Z,ST@data$x,ST@data$y,ST@data$z)
+# X : du lidar
+# x : de la trajecto
+
+# Calcul de l'angle de ? arc cosinus (on fait quoi là ?)
+ST@data$theta <- ((acos((ST@data$Z-ST@data$z)/ST@data$range))/pi)*180 # nadir sous-?chantillonn?!!
+
+samp <- sample(1:dim(ST@data)[1], 10000)
+plot(range~Range, data=ST@data[samp,]) # vérifier la portée énoncée et les distances calculées
+abline(b=1,a=0, col="red")
+               
+```
+
+# Clean environment
+```{r}
+# Clean environment
+rm(fusion)
+rm(fusion_ordre)
+rm(traj)
+rm(TGPS)
+rm(TLIDAR)
+gc()
+```
+
+# Get spherical coordinates from two points 
+```{r}
+#r,theta, Phi
+cart2spherical <- function(P1,P2){
+  x=P2[1]-P1[1]
+  y=P2[2]-P1[2]
+  z=P2[3]-P1[3]
+  r=sqrt(x^2+y^2+z^2)
+  theta = acos(z/r)
+  phi = sign(y)*acos(x/sqrt(x^2+y^2))
+  return(c(r,theta,phi))
+}
+
+
+cart2spherical(c(0,1,-1),c(0,1,0))
+
+sel <- ST@data[1:100000,]
+
+cart2spherical(as.numeric(ST@data[1,.(x,y,z)]), as.numeric(ST@data[1,.(X,Y,Z)]))
+
+```
+
+```{r}
+traj2 <- fread("Y:/users/GregVincent/fromEmesent/fromTiphanie/out2_traj.xyz")
+ST-X <- readLAS("Y:/users/GregVincent/fromEmesent/fromTiphanie/out2_laz1_4.laz")
+```
+
