@@ -1,0 +1,1905 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\usepackage[margin=1in]{geometry}
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{248,248,248}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.94,0.16,0.16}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.77,0.63,0.00}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\BuiltInTok}[1]{#1}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.64,0.00,0.00}{\textbf{#1}}}
+\newcommand{\ExtensionTok}[1]{#1}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.00,0.00,0.81}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\ImportTok}[1]{#1}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.13,0.29,0.53}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{#1}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.81,0.36,0.00}{\textbf{#1}}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textit{#1}}}
+\newcommand{\RegionMarkerTok}[1]{#1}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.00,0.00,0.00}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.31,0.60,0.02}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{\textbf{\textit{#1}}}}
+\usepackage{graphicx}
+\makeatletter
+\def\maxwidth{\ifdim\Gin@nat@width>\linewidth\linewidth\else\Gin@nat@width\fi}
+\def\maxheight{\ifdim\Gin@nat@height>\textheight\textheight\else\Gin@nat@height\fi}
+\makeatother
+% Scale images if necessary, so that they will not overflow the page
+% margins by default, and it is still possible to overwrite the defaults
+% using explicit options in \includegraphics[width, height, ...]{}
+\setkeys{Gin}{width=\maxwidth,height=\maxheight,keepaspectratio}
+% Set default figure placement to htbp
+\makeatletter
+\def\fps@figure{htbp}
+\makeatother
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same} % disable monospaced font for URLs
+\hypersetup{
+  pdftitle={HOBO\_data\_script},
+  pdfauthor={Vincyane Badouard},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{HOBO\_data\_script}
+\author{Vincyane Badouard}
+\date{2023-06-02}
+
+\begin{document}
+\maketitle
+
+Objectives: - open the HOBO data - create a script to open HOBO data in
+several folders - prepare HOBO data for analysis - descriptive analysis
+
+\hypertarget{packages}{%
+\section{Packages}\label{packages}}
+
+\hypertarget{read}{%
+\section{Read}\label{read}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{filenames }\OtherTok{\textless{}{-}} \FunctionTok{list.files}\NormalTok{(}\StringTok{"\textasciitilde{}/PhD/Microclimate/HOBO/25\_05\_2023"}\NormalTok{, }\AttributeTok{pattern=}\StringTok{"*.csv"}\NormalTok{, }\AttributeTok{full.names=}\ConstantTok{TRUE}\NormalTok{) }\CommentTok{\# catch the name of all the files of the folder}
+
+\NormalTok{df\_list }\OtherTok{\textless{}{-}} \FunctionTok{lapply}\NormalTok{(filenames, read\_csv) }\CommentTok{\# read all the folder files}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5364 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5353 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5351 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5350 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5351 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5351 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5351 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5353 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## lgl (1): Bouton Haut
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5351 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5353 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5353 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5353 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5354 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## lgl (1): Bouton Haut
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5346 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5347 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5348 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5452 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5351 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## lgl (1): Bouton Haut
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5353 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5350 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5358 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5352 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (6): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (2): #, Ch: 1 - Température   (°C)
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\begin{verbatim}
+## Warning: One or more parsing issues, call `problems()` on your data frame for details,
+## e.g.:
+##   dat <- vroom(...)
+##   problems(dat)
+\end{verbatim}
+
+\begin{verbatim}
+## Rows: 5349 Columns: 8
+## -- Column specification --------------------------------------------------------
+## Delimiter: ","
+## chr (5): Date et heure (French Guiana Standard Time), Ch: 2 - Lumière   (lux...
+## dbl (3): #, Ch: 1 - Température   (°C), Bouton Bas
+## 
+## i Use `spec()` to retrieve the full column specification for this data.
+## i Specify the column types or set `show_col_types = FALSE` to quiet this message.
+\end{verbatim}
+
+\hypertarget{rename-files}{%
+\section{Rename files}\label{rename-files}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{truc }\OtherTok{\textless{}{-}} \FunctionTok{sub}\NormalTok{(}\StringTok{"D:/Mes Donnees/PhD/Microclimate/HOBO/25\_05\_2023"}\NormalTok{, }\StringTok{""}\NormalTok{, filenames)}
+\NormalTok{truc2 }\OtherTok{\textless{}{-}}\NormalTok{ stringr}\SpecialCharTok{::}\FunctionTok{str\_replace}\NormalTok{(truc, }\StringTok{"(Data French Guiana Standard Time)"}\NormalTok{, }\StringTok{""}\NormalTok{)}
+\NormalTok{truc3 }\OtherTok{\textless{}{-}}\NormalTok{ stringr}\SpecialCharTok{::}\FunctionTok{str\_replace}\NormalTok{(truc2, }\StringTok{".csv"}\NormalTok{, }\StringTok{""}\NormalTok{)}
+\NormalTok{truc4 }\OtherTok{\textless{}{-}}\NormalTok{ stringr}\SpecialCharTok{::}\FunctionTok{str\_replace}\NormalTok{(truc3, }\StringTok{" AST "}\NormalTok{, }\StringTok{""}\NormalTok{)}
+\NormalTok{truc5 }\OtherTok{\textless{}{-}} \FunctionTok{gsub}\NormalTok{(}\StringTok{"[()]"}\NormalTok{, }\StringTok{""}\NormalTok{, truc4)}
+
+\FunctionTok{names}\NormalTok{(df\_list) }\OtherTok{\textless{}{-}}\NormalTok{ truc5}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{understand-the-hobo-file}{%
+\section{Understand the HOBO file}\label{understand-the-hobo-file}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{str}\NormalTok{(df\_list) }\CommentTok{\# list of 30 data.frames with 5364 obs and 8 columns each}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## List of 30
+##  $ /1 2023-05-25 08_56_35 : spc_tbl_ [5,364 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5364] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5364] "03/30/2023 09:51:25" "03/30/2023 09:51:26" "03/30/2023 09:51:37" "03/30/2023 09:52:14" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5364] NA NA NA NA NA NA NA NA NA NA ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5364] NA NA NA NA ...
+##   ..$ Bouton Bas                                 : chr [1:5364] "Enregistré" "Enregistré" NA NA ...
+##   ..$ Bouton Haut                                : chr [1:5364] "Enregistré" "Enregistré" NA NA ...
+##   ..$ Hôte connecté                              : chr [1:5364] NA NA "Enregistré" "Enregistré" ...
+##   ..$ Fin du fichier                             : chr [1:5364] NA NA NA NA ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /10 2023-05-25 09_16_29: spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] "34" "12" "95" "78" ...
+##   ..$ Bouton Bas                                 : num [1:5352] 416 187 139 10 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5352] "64" "20" "60" "65" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /11 2023-05-25 09_19_48: spc_tbl_ [5,353 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5353] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5353] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5353] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5353] "08" "91" "78" "69" ...
+##   ..$ Bouton Bas                                 : num [1:5353] 108 57 36 3 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5353] "76" "38" "82" "04" ...
+##   ..$ Hôte connecté                              : chr [1:5353] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5353] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /12 2023-05-25 09_21_58: spc_tbl_ [5,351 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5351] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5351] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5351] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5351] "21" "99" "87" "82" ...
+##   ..$ Bouton Bas                                 : num [1:5351] 84 40 23 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5351] "52" "49" "77" "49" ...
+##   ..$ Hôte connecté                              : chr [1:5351] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5351] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /13 2023-05-25 09_24_23: spc_tbl_ [5,350 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5350] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5350] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5350] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5350] "04" "87" "78" "69" ...
+##   ..$ Bouton Bas                                 : num [1:5350] 46 26 13 1 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5350] "24" "10" "78" "49" ...
+##   ..$ Hôte connecté                              : chr [1:5350] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5350] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /14 2023-05-25 09_26_38: spc_tbl_ [5,351 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5351] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5351] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5351] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5351] "08" "91" "82" "69" ...
+##   ..$ Bouton Bas                                 : num [1:5351] 94 45 18 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5351] "40" "80" "53" "38" ...
+##   ..$ Hôte connecté                              : chr [1:5351] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5351] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /15 2023-05-25 09_29_12: spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] "12" "99" "87" "78" ...
+##   ..$ Bouton Bas                                 : num [1:5352] 128 64 30 3 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5352] "52" "68" "80" "19" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /16 2023-05-25 09_32_22: spc_tbl_ [5,351 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5351] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5351] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5351] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5351] "17" "08" "91" "87" ...
+##   ..$ Bouton Bas                                 : num [1:5351] 106 52 26 3 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5351] "00" "12" "23" "26" ...
+##   ..$ Hôte connecté                              : chr [1:5351] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5351] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /17 2023-05-25 09_34_32: spc_tbl_ [5,351 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5351] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5351] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5351] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5351] "04" "95" "82" "74" ...
+##   ..$ Bouton Bas                                 : num [1:5351] 52 28 11 1 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5351] "24" "87" "50" "24" ...
+##   ..$ Hôte connecté                              : chr [1:5351] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5351] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /18 2023-05-25 09_37_43: spc_tbl_ [5,353 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5353] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5353] "03/29/2023 18:26:49" "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5353] NA 26 26 26 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5353] NA "30" "12" "08" ...
+##   ..$ Hôte connecté                              : chr [1:5353] "Enregistré" "64" "32" "13" ...
+##   ..$ Bouton Bas                                 : chr [1:5353] NA "80" "60" "67" ...
+##   ..$ Bouton Haut                                : logi [1:5353] NA NA NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5353] NA ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_logical(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /19 2023-05-25 09_39_58: spc_tbl_ [5,351 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5351] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5351] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5351] 26 26 26 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5351] "30" "17" "04" "91" ...
+##   ..$ Bouton Bas                                 : num [1:5351] 101 55 23 3 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5351] "32" "34" "54" "19" ...
+##   ..$ Hôte connecté                              : chr [1:5351] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5351] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /2 2023-05-25 08_58_34 : spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 09:55:03" "03/30/2023 09:55:16" "03/30/2023 09:55:50" "03/30/2023 09:57:09" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] NA NA NA NA 26 26 26 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] NA NA NA NA ...
+##   ..$ Bouton Bas                                 : chr [1:5352] "Enregistré" NA NA NA ...
+##   ..$ Bouton Haut                                : chr [1:5352] "Enregistré" NA NA NA ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA "Enregistré" "Enregistré" "Enregistré" ...
+##   ..$ Fin du fichier                             : chr [1:5352] NA NA NA NA ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /20 2023-05-25 09_41_59: spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] "21" "04" "95" "82" ...
+##   ..$ Bouton Bas                                 : num [1:5352] 131 67 34 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5352] "40" "36" "55" "50" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /21 2023-05-25 10_00_29: spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] "21" "99" "82" "78" ...
+##   ..$ Bouton Bas                                 : num [1:5352] 105 54 23 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5352] "60" "34" "72" "26" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /22 2023-05-25 09_58_28: spc_tbl_ [5,353 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5353] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5353] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5353] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5353] "12" "95" "82" "78" ...
+##   ..$ Bouton Bas                                 : num [1:5353] 63 27 12 1 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5353] "98" "75" "20" "25" ...
+##   ..$ Hôte connecté                              : chr [1:5353] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5353] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /23 2023-05-25 09_53_59: spc_tbl_ [5,353 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5353] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5353] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5353] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5353] "25" "95" "87" "78" ...
+##   ..$ Bouton Bas                                 : num [1:5353] 262 125 97 5 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5353] "80" "76" "40" "77" ...
+##   ..$ Hôte connecté                              : chr [1:5353] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5353] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /24 2023-05-25 09_52_27: spc_tbl_ [5,353 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5353] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5353] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5353] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5353] "21" "04" "87" "74" ...
+##   ..$ Bouton Bas                                 : num [1:5353] 227 84 59 6 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5353] "52" "44" "18" "09" ...
+##   ..$ Hôte connecté                              : chr [1:5353] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5353] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /25 2023-05-25 09_50_30: spc_tbl_ [5,354 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5354] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5354] "03/29/2023 18:21:13" "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5354] NA 26 26 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5354] NA "30" "08" "95" ...
+##   ..$ Hôte connecté                              : chr [1:5354] "Enregistré" "39" "19" "9" ...
+##   ..$ Bouton Bas                                 : chr [1:5354] NA "71" "39" "04" ...
+##   ..$ Bouton Haut                                : logi [1:5354] NA NA NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5354] NA ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_logical(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /26 2023-05-25 08_48_17: spc_tbl_ [5,346 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5346] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5346] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5346] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5346] "34" "04" "87" "65" ...
+##   ..$ Bouton Bas                                 : chr [1:5346] "647" "284" "204" "20" ...
+##   ..$ Bouton Haut                                : chr [1:5346] "84" "08" "56" "54" ...
+##   ..$ Hôte connecté                              : chr [1:5346] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5346] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /27 2023-05-25 08_44_44: spc_tbl_ [5,347 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5347] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5347] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5347] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5347] "34" "12" "99" "82" ...
+##   ..$ Bouton Bas                                 : num [1:5347] 371 175 95 10 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5347] "04" "36" "64" "40" ...
+##   ..$ Hôte connecté                              : chr [1:5347] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5347] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /28 2023-05-25 08_43_02: spc_tbl_ [5,348 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5348] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5348] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5348] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5348] "38" "17" "99" "82" ...
+##   ..$ Bouton Bas                                 : num [1:5348] 248 127 60 8 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5348] "40" "12" "14" "49" ...
+##   ..$ Hôte connecté                              : chr [1:5348] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5348] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /29 2023-05-25 08_41_32: spc_tbl_ [5,452 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5452] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5452] "03/29/2023 18:11:53" "03/29/2023 18:12:53" "03/29/2023 19:00:00" "03/29/2023 19:15:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5452] NA NA 26 26 26 26 26 26 26 26 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5452] NA NA "55" "25" ...
+##   ..$ Bouton Bas                                 : chr [1:5452] "Enregistré" NA "0" "0" ...
+##   ..$ Hôte connecté                              : chr [1:5452] "Enregistré" "Enregistré" "21" "00" ...
+##   ..$ Bouton Haut                                : chr [1:5452] "Enregistré" NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5452] NA NA ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /3 2023-05-25 09_00_50 : spc_tbl_ [5,351 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5351] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5351] "03/29/2023 18:42:48" "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5351] NA 26 26 26 26 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5351] NA "60" "34" "17" ...
+##   ..$ Hôte connecté                              : chr [1:5351] "Enregistré" "81" "40" "19" ...
+##   ..$ Bouton Bas                                 : chr [1:5351] NA "72" "81" "76" ...
+##   ..$ Bouton Haut                                : logi [1:5351] NA NA NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5351] NA ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_logical(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /30 2023-05-25 08_38_00: spc_tbl_ [5,353 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5353] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5353] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5353] 26 25 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5353] "08" "87" "74" "65" ...
+##   ..$ Bouton Bas                                 : num [1:5353] 96 53 22 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5353] "84" "90" "31" "73" ...
+##   ..$ Hôte connecté                              : chr [1:5353] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5353] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /4 2023-05-25 09_02_51 : spc_tbl_ [5,350 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5350] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5350] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5350] 26 26 26 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5350] "51" "25" "08" "99" ...
+##   ..$ Bouton Bas                                 : num [1:5350] 100 48 24 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5350] "36" "00" "87" "33" ...
+##   ..$ Hôte connecté                              : chr [1:5350] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5350] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /5 2023-05-25 09_05_03 : spc_tbl_ [5,358 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5358] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5358] "03/30/2023 10:20:18" "03/30/2023 10:20:24" "03/30/2023 18:00:00" "03/30/2023 18:15:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5358] NA NA 26 26 26 26 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5358] NA NA "64" "38" ...
+##   ..$ Bouton Bas                                 : chr [1:5358] "Enregistré" NA "69" "33" ...
+##   ..$ Bouton Haut                                : chr [1:5358] "Enregistré" NA "74" "53" ...
+##   ..$ Hôte connecté                              : chr [1:5358] NA "Enregistré" NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5358] NA NA ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /6 2023-05-25 09_07_18 : spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 10:24:30" "03/30/2023 10:24:39" "03/30/2023 18:00:00" "03/30/2023 18:15:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] NA NA 26 26 26 26 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] NA NA "64" "34" ...
+##   ..$ Bouton Bas                                 : chr [1:5352] "Enregistré" NA "56" "33" ...
+##   ..$ Bouton Haut                                : chr [1:5352] "Enregistré" NA "92" "98" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA "Enregistré" NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] NA NA ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /7 2023-05-25 09_09_06 : spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] "47" "21" "99" "99" ...
+##   ..$ Bouton Bas                                 : num [1:5352] 50 35 10 0 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5352] "48" "11" "89" "94" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /8 2023-05-25 09_12_06 : spc_tbl_ [5,352 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5352] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5352] "03/30/2023 10:34:48" "03/30/2023 10:34:51" "03/30/2023 10:35:25" "03/30/2023 18:00:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5352] NA NA NA 26 26 26 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5352] NA NA NA "51" ...
+##   ..$ Bouton Bas                                 : chr [1:5352] "Enregistré" NA NA "58" ...
+##   ..$ Bouton Haut                                : chr [1:5352] "Enregistré" NA NA "96" ...
+##   ..$ Hôte connecté                              : chr [1:5352] NA "Enregistré" "Enregistré" NA ...
+##   ..$ Fin du fichier                             : chr [1:5352] NA NA NA ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_character(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr> 
+##  $ /9 2023-05-25 09_14_03 : spc_tbl_ [5,349 x 8] (S3: spec_tbl_df/tbl_df/tbl/data.frame)
+##   ..$ #                                          : num [1:5349] 1 2 3 4 5 6 7 8 9 10 ...
+##   ..$ Date et heure (French Guiana Standard Time): chr [1:5349] "03/30/2023 18:00:00" "03/30/2023 18:15:00" "03/30/2023 18:30:00" "03/30/2023 18:45:00" ...
+##   ..$ Ch: 1 - Température   (°C)                 : num [1:5349] 26 26 25 25 25 25 25 25 25 25 ...
+##   ..$ Ch: 2 - Lumière   (lux)                    : chr [1:5349] "42" "17" "99" "91" ...
+##   ..$ Bouton Bas                                 : num [1:5349] 138 64 32 2 0 0 0 0 0 0 ...
+##   ..$ Bouton Haut                                : chr [1:5349] "92" "88" "94" "90" ...
+##   ..$ Hôte connecté                              : chr [1:5349] NA NA NA NA ...
+##   ..$ Fin du fichier                             : chr [1:5349] ",," ",," ",," ",," ...
+##   ..- attr(*, "spec")=
+##   .. .. cols(
+##   .. ..   `#` = col_double(),
+##   .. ..   `Date et heure (French Guiana Standard Time)` = col_character(),
+##   .. ..   `Ch: 1 - Température   (°C)` = col_double(),
+##   .. ..   `Ch: 2 - Lumière   (lux)` = col_character(),
+##   .. ..   `Bouton Bas` = col_double(),
+##   .. ..   `Bouton Haut` = col_character(),
+##   .. ..   `Hôte connecté` = col_character(),
+##   .. ..   `Fin du fichier` = col_character()
+##   .. .. )
+##   ..- attr(*, "problems")=<externalptr>
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Df1 }\OtherTok{\textless{}{-}}\NormalTok{ df\_list}\SpecialCharTok{$}\StringTok{\textasciigrave{}}\AttributeTok{/1 2023{-}05{-}25 08\_56\_35}\StringTok{\textasciigrave{}}
+\NormalTok{Df1}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 5,364 x 8
+##      `#` Date et heure (French G~1 Ch: 1 - Température ~2 Ch: 2 - Lumière   (l~3
+##    <dbl> <chr>                                      <dbl> <chr>                 
+##  1     1 03/30/2023 09:51:25                           NA <NA>                  
+##  2     2 03/30/2023 09:51:26                           NA <NA>                  
+##  3     3 03/30/2023 09:51:37                           NA <NA>                  
+##  4     4 03/30/2023 09:52:14                           NA <NA>                  
+##  5     5 03/30/2023 09:52:42                           NA <NA>                  
+##  6     6 03/30/2023 09:53:24                           NA <NA>                  
+##  7     7 03/30/2023 09:53:33                           NA <NA>                  
+##  8     8 03/30/2023 09:53:34                           NA <NA>                  
+##  9     9 03/30/2023 09:53:49                           NA <NA>                  
+## 10    10 03/30/2023 09:53:51                           NA <NA>                  
+## # i 5,354 more rows
+## # i abbreviated names: 1: `Date et heure (French Guiana Standard Time)`,
+## #   2: `Ch: 1 - Température   (°C)`, 3: `Ch: 2 - Lumière   (lux)`
+## # i 4 more variables: `Bouton Bas` <chr>, `Bouton Haut` <chr>,
+## #   `Hôte connecté` <chr>, `Fin du fichier` <chr>
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{names}\NormalTok{(Df1)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "#"                                          
+## [2] "Date et heure (French Guiana Standard Time)"
+## [3] "Ch: 1 - Température   (°C)"                 
+## [4] "Ch: 2 - Lumière   (lux)"                    
+## [5] "Bouton Bas"                                 
+## [6] "Bouton Haut"                                
+## [7] "Hôte connecté"                              
+## [8] "Fin du fichier"
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{summary}\NormalTok{(Df1)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##        #        Date et heure (French Guiana Standard Time)
+##  Min.   :   1   Length:5364                                
+##  1st Qu.:1342   Class :character                           
+##  Median :2682   Mode  :character                           
+##  Mean   :2682                                              
+##  3rd Qu.:4023                                              
+##  Max.   :5364                                              
+##                                                            
+##  Ch: 1 - Température   (°C) Ch: 2 - Lumière   (lux)  Bouton Bas       
+##  Min.   :20.00              Length:5364             Length:5364       
+##  1st Qu.:23.00              Class :character        Class :character  
+##  Median :24.00              Mode  :character        Mode  :character  
+##  Mean   :24.38                                                        
+##  3rd Qu.:25.00                                                        
+##  Max.   :30.00                                                        
+##  NA's   :20                                                           
+##  Bouton Haut        Hôte connecté      Fin du fichier    
+##  Length:5364        Length:5364        Length:5364       
+##  Class :character   Class :character   Class :character  
+##  Mode  :character   Mode  :character   Mode  :character  
+##                                                          
+##                                                          
+##                                                          
+## 
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Les capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.}
+\CommentTok{\# Ils collectent bien toutes les 15 minutes.}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{prepare-hobo-data-for-analysis}{%
+\section{Prepare HOBO data for
+analysis}\label{prepare-hobo-data-for-analysis}}
+
+We will keep only data of interest
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Df1 }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{rename}\NormalTok{(}\AttributeTok{Index =} \StringTok{\textquotesingle{}\#\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{rename}\NormalTok{(}\AttributeTok{Time =} \StringTok{\textquotesingle{}Date et heure (French Guiana Standard Time)\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{rename}\NormalTok{(}\AttributeTok{Temp =} \StringTok{\textquotesingle{}Ch: 1 {-} Température   (°C)\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{rename}\NormalTok{(}\AttributeTok{Light =} \StringTok{\textquotesingle{}Ch: 2 {-} Lumière   (lux)\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{select}\NormalTok{(}\StringTok{\textquotesingle{}Index\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Time\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Temp\textquotesingle{}}\NormalTok{, }\StringTok{\textquotesingle{}Light\textquotesingle{}}\NormalTok{) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Light =} \FunctionTok{as.numeric}\NormalTok{(Light))}
+\NormalTok{Df1}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## # A tibble: 5,364 x 4
+##    Index Time                 Temp Light
+##    <dbl> <chr>               <dbl> <dbl>
+##  1     1 03/30/2023 09:51:25    NA    NA
+##  2     2 03/30/2023 09:51:26    NA    NA
+##  3     3 03/30/2023 09:51:37    NA    NA
+##  4     4 03/30/2023 09:52:14    NA    NA
+##  5     5 03/30/2023 09:52:42    NA    NA
+##  6     6 03/30/2023 09:53:24    NA    NA
+##  7     7 03/30/2023 09:53:33    NA    NA
+##  8     8 03/30/2023 09:53:34    NA    NA
+##  9     9 03/30/2023 09:53:49    NA    NA
+## 10    10 03/30/2023 09:53:51    NA    NA
+## # i 5,354 more rows
+\end{verbatim}
+
+\hypertarget{manage-date-and-hours}{%
+\subsection{Manage date and hours}\label{manage-date-and-hours}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{class}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Time) }\CommentTok{\# the time is in character}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "character"
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Df1 }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{separate}\NormalTok{(Time, }\AttributeTok{sep =} \StringTok{" "}\NormalTok{, }\AttributeTok{into =} \FunctionTok{c}\NormalTok{(}\StringTok{"Date"}\NormalTok{, }\StringTok{"Hour"}\NormalTok{), }\AttributeTok{remove =}\NormalTok{ F) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Date =} \FunctionTok{as\_date}\NormalTok{(Date, }\AttributeTok{format =} \StringTok{"\%m/\%d/\%Y"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Hour =}\NormalTok{ hms}\SpecialCharTok{::}\FunctionTok{as\_hms}\NormalTok{(Hour)) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(}\SpecialCharTok{!}\NormalTok{(Date }\SpecialCharTok{==} \StringTok{"2023{-}03{-}30"} \SpecialCharTok{\&}\NormalTok{ Hour }\SpecialCharTok{\textless{}} \StringTok{"18:00:00"}\NormalTok{)) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Time =} \FunctionTok{mdy\_hms}\NormalTok{(Time)) }\CommentTok{\# format: 2023{-}03{-}30 18:15:00}
+
+
+\FunctionTok{max}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Date) }\CommentTok{\# "2023{-}05{-}25" the collect date}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] "2023-05-25"
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{max}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Date) }\SpecialCharTok{{-}} \FunctionTok{min}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Date) }\CommentTok{\# 56 days of collect}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time difference of 56 days
+\end{verbatim}
+
+\hypertarget{na}{%
+\subsection{NA ?}\label{na}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Na\_tabble }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(Light) }\SpecialCharTok{|} \FunctionTok{is.na}\NormalTok{(Temp))}
+
+\NormalTok{NA1 }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(Date }\SpecialCharTok{==} \StringTok{"2023{-}04{-}04"}\NormalTok{)}
+
+\CommentTok{\# Remove what is between the 15 minutes}
+\NormalTok{Df1 }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{filter}\NormalTok{(}\FunctionTok{minute}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Time) }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"0"}\NormalTok{, }\StringTok{"15"}\NormalTok{, }\StringTok{"30"}\NormalTok{, }\StringTok{"45"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{different-time-steps}{%
+\subsection{Different time steps}\label{different-time-steps}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Average per day}
+\NormalTok{Df1\_stats }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(Date) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Mean\_Temp =} \FunctionTok{mean}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Sd\_Temp =} \FunctionTok{sd}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Max\_Temp =} \FunctionTok{max}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Min\_Temp =} \FunctionTok{min}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Mean\_Light =} \FunctionTok{mean}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Sd\_Light =} \FunctionTok{sd}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Max\_Light =} \FunctionTok{max}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Min\_Light =} \FunctionTok{min}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{Temp,}\SpecialCharTok{{-}}\NormalTok{Light, }\SpecialCharTok{{-}}\NormalTok{Index,}\SpecialCharTok{{-}}\NormalTok{Time,}\SpecialCharTok{{-}}\NormalTok{Hour) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{ungroup}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{unique}\NormalTok{()}
+
+\CommentTok{\# By Hour}
+\NormalTok{Df1\_Hour\_stats }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(Hour) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Mean\_Temp =} \FunctionTok{mean}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Sd\_Temp =} \FunctionTok{sd}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Max\_Temp =} \FunctionTok{max}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Min\_Temp =} \FunctionTok{min}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Mean\_Light =} \FunctionTok{mean}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Sd\_Light =} \FunctionTok{sd}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Max\_Light =} \FunctionTok{max}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Min\_Light =} \FunctionTok{min}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{Temp,}\SpecialCharTok{{-}}\NormalTok{Light, }\SpecialCharTok{{-}}\NormalTok{Index,}\SpecialCharTok{{-}}\NormalTok{Time, }\SpecialCharTok{{-}}\NormalTok{Date) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{ungroup}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{unique}\NormalTok{()}
+
+
+\CommentTok{\# Day and night averages (A FAIRE)}
+\CommentTok{\# Day: 6{-}18h}
+\CommentTok{\# Night: 19{-}5h}
+\NormalTok{Df1 }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Phase =} \FunctionTok{ifelse}\NormalTok{((Hour }\SpecialCharTok{\textgreater{}=} \StringTok{"19:00:00"} \SpecialCharTok{|}\NormalTok{ Hour }\SpecialCharTok{\textless{}=} \StringTok{"05:00:00"}\NormalTok{), }\StringTok{"Night"}\NormalTok{, }\StringTok{"Day"}\NormalTok{))}
+
+\FunctionTok{max}\NormalTok{(Df1[Df1}\SpecialCharTok{$}\NormalTok{Phase }\SpecialCharTok{==} \StringTok{"Day"}\NormalTok{,]}\SpecialCharTok{$}\NormalTok{Hour)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time difference of 18900 secs
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{min}\NormalTok{(Df1[Df1}\SpecialCharTok{$}\NormalTok{Phase }\SpecialCharTok{==} \StringTok{"Day"}\NormalTok{,]}\SpecialCharTok{$}\NormalTok{Hour)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## Time difference of 1800 secs
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Df1\_NightDay\_stats }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{group\_by}\NormalTok{(Date,Phase) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Mean\_Temp =} \FunctionTok{mean}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Sd\_Temp =} \FunctionTok{sd}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Max\_Temp =} \FunctionTok{max}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Min\_Temp =} \FunctionTok{min}\NormalTok{(Temp)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Mean\_Light =} \FunctionTok{mean}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Sd\_Light =} \FunctionTok{sd}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Max\_Light =} \FunctionTok{max}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Min\_Light =} \FunctionTok{min}\NormalTok{(Light)) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{Temp,}\SpecialCharTok{{-}}\NormalTok{Light, }\SpecialCharTok{{-}}\NormalTok{Index,}\SpecialCharTok{{-}}\NormalTok{Time,}\SpecialCharTok{{-}}\NormalTok{Hour) }\SpecialCharTok{\%\textgreater{}\%}
+  \FunctionTok{ungroup}\NormalTok{() }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{unique}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{descriptive-analysis}{%
+\section{Descriptive analysis}\label{descriptive-analysis}}
+
+\hypertarget{descriptive-stats}{%
+\subsection{Descriptive stats}\label{descriptive-stats}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# for full data}
+\FunctionTok{mean}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light) }\CommentTok{\# 51 lux}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 51.20734
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sd}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light) }\CommentTok{\# 28 lux}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 28.27632
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{min}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light) }\CommentTok{\# 0 lux}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{max}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light) }\CommentTok{\# 99 lux}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 99
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{mean}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Temp) }\CommentTok{\# 24 °C}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 24.37706
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{sd}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Temp) }\CommentTok{\# 1 °C}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 1.422344
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{min}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Temp) }\CommentTok{\# 20 °C}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 20
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{max}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Temp) }\CommentTok{\# 30 °C}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 30
+\end{verbatim}
+
+\hypertarget{corruxe9lations}{%
+\subsection{Corrélations}\label{corruxe9lations}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cor}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light,Df1}\SpecialCharTok{$}\NormalTok{Temp) }\CommentTok{\# {-}0.2}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] -0.2166696
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{plot}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light,Df1}\SpecialCharTok{$}\NormalTok{Temp) }
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-10-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cor}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light,}\FunctionTok{as.numeric}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Hour)) }\CommentTok{\# 0.003}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.003602737
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{cor}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Temp,}\FunctionTok{as.numeric}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Hour)) }\CommentTok{\# 0.29}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 0.2998515
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# pas de corrélation entre température et lumière}
+\CommentTok{\# pas de corrélation entre l\textquotesingle{}heure de la journée et la température ou la lumière}
+
+\NormalTok{DF\_cor }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{ Index, }\SpecialCharTok{{-}}\NormalTok{Time) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Hour =} \FunctionTok{as.numeric}\NormalTok{(Hour)) }\SpecialCharTok{\%\textgreater{}\%} 
+   \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Date =} \FunctionTok{as.numeric}\NormalTok{(Date)) }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{select}\NormalTok{(}\SpecialCharTok{{-}}\NormalTok{Phase)}
+
+\NormalTok{CorMatrixS }\OtherTok{\textless{}{-}}\NormalTok{ Hmisc}\SpecialCharTok{::}\FunctionTok{rcorr}\NormalTok{(}\FunctionTok{as.matrix}\NormalTok{(DF\_cor))}
+\NormalTok{CorMatrix }\OtherTok{\textless{}{-}} \FunctionTok{round}\NormalTok{(CorMatrixS}\SpecialCharTok{$}\NormalTok{r, }\AttributeTok{digits =} \DecValTok{2}\NormalTok{)  }\CommentTok{\# matrice de corrélation}
+\NormalTok{Pval\_corr }\OtherTok{\textless{}{-}}\NormalTok{ CorMatrixS}\SpecialCharTok{$}\NormalTok{P }\CommentTok{\# p{-}values}
+
+\CommentTok{\# Plot de la matrice de corrélation :}
+\FunctionTok{corrplot}\NormalTok{(CorMatrix, }\AttributeTok{method=}\StringTok{"circle"}\NormalTok{, }\AttributeTok{type=}\StringTok{"lower"}\NormalTok{,}
+         \AttributeTok{col=}\FunctionTok{brewer.pal}\NormalTok{(}\AttributeTok{n=}\DecValTok{8}\NormalTok{, }\AttributeTok{name=}\StringTok{"PuOr"}\NormalTok{), }\AttributeTok{tl.col=}\StringTok{"black"}\NormalTok{, }\AttributeTok{tl.srt=}\DecValTok{45}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-10-2.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+         \CommentTok{\#, p.mat = Pval\_corr, sig.level = 0.05) \#avec une croix pour les p{-}value \textgreater{} 0.05.}
+\end{Highlighting}
+\end{Shaded}
+
+\hypertarget{descriptive-plots}{%
+\subsection{Descriptive plots}\label{descriptive-plots}}
+
+Plot evolution of the light (lux) and temperature (°C) between the
+``2023-03-30'' and the ``2023-05-24''
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{mean}\NormalTok{(Df1}\SpecialCharTok{$}\NormalTok{Light}\SpecialCharTok{/}\NormalTok{Df1}\SpecialCharTok{$}\NormalTok{Temp)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## [1] 2.122359
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{coeff }\OtherTok{\textless{}{-}} \DecValTok{2}
+\FunctionTok{ggplot}\NormalTok{(Df1, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Date)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =}\NormalTok{ Temp), }\AttributeTok{col =} \StringTok{"red"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =}\NormalTok{ Light}\SpecialCharTok{/}\NormalTok{coeff), }\AttributeTok{col =} \StringTok{"orange"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_continuous}\NormalTok{(}
+    \CommentTok{\# Features of the first axis}
+    \AttributeTok{name =} \StringTok{"Temperature (°C)"}\NormalTok{,}
+    \CommentTok{\# Add a second axis and specify its features}
+    \AttributeTok{sec.axis =} \FunctionTok{sec\_axis}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{.}\SpecialCharTok{*}\NormalTok{coeff, }\AttributeTok{name=}\StringTok{"Light (lux)"}\NormalTok{)}
+\NormalTok{  ) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}
+    \AttributeTok{axis.title.y =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{color =} \StringTok{"red"}\NormalTok{),}
+    \AttributeTok{axis.title.y.right =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{color =} \StringTok{"orange"}\NormalTok{)}
+\NormalTok{  ) }\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_date}\NormalTok{(}\AttributeTok{date\_breaks =} \StringTok{"1 week"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-11-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(Df1, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =} \FunctionTok{as.character}\NormalTok{(Date), }\AttributeTok{y =}\NormalTok{ Light)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{y =} \StringTok{"Light (lux)"}\NormalTok{) }
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-12-1.pdf}
+
+\hypertarget{per-day}{%
+\subsubsection{Per day:}\label{per-day}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{Df1bis }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Date =} \FunctionTok{as.character}\NormalTok{(Date)) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Time =} \FunctionTok{as.character}\NormalTok{(Time)) }\SpecialCharTok{\%\textgreater{}\%} \FunctionTok{mutate}\NormalTok{(}\AttributeTok{Hour =} \FunctionTok{as.character}\NormalTok{(Hour))}
+
+\FunctionTok{ggplot}\NormalTok{(Df1bis) }\SpecialCharTok{+}
+  \FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Hour, }\AttributeTok{weight =}\NormalTok{ Light) }\SpecialCharTok{+}
+  \FunctionTok{geom\_bar}\NormalTok{(}\AttributeTok{fill =} \StringTok{"\#112446"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{(}\FunctionTok{vars}\NormalTok{(Date)) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{y =} \StringTok{"Light (lux)"}\NormalTok{) }\CommentTok{\# trés irrégulier au cours de la journée}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-13-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(Df1bis) }\SpecialCharTok{+}
+  \FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Hour, }\AttributeTok{weight =}\NormalTok{ Temp) }\SpecialCharTok{+}
+  \FunctionTok{geom\_bar}\NormalTok{(}\AttributeTok{fill =} \StringTok{"\#112446"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme\_minimal}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{facet\_wrap}\NormalTok{(}\FunctionTok{vars}\NormalTok{(Date)) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{y =} \StringTok{"Temperature (°C)"}\NormalTok{) }\CommentTok{\# assez régulier avec généralment un pic en milieu de journée}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-13-2.pdf}
+
+\hypertarget{average-per-day}{%
+\subsubsection{Average per day}\label{average-per-day}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{coeff }\OtherTok{\textless{}{-}} \DecValTok{2}
+\FunctionTok{ggplot}\NormalTok{(Df1\_stats, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Date)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =}\NormalTok{ Mean\_Temp), }\AttributeTok{col =} \StringTok{"red"}\NormalTok{, }\AttributeTok{linewidth=}\DecValTok{2}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_errorbar}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin=}\NormalTok{ Min\_Temp, }\AttributeTok{ymax=}\NormalTok{ Max\_Temp), }\AttributeTok{col =} \StringTok{"red"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{y =}\NormalTok{ Mean\_Light}\SpecialCharTok{/}\NormalTok{coeff), }\AttributeTok{col =} \StringTok{"orange"}\NormalTok{, }\AttributeTok{linewidth=}\DecValTok{2}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{geom\_errorbar}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin=}\NormalTok{Min\_Light}\SpecialCharTok{/}\NormalTok{coeff, }\AttributeTok{ymax=}\NormalTok{Max\_Light}\SpecialCharTok{/}\NormalTok{coeff), }\AttributeTok{col =} \StringTok{"orange"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_continuous}\NormalTok{(}
+    \CommentTok{\# Features of the first axis}
+    \AttributeTok{name =} \StringTok{"Average daily temperature (°C)"}\NormalTok{,}
+    \CommentTok{\# Add a second axis and specify its features}
+    \AttributeTok{sec.axis =} \FunctionTok{sec\_axis}\NormalTok{(}\SpecialCharTok{\textasciitilde{}}\NormalTok{.}\SpecialCharTok{*}\NormalTok{coeff, }\AttributeTok{name=}\StringTok{" Average daily light (lux)"}\NormalTok{)}
+\NormalTok{  ) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}
+    \AttributeTok{axis.title.y =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{color =} \StringTok{"red"}\NormalTok{),}
+    \AttributeTok{axis.title.y.right =} \FunctionTok{element\_text}\NormalTok{(}\AttributeTok{color =} \StringTok{"orange"}\NormalTok{)}
+\NormalTok{  ) }\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_date}\NormalTok{(}\AttributeTok{date\_labels =} \StringTok{"\%b \%d"}\NormalTok{, }\AttributeTok{date\_breaks =} \StringTok{"1 week"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-14-1.pdf}
+
+\hypertarget{nightday}{%
+\subsubsection{Night/Day}\label{nightday}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{oneday }\OtherTok{\textless{}{-}}\NormalTok{ Df1 }\SpecialCharTok{\%\textgreater{}\%} 
+  \FunctionTok{filter}\NormalTok{(Date }\SpecialCharTok{==} \StringTok{"2023{-}04{-}04"}\NormalTok{)}
+
+\FunctionTok{ggplot}\NormalTok{(oneday, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Hour,}\AttributeTok{y =}\NormalTok{ Light)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-15-1.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(Df1, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Hour,}\AttributeTok{y =}\NormalTok{ Temp)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-15-2.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(Df1\_Hour\_stats, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Hour, }\AttributeTok{y =}\NormalTok{ Mean\_Light)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_errorbar}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin=}\NormalTok{Min\_Light, }\AttributeTok{ymax=}\NormalTok{Max\_Light, }\AttributeTok{color =} \StringTok{"Min and max value of Light"}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\AttributeTok{linewidth=}\DecValTok{2}\NormalTok{, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =} \StringTok{"Mean of Light (lux)"}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_manual}\NormalTok{(}\AttributeTok{name =} \StringTok{"Legend"}\NormalTok{,}\AttributeTok{values=}\FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}black\textquotesingle{}}\NormalTok{, }\StringTok{"grey"}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_time}\NormalTok{(}\AttributeTok{breaks =}\NormalTok{ hms}\SpecialCharTok{::}\FunctionTok{hms}\NormalTok{(}\AttributeTok{hours =} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{24}\NormalTok{, }\DecValTok{4}\NormalTok{))) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{y =} \StringTok{"Light (lux)"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-15-3.pdf}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(Df1\_Hour\_stats, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{x =}\NormalTok{ Hour, }\AttributeTok{y =}\NormalTok{ Mean\_Temp)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_errorbar}\NormalTok{(}\FunctionTok{aes}\NormalTok{(}\AttributeTok{ymin=}\NormalTok{Min\_Temp, }\AttributeTok{ymax=}\NormalTok{Max\_Temp, }\AttributeTok{color =} \StringTok{"Min and max value of temperature"}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{geom\_line}\NormalTok{(}\AttributeTok{linewidth=}\DecValTok{2}\NormalTok{, }\FunctionTok{aes}\NormalTok{(}\AttributeTok{color =} \StringTok{"Mean of temperature (C°)"}\NormalTok{)) }\SpecialCharTok{+}
+  \FunctionTok{scale\_color\_manual}\NormalTok{(}\AttributeTok{name =} \StringTok{"Legend"}\NormalTok{,}\AttributeTok{values=}\FunctionTok{c}\NormalTok{(}\StringTok{\textquotesingle{}black\textquotesingle{}}\NormalTok{, }\StringTok{"grey"}\NormalTok{))}\SpecialCharTok{+}
+  \FunctionTok{scale\_x\_time}\NormalTok{(}\AttributeTok{breaks =}\NormalTok{ hms}\SpecialCharTok{::}\FunctionTok{hms}\NormalTok{(}\AttributeTok{hours =} \FunctionTok{seq}\NormalTok{(}\DecValTok{0}\NormalTok{, }\DecValTok{24}\NormalTok{, }\DecValTok{4}\NormalTok{))) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{y =} \StringTok{"Temperature (C°)"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\includegraphics{HOBO_data_script_files/figure-latex/unnamed-chunk-15-4.pdf}
+
+\hypertarget{for-all-the-hobo-files}{%
+\section{For all the HOBO files}\label{for-all-the-hobo-files}}
+
+\end{document}

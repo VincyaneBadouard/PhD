@@ -2,7 +2,7 @@
 title: "HOBO_data_script"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: html_document
 ---
 
 Objectives: 
@@ -12,7 +12,7 @@ Objectives:
 - descriptive analysis
 
 # Packages
-```{r, include = F}
+```{r echo = T,results = 'hide', message=FALSE}
 library(tidyverse)
 library(readr)
 library(stringr)
@@ -24,14 +24,14 @@ library(RColorBrewer)
 
 
 # Read 
-```{r}
+```{r , include = F}
 filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
 
 df_list <- lapply(filenames, read_csv) # read all the folder files
 ```
 
 # Rename files
-```{r}
+```{r , include = F}
 truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
 truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
 truc3 <- stringr::str_replace(truc2, ".csv", "")
@@ -45,7 +45,7 @@ names(df_list) <- truc5
 # Understand the HOBO file
 
 ```{r}
-str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
+# str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
 
 Df1 <- df_list$`/1 2023-05-25 08_56_35`
 Df1
@@ -193,8 +193,8 @@ Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
 corrplot(CorMatrix, method="circle", type="lower",
-         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.srt=45,
-         p.mat = Pval_corr, sig.level = 0.05) #avec une croix pour les p-value > 0.05.
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.srt=45)
+         #, p.mat = Pval_corr, sig.level = 0.05) #avec une croix pour les p-value > 0.05.
 
 ```
 
@@ -271,8 +271,6 @@ ggplot(Df1_stats, aes(x = Date)) +
 
 ### Night/Day
 ```{r}
-esquisse::esquisser()
-
 oneday <- Df1 %>% 
   filter(Date == "2023-04-04")
 
