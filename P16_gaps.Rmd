@@ -1,0 +1,106 @@
+---
+title: "P16 gaps"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+# library(rgdal)
+# ParacouGaps <- rgdal::readORG(dsn = "C:/Users/BADOUARD/Desktop/Vincyane/Gaps2019/Gaps2019", layer = "Gaps2019") 
+# 
+# library(raster)
+# ParacouGaps <- raster::shapefile("C:/Users/BADOUARD/Desktop/Vincyane/Gaps2019/Gaps2019.shp")
+
+library(sf)
+ParacouGaps <- st_read("C:/Users/BADOUARD/Desktop/Vincyane/Gaps2019/Gaps2019.shp")
+Paracou <- st_read("C:/Users/BADOUARD/Desktop/Vincyane/Plots Paracou/OverallPlots.shp")
+
+```
+
+```{r}
+
+library(ggplot2)
+ggplot() + 
+  geom_sf(data = ParacouGaps, size = 3, color = "black", fill = "red") + 
+  ggtitle("2019 - Paracou gaps") + 
+  coord_sf()
+
+ggplot() + 
+  geom_sf(data = Paracou, size = 3, color = "black", fill = "red") + 
+  ggtitle("Paracou") + 
+  coord_sf()
+```
+
+# Attribute the same crs 
+```{r}
+Paracou <- st_transform(Paracou, st_crs(ParacouGaps))
+st_crs(ParacouGaps) == st_crs(Paracou)
+```
+# Just take P16
+```{r}
+P16 <- dplyr::filter(Paracou, Plot == "16")
+```
+
+
+# Crop
+```{r}
+P16_gaps_crop <- st_crop(ParacouGaps$geometry, P16$geometry)
+plot(P16_gaps_crop)
+ggplot() + 
+  geom_sf(data = P16, size = 1, color = "black") +
+  geom_sf(data = P16_gaps_crop, size = 1, color = "red") + 
+  ggtitle("2019 - gaps") + 
+  coord_sf()
+```
+
+```{r}
+P16_gaps_inters <- st_intersection(ParacouGaps$geometry, P16$geometry)  
+
+
+plot(P16_gaps_inters)
+ggplot() + 
+  geom_sf(data = P16, size = 1, color = "black") +
+  geom_sf(data = P16_gaps_inters, size = 1, color = "red") + 
+  ggtitle("2019 - gaps") + 
+  coord_sf()
+```
+
+# From CHM (Canopy Height Model) to forest gaps 
+
+https://github.com/carlos-alberto-silva/ForestGapR
+```{r}
+# install.packages("ForestGapR")
+# library(devtools)
+# devtools::install_github("carlos-alberto-silva/ForestGapR")
+```
+
+```{r}
+# Forest Canopy Gap Detection
+
+#Loading raster and viridis library
+library(raster)
+library(viridis)
+
+# ALS-derived CHM over Adolpho Ducke Forest Reserve - Brazilian tropical forest
+data(ALS_CHM_DUC)
+
+# Plotting chm
+plot(ALS_CHM_DUC, col = viridis(10))
+ 
+# Setting height thresholds (e.g. 10 meters)
+threshold <- 10
+size <- c(1,1000) # m2
+
+# Detecting forest gaps
+gaps_duc <- getForestGaps(chm_layer=ALS_CHM_DUC, threshold=threshold, size=size)
+
+# Plotting gaps
+plot(gaps_duc, col="red", add=TRUE, main="Forest Canopy Gap", legend=FALSE)
+```
+

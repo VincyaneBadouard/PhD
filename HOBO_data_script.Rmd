@@ -1,0 +1,301 @@
+---
+title: "HOBO_data_script"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+Objectives: 
+- open the HOBO data
+- create a script to open HOBO data in several folders
+- prepare HOBO data for analysis
+- descriptive analysis
+
+# Packages
+```{r, include = F}
+library(tidyverse)
+library(readr)
+library(stringr)
+library(lubridate) # for dates and time
+library(chron) # for dates and time
+library(corrplot)
+library(RColorBrewer)
+```
+
+
+# Read 
+```{r}
+filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
+
+df_list <- lapply(filenames, read_csv) # read all the folder files
+```
+
+# Rename files
+```{r}
+truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
+truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
+truc3 <- stringr::str_replace(truc2, ".csv", "")
+truc4 <- stringr::str_replace(truc3, " AST ", "")
+truc5 <- gsub("[()]", "", truc4)
+
+names(df_list) <- truc5
+```
+
+
+# Understand the HOBO file
+
+```{r}
+str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
+
+Df1 <- df_list$`/1 2023-05-25 08_56_35`
+Df1
+names(Df1)
+summary(Df1)
+# Les capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
+# Ils collectent bien toutes les 15 minutes.
+```
+
+# Prepare HOBO data for analysis
+We will keep only data of interest
+```{r}
+Df1 <- Df1 %>% 
+  rename(Index = '#') %>% 
+  rename(Time = 'Date et heure (French Guiana Standard Time)') %>% 
+  rename(Temp = 'Ch: 1 - Température   (°C)') %>% 
+  rename(Light = 'Ch: 2 - Lumière   (lux)') %>% 
+  select('Index', 'Time', 'Temp', 'Light') %>% 
+  mutate(Light = as.numeric(Light))
+Df1
+```
+
+## Manage date and hours
+```{r}
+class(Df1$Time) # the time is in character
+
+Df1 <- Df1 %>% 
+  separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
+  mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
+  mutate(Hour = hms::as_hms(Hour)) %>% 
+  filter(!(Date == "2023-03-30" & Hour < "18:00:00")) %>% 
+  mutate(Time = mdy_hms(Time)) # format: 2023-03-30 18:15:00
+
+
+max(Df1$Date) # "2023-05-25" the collect date
+max(Df1$Date) - min(Df1$Date) # 56 days of collect
+```
+
+## NA ?
+```{r}
+Na_tabble <- Df1 %>% 
+  filter(is.na(Light) | is.na(Temp))
+
+NA1 <- Df1 %>% 
+  filter(Date == "2023-04-04")
+
+# Remove what is between the 15 minutes
+Df1 <- Df1 %>%
+  filter(minute(Df1$Time) %in% c("0", "15", "30", "45"))
+```
+
+## Different time steps
+```{r}
+# Average per day
+Df1_stats <- Df1 %>%
+  group_by(Date) %>%
+  mutate(Mean_Temp = mean(Temp)) %>%
+  mutate(Sd_Temp = sd(Temp)) %>%
+  mutate(Max_Temp = max(Temp)) %>%
+  mutate(Min_Temp = min(Temp)) %>%
+  mutate(Mean_Light = mean(Light)) %>%
+  mutate(Sd_Light = sd(Light)) %>%
+  mutate(Max_Light = max(Light)) %>%
+  mutate(Min_Light = min(Light)) %>%
+  select(-Temp,-Light, -Index,-Time,-Hour) %>%
+  ungroup() %>% 
+  unique()
+
+# By Hour
+Df1_Hour_stats <- Df1 %>%
+  group_by(Hour) %>%
+  mutate(Mean_Temp = mean(Temp)) %>%
+  mutate(Sd_Temp = sd(Temp)) %>%
+  mutate(Max_Temp = max(Temp)) %>%
+  mutate(Min_Temp = min(Temp)) %>%
+  mutate(Mean_Light = mean(Light)) %>%
+  mutate(Sd_Light = sd(Light)) %>%
+  mutate(Max_Light = max(Light)) %>%
+  mutate(Min_Light = min(Light)) %>%
+  select(-Temp,-Light, -Index,-Time, -Date) %>%
+  ungroup() %>% 
+  unique()
+
+
+# Day and night averages (A FAIRE)
+# Day: 6-18h
+# Night: 19-5h
+Df1 <- Df1 %>%
+  mutate(Phase = ifelse((Hour >= "19:00:00" | Hour <= "05:00:00"), "Night", "Day"))
+
+max(Df1[Df1$Phase == "Day",]$Hour)
+min(Df1[Df1$Phase == "Day",]$Hour)
+
+Df1_NightDay_stats <- Df1 %>%
+  group_by(Date,Phase) %>%
+  mutate(Mean_Temp = mean(Temp)) %>%
+  mutate(Sd_Temp = sd(Temp)) %>%
+  mutate(Max_Temp = max(Temp)) %>%
+  mutate(Min_Temp = min(Temp)) %>%
+  mutate(Mean_Light = mean(Light)) %>%
+  mutate(Sd_Light = sd(Light)) %>%
+  mutate(Max_Light = max(Light)) %>%
+  mutate(Min_Light = min(Light)) %>%
+  select(-Temp,-Light, -Index,-Time,-Hour) %>%
+  ungroup() %>% 
+  unique()
+
+```
+
+# Descriptive analysis
+
+## Descriptive stats
+```{r}
+# for full data
+mean(Df1$Light) # 51 lux
+sd(Df1$Light) # 28 lux
+min(Df1$Light) # 0 lux
+max(Df1$Light) # 99 lux
+
+mean(Df1$Temp) # 24 °C
+sd(Df1$Temp) # 1 °C
+min(Df1$Temp) # 20 °C
+max(Df1$Temp) # 30 °C
+
+```
+
+## Corrélations
+```{r}
+cor(Df1$Light,Df1$Temp) # -0.2
+plot(Df1$Light,Df1$Temp) 
+cor(Df1$Light,as.numeric(Df1$Hour)) # 0.003
+cor(Df1$Temp,as.numeric(Df1$Hour)) # 0.29
+# pas de corrélation entre température et lumière
+# pas de corrélation entre l'heure de la journée et la température ou la lumière
+
+DF_cor <- Df1 %>% 
+  select(- Index, -Time) %>% 
+  mutate(Hour = as.numeric(Hour)) %>% 
+   mutate(Date = as.numeric(Date)) %>% 
+  select(-Phase)
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.srt=45,
+         p.mat = Pval_corr, sig.level = 0.05) #avec une croix pour les p-value > 0.05.
+
+```
+
+
+## Descriptive plots
+Plot evolution of the light (lux) and temperature (°C)
+between the "2023-03-30" and the "2023-05-24"
+```{r}
+mean(Df1$Light/Df1$Temp)
+coeff <- 2
+ggplot(Df1, aes(x = Date)) +
+  geom_line(aes(y = Temp), col = "red") +
+  geom_line(aes(y = Light/coeff), col = "orange") +
+  scale_y_continuous(
+    # Features of the first axis
+    name = "Temperature (°C)",
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~.*coeff, name="Light (lux)")
+  ) +
+  theme(
+    axis.title.y = element_text(color = "red"),
+    axis.title.y.right = element_text(color = "orange")
+  ) +
+  scale_x_date(date_breaks = "1 week")
+
+```
+
+```{r}
+ggplot(Df1, aes(x = as.character(Date), y = Light)) +
+  geom_boxplot() +
+  labs(y = "Light (lux)") 
+```
+
+### Per day:
+```{r}
+Df1bis <- Df1 %>% 
+  mutate(Date = as.character(Date)) %>% mutate(Time = as.character(Time)) %>% mutate(Hour = as.character(Hour))
+
+ggplot(Df1bis) +
+  aes(x = Hour, weight = Light) +
+  geom_bar(fill = "#112446") +
+  theme_minimal() +
+  facet_wrap(vars(Date)) +
+  labs(y = "Light (lux)") # trés irrégulier au cours de la journée
+
+ggplot(Df1bis) +
+  aes(x = Hour, weight = Temp) +
+  geom_bar(fill = "#112446") +
+  theme_minimal() +
+  facet_wrap(vars(Date)) +
+  labs(y = "Temperature (°C)") # assez régulier avec généralment un pic en milieu de journée
+```
+
+### Average per day
+```{r}
+coeff <- 2
+ggplot(Df1_stats, aes(x = Date)) +
+  geom_line(aes(y = Mean_Temp), col = "red", linewidth=2) +
+  geom_errorbar(aes(ymin= Min_Temp, ymax= Max_Temp), col = "red") +
+  geom_line(aes(y = Mean_Light/coeff), col = "orange", linewidth=2) +
+  geom_errorbar(aes(ymin=Min_Light/coeff, ymax=Max_Light/coeff), col = "orange") +
+  scale_y_continuous(
+    # Features of the first axis
+    name = "Average daily temperature (°C)",
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~.*coeff, name=" Average daily light (lux)")
+  ) +
+  theme(
+    axis.title.y = element_text(color = "red"),
+    axis.title.y.right = element_text(color = "orange")
+  ) +
+  scale_x_date(date_labels = "%b %d", date_breaks = "1 week")
+```
+
+### Night/Day
+```{r}
+esquisse::esquisser()
+
+oneday <- Df1 %>% 
+  filter(Date == "2023-04-04")
+
+ggplot(oneday, aes(x = Hour,y = Light)) +
+  geom_line()
+ggplot(Df1, aes(x = Hour,y = Temp)) +
+  geom_line()
+
+
+ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Light)) +
+  geom_errorbar(aes(ymin=Min_Light, ymax=Max_Light, color = "Min and max value of Light"))+
+  geom_line(linewidth=2, aes(color = "Mean of Light (lux)")) +
+  scale_color_manual(name = "Legend",values=c('black', "grey"))+
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
+  labs(y = "Light (lux)")
+
+ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
+  geom_errorbar(aes(ymin=Min_Temp, ymax=Max_Temp, color = "Min and max value of temperature"))+
+  geom_line(linewidth=2, aes(color = "Mean of temperature (C°)")) +
+  scale_color_manual(name = "Legend",values=c('black', "grey"))+
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
+  labs(y = "Temperature (C°)")
+
+```
+
+# For all the HOBO files

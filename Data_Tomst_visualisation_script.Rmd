@@ -1,0 +1,253 @@
+---
+title: "Data_Tomst_visualisation_script"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+
+---
+
+# Working directory
+Change the path if your work with another folder
+```{r, setup}
+# Folder path
+path0 <- "D:/Mes Donnees/PhD/Humidity - data and scripts/LollyData/Nouragues_Test_2023_02_22"
+
+data_94244920_2023_02_22_0 <- read.csv("~/PhD/Humidity - data and scripts/LollyData/Nouragues_Test_2023_02_22/data_94244920_2023_02_22_0.csv", header=FALSE, sep=";")
+```
+
+# Data formatting function
+Columns :
+- index number of the measure,
+- date and time in UTC,
+- time zone = 4 (French Guiana is UTC-3)
+- T1, T2, T3,
+- soil moisture count,
+- shake = 0
+- errFlag (if =1 the device couldn’t convert time from PCF chip) = NA
+```{r}
+# data <- tms1n
+format_tms <- function(
+    # data, # data name (character) with ".csv"
+    path = path0 # folder path
+){
+  
+  # Data name
+  data0 <- data 
+  
+  # Subset data
+  data <- read.csv2(file.path(path, data), h = F); # row 1 is not the headers
+  data <- data[3360:dim(data)[1],] # start at the 3360 rown (before it's jerome's office T°)
+  
+  # The date
+  date1 <- strptime(data$V2,"%Y.%m.%d %H:%M")
+  # Convert time in UTC-3 (ToDO)
+  
+  # Temperature data
+  temperature1 <- data$V4
+  temperature2 <- data$V5
+  temperature3 <- data$V6
+  
+  # Moisture data
+  moisture <- data$V7
+  
+  # Bind columns
+  data2 <- cbind(as.data.frame(date1),
+                 as.data.frame(temperature1), # soil T°
+                 as.data.frame(temperature2), # surface T°
+                 as.data.frame(temperature3), # air T°
+                 as.data.frame(moisture))
+  
+  Output <- list("data" = data2,# dataset
+                 "file" = data0, # data name
+                 "length" = length(temperature1)) # length of eah dataset
+  
+  return(Output)
+}
+```
+
+
+```{r}
+format_tms <- function(
+    data_path # path of the data (character) with ".csv"
+){
+  
+  # Data name
+  file_name <- data_path 
+  
+  # Subset data
+  data <- read.csv2(data_path, h = F); # row 1 is not the headers
+  # data <- data[3360:dim(data)[1],] # start at the 3360 rown (before it's jerome's office T°)
+  
+  # The date
+  date1 <- strptime(data$V2,"%Y.%m.%d %H:%M")
+  # Convert time in UTC-3 (ToDO)
+  
+  # Temperature data
+  temperature1 <- data$V4
+  temperature2 <- data$V5
+  temperature3 <- data$V6
+  
+  # Moisture data
+  moisture <- data$V7
+  
+  # Bind columns
+  data2 <- cbind(as.data.frame(date1),
+                 as.data.frame(temperature1), # soil T°
+                 as.data.frame(temperature2), # surface T°
+                 as.data.frame(temperature3), # air T°
+                 as.data.frame(moisture))
+  
+  Output <- list("data" = data2,# dataset
+                 "file_name" = file_name, 
+                 "length" = length(temperature1)) # length of eah dataset
+  
+  return(Output)
+}
+```
+
+# Temperature plot function
+```{r}
+# Plot de la temperature a trois points (air=10 > sol; sol=niveau du sol, deep= 10 cm < sol)
+plottmsT <- function(
+    tms,
+    colabove, # air T° colour
+    coltop, # surface T° colour
+    coldeep # soil T° colour
+){
+  
+  #rangex=(2000:2400)
+  rangex <- (1:tms$length)
+  
+  # Air T° 
+  plot(tms$data$date1[rangex],
+       tms$data$temperature3[rangex],
+       col = colabove,
+       ylim = range(tms$data[,2:4]), pch = 20, cex = 0.3, type = "l",
+       xlab = "Day", ylab = "Temperature (C)")
+  
+  title(main = paste("File name:",tms$file),
+        sub = paste("Mean temp: Soil=", round(mean(tms$data$temperature1),2),
+                    " Surface=", round(mean(tms$data$temperature2),2),
+                    " Air=", round(mean(tms$data$temperature3),2)))
+  
+  # Ground T°
+  lines(tms$data$date1,
+        tms$data$temperature2,
+        col = coltop, pch = 20)
+  
+  # soil T°
+  lines(tms$data$date1,tms$data$temperature1,col = coldeep, pch = 20)
+  
+  #points(tms$date1,tms$temperature2, col = coldeep, pch = 20,cex = 0.5)
+  #points(tms$date1, tms$temperature3, col = colabove, pch = 20, cex = 0.5)
+  
+}
+
+```
+
+# Humidity plot function
+```{r}
+# plot de l'humidite a 10 cm de profondeur
+plottmsM <- function(
+    tms,
+    col # colour
+){
+  
+  plot(tms$data$date1,
+       tms$data$moisture,
+       col = col, pch = 20,cex = 0.3, type = "b",
+       xlab = "Day", ylab = "Moisture SU")
+  
+  title(main = paste("File name:", tms$file),
+        sub = paste("Mean moisture=", round(mean(tms$data$moisture),2))
+  )
+  
+}
+```
+
+# Data load and format
+```{r}
+#Lecture et formattage des fichiers (modifie au 16/12/2021, donnees jusqu'au 10/12/2021)
+tms1n <- "data_94244901_2023_02_22_0.csv";tms1 = format_tms(tms1n, path0)
+tms2n <- "data_94244902_2023_02_22_0.csv";tms2 = format_tms(tms2n)
+tms3n <- "data_94244903_2023_02_22_0.csv";tms3 = format_tms(tms3n)
+tms4n <- "data_94244904_2023_02_22_0.csv";tms4 = format_tms(tms4n)
+tms5n <- "data_94244905_2023_02_22_0.csv";tms5 = format_tms(tms5n)
+tms6n <- "data_94244906_2023_02_22_0.csv";tms6 = format_tms(tms6n)
+tms7n <- "data_94244907_2023_02_22_0.csv";tms7 = format_tms(tms7n)
+tms8n <- "data_94244908_2023_02_22_0.csv";tms8 = format_tms(tms8n)
+tms9n <- "data_94244909_2023_02_22_0.csv";tms9 = format_tms(tms9n)
+tms10n <- "data_94244910_2023_02_22_0.csv";tms10 = format_tms(tms10n)
+tms11n <- "data_94244911_2023_02_22_0.csv";tms1 = format_tms(tms11n)
+tms12n <- "data_94244912_2023_02_22_0.csv";tms2 = format_tms(tms12n)
+tms13n <- "data_94244913_2023_02_22_0.csv";tms3 = format_tms(tms13n)
+tms14n <- "data_94244914_2023_02_22_0.csv";tms4 = format_tms(tms14n)
+tms15n <- "data_94244915_2023_02_22_0.csv";tms5 = format_tms(tms15n)
+tms16n <- "data_94244916_2023_02_22_0.csv";tms6 = format_tms(tms16n)
+tms17n <- "data_94244917_2023_02_22_0.csv";tms7 = format_tms(tms17n)
+tms18n <- "data_94244918_2023_02_22_0.csv";tms8 = format_tms(tms18n)
+tms19n <- "data_94244919_2023_02_22_0.csv";tms9 = format_tms(tms19n)
+tms20n <- "data_94244920_2023_02_22_0.csv";tms10 = format_tms(tms20n)
+
+```
+
+```{r}
+path <- "D:/Mes Donnees/PhD/Humidity - data and scripts/LollyData/Nouragues_Test_2023_02_22"
+files <- list.files(path, pattern = "data", full.names = T)[1:20] # 20 the number of files
+data <- lapply(files, format_tms)
+names(data) <- files
+bind_rows(data, .id = "file") %>% 
+  unnest() %>% 
+  mutate(file = gsub(paste0(path, "/"), "", file)) %>% 
+  mutate(date = lubridate::as_datetime(date1)) %>% 
+  select(date, temperature1, temperature2, temperature3, moisture) %>% 
+  reshape2::melt("date") %>% 
+  ggplot(aes(date, value)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~variable, scales = "free_y") +
+  theme_bw()
+```
+
+# Plot temperature
+```{r}
+par(mfrow=c(2,1))
+# plot all temperatures (blue=air, orange=surface, brown=soil)
+dev.copy(device = pdf,
+         file="temporal_trends_temperature.pdf",
+         width = 7, height = 7, pointsize = 12)
+
+plottmsT(tms1,"blue","orange","brown")
+plottmsT(tms2,"blue","orange","brown")
+plottmsT(tms3,"blue","orange","brown")
+plottmsT(tms4,"blue","orange","brown")
+plottmsT(tms5,"blue","orange","brown")
+plottmsT(tms6,"blue","orange","brown")
+plottmsT(tms7,"blue","orange","brown")
+plottmsT(tms8,"blue","orange","brown")
+plottmsT(tms9,"blue","orange","brown")
+plottmsT(tms10,"blue","orange","brown")
+
+dev.off()
+
+```
+
+# Plot soil moisture
+```{r}
+dev.copy(device = pdf,
+         file="temporal_trends_moisture.pdf", # output file name
+         width = 7, height = 7, pointsize = 12)
+
+plottmsM(tms1,"blue")
+plottmsM(tms2,"blue")
+plottmsM(tms3,"blue")
+plottmsM(tms4,"blue")
+plottmsM(tms5,"blue")
+plottmsM(tms6,"blue")
+plottmsM(tms7,"blue")
+#plottmsM(tms8,"blue")
+#plottmsM(tms9,"blue")
+plottmsM(tms10,"blue")
+dev.off()
+```
+
