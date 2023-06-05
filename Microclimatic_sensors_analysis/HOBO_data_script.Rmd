@@ -203,7 +203,8 @@ ggplot(oneday, aes(x = Hour)) +
   theme(
     axis.title.y = element_text(color = "red"),
     axis.title.y.right = element_text(color = "orange")
-  )
+  ) +
+  labs(title="Temperature and light over a day (2023-04-04)")
 
 ```
 
@@ -228,6 +229,7 @@ max(Df1$Temp) # 31 °C
 ```{r}
 cor(Df1$Light,Df1$Temp) # 0.34
 plot(Df1$Temp,Df1$Light) 
+plot(Df1$Temp[Df1$Light<1000],Df1$Light[Df1$Light<1000]) 
 cor(Df1$Light,as.numeric(Df1$Hour)) # 0.023
 cor(Df1$Temp,as.numeric(Df1$Hour)) # 0.31
 # corrélation entre température et lumière
@@ -292,33 +294,21 @@ ggplot(Df1bis) +
   aes(x = Hour, y = Temp) +
   geom_point(shape = "circle", size = 1.5, colour = "#112446") +
   theme_minimal() +
-  facet_wrap(vars(Date)) +
+  facet_wrap(vars(Date), scales="free_y") +
   labs(y = "Temperature (°C)") +
-  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))+
+  labs(title = "HOBO 1 : Temperature over the day for each date")
 
 Df1bis %>%
-  filter(Light >= 0L & Light <= 2400L) %>%
   ggplot() +
   aes(x = Hour, y = Light) +
   geom_col(fill = "#112446") +
   theme_minimal() +
-  facet_wrap(vars(Date)) +
+  facet_wrap(vars(Date), scales="free_y") +
   labs(y = "Light (lux)")+
-  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))+
+  labs(title = "HOBO 1 : Light over the day for each date")
 
-ggplot(Df1bis) +
-  aes(x = Hour, weight = Light) +
-  geom_point(fill = "#112446") +
-  theme_minimal() +
-  facet_wrap(vars(Date), scales="free") +
-  labs(y = "Light (lux)") # trés irrégulier au cours de la journée
-
-ggplot(Df1bis) +
-  aes(x = Hour, weight = Temp) +
-  geom_line(fill = "#112446") +
-  theme_minimal() +
-  facet_wrap(vars(Date), scales="free") +
-  labs(y = "Temperature (°C)") # assez régulier avec généralment un pic en milieu de journée
 ```
 
 ### Average per day (pas intéressant, ça fluctue au cours de la journée)
@@ -365,14 +355,16 @@ Df1_Hour_stats %>%
   geom_line(linewidth=2, aes(color = "Mean of Light (lux)")) +
   scale_color_manual(name = "Legend",values=c('black', "grey"))+
   scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
-  labs(y = "Light (lux)")
+  labs(y = "Light (lux)",
+       title ="HOBO 1: Average light for all dates over the day for (maximum light <= 5000 lux)")
 
 ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
   geom_errorbar(aes(ymin=Min_Temp, ymax=Max_Temp, color = "Min and max value of temperature"))+
   geom_line(linewidth=2, aes(color = "Mean of temperature (C°)")) +
   scale_color_manual(name = "Legend",values=c('black', "grey"))+
   scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
-  labs(y = "Temperature (C°)")
+  labs(y = "Temperature (C°)",
+       title ="HOBO 1: Average temperatures for all dates over the day")
 
 ```
 
