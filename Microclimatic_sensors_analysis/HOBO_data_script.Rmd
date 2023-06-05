@@ -22,23 +22,29 @@ library(corrplot)
 library(RColorBrewer)
 ```
 
-
 # Read 
 ```{r , include = F}
-filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
+filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
 
-df_list <- lapply(filenames, read_csv) # read all the folder files
+df_list <- lapply(filenames, read_delim, 
+                  delim = ";", escape_double = FALSE,
+                  col_types =
+                    cols(`#` = col_character(),
+                         `Ch: 1 - Température   (°C)` = col_number(), 
+                         `Ch: 2 - Lumière   (lux)` = col_number()),
+                  locale = locale(decimal_mark = ","), 
+                  trim_ws = TRUE) # read all the folder files
 ```
 
 # Rename files
 ```{r , include = F}
-truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
-truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
-truc3 <- stringr::str_replace(truc2, ".csv", "")
-truc4 <- stringr::str_replace(truc3, " AST ", "")
-truc5 <- gsub("[()]", "", truc4)
-
-names(df_list) <- truc5
+# truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
+# truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
+# truc3 <- stringr::str_replace(truc2, ".csv", "")
+# truc4 <- stringr::str_replace(truc3, " AST ", "")
+# truc5 <- gsub("[()]", "", truc4)
+# 
+# names(df_list) <- truc5
 ```
 
 
@@ -47,7 +53,7 @@ names(df_list) <- truc5
 ```{r}
 # str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
 
-Df1 <- df_list$`/1 2023-05-25 08_56_35`
+Df1 <- df_list[[1]]
 Df1
 names(Df1)
 summary(Df1)
@@ -62,9 +68,7 @@ Df1 <- Df1 %>%
   rename(Index = '#') %>% 
   rename(Time = 'Date et heure (French Guiana Standard Time)') %>% 
   rename(Temp = 'Ch: 1 - Température   (°C)') %>% 
-  rename(Light = 'Ch: 2 - Lumière   (lux)') %>% 
-  select('Index', 'Time', 'Temp', 'Light') %>% 
-  mutate(Light = as.numeric(Light))
+  rename(Light = 'Ch: 2 - Lumière   (lux)') 
 Df1
 ```
 
@@ -76,7 +80,6 @@ Df1 <- Df1 %>%
   separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
   mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
   mutate(Hour = hms::as_hms(Hour)) %>% 
-  filter(!(Date == "2023-03-30" & Hour < "18:00:00")) %>% 
   mutate(Time = mdy_hms(Time)) # format: 2023-03-30 18:15:00
 
 
@@ -86,15 +89,15 @@ max(Df1$Date) - min(Df1$Date) # 56 days of collect
 
 ## NA ?
 ```{r}
-Na_tabble <- Df1 %>% 
-  filter(is.na(Light) | is.na(Temp))
-
-NA1 <- Df1 %>% 
-  filter(Date == "2023-04-04")
-
-# Remove what is between the 15 minutes
-Df1 <- Df1 %>%
-  filter(minute(Df1$Time) %in% c("0", "15", "30", "45"))
+# Na_tabble <- Df1 %>% 
+#   filter(is.na(Light) | is.na(Temp))
+# 
+# NA1 <- Df1 %>% 
+#   filter(Date == "2023-04-04")
+# 
+# # Remove what is between the 15 minutes
+# Df1 <- Df1 %>%
+#   filter(minute(Df1$Time) %in% c("0", "15", "30", "45"))
 ```
 
 ## Different time steps
@@ -131,13 +134,17 @@ Df1_Hour_stats <- Df1 %>%
 
 
 # Day and night averages (A FAIRE)
-# Day: 6-18h
-# Night: 19-5h
+# Night: 19-5h 
 Df1 <- Df1 %>%
-  mutate(Phase = ifelse((Hour >= "19:00:00" | Hour <= "05:00:00"), "Night", "Day"))
+  mutate(Phase = ifelse((Hour >= hms::as_hms("19:00:00") |
+                           Hour <= hms::as_hms("05:00:00")), 
+                        "Night", "Day"))
 
-max(Df1[Df1$Phase == "Day",]$Hour)
-min(Df1[Df1$Phase == "Day",]$Hour)
+max(as.character(Df1[Df1$Phase == "Day",]$Hour)) # 18:45
+min(as.character(Df1[Df1$Phase == "Day",]$Hour)) # 5:15
+max(Df1[Df1$Phase == "Night",]$Light) # 0.2 lux
+min(Df1[Df1$Phase == "Day",]$Light)
+
 
 Df1_NightDay_stats <- Df1 %>%
   group_by(Date,Phase) %>%
@@ -155,36 +162,82 @@ Df1_NightDay_stats <- Df1 %>%
 
 ```
 
+# Quick view of the temperature and light over time (dates)
+```{r}
+# over time: dates
+ggplot(Df1, aes(x = Date, y = Temp)) +
+  geom_point() +
+  scale_x_date(date_breaks = "1 week")
+
+ggplot(Df1, aes(x = Date, y = Light)) +
+  geom_point() +
+  # scale_y_continuous(limits = c(0, 2000)) +
+  scale_x_date(date_breaks = "1 week")
+
+# Over a day
+oneday <- Df1 %>% 
+  filter(Date == "2023-04-04")
+
+ggplot(oneday, aes(x = Hour,y = Light)) +
+  geom_line() +
+  labs(title="Light over a day (2023-04-04)",
+       x ="Hour", y = "Light (lux)")
+
+ggplot(oneday, aes(x = Hour,y = Temp)) +
+  geom_line() +
+  labs(title="Temperature over a day (2023-04-04)",
+       x ="Hour", y = "Temperature (°C)")
+
+# together
+mean(max(oneday$Light)/max(oneday$Temp))
+coeff <- 96
+ggplot(oneday, aes(x = Hour)) +
+  geom_line(aes(y = Temp), col = "red") +
+  geom_line(aes(y = Light/coeff), col = "orange") +
+  scale_y_continuous(
+    # Features of the first axis
+    name = "Temperature (°C)",
+    # Add a second axis and specify its features
+    sec.axis = sec_axis(~.*coeff, name="Light (lux)")
+  ) +
+  theme(
+    axis.title.y = element_text(color = "red"),
+    axis.title.y.right = element_text(color = "orange")
+  )
+
+```
+
 # Descriptive analysis
 
 ## Descriptive stats
 ```{r}
 # for full data
-mean(Df1$Light) # 51 lux
-sd(Df1$Light) # 28 lux
+mean(Df1$Light) # 150 lux
+sd(Df1$Light) # 529 lux
 min(Df1$Light) # 0 lux
-max(Df1$Light) # 99 lux
+max(Df1$Light) # 21944 lux
 
-mean(Df1$Temp) # 24 °C
+mean(Df1$Temp) # 25 °C
 sd(Df1$Temp) # 1 °C
-min(Df1$Temp) # 20 °C
-max(Df1$Temp) # 30 °C
+min(Df1$Temp) # 21 °C
+max(Df1$Temp) # 31 °C
 
 ```
 
 ## Corrélations
 ```{r}
-cor(Df1$Light,Df1$Temp) # -0.2
-plot(Df1$Light,Df1$Temp) 
-cor(Df1$Light,as.numeric(Df1$Hour)) # 0.003
-cor(Df1$Temp,as.numeric(Df1$Hour)) # 0.29
-# pas de corrélation entre température et lumière
-# pas de corrélation entre l'heure de la journée et la température ou la lumière
+cor(Df1$Light,Df1$Temp) # 0.34
+plot(Df1$Temp,Df1$Light) 
+cor(Df1$Light,as.numeric(Df1$Hour)) # 0.023
+cor(Df1$Temp,as.numeric(Df1$Hour)) # 0.31
+# corrélation entre température et lumière
+# corrélation entre l'heure de la journée et la température 
+# pas de corrélation entre l'heure de la journée et la lumière
 
 DF_cor <- Df1 %>% 
   select(- Index, -Time) %>% 
   mutate(Hour = as.numeric(Hour)) %>% 
-   mutate(Date = as.numeric(Date)) %>% 
+  mutate(Date = as.numeric(Date)) %>% 
   select(-Phase)
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
@@ -194,7 +247,7 @@ Pval_corr <- CorMatrixS$P # p-values
 # Plot de la matrice de corrélation :
 corrplot(CorMatrix, method="circle", type="lower",
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.srt=45)
-         #, p.mat = Pval_corr, sig.level = 0.05) #avec une croix pour les p-value > 0.05.
+#, p.mat = Pval_corr, sig.level = 0.05) #avec une croix pour les p-value > 0.05.
 
 ```
 
@@ -203,11 +256,11 @@ corrplot(CorMatrix, method="circle", type="lower",
 Plot evolution of the light (lux) and temperature (°C)
 between the "2023-03-30" and the "2023-05-24"
 ```{r}
-mean(Df1$Light/Df1$Temp)
-coeff <- 2
+mean(max(Df1$Light)/max(Df1$Temp))
+coeff <- 715
 ggplot(Df1, aes(x = Date)) +
-  geom_line(aes(y = Temp), col = "red") +
-  geom_line(aes(y = Light/coeff), col = "orange") +
+  geom_point(aes(y = Temp), col = "red") +
+  geom_point(aes(y = Light/coeff), col = "orange") +
   scale_y_continuous(
     # Features of the first axis
     name = "Temperature (°C)",
@@ -225,32 +278,52 @@ ggplot(Df1, aes(x = Date)) +
 ```{r}
 ggplot(Df1, aes(x = as.character(Date), y = Light)) +
   geom_boxplot() +
-  labs(y = "Light (lux)") 
+  labs(y = "Light (lux)") +
+  scale_y_continuous(limits = c(0, 1000))
 ```
+Bon par date c'est pas une bonne manière d'observer le comportement des variables lumière et température
 
 ### Per day:
 ```{r}
 Df1bis <- Df1 %>% 
-  mutate(Date = as.character(Date)) %>% mutate(Time = as.character(Time)) %>% mutate(Hour = as.character(Hour))
+  mutate(Date = as.character(Date)) %>% mutate(Time = as.character(Time)) # %>% mutate(Hour = format(Hour, as.POSIXct("%H:%M")))
+
+ggplot(Df1bis) +
+  aes(x = Hour, y = Temp) +
+  geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+  theme_minimal() +
+  facet_wrap(vars(Date)) +
+  labs(y = "Temperature (°C)") +
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))
+
+Df1bis %>%
+  filter(Light >= 0L & Light <= 2400L) %>%
+  ggplot() +
+  aes(x = Hour, y = Light) +
+  geom_col(fill = "#112446") +
+  theme_minimal() +
+  facet_wrap(vars(Date)) +
+  labs(y = "Light (lux)")+
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))
 
 ggplot(Df1bis) +
   aes(x = Hour, weight = Light) +
-  geom_bar(fill = "#112446") +
+  geom_point(fill = "#112446") +
   theme_minimal() +
-  facet_wrap(vars(Date)) +
+  facet_wrap(vars(Date), scales="free") +
   labs(y = "Light (lux)") # trés irrégulier au cours de la journée
 
 ggplot(Df1bis) +
   aes(x = Hour, weight = Temp) +
-  geom_bar(fill = "#112446") +
+  geom_line(fill = "#112446") +
   theme_minimal() +
-  facet_wrap(vars(Date)) +
+  facet_wrap(vars(Date), scales="free") +
   labs(y = "Temperature (°C)") # assez régulier avec généralment un pic en milieu de journée
 ```
 
-### Average per day
+### Average per day (pas intéressant, ça fluctue au cours de la journée)
 ```{r}
-coeff <- 2
+coeff <- 700
 ggplot(Df1_stats, aes(x = Date)) +
   geom_line(aes(y = Mean_Temp), col = "red", linewidth=2) +
   geom_errorbar(aes(ymin= Min_Temp, ymax= Max_Temp), col = "red") +
@@ -271,16 +344,23 @@ ggplot(Df1_stats, aes(x = Date)) +
 
 ### Night/Day
 ```{r}
+# Over a day
 oneday <- Df1 %>% 
   filter(Date == "2023-04-04")
 
 ggplot(oneday, aes(x = Hour,y = Light)) +
-  geom_line()
-ggplot(Df1, aes(x = Hour,y = Temp)) +
-  geom_line()
+  geom_line() +
+  labs(title="Light over a day (2023-04-04)",
+       x ="Hour", y = "Light (lux)")
 
+ggplot(oneday, aes(x = Hour,y = Temp)) +
+  geom_line() +
+  labs(title="Temperature over a day (2023-04-04)",
+       x ="Hour", y = "Temperature (°C)")
 
-ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Light)) +
+Df1_Hour_stats %>%
+  filter(Max_Light <= 5000) %>%
+  ggplot(aes(x = Hour, y = Mean_Light)) +
   geom_errorbar(aes(ymin=Min_Light, ymax=Max_Light, color = "Min and max value of Light"))+
   geom_line(linewidth=2, aes(color = "Mean of Light (lux)")) +
   scale_color_manual(name = "Legend",values=c('black', "grey"))+
@@ -297,3 +377,19 @@ ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
 ```
 
 # For all the HOBO files
+## All the HOBO files in one
+```{r}
+# Add a sensorID column at each dataframe with the correspondant sensor ID
+for(n in seq_len(length(df_list))) {
+  df_list[[n]] <- add_column(df_list[[n]], SensorID = as.character(n))
+}
+
+df_list[[10]]
+
+# Bind all the data.frames
+FullHOBOdata <- bind_rows(df_list)
+
+```
+
+
+
