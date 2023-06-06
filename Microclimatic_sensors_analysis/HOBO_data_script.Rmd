@@ -373,7 +373,7 @@ ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
 ```{r}
 # Add a sensorID column at each dataframe with the correspondant sensor ID
 for(n in seq_len(length(df_list))) {
-  df_list[[n]] <- add_column(df_list[[n]], SensorID = as.character(n))
+  df_list[[n]] <- add_column(df_list[[n]], HoboID = as.character(n))
 }
 
 df_list[[10]]
@@ -381,7 +381,21 @@ df_list[[10]]
 # Bind all the data.frames
 FullHOBOdata <- bind_rows(df_list)
 
+rm(n, filenames)
 ```
 
+## Import environment informations
+```{r}
+HOBO_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
+View(HOBO_env)
+
+HOBO_env <- HOBO_env %>% 
+  select(HoboID, TopoHabitat, LightHabitat, Transect) %>% 
+  mutate(HoboID = as.character(HoboID))
+
+FullHOBOdata <- FullHOBOdata %>% 
+  left_join(HOBO_env, by = "HoboID")
+
+```
 
 
