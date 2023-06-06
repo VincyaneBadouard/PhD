@@ -61,7 +61,7 @@ Trion_traj <- "Z:/users/VincyaneBadouard/Lidar/S1_TRION/points_cloud_file/Forest
 
 # Import the points cloud
 ```{r}
-ST <- readLAS(Trion_path)
+ST <- readLAS(Hovermap_path)
 hist(ST@data$Intensity)
 # hist(ST@data$Ring) # YA PAS 
 hist(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
@@ -73,7 +73,7 @@ plot(ST) # trop lourd
 
 # Import the trajectory
 ```{r}
-traj <- fread(Trion_traj)
+traj <- fread(Hovermap_traj)
 traj # je sais pas où est le temps gps
 
 #traj<-traj[order(gpstime),]

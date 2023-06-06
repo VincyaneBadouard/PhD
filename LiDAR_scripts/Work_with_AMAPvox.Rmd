@@ -1,0 +1,98 @@
+---
+title: "Work_with_AMAPvox"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+https://amapvox.org/
+
+
+
+```{r}
+# install "remotes" package if not already installed
+if (!any(grepl("remotes", rownames(installed.packages())))) install.packages("remotes")
+# install latest stable version from source
+remotes::install_github('umr-amap/AMAPVox')
+```
+
+# Packages
+```{r, include = F}
+library(zoo) # permet de synchroniser temps gps et tirs
+library(lidR)
+library(data.table)
+library(rgl) # visulaisation 3D
+library(AMAPVox)
+library(tidyverse)
+```
+
+# The different LiDAR scanners
+```{r}
+ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
+
+```
+
+# Read bind and rewrite in the folder
+```{r , include = F}
+trajfilenames <- list.files("Z:/users/VincyaneBadouard/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
+
+df_list <- lapply(trajfilenames, fread) # read all the folder files
+ALS_P16_2022_traj <- bind_rows(df_list)
+
+ALS_P16_2022_traj <- ALS_P16_2022_traj %>% 
+  select(V1,V2,V3,V4) %>% 
+  rename(time = V1) %>% 
+  rename(X = V2) %>% 
+  rename(Y = V3) %>% 
+  rename(Z = V4) 
+view(ALS_P16_2022_traj)
+
+fwrite(ALS_P16_2022_traj, "Z:/users/VincyaneBadouard/ALS2022/trajecto/ALS_P16_2022_traj.txt")
+
+```
+
+
+# Import the points cloud
+```{r}
+ST <- readLAS(ALS_P16_2022_path)
+hist(ST@data$Intensity)
+# hist(ST@data$Ring) # YA PAS 
+hist(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
+table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
+ST@data
+
+plot(ST) # trop lourd
+```
+
+# Import the trajectory
+```{r}
+traj <- ALS_P16_2022_traj
+traj # je sais pas où est le temps gps
+
+#traj<-traj[order(gpstime),]
+plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
+
+options(digits=12)
+```
+
+
+# Netoyer les points isolés avant AMAPVox
+- statistical points removal (enlève les points isolés)
+- autre méthode : dans un espace voxel selon densité de points
+
+
+# AMAPVox
+extraction de la zone d'intérer plus grande que la zone d'étude
+rotationer le nuage de points pour etre aligné avec la grille
+
+pour calculer la matrice VOP on enlève les points sol
+
+```{r}
+remotes::install_github('umr-amap/AMAPVox')
+
+AMAPVox::run()
+AMAPVox::getRemoteVersions()
+AMAPVox::installVersion("1.10.4")
+AMAPVox::run("1.10.4", check.update = FALSE)
+```
+
