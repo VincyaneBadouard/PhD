@@ -7,8 +7,7 @@ output: pdf_document
 
 https://amapvox.org/
 
-
-
+# Install AMAPVox
 ```{r}
 # install "remotes" package if not already installed
 if (!any(grepl("remotes", rownames(installed.packages())))) install.packages("remotes")
@@ -18,21 +17,34 @@ remotes::install_github('umr-amap/AMAPVox')
 
 # Packages
 ```{r, include = F}
+library(tidyverse)
 library(zoo) # permet de synchroniser temps gps et tirs
 library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
 library(AMAPVox)
-library(tidyverse)
 ```
 
-# The different LiDAR scanners
+# The point cloud path 
 ```{r}
 ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
-
 ```
 
-# Read bind and rewrite in the folder
+# Import the points cloud
+```{r}
+ST <- readLAS(ALS_P16_2022_path)
+hist(ST@data$Intensity)
+# hist(ST@data$Ring) # YA PAS 
+hist(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
+table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
+ST@data
+range(ST$Z) # min et max de l'altitude
+
+plot(ST) 
+```
+
+
+# Read, bind and rewrite the trajectory files in the folder
 ```{r , include = F}
 trajfilenames <- list.files("Z:/users/VincyaneBadouard/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
 
@@ -48,28 +60,13 @@ ALS_P16_2022_traj <- ALS_P16_2022_traj %>%
 view(ALS_P16_2022_traj)
 
 fwrite(ALS_P16_2022_traj, "Z:/users/VincyaneBadouard/ALS2022/trajecto/ALS_P16_2022_traj.txt")
-
-```
-
-
-# Import the points cloud
-```{r}
-ST <- readLAS(ALS_P16_2022_path)
-hist(ST@data$Intensity)
-# hist(ST@data$Ring) # YA PAS 
-hist(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
-table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
-ST@data
-
-plot(ST) # trop lourd
 ```
 
 # Import the trajectory
 ```{r}
 traj <- ALS_P16_2022_traj
-traj # je sais pas où est le temps gps
+traj 
 
-#traj<-traj[order(gpstime),]
 plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
 
 options(digits=12)
@@ -79,7 +76,88 @@ options(digits=12)
 # Netoyer les points isolés avant AMAPVox
 - statistical points removal (enlève les points isolés)
 - autre méthode : dans un espace voxel selon densité de points
+```{r}
 
+```
+
+# Calculer la matrice de poids
+```{r}
+# Modèle numérique de terrain
+mnt <- rast("Z:/users/VincyaneBadouard/ALS2022/mnt_roi36ha_1m.asc")
+plot(mnt)
+
+# Normaliser la hauteur du sol
+ST_norm <- lidR::normalize_height(ST, mnt) # applati le relief
+plot(ST_norm)# sol plat
+
+# Classifier les points
+ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # classification
+
+table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 3,4,5
+# plot(ST_norm, color = "Classification") # trop long
+
+# Dénormaliser la hauteur du sol
+ST <- lidR::unnormalize_height(ST_norm) 
+
+```
+
+```{r}
+# Prendre que ce qui concerne la végétation
+GP=ST@data[(Classification==2|Classification==7),] # Ground Points
+GS=ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
+VP=ST@data[!(gpstime %in% GP$gpstime),] # temps gps des tirs qui n'ont pas touché le sol
+rm(GP)
+rm(GS)
+```
+
+```{r}
+# Compute Intensity
+VP$initial_intensity <- VP$Intensity 
+
+VP$Intensity = 10^(VP$Reflectance/10) # On utilise la réflectance pour calculer l'intensité en calculant la réflectance apparente en ratio (albedo) = intensité qu'on va utiliser par la suite
+# réflectance initialment en decibel (et selon une référence connue)
+
+VP_samp <- sample(1:dim(VP)[1], 2000) # just a sample to plot
+
+plot(initial_intensity~Intensity, data = VP[VP_samp,])
+
+```
+
+```{r}
+# Compute average intensity per Number Of Returns x Return Number
+# get max return number (variable!)
+
+mx_rn=max(VP[,ReturnNumber]) # nbr max de retours
+
+# VP$ReturnNumber=as.factor(VP$ReturnNumber)
+# VP$NumberOfReturns=as.factor(VP$NumberOfReturns)
+#mod1=lm(Intensity~NumberOfReturns:ReturnNumber, data=VP)
+#mean1=allEffects(mod1)
+#mat1=matrix((mean1[[1]]$fit),nrow=mx_rn, ncol=mx_rn)
+
+mat1 <- matrix(data=NA, nrow=mx_rn, ncol=mx_rn) # matrice vide
+
+#fill in mean intensities
+for (i in 1:mx_rn){
+  for (j in 1:i)
+  {
+    mat1[i,j] <- (mean(VP[NumberOfReturns==i & ReturnNumber==j,Intensity],
+                     na.rm=T)) # moy des intensités retours par rang d'écho
+  }
+}
+
+mat_rel1 <- mat1/rowSums (mat1, na.rm = T, dims = 1) # poids relatifs à chacun des échos tous tirs confondus     
+# il faut une matrice carré !!
+
+# single=list(name=m, matrix=mat_rel1)
+# len <- length(mat_list)
+# mat_list[[len+1]] <- single
+
+
+# Enregistrer cette matrice dans le dossier de travail
+fwrite(mat_rel1, "Z:/users/VincyaneBadouard/ALS2022/WeightingMatrix.txt",
+       sep= " ", na="NaN", row.names = F, col.names = F)
+```
 
 # AMAPVox
 extraction de la zone d'intérer plus grande que la zone d'étude
@@ -90,6 +168,7 @@ pour calculer la matrice VOP on enlève les points sol
 ```{r}
 remotes::install_github('umr-amap/AMAPVox')
 
+# ça marche pas
 AMAPVox::run()
 AMAPVox::getRemoteVersions()
 AMAPVox::installVersion("1.10.4")
