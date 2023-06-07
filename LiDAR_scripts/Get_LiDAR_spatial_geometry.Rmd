@@ -1,0 +1,121 @@
+---
+title: "Get LiDAR spatial geometry"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r, include = F}
+library(data.table)
+library(lidR)
+# library(zoo) # permet de synchroniser temps gps et tirs
+library(rgl) # visulaisation 3D
+library(interp)
+```
+
+# The point cloud and trajectory paths 
+```{r}
+Hovermap_path <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
+
+Hovermap_traj <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
+```
+
+# Import the points cloud
+```{r}
+ST <- readLAS(Hovermap_path)
+ST
+ST@data
+
+hist(ST@data$Ring) # 15 faisceaux
+
+unique(ST@data$ReturnNumber) # 0 or 1
+unique(ST@data$NumberOfReturns) # 0
+
+min(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
+table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
+
+plot(ST@data) # trop lourd
+```
+
+# Import the trajectory
+```{r}
+Traj <- fread(Hovermap_traj)
+Traj 
+
+plot3d(Traj[,.(x, y,z)], aspect=F) # plot the trajectory (x,y,z)
+
+# options(digits=12)
+```
+
+# Take only the 1st echo
+```{r}
+Cloud <- ST@data[ReturnNumber == 0]
+```
+
+# Sample only few seconds of the data to work
+gpstime in the las and in the traj files is in seconds
+The gpstime in the las file is the emission time (same as trajectory time), not the impact time.
+```{r}
+# 3 seconds
+Traj <- Traj[gpstime>= 1660049400 & gpstime<= 1660049403]
+Cloud <- Cloud[gpstime>= 1660049400 & gpstime<= 1660049403]
+
+plot3d(Traj[,.(x, y,z)], aspect=F) # pq je n'arrive pas à l'afficher
+plot(Cloud) # ça semble tjrs tropo lourd
+```
+
+
+# Separate data of each ring in different tables
+```{r}
+# 15 rings
+Ring1 <- Cloud[Ring == 1]
+```
+
+# Compute the unit vectors between sensor position and the acquired point 
+
+## For shots with echo
+```{r}
+# Remove useless columns
+Ring1 <- Ring1[,.(Ring, gpstime, X,Y,Z, Range)]
+Traj <- Traj[,.(gpstime, x,y,z)]
+```
+
+```{r}
+# Take a first acquired point B
+Ring1[1]
+
+# its gpstime
+Tb <- Ring1[1]$gpstime
+
+#its coordinates
+Xb <- Ring1[1]$X
+Yb <- Ring1[1]$Y
+Zb <- Ring1[1]$Z
+
+# Interpolate coordinates of the emission point (A) from coordinates before and after (=barycentric interpolation)
+# Xa <- interp()
+# Ya <-
+# Za <-
+
+# Compute the unit vector between the emission and the acquired point
+vector_coord <- c(Xb-Xa, Yb-Ya, Zb-Za) # coordinates
+vector_norm <- sqrt(sum((vector_coord)^2)) # norm
+```
+
+## For shots without echo
+
+# Test our calcul
+To check if our calcul works, we can remove a part of known data and check if we retrieve it.
+We can remove:
+- randomly 10% of known data
+- a continuous part of known data
+We can also quantified the error at 100 m.
+
+## Remove randomly 10% of known data
+
+## Remove a continuous part of known data
+
+## Check if we retrieve initial data
+
+## Quantified the error at 100 m
