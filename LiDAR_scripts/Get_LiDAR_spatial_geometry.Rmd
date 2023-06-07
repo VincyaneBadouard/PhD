@@ -150,3 +150,9 @@ Test_contCloud[100:200, c("X", "Y", "Z") := NA_real_] # 100 points
 
 ```
 
+
+## Remove a continuous part of known data
+
+## Check if we retrieve initial data
+
+## Quantified the error at 100 m
