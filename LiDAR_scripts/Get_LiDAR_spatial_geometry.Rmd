@@ -115,7 +115,6 @@ unique(as.integer(Ring1$gpstime))
 Ring1$gpstime[1]==Ring1$gpstime[2]
 
 unique(as.integer(Traj$gpstime))
-
 ```
 
 
