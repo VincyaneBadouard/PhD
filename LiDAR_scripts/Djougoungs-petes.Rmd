@@ -1,0 +1,71 @@
+---
+title: "Djougoungs-petes"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+Est-ce qu’on les voit au LiDAR ?
+
+
+# Packages
+```{r, include = F}
+library(tidyverse)
+library(lidR)
+library(data.table)
+library(rgl) # visulaisation 3D
+library(terra)
+```
+
+# The point cloud path 
+Il faut l'ALS de tout Paracou ou d'une parcelle où les Djougoungs ont été inventoriés (pas la 16)
+```{r}
+ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
+```
+
+# Import the points cloud
+```{r}
+ST <- readLAS(ALS_P16_2022_path)
+```
+
+# Keep only ground data
+Que sur données sol de la dernière acquisition sur lidR (triangulation surface))
+```{r}
+# Modèle numérique de terrain
+mnt <- rast("Z:/users/VincyaneBadouard/ALS2022/mnt_roi36ha_1m.asc")
+plot(mnt)
+
+# Normaliser la hauteur du sol
+ST_norm <- lidR::normalize_height(ST, mnt) # applati le relief
+plot(ST_norm)# sol plat
+
+# Classifier les points
+ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] 
+
+table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 3,4,5
+# plot(ST_norm, color = "Classification") # trop long
+
+# Dénormaliser la hauteur du sol
+ST <- lidR::unnormalize_height(ST_norm) 
+
+```
+
+```{r}
+# Prendre que ce qui concerne le sol
+GP <- copy(ST)
+GP@data=GP@data[(Classification==2 | Classification==7),] # Ground Points
+GS=ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
+# question : pq prendre tous les tirs pris en meme temps que les tirs ayant touché le sol, et pas juste prendre les données sol (=2) ?
+# Question : pq prendre aussi les Classification = 7 (bruit)
+
+```
+
+# Can we see the Djougoungs?
+## Import Djougoungs map
+```{r}
+
+```
+
+```{r}
+plot(GP)
+```
+

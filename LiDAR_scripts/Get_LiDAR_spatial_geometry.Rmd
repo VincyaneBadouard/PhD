@@ -35,7 +35,7 @@ unique(ST@data$NumberOfReturns) # 0
 min(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
 table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
 
-plot(ST@data) # trop lourd
+# plot(ST@data) # trop lourd
 ```
 
 # Import the trajectory
@@ -61,8 +61,8 @@ The gpstime in the las file is the emission time (same as trajectory time), not 
 Traj <- Traj[gpstime>= 1660049400 & gpstime<= 1660049403]
 Cloud <- Cloud[gpstime>= 1660049400 & gpstime<= 1660049403]
 
-plot3d(Traj[,.(x, y,z)], aspect=F) # pq je n'arrive pas à l'afficher
-plot(Cloud) # ça semble tjrs tropo lourd
+plot3d(Traj[,.(x, y,z)], aspect=F) # question : pq je n'arrive pas à l'afficher
+# plot(Cloud) # ça semble tjrs tropo lourd
 ```
 
 
@@ -124,6 +124,8 @@ We can remove:
 - randomly 10% of known data
 - a continuous part of known data
 We can also quantified the error at 100 m.
+
+If we retreive the removed points means that the sensor rotation speed is stable.
 
 ## Remove randomly 10% of known data
 ```{r}

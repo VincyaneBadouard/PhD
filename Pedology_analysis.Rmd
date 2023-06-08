@@ -1,0 +1,40 @@
+---
+title: "Pedology analysis"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+Problematics:
+- Les caractéristiques du sol sont-elles liées à la topographie ?
+- variance inter habitat plus forte qu'inter habitat ?
+- La granulométrie estimée sur le terrain coincide-t-elle avec la granulométrie mesurée en labo ?
+- La composition chimique des sols est-elle liée à la granulométrie ? à la topographie ?
+- y a t-il une variation significative du contenu en P entre classe topographique
+
+
+# Packages
+```{r, include = F}
+library(tidyverse)
+```
+
+# Import data
+```{r}
+# Chimie <-
+# Bulk_density <-
+# RU <-
+# Drainage <-
+```
+
+```{r}
+# Quali_data <- 
+# Labo_data <- 
+
+
+```
+
+# Statistics
+```{r}
+
+```
+

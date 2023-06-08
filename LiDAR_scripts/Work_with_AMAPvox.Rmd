@@ -22,6 +22,7 @@ library(zoo) # permet de synchroniser temps gps et tirs
 library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
+library(terra)
 library(AMAPVox)
 ```
 
@@ -80,7 +81,6 @@ options(digits=12)
 
 ```
 
-# Calculer la matrice de poids
 ```{r}
 # Modèle numérique de terrain
 mnt <- rast("Z:/users/VincyaneBadouard/ALS2022/mnt_roi36ha_1m.asc")
@@ -91,7 +91,7 @@ ST_norm <- lidR::normalize_height(ST, mnt) # applati le relief
 plot(ST_norm)# sol plat
 
 # Classifier les points
-ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # classification
+ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] 
 
 table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 3,4,5
 # plot(ST_norm, color = "Classification") # trop long
@@ -101,15 +101,19 @@ ST <- lidR::unnormalize_height(ST_norm)
 
 ```
 
+# Garder uniquement les points de végétation
+On enlève tout le sol, on garde que les tirs qui atteignent la végétation
 ```{r}
 # Prendre que ce qui concerne la végétation
 GP=ST@data[(Classification==2|Classification==7),] # Ground Points
 GS=ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
-VP=ST@data[!(gpstime %in% GP$gpstime),] # temps gps des tirs qui n'ont pas touché le sol
+VP=ST@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
+# question : pq enlever tous les tirs pris en meme temps que les tirs ayant touché le sol, et pas juste enlever les données sol ?
 rm(GP)
 rm(GS)
 ```
 
+Calculer la moyenne de réflectance (appelée intensité) par écho
 ```{r}
 # Compute Intensity
 VP$initial_intensity <- VP$Intensity 
@@ -123,6 +127,7 @@ plot(initial_intensity~Intensity, data = VP[VP_samp,])
 
 ```
 
+# Calculer la matrice de poids
 ```{r}
 # Compute average intensity per Number Of Returns x Return Number
 # get max return number (variable!)
@@ -160,7 +165,7 @@ fwrite(mat_rel1, "Z:/users/VincyaneBadouard/ALS2022/WeightingMatrix.txt",
 ```
 
 # AMAPVox
-extraction de la zone d'intérer plus grande que la zone d'étude
+extraction de la zone d'intéret plus grande que la zone d'étude
 rotationer le nuage de points pour etre aligné avec la grille
 
 pour calculer la matrice VOP on enlève les points sol
@@ -175,3 +180,5 @@ AMAPVox::installVersion("1.10.4")
 AMAPVox::run("1.10.4", check.update = FALSE)
 ```
 
+## Fill empty voxels
+## Generate light maps

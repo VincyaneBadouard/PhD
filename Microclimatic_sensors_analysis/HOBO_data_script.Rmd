@@ -11,6 +11,10 @@ Objectives:
 - prepare HOBO data for analysis
 - descriptive analysis
 
+Problematics:
+- A quelle échelle la variabilité est la plus forte (saison, mois, jour, jour/nuit, 15min) ?
+- La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?
+
 # Packages
 ```{r echo = T,results = 'hide', message=FALSE}
 library(tidyverse)
