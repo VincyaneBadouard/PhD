@@ -14,6 +14,8 @@ library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
 library(terra)
+library(sf)
+library(ggplot2)
 ```
 
 # The point cloud path 
@@ -62,8 +64,25 @@ GS=ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
 # Can we see the Djougoungs?
 ## Import Djougoungs map
 ```{r}
-
+Thalweg_Djougoung <- st_read("D:/Mes Donnees/PhD/SIG_data/Djougoung-petes/Thalwegs.shp")
+Paracou <- st_read("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/OverallPlots.shp")
 ```
+```{r}
+Paracou_Plot <- Paracou %>% 
+  filter(Project == "ParacouCIRAD") %>% 
+  filter(Subplot == 2) %>% 
+  select(Plot, geometry) %>% 
+  unique()
+
+ggplot() + 
+  geom_sf(data = Paracou) + 
+  geom_sf_text(data = Paracou_Plot, aes(label = Plot), colour = "black") +
+  geom_sf(data = Thalweg_Djougoung, aes(fill = Type)) + 
+  ggtitle("Paracou 2019 - Thalwegs and Djougoung petes") + 
+  coord_sf()
+```
+On trouve des Djougoungs pétés dans 8 parcelles (P2, P5, P6, P7, P9, P11, P13 et P15).
+Leur superficie est la plus étendue dans les parcelles **P13** et **P11**.
 
 ```{r}
 plot(GP)
