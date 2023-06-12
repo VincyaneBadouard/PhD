@@ -20,6 +20,7 @@ library(ggplot2)
 
 # The point cloud path 
 Il faut l'ALS de tout Paracou ou d'une parcelle où les Djougoungs ont été inventoriés (pas la 16)
+soit clipper les parcelles d'intérêt, soit récupérer l'ensemble des points sol. 
 ```{r}
 ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
 ```

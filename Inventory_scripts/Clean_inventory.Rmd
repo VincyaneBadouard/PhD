@@ -1,0 +1,24 @@
+---
+title: "Clean inventories"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+# Packages
+```{r, include = F}
+library(tidyverse)
+library(data.table)
+# library() # TreeData
+library(ggplot2)
+```
+
+# Import inventory data
+Plot 16, SubPlot X
+```{r}
+# Understory <-
+# Adults <-
+```
+
+
