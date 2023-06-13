@@ -5,6 +5,7 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 Est-ce qu’on les voit au LiDAR ?
+voir sur Fugroviewer ou qgis (d'abord) : triangulation des points sols (tin)
 
 
 # Packages
@@ -16,13 +17,26 @@ library(rgl) # visulaisation 3D
 library(terra)
 library(sf)
 library(ggplot2)
+las
 ```
 
 # The point cloud path 
 Il faut l'ALS de tout Paracou ou d'une parcelle où les Djougoungs ont été inventoriés (pas la 16)
 soit clipper les parcelles d'intérêt, soit récupérer l'ensemble des points sol. 
 ```{r}
+ctg <- readLAScatalog(folder= "Y:/lidar/ALS/Paracou/2022/TiledClassified")
+```
+
+```{r}
 ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
+```
+
+```{r}
+trajfilenames <- list.files("Y:/lidar/ALS/Paracou/2022/TiledClassified", pattern="*.laz", full.names=TRUE) # catch the name of all the files of the folder
+
+df_list <- lapply(trajfilenames, readLAS) # read all the folder files
+ALS_Paracou2022 <- bind_rows(df_list)
+
 ```
 
 # Import the points cloud

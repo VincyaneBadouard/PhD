@@ -24,9 +24,34 @@ library(data.table)
 library(rgl) # visulaisation 3D
 library(terra)
 library(AMAPVox)
+library(sf)
 ```
 
-# The point cloud path 
+# The point cloud 
+
+# données classifiées dallées
+```{r}
+ctg <- readLAScatalog(folder= "D:/Mes Donnees/PhD/Lidar", filter=keep) # las catalog
+crs(ctg)
+plot(ctg)
+ctg <- st_set_crs(ctg, 2972) # attribuer le dernier crs
+crs(ctg)
+roi <- vect("Z:/users/VincyaneBadouard/ALS2022/Parcelles_Understory.shp")
+roi <- st_as_sf(roi) # as sf object
+roi <- st_set_crs(roi, 2972) # attribuer le dernier crs
+crs(roi)
+plot(roi)
+PC <- clip_roi(las = ctg, roi) # trop long
+
+truc <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
+plot(truc)
+table(truc@data$Classification)
+truc@data <- truc@data[Classification != 7,]
+
+writeLAS(truc, "Z:/users/VincyaneBadouard/ALS2022/P16_2022_v2_4ha.laz")
+```
+
+
 ```{r}
 ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
 ```
@@ -82,6 +107,7 @@ options(digits=12)
 ```
 
 ```{r}
+ST <- truc
 # Modèle numérique de terrain
 mnt <- rast("Z:/users/VincyaneBadouard/ALS2022/mnt_roi36ha_1m.asc")
 plot(mnt)
@@ -89,6 +115,7 @@ plot(mnt)
 # Normaliser la hauteur du sol
 ST_norm <- lidR::normalize_height(ST, mnt) # applati le relief
 plot(ST_norm)# sol plat
+hist(ST_norm@data$Z)
 
 # Classifier les points
 ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] 
@@ -180,5 +207,29 @@ AMAPVox::installVersion("1.10.4")
 AMAPVox::run("1.10.4", check.update = FALSE)
 ```
 
+PAD = 2*attenuation
+
+fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuilles)
+
+```{r}
+VX <- readVoxelSpace("Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_test")
+AMAPVox::plot(VX)
+VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
+
+writeVoxelSpace(VX, "Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_PAD")
+
+```
+
 ## Fill empty voxels
-## Generate light maps
+voxel pas vu pas échantilloné (occlusion), pas de données, ou mal échantilloné (selon un seuil)
+estimer selon le plus probable selon les besoins
+qui ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
+(long)
+```{r}
+
+```
+
+## Generate light maps from a voxel space
+```{r}
+```
+
