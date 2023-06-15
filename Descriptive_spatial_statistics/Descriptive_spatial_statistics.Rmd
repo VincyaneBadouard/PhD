@@ -1,0 +1,16 @@
+---
+title: "Descriptive spatial statistics"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r, include = F}
+library(tidyverse)
+library(data.table)
+library(sf)
+library(ggplot2)
+library(spatstat)
+library(dbmss) # package d'Eric
+```
