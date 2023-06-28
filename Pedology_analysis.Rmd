@@ -15,20 +15,42 @@ Problematics:
 
 # Packages
 ```{r, include = F}
+library(readr)
 library(tidyverse)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 # Import data
 ```{r}
-# Chimie <-
-# Bulk_density <-
-# RU <-
-# Drainage <-
+# Labo data
+Labo_data <- read_delim("~/PhD/Pédologie/Data/Analyses_sol_labo.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(Labo_data)
+
+# Quali data
+Chimie <- read_delim("~/PhD/Pédologie/Data/Chimie.csv",
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+Bulk_density <- read_delim("~/PhD/Pédologie/Data/Bulk_density.csv",
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+RU <- read_delim("~/PhD/Pédologie/Data/RU.csv",
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+Drainage <- read_delim("~/PhD/Pédologie/Data/Drainage.csv",
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
 ```
 
+# Join data
 ```{r}
-# Quali_data <- 
-# Labo_data <- 
+
+```
+
+LD : limite de détection
+Par définition, un résultat inférieur à la LD est trop faible pour pouvoir être interprété.
+```{r}
+
 
 
 ```
@@ -38,3 +60,4 @@ library(tidyverse)
 
 ```
 
+# Correlations

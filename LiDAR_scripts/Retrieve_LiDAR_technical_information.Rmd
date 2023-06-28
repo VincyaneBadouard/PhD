@@ -50,12 +50,14 @@ library(rgl) # visulaisation 3D
 
 # The different LiDAR scanners
 ```{r}
-Zeb_path <- "Z:/users/VincyaneBadouard/ZebHorizon/LiDAR_Manu/2022-09-07_15-46-34.laz"
-Hovermap_path <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
+Zeb_path <- "Z:/users/VincyaneBadouard/Lidar/ZebHorizon/LiDAR_Manu/2022-09-07_15-46-34.laz"
+Hovermap_path <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
+HovermapST_X_path <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Hand Scan/gcp_output/STX_third04_laz1_4.laz"
 Trion_path <- "Z:/users/VincyaneBadouard/Lidar/S1_TRION/points_cloud_file/Forestry/2023-02-02-15-13-57_5.las"
 
-Zeb_traj <- "Z:/users/VincyaneBadouard/ZebHorizon/LiDAR_Manu/2022-09-07_15-46-34.gs-traj"
-Hovermap_traj <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
+Zeb_traj <- "Z:/users/VincyaneBadouard/Lidar/ZebHorizon/LiDAR_Manu/2022-09-07_15-46-34.gs-traj"
+Hovermap_traj <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
+HovermapST_X_traj <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Hand Scan/gcp_output/STX_third04_traj.xyz"
 Trion_traj <- "Z:/users/VincyaneBadouard/Lidar/S1_TRION/points_cloud_file/Forestry/2023-02-02-15-13-57-trajectory - Cloud.pts" # ce n'est pas une trajectoire
 ```
 

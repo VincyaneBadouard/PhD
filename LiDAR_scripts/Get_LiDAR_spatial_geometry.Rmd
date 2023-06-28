@@ -16,31 +16,33 @@ library(interp)
 
 # The point cloud and trajectory paths 
 ```{r}
-Hovermap_path <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
+Hovermap_path <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
+HovermapST_X_path <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Hand Scan/gcp_output/STX_third04_laz1_4.laz"
 
-Hovermap_traj <- "Z:/users/VincyaneBadouard/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
+Hovermap_traj <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
+HovermapST_X_traj <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Hand Scan/gcp_output/STX_third04_traj.xyz"
 ```
 
 # Import the points cloud
 ```{r}
-ST <- readLAS(Hovermap_path)
+ST <- readLAS(HovermapST_X_path)
 ST
 ST@data
 
 hist(ST@data$Ring) # 15 faisceaux
 
-unique(ST@data$ReturnNumber) # 0 or 1
+unique(ST@data$ReturnNumber) # 0 or 1 or 2
 unique(ST@data$NumberOfReturns) # 0
 
 min(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
 table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
 
-# plot(ST@data) # trop lourd
+plot(ST) # trop lourd
 ```
 
 # Import the trajectory
 ```{r}
-Traj <- fread(Hovermap_traj)
+Traj <- fread(HovermapST_X_traj)
 Traj 
 
 plot3d(Traj[,.(x, y,z)], aspect=F) # plot the trajectory (x,y,z)
@@ -57,19 +59,20 @@ Cloud <- ST@data[ReturnNumber == 0]
 gpstime in the las and in the traj files is in seconds
 The gpstime in the las file is the emission time (same as trajectory time), not the impact time.
 ```{r}
+fstsec <- Cloud$gpstime[1]
 # 3 seconds
-Traj <- Traj[gpstime>= 1660049400 & gpstime<= 1660049403]
-Cloud <- Cloud[gpstime>= 1660049400 & gpstime<= 1660049403]
+Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec +3]
+Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec +3]
 
-plot3d(Traj[,.(x, y,z)], aspect=F) # question : pq je n'arrive pas à l'afficher
-# plot(Cloud) # ça semble tjrs trop lourd
+plot3d(Traj[,.(x, y,z)], aspect=F) 
 ```
 
 
 # Separate data of each ring in different tables
 ```{r}
-# 15 rings
+# 31 rings
 Ring1 <- Cloud[Ring == 1]
+Ring1
 ```
 
 # Compute the unit vectors between sensor position and the acquired point 
@@ -81,43 +84,41 @@ Ring1 <- Ring1[,.(Ring, gpstime, X,Y,Z, Range)]
 Traj <- Traj[,.(gpstime, x,y,z)]
 ```
 
-Question : les temps gps du laz sont les memes que les temps de la traj donc il n'en manque apriori pas et à la même seconde il se déplace
-donc pour un meme temps il y a plusieurs points colectés pour un meme faisceau
+Emission point: A
+Acquired points coordinates : B
+-> Compute the direction vector (AB) between the emission and the acquired point.
 
-Question : c'est interp() du package interp qu'il faut prendre (il faut spatialiser les données) utiliser aprox()
 ```{r}
-# Take a first acquired point B
-Ring1
-
-# its gpstime
-Tb <- Ring1$gpstime
-
-#its coordinates
+# Acquired points coordinates (B)
 Xb <- Ring1$X
 Yb <- Ring1$Y
 Zb <- Ring1$Z
 
-# Interpolate coordinates of the emission point (A) from coordinates before and after (=barycentric interpolation)
-Xa <- approx(Traj$gpstime, y = Traj$x , Ring1$gpstime)$y # x : temps de la traj, # xout : temps gps
+# Interpolate coordinates of the emission point (A) (in the traj) from coordinates before and after (= barycentric interpolation)
+Xa <- approx(x = Traj$gpstime, y = Traj$x , xout = Ring1$gpstime)$y # x : temps de la traj, xout : temps du cloud, $y pour avoir les coordonées x et non les temps
 Ya <- approx(Traj$gpstime, y = Traj$y , Ring1$gpstime)$y
 Za <- approx(Traj$gpstime, y = Traj$z , Ring1$gpstime)$y
 
-# Compute the unit vector between the emission and the acquired point
+# Compute the coordinates of the AB vector between the emission and the acquired point
 vector_coord <- data.frame(x_dir = Xb-Xa,
                            y_dir = Yb-Ya,
                            z_dir = Zb-Za) # coordinates
-vector_coord$Distance <- sqrt(
-  (vector_coord$x)^2 + (vector_coord$y)^2 + (vector_coord$z)^2
-  ) # norm
 
+# Compute the norm of the direction vector (AB)
+vector_coord$Distance <- sqrt(
+  (vector_coord$x_dir)^2 + (vector_coord$y_dir)^2 + (vector_coord$z_dir)^2
+  ) 
+# Transform in direction vector of norm = 1
 vector_coord$x_dir <- vector_coord$x_dir / vector_coord$Distance
 vector_coord$y_dir <- vector_coord$y_dir / vector_coord$Distance
 vector_coord$z_dir <- vector_coord$z_dir / vector_coord$Distance
 
+# Add A (emission) coordinates in the table
 vector_coord$X0 <- Xa
 vector_coord$Y0 <- Ya
 vector_coord$Z0 <- Za
 
+# and associated time 
 vector_coord$gpstime <- Ring1$gpstime
 ```
 A FAIRE : ploter les vecteurs 1 sur 10 
