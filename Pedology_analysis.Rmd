@@ -25,34 +25,56 @@ library(RColorBrewer)
 ```{r}
 # Labo data
 Labo_data <- read_delim("~/PhD/Pédologie/Data/Analyses_sol_labo.csv", 
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
-View(Labo_data)
+                        delim = ";", escape_double = FALSE, trim_ws = TRUE) # 27 col
 
 # Quali data
 Chimie <- read_delim("~/PhD/Pédologie/Data/Chimie.csv",
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
-
-Bulk_density <- read_delim("~/PhD/Pédologie/Data/Bulk_density.csv",
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+                     delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(16:31)]
 
 RU <- read_delim("~/PhD/Pédologie/Data/RU.csv",
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+                 delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(20:37)]
+
+Bulk_density <- read_delim("~/PhD/Pédologie/Data/Bulk_density.csv",
+                           delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(12:28)]
+
 
 Drainage <- read_delim("~/PhD/Pédologie/Data/Drainage.csv",
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+                       delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(17:32)]
 ```
 
 # Join data
 ```{r}
+Labo_data <- Labo_data %>%
+  rename("Sample ID" = 'Code Echantillon') %>%
+  left_join(Chimie, by = "Sample ID") %>%
+  left_join(RU, by = "Sample ID") # 59 col
+
+names(Labo_data)
+# "Site", "Topgraphy type", "Fresh weight", "Organic air dried weight", "Coarse elements air dried weight", "Air-dried fine soil weight.x", "Fine soil dry weight.x", "Labo weight.x"
+
+Labo_data <- Labo_data %>%
+  mutate( # 8 cols
+    Site = coalesce(Site.x, Site.y),
+    Topgraphy = coalesce(`Topgraphy type.x` , `Topgraphy type.y`),
+    Fresh_weight = coalesce(`Fresh weight.x`, `Fresh weight.y`),
+    Organic_airdried_weight = coalesce(`Organic air dried weight.x`, `Organic air dried weight.y`),
+    Coarse_elements_airdried_weight = coalesce(`Coarse elements air dried weight.x`, `Coarse elements air dried weight.y`),
+    Airdried_fine_soil_weight = coalesce(`Air-dried fine soil weight.x`, `Air-dried fine soil weight.y`),
+    Fine_soil_dry_weight = coalesce(`Fine soil dry weight.x`, `Fine soil dry weight.y`),
+    Labo_weight = coalesce(`Labo weight.x`, `Labo weight.y`)) %>%
+  select(-(contains(".x") | contains(".y"))) # 51 col
 
 ```
 
 LD : limite de détection
 Par définition, un résultat inférieur à la LD est trop faible pour pouvoir être interprété.
 ```{r}
+Labo_data$`TS %` <- gsub("[[:punct:]]", "", Labo_data$`TS %`)
 
+Labo_data[sapply(Labo_data, grepl, pattern = 'LD')] <- "0"
+Labo_data[,3:27] <- lapply(Labo_data[,3:27], as.numeric)
 
-
+NA_table <- Labo_data[rowSums(is.na(Labo_data[, 1:27])) > 0, 1:27] # NA only in granulo
 ```
 
 # Statistics
@@ -61,3 +83,85 @@ Par définition, un résultat inférieur à la LD est trop faible pour pouvoir �
 ```
 
 # Correlations
+## Tous sites
+```{r}
+DF_cor <- Labo_data %>% 
+  filter(grepl(pattern = 'CH', Labo_data$`Sample ID`)) %>%
+  mutate(Topgraphy = as.numeric(factor(Topgraphy, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
+  mutate(Site = as.numeric(factor(Site, levels = c("Nouragues", "Paracou"))))
+
+DF_cor <- DF_cor[,colSums(is.na(DF_cor))==0] # remove column with only NA
+
+DF_cor <- DF_cor[,-(31:35)] # remove useless colomn
+
+DF_CH_cor <- DF_cor %>% select(- c(`N° Labo`, `Sample ID`, TreeNum1))
+DF_CH_cor <- DF_CH_cor[,colSums(DF_CH_cor)>0] # remove column with only 0
+
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_CH_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+
+```
+- Site - C org - argiles - sables fins - sables grossiers - P total
+- Topo : faible
+
+Trés corrélé positivement :
+- C org - MO - N
+- Sables fins - C org/N
+- Al - N
+- cations - N - argiles - Al - CEC
+- CEC - N - argiles - Al - cations
+- P olsen - P Bray I (pas avec P total)
+- P total - N - argiles - Al - cations - CEC
+
+Trés corrélé négativement :
+- argiles - C org
+- sables - argiles
+- sables - (cations - CEC - Al - P total)
+
+## Paracou
+```{r}
+DF_P_CH_cor <- DF_cor %>% 
+  filter(grepl(pattern = 'P-CH', DF_cor$`Sample ID`)) %>%
+  select(- c(`N° Labo`, `Sample ID`, TreeNum1, Site))
+DF_P_CH_cor <- DF_P_CH_cor[,colSums(DF_P_CH_cor)>0] # remove column with only 0
+
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_P_CH_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+```
+Topography corrélations négatives avec : Ca, Na, et P Olsen, Bray I et P total !
+positives : Mg
+## Nouragues
+```{r}
+DF_N_CH_cor <- DF_cor %>% 
+  filter(grepl(pattern = 'N-CH', DF_cor$`Sample ID`)) %>%
+  select(- c(`N° Labo`, `Sample ID`, TreeNum1, Site))
+DF_N_CH_cor <- DF_N_CH_cor[,colSums(DF_N_CH_cor)>0] # remove column with only 0
+
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_N_CH_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+```
+Topography corrélations positives avec :
+aluminium, cations, CEC, P total, MO, C org, N, Argiles
+
+Topography corrélations négatives avec :
+sables fins et grossiers, Mn, pH, Ca, K
+
+Les P assimilables Olsen et Bray I n'ont pas été détectés dans les échantillons des Nouragues.
