@@ -77,10 +77,6 @@ Labo_data[,3:27] <- lapply(Labo_data[,3:27], as.numeric)
 NA_table <- Labo_data[rowSums(is.na(Labo_data[, 1:27])) > 0, 1:27] # NA only in granulo
 ```
 
-# Statistics
-```{r}
-
-```
 
 # Correlations
 ## Tous sites
@@ -95,7 +91,7 @@ DF_cor <- DF_cor[,colSums(is.na(DF_cor))==0] # remove column with only NA
 DF_cor <- DF_cor[,-(31:35)] # remove useless colomn
 
 DF_CH_cor <- DF_cor %>% select(- c(`N° Labo`, `Sample ID`, TreeNum1))
-DF_CH_cor <- DF_CH_cor[,colSums(DF_CH_cor)>0] # remove column with only 0
+# DF_CH_cor <- DF_CH_cor[,colSums(DF_CH_cor)>0] # remove column with only 0
 
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_CH_cor))
@@ -103,8 +99,10 @@ CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
+png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
 corrplot(CorMatrix, method="circle", type="lower",
-         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 1, tl.srt=45)
+dev.off()
 
 ```
 - Site - C org - argiles - sables fins - sables grossiers - P total
@@ -129,7 +127,7 @@ Trés corrélé négativement :
 DF_P_CH_cor <- DF_cor %>% 
   filter(grepl(pattern = 'P-CH', DF_cor$`Sample ID`)) %>%
   select(- c(`N° Labo`, `Sample ID`, TreeNum1, Site))
-DF_P_CH_cor <- DF_P_CH_cor[,colSums(DF_P_CH_cor)>0] # remove column with only 0
+# DF_P_CH_cor <- DF_P_CH_cor[,colSums(DF_P_CH_cor)>0] # remove column with only 0
 
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_P_CH_cor))
@@ -137,8 +135,10 @@ CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
+png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie_Paracou.png", width = 900, height = 800)
 corrplot(CorMatrix, method="circle", type="lower",
-         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 1, tl.srt=45)
+dev.off()
 ```
 Topography corrélations négatives avec : Ca, Na, et P Olsen, Bray I et P total !
 positives : Mg
@@ -147,7 +147,7 @@ positives : Mg
 DF_N_CH_cor <- DF_cor %>% 
   filter(grepl(pattern = 'N-CH', DF_cor$`Sample ID`)) %>%
   select(- c(`N° Labo`, `Sample ID`, TreeNum1, Site))
-DF_N_CH_cor <- DF_N_CH_cor[,colSums(DF_N_CH_cor)>0] # remove column with only 0
+# DF_N_CH_cor <- DF_N_CH_cor[,colSums(DF_N_CH_cor)>0] # remove column with only 0
 
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_N_CH_cor))
@@ -155,8 +155,11 @@ CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
+png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie_Nouragues.png", width = 900, height = 800)
+
 corrplot(CorMatrix, method="circle", type="lower",
-         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 1, tl.srt=45)
+dev.off()
 ```
 Topography corrélations positives avec :
 aluminium, cations, CEC, P total, MO, C org, N, Argiles
