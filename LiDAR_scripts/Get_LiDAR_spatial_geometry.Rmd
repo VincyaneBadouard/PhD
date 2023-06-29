@@ -12,6 +12,7 @@ library(lidR)
 # library(zoo) # permet de synchroniser temps gps et tirs
 library(rgl) # visulaisation 3D
 library(interp)
+library(ggplot2)
 ```
 
 # The point cloud and trajectory paths 
@@ -46,7 +47,6 @@ Traj <- fread(HovermapST_X_traj)
 Traj 
 
 plot3d(Traj[,.(x, y,z)], aspect=F) # plot the trajectory (x,y,z)
-plot(Traj$gpstime)
 # options(digits=12)
 ```
 
@@ -107,7 +107,7 @@ vector_coord <- data.frame(x_dir = Xb-Xa,
 # Compute the norm of the direction vector (AB)
 vector_coord$Distance <- sqrt(
   (vector_coord$x_dir)^2 + (vector_coord$y_dir)^2 + (vector_coord$z_dir)^2
-  ) 
+) 
 # Transform in direction vector of norm = 1
 vector_coord$x_dir <- vector_coord$x_dir / vector_coord$Distance
 vector_coord$y_dir <- vector_coord$y_dir / vector_coord$Distance
@@ -121,36 +121,96 @@ vector_coord$Z0 <- Za
 # and associated time 
 vector_coord$gpstime <- Ring1$gpstime
 ```
-A FAIRE : ploter les vecteurs 1 sur 10 
-couleur en fct de temps
+
+### Plot vectors
+```{r}
+# vect_matrix <- vector_coord %>% 
+
+plot3d(Traj[,.(x, y,z)], aspect=F) # plot the trajectory (x,y,z)
+
+subset <- seq(1, nrow(vector_coord), by=200) # each 200 pulses
+
+# Direction vectors
+png("D:/Mes Donnees/PhD/Figures/Directions_vectors.png", width = 900, height = 800)
+arrows3D(
+  x0 = vector_coord$X0[subset],
+  y0 = vector_coord$Y0[subset],
+  z0 = vector_coord$Z0[subset],
+  
+  x1 = (vector_coord$X0[subset] + vector_coord$x_dir[subset]),
+  y1 = (vector_coord$Y0[subset] + vector_coord$y_dir[subset]),
+  z1 = (vector_coord$Z0[subset] + vector_coord$z_dir[subset]), col = "grey", bty = "g", pch = 20, cex = 1, ticktype = "detailed") # cex : text size
+
+points3D(x = vector_coord$X0[subset], # emission points
+         y = vector_coord$Y0[subset],
+         z = vector_coord$Z0[subset], col = "red", add=T)
+
+points3D(x = (vector_coord$X0[subset] + vector_coord$x_dir[subset]), # collected points
+         y = (vector_coord$Y0[subset] + vector_coord$y_dir[subset]),
+         z = (vector_coord$Z0[subset] + vector_coord$z_dir[subset]),
+         colvar = vector_coord$gpstime[subset], add=T)
+
+scatter3D(Traj$x, Traj$y, Traj$z, colvar = NULL, add=T) 
+dev.off()
+
+# Initial vectors
+png("D:/Mes Donnees/PhD/Figures/Initial_vectors.png", width = 900, height = 800)
+arrows3D(
+  x0 = vector_coord$X0[subset], y0 = vector_coord$Y0[subset], z0 = vector_coord$Z0[subset],
+  x1 = Xb[subset], y1 = Yb[subset], z1 = Zb[subset],
+  col="grey", bty = "g", pch = 20, cex = 1, ticktype = "detailed")
+
+points3D(x = vector_coord$X0[subset], # emission points
+         y = vector_coord$Y0[subset],
+         z = vector_coord$Z0[subset], col = "red", add=T)
+
+points3D(x = Xb[subset], y = Yb[subset], z = Zb[subset], # collected points
+         colvar = vector_coord$gpstime[subset], add=T)
+
+
+scatter3D(Traj$x, Traj$y, Traj$z, colvar = NULL,  bty = "g",
+          pch = 20, cex = 1, ticktype = "detailed", add=T) 
+dev.off()
+```
+
 ## For shots without echo
-Question : ya pas de trous dans le temps
 ```{r}
 # Find the temporal gaps in the regular time step
-unique(as.integer(Ring1$gpstime))
-Ring1$gpstime[1]==Ring1$gpstime[2]
+unique(as.integer(Ring1$gpstime)) # seems to be not a lots of time value
+Ring1$gpstime[1]==Ring1$gpstime[2] # but in real it's not the same time values
 
-unique(as.integer(Traj$gpstime))
+plot(Traj$gpstime) # lots of values
 
-hist(diff(Ring1$gpstime)) # 2 dixits
-options(digits=22)
+hist(diff(Ring1$gpstime)) # 2 digits
+options(digits=22) # to see all the digits
 
+# Compute time step
 diff_time <- diff(Ring1$gpstime)
-dt_mean <- mean(diff_time[diff_time < 0.00006]) # pas de temps de référence (dt)
-gaps <- diff_time[diff_time > 0.00006]
-ngaps <- round(gaps/dt_mean)
+diff_time # 0.00005 seems to be the most regular value
+dt_mean <- mean(diff_time[diff_time < 0.00006]) # pas de temps de référence (dt) (moyenne des réguliers)
+gaps <- diff_time[diff_time > 0.00006] # ceux qui ne sont pas réguliers
+gaps
+ngaps <- round(gaps/dt_mean) # nombre de shots sans écho qui on pu se faire entre ceux avec écho
+ngaps
 
-index<-which(diff_time > 0.00006)
+index<-which(diff_time > 0.00006) # indice des shots pas réguliers
 
-all(Ring1$gpstime[index+1]-Ring1$gpstime[index] == gaps)
+all(Ring1$gpstime[index+1]-Ring1$gpstime[index] == gaps) # vérifier que le temps de gaps correspond au temps entre  entre 2 shots à écho
 
-# créer une table à rmeplir avec les gps time manqué : chaque index a un ngaps
+# Calculer les gps time manqués :
+# chaque index a un ngaps
 # Ring1$gpstime[index] + seq(ngaps) * dt_mean # temps de chaque tir manqué par index
 
-gpstime_gaps <- unlist(sapply(seq(ngaps), function(i) Ring1$gpstime[index][i] + seq(ngaps[i]) * dt_mean))
+# Arrété la
+gpstime_gaps <- unlist(sapply(seq(ngaps), function(i)
+   # temps de chaque tir manqué
+  Ring1$gpstime[index][i] + seq(ngaps[i]) * dt_mean # chaque index a un ngap
+))
 
-length(gpstime_gaps) == sum(ngaps)
+length(gpstime_gaps) == sum(ngaps) # check qu'il y a autant de temps gps que de tirs sans écho
 ```
+
+
 ```{r}
 Xa <- approx(Traj$gpstime, y = Traj$x , gpstime_gaps)$y # x : temps de la traj, # xout : temps gps
 Ya <- approx(Traj$gpstime, y = Traj$y , gpstime_gaps)$y
@@ -163,10 +223,10 @@ z_dir <- approx(vector_coord$gpstime, y = vector_coord$z_dir, gpstime_gaps)$y
 
 # Compute the unit vector between the emission and the acquired point
 gaps_vector_coord <- data.frame(x_dir = x_dir,
-                           y_dir = y_dir,
-                           z_dir = z_dir,
-                           Distance = 100,# m
-                           gpstime = gpstime_gaps) # coordinates
+                                y_dir = y_dir,
+                                z_dir = z_dir,
+                                Distance = 100,# m
+                                gpstime = gpstime_gaps) # coordinates
 
 gaps_dir_norm <-sqrt(gaps_vector_coord$x_dir^2 + gaps_vector_coord$y_dir^2 + gaps_vector_coord$z_dir^2)# n'a pas conservé ma norme =1
 
