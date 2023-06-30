@@ -38,7 +38,7 @@ unique(ST@data$NumberOfReturns) # 0
 min(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
 table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
 
-plot(ST) # trop lourd
+# plot(ST) # trop lourd
 ```
 
 # Import the trajectory
@@ -59,10 +59,10 @@ Cloud <- ST@data[ReturnNumber == 0]
 gpstime in the las and in the traj files is in seconds
 The gpstime in the las file is the emission time (same as trajectory time), not the impact time.
 ```{r}
-fstsec <- Cloud$gpstime[1]
+fstsec <- 1679488739.935013055801
 # 3 seconds
-Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec +3]
-Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec +3]
+Cloud <- Cloud[gpstime >= fstsec-3 & gpstime<= fstsec]
+Traj <- Traj[gpstime >= fstsec-3 & gpstime<= fstsec]
 
 plot3d(Traj[,.(x, y,z)], aspect=F) 
 ```
@@ -95,6 +95,12 @@ Yb <- Ring1$Y
 Zb <- Ring1$Z
 
 # Interpolate coordinates of the emission point (A) (in the traj) from coordinates before and after (= barycentric interpolation)
+length(Traj$gpstime) # 300
+length(Traj$x) # 300
+length(Ring1$gpstime) # 20002
+max(Traj$gpstime) # 1679488739.935
+max(Ring1$gpstime) #1679488739.931
+
 Xa <- approx(x = Traj$gpstime, y = Traj$x , xout = Ring1$gpstime)$y # x : temps de la traj, xout : temps du cloud, $y pour avoir les coordonées x et non les temps
 Ya <- approx(Traj$gpstime, y = Traj$y , Ring1$gpstime)$y
 Za <- approx(Traj$gpstime, y = Traj$z , Ring1$gpstime)$y
@@ -119,7 +125,22 @@ vector_coord$Y0 <- Ya
 vector_coord$Z0 <- Za
 
 # and associated time 
-vector_coord$gpstime <- Ring1$gpstime
+vector_coord$gpstime <- Ring1$gpstime 
+```
+
+### Check that we retreive the original point for emission point, direction vector and distance:
+
+Recalculer x,y,zb : à partir de x,y,zo : xb = x0 + xdir * distance
+pour vérifier qu'on est bon
+```{r}
+check_B <- data.frame(XB = vector_coord$X0 + vector_coord$x_dir * vector_coord$Distance,
+                      YB = vector_coord$Y0 + vector_coord$y_dir * vector_coord$Distance,
+                      ZB = vector_coord$Z0 + vector_coord$z_dir * vector_coord$Distance)
+
+# Check that we retreive the original point for emission point, direction vector and distance:
+all(check_B$XB - Ring1$X == 0)
+all(check_B$YB - Ring1$Y == 0)
+all(check_B$ZB - Ring1$Z == 0)
 ```
 
 ### Plot vectors
@@ -174,8 +195,8 @@ dev.off()
 ```
 
 ## For shots without echo
+### Find the temporal gaps in the regular time step
 ```{r}
-# Find the temporal gaps in the regular time step
 unique(as.integer(Ring1$gpstime)) # seems to be not a lots of time value
 Ring1$gpstime[1]==Ring1$gpstime[2] # but in real it's not the same time values
 
@@ -201,35 +222,42 @@ all(Ring1$gpstime[index+1]-Ring1$gpstime[index] == gaps) # vérifier que le temp
 # chaque index a un ngaps
 # Ring1$gpstime[index] + seq(ngaps) * dt_mean # temps de chaque tir manqué par index
 
-# Arrété la
 gpstime_gaps <- unlist(sapply(seq(ngaps), function(i)
-   # temps de chaque tir manqué
-  Ring1$gpstime[index][i] + seq(ngaps[i]) * dt_mean # chaque index a un ngap
+   # temps annormal + (nbr)
+  Ring1$gpstime[index][i] + seq(ngaps[i]) * dt_mean # un index pour chaque tir sans écho
 ))
+# question : on devrait pas mettre -1 à index
+all(diff(gpstime_gaps) < 0.00006) # pas tous vrai : normal pcq il manque gpstime des tirs à écho
+all_gpstime <- c(Ring1$gpstime, gpstime_gaps)
+all(diff(all_gpstime[order(all_gpstime)]) < 0.00006) # tous bien < 0.00006
 
 length(gpstime_gaps) == sum(ngaps) # check qu'il y a autant de temps gps que de tirs sans écho
 ```
 
-
+### Retreive direction vectors
 ```{r}
-Xa <- approx(Traj$gpstime, y = Traj$x , gpstime_gaps)$y # x : temps de la traj, # xout : temps gps
+# Interpolate coordinates of the emission point (A) (in the traj) for the gaps gpstime (shots without echo)
+Xa <- approx(x = Traj$gpstime, y = Traj$x, xout = gpstime_gaps)$y # x : temps de la traj, xout : temps des gaps, $y pour avoir les coordonées x et non les temps
 Ya <- approx(Traj$gpstime, y = Traj$y , gpstime_gaps)$y
 Za <- approx(Traj$gpstime, y = Traj$z , gpstime_gaps)$y
 
-x_dir <- approx(vector_coord$gpstime, y = vector_coord$x_dir, gpstime_gaps)$y # x : temps de la traj, # xout : temps gps
+# Interpolate the direction vectors of this shots without echo (intercalate between vectors of the shots with echo)
+x_dir <- approx(x = vector_coord$gpstime, y = vector_coord$x_dir, xout = gpstime_gaps)$y
 y_dir <- approx(vector_coord$gpstime, y = vector_coord$y_dir, gpstime_gaps)$y
 z_dir <- approx(vector_coord$gpstime, y = vector_coord$z_dir, gpstime_gaps)$y
 
 
-# Compute the unit vector between the emission and the acquired point
-gaps_vector_coord <- data.frame(x_dir = x_dir,
+# In a table:
+gaps_vector_coord <- data.frame(x_dir = x_dir, # vector coordinates
                                 y_dir = y_dir,
                                 z_dir = z_dir,
-                                Distance = 100,# m
-                                gpstime = gpstime_gaps) # coordinates
+                                Distance = 100,# m. Il n'y a pas de distance puisqu'il n'y a pas d'echo
+                                gpstime = gpstime_gaps) 
 
-gaps_dir_norm <-sqrt(gaps_vector_coord$x_dir^2 + gaps_vector_coord$y_dir^2 + gaps_vector_coord$z_dir^2)# n'a pas conservé ma norme =1
+# Compute the norm of the direction vector
+gaps_dir_norm <- sqrt(gaps_vector_coord$x_dir^2 + gaps_vector_coord$y_dir^2 + gaps_vector_coord$z_dir^2)# n'a pas conservé une norme =1
 
+# Transform in unit vector (norm = 1)
 gaps_vector_coord$x_dir <- gaps_vector_coord$x_dir / gaps_dir_norm
 gaps_vector_coord$y_dir <- gaps_vector_coord$y_dir / gaps_dir_norm
 gaps_vector_coord$z_dir <- gaps_vector_coord$z_dir / gaps_dir_norm
@@ -237,25 +265,10 @@ gaps_vector_coord$z_dir <- gaps_vector_coord$z_dir / gaps_dir_norm
 gaps_vector_coord$X0 <- Xa
 gaps_vector_coord$Y0 <- Ya
 gaps_vector_coord$Z0 <- Za
-
-```
-faire pour tous les rings et pour tous les temps
-Recalculer x,y,zb : à partir de x,y,zo : xb = x0 + xdir * distance
-pour vérifier qu'on est bon
-
-```{r}
-check_B <- data.frame(XB = vector_coord$X0 + vector_coord$x_dir * vector_coord$Distance,
-                      YB = vector_coord$Y0 + vector_coord$y_dir * vector_coord$Distance,
-                      ZB = vector_coord$Z0 + vector_coord$z_dir * vector_coord$Distance)
-
-check_B$XB - Ring1$X
-check_B$YB - Ring1$Y
-check_B$ZB - Ring1$Z
-
 ```
 
 
-# Test our calcul
+# Test our calcul for shots without echo
 To check if our calcul works, we can remove a part of known data and check if we retrieve it.
 We can remove:
 - randomly 10% of known data
@@ -297,3 +310,5 @@ Test_contCloud[100:200, c("X", "Y", "Z") := NA_real_] # 100 points
 ## Check if we retrieve initial data
 
 ## Quantified the error at 100 m
+
+faire pour tous les rings et pour tous les temps
