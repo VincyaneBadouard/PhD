@@ -38,7 +38,7 @@ unique(ST@data$NumberOfReturns) # 0
 min(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
 table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
 
-plot(ST) # trop lourd
+# plot(ST) # trop lourd
 ```
 
 # Import the trajectory
@@ -201,11 +201,15 @@ all(Ring1$gpstime[index+1]-Ring1$gpstime[index] == gaps) # vérifier que le temp
 # chaque index a un ngaps
 # Ring1$gpstime[index] + seq(ngaps) * dt_mean # temps de chaque tir manqué par index
 
-# Arrété la
 gpstime_gaps <- unlist(sapply(seq(ngaps), function(i)
-   # temps de chaque tir manqué
-  Ring1$gpstime[index][i] + seq(ngaps[i]) * dt_mean # chaque index a un ngap
+   # temps annormal + (nbr)
+  Ring1$gpstime[index][i] + seq(ngaps[i]) * dt_mean # un index pour chaque tir sans écho
 ))
+# question : on devrait pas mettre -1 à index
+all(diff(gpstime_gaps) < 0.00006) # pas tous vrai : normal pcq il manque gpstime des tirs à écho
+all_gpstime <- c(Ring1$gpstime[-index], gpstime_gaps)
+x <- diff(all_gpstime[order(all_gpstime)]) < 0.00006
+diff(all_gpstime[order(all_gpstime)])[which(!x)]
 
 length(gpstime_gaps) == sum(ngaps) # check qu'il y a autant de temps gps que de tirs sans écho
 ```
