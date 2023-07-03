@@ -265,6 +265,7 @@ gaps_vector_coord$z_dir <- gaps_vector_coord$z_dir / gaps_dir_norm
 gaps_vector_coord$X0 <- Xa
 gaps_vector_coord$Y0 <- Ya
 gaps_vector_coord$Z0 <- Za
+
 ```
 
 
