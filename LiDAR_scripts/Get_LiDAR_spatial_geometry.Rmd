@@ -13,6 +13,7 @@ library(lidR)
 library(rgl) # visulaisation 3D
 library(interp)
 library(ggplot2)
+library(plot3D)
 ```
 
 # The point cloud and trajectory paths 
@@ -137,7 +138,7 @@ check_B <- data.frame(XB = vector_coord$X0 + vector_coord$x_dir * vector_coord$D
                       YB = vector_coord$Y0 + vector_coord$y_dir * vector_coord$Distance,
                       ZB = vector_coord$Z0 + vector_coord$z_dir * vector_coord$Distance)
 
-# Check that we retreive the original point for emission point, direction vector and distance:
+# Check that we retreive the original point from emission point, direction vector and distance:
 all(check_B$XB - Ring1$X == 0)
 all(check_B$YB - Ring1$Y == 0)
 all(check_B$ZB - Ring1$Z == 0)
@@ -270,46 +271,136 @@ gaps_vector_coord$Z0 <- Za
 
 
 # Test our calcul for shots without echo
-To check if our calcul works, we can remove a part of known data and check if we retrieve it.
+To check if our calcul works, we can remove a part of known data and check if we retrieve it : créer des faux sans écho
 We can remove:
 - randomly 10% of known data
 - a continuous part of known data
-We can also quantified the error at 100 m : avec le vecteur directeur on projette les points à 100m (distance)
-après je vire les 10%  (on fait des faux sans écho)
-après on essaye de les retouver les tirs sans écho (on compare le Xb Initial à 100m et celui estimé à 100m)
+We can also quantified the error at 100 m :
+1) avec le vecteur directeur on projette les points à 100m (distance) 
+2) après je vire les 10%  (on fait des faux sans écho)
+3) après on essaye de les retouver les faux tirs sans écho (on compare le Xb Initial à 100m et celui estimé à 100m)
 
 If we retreive the removed points means that the sensor rotation speed is stable.
 
+## Project the points 100 m from their point of emission 
+Emission point (X,Y,Z0) + coord of the direction vector(x,y,z_dir) * Distance (100 m)
+```{r}
+vector_coord$XB100 = vector_coord$X0 + vector_coord$x_dir * 100
+vector_coord$YB100 = vector_coord$Y0 + vector_coord$y_dir * 100
+vector_coord$ZB100 = vector_coord$Z0 + vector_coord$z_dir * 100
+```
+
+
 ## Remove randomly 10% of known data
 ```{r}
-Test_10Cloud <- copy(Cloud)
-Test_10Cloud[sample(nrow(Test_10Cloud), 0.1 * nrow(Test_10Cloud)), c("X", "Y", "Z") := NA_real_]
+setDT(vector_coord) # as data.table
+Test_10Cloud <- copy(vector_coord)
+Test_10Cloud[sample(nrow(Test_10Cloud), 0.1 * nrow(Test_10Cloud)), c("XB100", "YB100", "ZB100") := NA_real_]
+
+removed <- which(is.na(Test_10Cloud$XB100))
+retained <- which(!is.na(Test_10Cloud$XB100))
+
 ```
 
 ## Remove a continuous part of known data
 ```{r}
-Test_contCloud <- copy(Cloud)
+Test_contCloud <- copy(vector_coord)
 
 # gpstime>1660049400 & gpstime<1660049401
-Test_contCloud[100:200, c("X", "Y", "Z") := NA_real_] # 100 points
+Test_contCloud[100:200, c("XB100", "YB100", "ZB100") := NA_real_] # 100 points
+
+removed <- which(is.na(Test_contCloud$XB100))
+retained <- which(!is.na(Test_contCloud$XB100))
 ```
 
 ## Check if we retrieve initial data
 ```{r}
+# We have only the gps time of the shots to estimate
+
+# Interpolate coordinates of the emission point (A) (in the traj) for the gaps gpstime (shots without echo)
+removed_time <- vector_coord$gpstime[removed]
+X0 <- approx(x = Traj$gpstime[Traj$gpstime != removed_time],
+             y = Traj$x[Traj$gpstime != removed_time],
+             xout = removed_time)$y 
+# any(is.na(Xa))
+Y0 <- approx(x = Traj$gpstime[Traj$gpstime != removed_time],
+             y = Traj$y[Traj$gpstime != removed_time],
+             xout = removed_time)$y
+Z0 <- approx(x = Traj$gpstime[Traj$gpstime != removed_time],
+             y = Traj$z[Traj$gpstime != removed_time],
+             xout = removed_time)$y
+
+# Interpolate the direction vectors of this shots without echo (intercalate between vectors of the shots with echo)
+x_dir <- approx(x = vector_coord$gpstime[retained],
+                y = vector_coord$x_dir[retained],
+                xout = vector_coord$gpstime[removed])$y
+y_dir <- approx(x = vector_coord$gpstime[retained],
+                y = vector_coord$y_dir[retained],
+                xout = vector_coord$gpstime[removed])$y
+z_dir <- approx(x = vector_coord$gpstime[retained],
+                y = vector_coord$z_dir[retained],
+                xout = vector_coord$gpstime[removed])$y
+
+# Compute the norm of the direction vector
+dir_norm <- sqrt(x_dir^2 + y_dir^2 + z_dir^2)
+
+# Transform in unit vector (norm = 1)
+x_dir <- x_dir / dir_norm
+y_dir <- y_dir / dir_norm
+z_dir <- z_dir / dir_norm
+
+check_B <- data.frame(XB = X0 + x_dir * 100,
+                      YB = Y0 + y_dir * 100,
+                      ZB = Z0 + z_dir * 100)
+
+# Check that we retreive the original point from emission point, direction vector and distance:
+all(check_B$XB - vector_coord$XB100[removed] == 0)
+all(check_B$YB - vector_coord$YB100[removed] == 0)
+all(check_B$ZB - vector_coord$ZB100[removed] == 0)
+
+all(X0 - vector_coord$X0[removed] == 0)
+all(Y0 - vector_coord$Y0[removed] == 0)
+all(Z0 - vector_coord$Z0[removed] == 0) # the emission coordinates are well retreived!
+
+check_B$XB[1]; vector_coord$XB100[removed][1]
+check_B$YB[1]; vector_coord$YB100[removed][1]
+check_B$ZB[1]; vector_coord$ZB100[removed][1] # the direction vector are not exactly the same
+
+# mean difference
+mean(check_B$XB - vector_coord$XB100[removed])
+mean(check_B$YB - vector_coord$YB100[removed])
+mean(check_B$ZB - vector_coord$ZB100[removed])
 
 ```
 
-
-## Quantified the error at 100 m
+Plot the difference
 ```{r}
+subset <- seq(1, nrow(check_B), by=100) # each 200 pulses
 
+arrows3D(
+  x0 = X0[subset],
+  y0 = Y0[subset],
+  z0 = Z0[subset],
+  
+  x1 = check_B$XB[subset],
+  y1 = check_B$YB[subset],
+  z1 = check_B$ZB[subset], col = "red", bty = "g", pch = 20, cex = 1, ticktype = "detailed") # cex : text size
+
+arrows3D(
+  x0 = X0[subset],
+  y0 = Y0[subset],
+  z0 = Z0[subset],
+  
+  x1 = vector_coord$XB100[removed][subset],
+  y1 = vector_coord$YB100[removed][subset],
+  z1 = vector_coord$ZB100[removed][subset], col = "green", bty = "g", pch = 20, cex = 1, ticktype = "detailed") # cex : text size
+
+# same!
 ```
-
 
 ## Remove a continuous part of known data
 
 ## Check if we retrieve initial data
 
-## Quantified the error at 100 m
 
 faire pour tous les rings et pour tous les temps
