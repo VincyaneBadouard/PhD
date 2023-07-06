@@ -1,0 +1,39 @@
+---
+title: "Check trajectory time"
+author: "Vincyane Badouard"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+---
+
+Si la différence entre les gpstime d'un faisceau est absolument réguliere c'est qu'il est faux pcq on doit avoir des tirs sans écho.
+
+# Packages
+```{r, include = F}
+library(lidR)
+```
+
+
+# The different LiDAR scanners
+```{r}
+# prendre celui de Alice car c'est le seul avec les rings
+Zeb_path <- "Z:/users/GregVincent/fromAlicePenanhoat/6.1_20by20.laz"
+```
+
+# Import the points cloud
+```{r}
+ST <- readLAS(Zeb_path)
+ST@data
+```
+
+# Check
+UserData : fréquence des faisceaux
+```{r}
+hist(ST@data$UserData) # 16 rings
+
+test <- ST
+test@data <- test@data[test@data$UserData==7]
+hist(diff(test@data$gpstime))
+```
+La différence entre les gpstime d'un faisceau est absolument réguliere. Le gpstime est donc puisqu'il est sensé avoir des tirs sans écho.

@@ -1,8 +1,11 @@
 ---
 title: "Get LiDAR spatial geometry"
 author: "Vincyane Badouard"
-date: "`r Sys.Date()`"
-output: pdf_document
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
 ---
 
 # Packages
@@ -304,13 +307,13 @@ retained <- which(!is.na(Test_10Cloud$XB100))
 
 ## Remove a continuous part of known data
 ```{r}
-Test_contCloud <- copy(vector_coord)
-
-# gpstime>1660049400 & gpstime<1660049401
-Test_contCloud[100:200, c("XB100", "YB100", "ZB100") := NA_real_] # 100 points
-
-removed <- which(is.na(Test_contCloud$XB100))
-retained <- which(!is.na(Test_contCloud$XB100))
+# Test_contCloud <- copy(vector_coord)
+# 
+# # gpstime>1660049400 & gpstime<1660049401
+# Test_contCloud[100:200, c("XB100", "YB100", "ZB100") := NA_real_] # 100 points
+# 
+# removed <- which(is.na(Test_contCloud$XB100))
+# retained <- which(!is.na(Test_contCloud$XB100))
 ```
 
 ## Check if we retrieve initial data
