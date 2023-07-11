@@ -29,7 +29,7 @@ library(sf)
 
 # The point cloud 
 
-# données classifiées dallées
+# Données classifiées dallées
 ```{r}
 ctg <- readLAScatalog(folder= "D:/Mes Donnees/PhD/Lidar", filter=keep) # las catalog
 crs(ctg)
@@ -211,6 +211,8 @@ PAD = 2*attenuation
 
 fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuilles)
 
+pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
+
 ```{r}
 VX <- readVoxelSpace("Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_test")
 AMAPVox::plot(VX)
@@ -221,15 +223,42 @@ writeVoxelSpace(VX, "Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_PAD")
 ```
 
 ## Fill empty voxels
+voir Fill_empty_voxels.Rmd
+
 voxel pas vu pas échantilloné (occlusion), pas de données, ou mal échantilloné (selon un seuil)
 estimer selon le plus probable selon les besoins
 qui ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 (long)
+Prendre en compte le voisinage en excluant les trouées
 ```{r}
 
 ```
 
 ## Generate light maps from a voxel space
+script de traitement : lightMap_1m.xml
+input : test1m_PadHLE.vox
+
+output : lightMap_1m.txt
+
+each = 2 m
+height = 1, 10 m
+direction number : 136 (pas calculé uniquement selon la verticale mais sur un hémisphère)
+plot rotation : pour prendre en compte la course du soleil : 17° à la louche mais à remesurer sur qgis
+Repetitve scene si tu n'as pas de buffer mais pas ouf
+latitude de Paracou 5°
+calendrier : sur une année 
+clearness coefficient : 0.5 rapport direct-diffus en gros à l'équateur (change au cours des saisons)
 ```{r}
+library(lattice) # pour plotter la carte de lumière
+Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2022/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
+# enlever les 2 lignes mean
+# Light <- Light[Y != "MEAN"]
+
+levelplot(`Period 1`~X*Y, data=Light[X<90 & X> -90 & Y<90 & Y> -90 ])
 ```
+
+
+
+Faux tirs manquants à faible distance faire un script au cours de juillet
+
 

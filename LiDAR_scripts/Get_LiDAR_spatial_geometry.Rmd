@@ -407,3 +407,9 @@ arrows3D(
 
 
 faire pour tous les rings et pour tous les temps
+
+
+Pour bosser dans amapvox
+projeter les points sans écho originellment en dehors de la zone d'étude (à 500 m par ex) et enregistrer ces points sous un nouveau laz
+
+soit compléter le laz existant soit faire un laz à part et combinder avec lidr
