@@ -27,52 +27,64 @@ library(AMAPVox)
 library(sf)
 ```
 
-# The point cloud 
+# Extraire la zone d'intéret (données classifiées dallées)
+Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fichier vecteur (polygone) de la zone d'intéret (ROI), si possible sous forme rectangulaire stricte.
 
-# Données classifiées dallées
+ctg : catalog of laz files
+ROI : Region of Interest
 ```{r}
-ctg <- readLAScatalog(folder= "D:/Mes Donnees/PhD/Lidar", filter=keep) # las catalog
-crs(ctg)
+ctg <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog
+# 4 carrés
+crs(ctg) # no crs
 plot(ctg)
+
 ctg <- st_set_crs(ctg, 2972) # attribuer le dernier crs
 crs(ctg)
-roi <- vect("Z:/users/VincyaneBadouard/ALS2022/Parcelles_Understory.shp")
-roi <- st_as_sf(roi) # as sf object
-roi <- st_set_crs(roi, 2972) # attribuer le dernier crs
-crs(roi)
-plot(roi)
-PC <- clip_roi(las = ctg, roi) # trop long
 
-truc <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
-plot(truc)
-table(truc@data$Classification)
-truc@data <- truc@data[Classification != 7,]
+# Region of Interest (ROI)
+ROI <- vect("Z:/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp") # 4 carrés
+plot(ROI)
+class(ROI) # SpatVector (terra)
 
-writeLAS(truc, "Z:/users/VincyaneBadouard/ALS2022/P16_2022_v2_4ha.laz")
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+crs(ROI)
+plot(ROI)
+# Clip the point cloud in region of interest
+PC <- clip_roi(las = ctg, geometry = ROI) # très long
+str(PC) # List of 4 las
+
+# Join the 4 las
+PC <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
+lidR::plot(PC) 
+
+# Enlever le bruit (sous sol et au dessus canopée)
+table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
+PC@data <- PC@data[Classification != 7,]
+lidR::plot(PC) 
+
+writeLAS(PC, "Z:/users/VincyaneBadouard/ALS2022/P16_2022_v2_4ha.laz")
 ```
 
-
+# The point cloud path
 ```{r}
-ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
+ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_dnz_4ha.laz"
 ```
 
 # Import the points cloud
 ```{r}
 ST <- readLAS(ALS_P16_2022_path)
-hist(ST@data$Intensity)
-# hist(ST@data$Ring) # YA PAS 
-hist(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
-table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
+table(ST@data$NumberOfReturns)
 ST@data
-range(ST$Z) # min et max de l'altitude
+range(ST$Z) # min et max de l'altitude: 8.82 - 67.13 m
 
-plot(ST) 
+plot(ST) # ya du bruit
 ```
 
 
 # Read, bind and rewrite the trajectory files in the folder
 ```{r , include = F}
-trajfilenames <- list.files("Z:/users/VincyaneBadouard/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
+trajfilenames <- list.files("Z:/users/VincyaneBadouard/Lidar/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
 
 df_list <- lapply(trajfilenames, fread) # read all the folder files
 ALS_P16_2022_traj <- bind_rows(df_list)
@@ -85,7 +97,7 @@ ALS_P16_2022_traj <- ALS_P16_2022_traj %>%
   rename(Z = V4) 
 view(ALS_P16_2022_traj)
 
-fwrite(ALS_P16_2022_traj, "Z:/users/VincyaneBadouard/ALS2022/trajecto/ALS_P16_2022_traj.txt")
+fwrite(ALS_P16_2022_traj, "Z:/users/VincyaneBadouard/Lidar/ALS2022/trajecto/ALS_P16_2022_traj.txt")
 ```
 
 # Import the trajectory
@@ -93,7 +105,7 @@ fwrite(ALS_P16_2022_traj, "Z:/users/VincyaneBadouard/ALS2022/trajecto/ALS_P16_20
 traj <- ALS_P16_2022_traj
 traj 
 
-plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
+plot3d(traj[,2:4]) # plot the trajectory (x,y,z)
 
 options(digits=12)
 ```
@@ -103,13 +115,16 @@ options(digits=12)
 - statistical points removal (enlève les points isolés)
 - autre méthode : dans un espace voxel selon densité de points
 ```{r}
-
+table(ST@data$Classification)
+ST@data <- ST@data[Classification != 7,] # enlever le bruit
+plot(ST) # quasi plus de bruit
+# Question : ça suffit ?
 ```
 
 ```{r}
-ST <- truc
+ST <- PC
 # Modèle numérique de terrain
-mnt <- rast("Z:/users/VincyaneBadouard/ALS2022/mnt_roi36ha_1m.asc")
+mnt <- rast("Z:/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc")
 plot(mnt)
 
 # Normaliser la hauteur du sol
@@ -117,44 +132,52 @@ ST_norm <- lidR::normalize_height(ST, mnt) # applati le relief
 plot(ST_norm)# sol plat
 hist(ST_norm@data$Z)
 
-# Classifier les points
+# Classifier les points sol
 ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] 
 
-table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 3,4,5
+table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
 # plot(ST_norm, color = "Classification") # trop long
 
 # Dénormaliser la hauteur du sol
 ST <- lidR::unnormalize_height(ST_norm) 
-
 ```
 
 # Garder uniquement les points de végétation
 On enlève tout le sol, on garde que les tirs qui atteignent la végétation
 ```{r}
-# Prendre que ce qui concerne la végétation
-GP=ST@data[(Classification==2|Classification==7),] # Ground Points
-GS=ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
-VP=ST@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
+GP <- ST@data[(Classification==2 | Classification==7),] # Ground Points
+GS <- ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
+VP <- ST@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
 # question : pq enlever tous les tirs pris en meme temps que les tirs ayant touché le sol, et pas juste enlever les données sol ?
 rm(GP)
 rm(GS)
 ```
 
-Calculer la moyenne de réflectance (appelée intensité) par écho
+# Calculer la moyenne de réflectance (appelée intensité) par écho
+
+On utilise la réflectance pour calculer l'intensité
+en calculant la réflectance apparente en ratio (albedo)
+= intensité qu'on va utiliser par la suite.
+
+Réflectance (ou Albedo) = énergie lumineuse réfléchie/énergie lumineuse incidente
+ 
 ```{r}
 # Compute Intensity
 VP$initial_intensity <- VP$Intensity 
 
-VP$Intensity = 10^(VP$Reflectance/10) # On utilise la réflectance pour calculer l'intensité en calculant la réflectance apparente en ratio (albedo) = intensité qu'on va utiliser par la suite
-# réflectance initialment en decibel (et selon une référence connue)
+# Intensité = réflectance apparente en ratio (albedo)
+VP$Intensity = 10^(VP$Reflectance/10) # Réflectance initialment en decibel (et selon une référence connue)
+
 
 VP_samp <- sample(1:dim(VP)[1], 2000) # just a sample to plot
 
+# initial_intensity vs Intensity
 plot(initial_intensity~Intensity, data = VP[VP_samp,])
 
 ```
 
-# Calculer la matrice de poids
+ARRETE LA
+# Calculer la matrice de pondération des échos (matrice de poids)
 ```{r}
 # Compute average intensity per Number Of Returns x Return Number
 # get max return number (variable!)
@@ -191,12 +214,16 @@ fwrite(mat_rel1, "Z:/users/VincyaneBadouard/ALS2022/WeightingMatrix.txt",
        sep= " ", na="NaN", row.names = F, col.names = F)
 ```
 
-# AMAPVox
-extraction de la zone d'intéret plus grande que la zone d'étude
+# Calcul de matrice de rotation (alignement N-S d’un bord de ROI)
+Utilise le fichier vecteur précédent (ROI), crée une matrice 'VOP'.
+
 rotationer le nuage de points pour etre aligné avec la grille
 
 pour calculer la matrice VOP on enlève les points sol
 
+Question : ça c’est dans amapvox ou avant ?
+
+# AMAPVox
 ```{r}
 remotes::install_github('umr-amap/AMAPVox')
 

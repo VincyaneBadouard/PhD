@@ -23,6 +23,7 @@ library(ggplot2)
 Il faut l'ALS de tout Paracou ou d'une parcelle où les Djougoungs ont été inventoriés (pas la 16)
 soit clipper les parcelles d'intérêt, soit récupérer l'ensemble des points sol. 
 ```{r}
+# catalog
 ctg <- readLAScatalog(folder= "Y:/lidar/ALS/Paracou/2022/TiledClassified")
 ```
 
@@ -62,7 +63,6 @@ table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 3,4,5
 
 # Dénormaliser la hauteur du sol
 ST <- lidR::unnormalize_height(ST_norm) 
-
 ```
 
 ```{r}

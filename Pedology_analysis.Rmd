@@ -24,21 +24,21 @@ library(RColorBrewer)
 # Import data
 ```{r}
 # Labo data
-Labo_data <- read_delim("~/PhD/Pédologie/Data/Analyses_sol_labo.csv", 
+Labo_data <- read_delim("~/PhD/Pédologie/Data/Raw/Analyses_sol_labo.csv", 
                         delim = ";", escape_double = FALSE, trim_ws = TRUE) # 27 col
 
 # Quali data
-Chimie <- read_delim("~/PhD/Pédologie/Data/Chimie.csv",
+Chimie <- read_delim("~/PhD/Pédologie/Data/Raw/Chimie.csv",
                      delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(16:31)]
 
-RU <- read_delim("~/PhD/Pédologie/Data/RU.csv",
+RU <- read_delim("~/PhD/Pédologie/Data/Raw/RU.csv",
                  delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(20:37)]
 
-Bulk_density <- read_delim("~/PhD/Pédologie/Data/Bulk_density.csv",
+Bulk_density <- read_delim("~/PhD/Pédologie/Data/Raw/Bulk_density.csv",
                            delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(12:28)]
 
 
-Drainage <- read_delim("~/PhD/Pédologie/Data/Drainage.csv",
+Drainage <- read_delim("~/PhD/Pédologie/Data/Raw/Drainage.csv",
                        delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(17:32)]
 ```
 
@@ -75,6 +75,8 @@ Labo_data[sapply(Labo_data, grepl, pattern = 'LD')] <- "0"
 Labo_data[,3:27] <- lapply(Labo_data[,3:27], as.numeric)
 
 NA_table <- Labo_data[rowSums(is.na(Labo_data[, 1:27])) > 0, 1:27] # NA only in granulo
+
+write.csv(Labo_data, "~/PhD/Pédologie/Data/Labo_data_binded.csv")
 ```
 
 
