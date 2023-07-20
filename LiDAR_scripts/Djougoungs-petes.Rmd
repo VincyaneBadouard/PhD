@@ -19,18 +19,21 @@ library(sf)
 library(ggplot2)
 ```
 
-# The point cloud path 
+# All the plots scanned by ALS in 2022 
 Il faut l'ALS de tout Paracou ou d'une parcelle où les Djougoungs ont été inventoriés (pas la 16)
 soit clipper les parcelles d'intérêt, soit récupérer l'ensemble des points sol. 
-```{r}
-# catalog
-ctg <- readLAScatalog(folder= "Y:/lidar/ALS/Paracou/2022/TiledClassified")
-```
 
-```{r}
-ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/ALS2022/P16_2022_dnz_4ha.laz"
-```
 
+# Clip for just the plot 13
+```{r}
+ctg <- readLAScatalog(folder= "Y:/lidar/ALS/Paracou/2022/TiledClassified") # las catalog
+# 4 carrés
+crs(ctg) # no crs
+plot(ctg)
+
+ctg <- st_set_crs(ctg, 2972) # attribuer le dernier crs
+crs(ctg)
+```
 ```{r}
 trajfilenames <- list.files("Y:/lidar/ALS/Paracou/2022/TiledClassified", pattern="*.laz", full.names=TRUE) # catch the name of all the files of the folder
 
@@ -39,10 +42,53 @@ ALS_Paracou2022 <- bind_rows(df_list)
 
 ```
 
-# Import the points cloud
+
 ```{r}
-ST <- readLAS(ALS_P16_2022_path)
+shpParacou <- raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Guyafor/GuyaforSubPlots.shp")
+
+Plot13 <- shpParacou[shpParacou@data$Forest == "Paracou" & shpParacou@data$Plot == "13",]
+plot(Plot13)
 ```
+
+```{r}
+las <- merge_spatial(ALS_Paracou2022, Plot13, "inpoly")
+las$Classification[las$inpoly == TRUE] <- "IN"
+las$Classification[las$inpoly == FALSE & las$Classification != LASGROUND] <- "OUT"
+plot(las, color = "Classification")
+
+P13las = filter_poi(las, inpoly == TRUE)
+plot(P13las)
+```
+
+```{r}
+# Region of Interest (ROI): the plot 13
+ROI <- Plot13
+class(ROI) # SpatVector (terra)
+
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+crs(ROI)
+plot(ROI)
+# Clip the point cloud in region of interest
+PC <- clip_roi(las = ctg, geometry = ROI) # très long
+str(PC) # List of 4 las
+
+# Join the 4 las
+PC <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
+lidR::plot(PC) 
+
+# Enlever le bruit (sous sol et au dessus canopée)
+table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
+PC@data <- PC@data[Classification != 7,]
+lidR::plot(PC) 
+
+writeLAS(PC, "Z:/users/VincyaneBadouard/ALS2022/P16_2022_v2_4ha.laz")
+
+# ST <- 
+```
+
+
+
 
 # Keep only ground data
 Que sur données sol de la dernière acquisition sur lidR (triangulation surface))
