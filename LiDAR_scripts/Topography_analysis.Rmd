@@ -1,0 +1,195 @@
+---
+title: "Topography analysis"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+From LiDAR data (ALS, UAV, MLS)
+
+Compute:
+- Digital elevation model (DTM)
+- Topographic Wetness Index (TWI) (unitless)
+- Altitude relative to the creek
+
+# Packages
+```{r, include = F}
+library(tidyverse)
+library(lidR)
+library(data.table)
+library(rgl) # visulaisation 3D
+library(raster)
+library(terra)
+library(sf)
+library(ggplot2)
+library(tidyterra)
+library(tmap) # interactive viewing
+# library(RSAGA)
+
+# For TWI
+library(whitebox)
+whitebox::install_whitebox() # important pour utiliser les WhiteboxTools
+whitebox::wbt_init() # important pour utiliser les WhiteboxTools
+
+# For altitude relative to the creek
+library(Rsagacmd)
+```
+
+# The LiDAR data 
+```{r}
+ALS <- lidR::readLAS(files ="D:/Mes Donnees/PhD/Lidar/ALS2022/P13/P13_2022.laz")
+
+UAV <- "Z:/users/VincyaneBadouard/Lidar/.laz"
+
+MLS <- "Z:/users/VincyaneBadouard/Lidar/.laz"
+
+ST <- ALS
+```
+
+
+# Digital elevation model (DTM)
+https://r-lidar.github.io/lidRbook/dtm.html
+```{r}
+# Triangulation
+# dtm_tin <- rasterize_terrain(ST, res = 1, algorithm = tin())
+# plot_dtm3d(dtm_tin, bg = "black") 
+
+# Invert distance weighting
+dtm_idw <- rasterize_terrain(ST, algorithm = knnidw(k = 10L, p = 2))
+plot_dtm3d(dtm_idw, bg = "black")
+
+# Kriging
+# dtm_kriging <- rasterize_terrain(ST, algorithm = kriging(k = 40))
+# plot_dtm3d(dtm_kriging, bg = "black") 
+
+mnt <- dtm_idw
+
+
+writeRaster(mnt, "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif", overwrite = TRUE) 
+
+mnt <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif")
+
+```
+
+
+# Compute Topographic Wetness Index (TWI)
+TWI = Ln(As/ tan(slope))
+As : specific contributing area
+Slope : the slope at the cell
+
+How:  
+- **dynatopmodel::upslope.area()** (n'existe plus)
+- **Whitebox::wetness_index()** https://vt-hydroinformatics.github.io/rgeoraster.html
+
+- raster ou terra
+
+- with saga : 
+- **envirem::topoWetnessIndex()** 
+- RSAGA::rsaga.geoprocessor(lib = "terrain_analysis", module = "Topographic Wetness Index (One Step)", env = envi)
+
+- with GRASS : **fasterTopidx()**
+
+```{r}
+# Compute the Specific Contributing Area (SCA)
+wbt_d_inf_flow_accumulation(input = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif",
+                            output = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_sca.tif",
+                            out_type = "Specific Contributing Area")
+
+# Compute the slope raster in degrees
+wbt_slope(dem = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif",
+          output = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_slope.tif",
+          units = "degrees")
+
+# Compute the TWI
+wbt_wetness_index(sca = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_sca.tif", # specific contributing area
+                  slope = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_slope.tif", # in degrees
+                  output = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_TWI.tif",
+                  verbose_mode = T)
+
+```
+## Plot
+```{r}
+# Slopes (degrees)
+Slope_deg <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_slope.tif")
+plot(Slope_deg, main = "P13 - Slopes (degrees)")
+
+# TWI
+TWI <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_TWI.tif")
+
+plot(TWI, main = "P13 - TWI")
+
+TWI_df <- as.data.frame(TWI, xy = TRUE) %>%
+  na.omit() %>%
+  dplyr::rename('TWI' = 'P13_2022_TWI')
+
+ggplot() + 
+  geom_raster(data = TWI_df, aes(x = x, y = y, fill = TWI)) +
+  scale_fill_viridis_c() +
+  ggtitle("Paracou P13 - TWI") + 
+  coord_sf()
+```
+
+
+## With saga
+```{r}
+# rasterFiles <- list.files(system.file('extdata', package='envirem'), full.names=TRUE)
+# elev <- raster(grep('elev', rasterFiles, value=TRUE))
+# 
+# # setting up appropriate RSAGA environment
+# sagaEnv <- RSAGA::rsaga.env(modules = '/usr/lib/x86_64-linux-gnu/saga/', cores = 2, 
+#                             parallel = TRUE, version = "2.2.0")
+# topoWetnessIndex(elev, sagaEnv)
+```
+
+# Compute altitude relative to the creek
+```{r}
+# First step : install SAGA-GIS and the Rsagacmd package
+# library(Rsagacmd)
+
+# Load DEM
+# mnt <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif")
+
+# Initialize link between Saga-GIS and Rsagacmd :
+Saga <- saga_gis(saga_bin = "C:/ProgramData/Microsoft/Windows/Start Menu/Programs/QGIS 3.28.3",
+                 verbose = TRUE, raster_backend = "terra",
+                 vector_backend = "sf")
+
+# 1 - Fill Sinks XXL (Wang & Liu)
+mntFilledSinks <- Saga$ta_preprocessor$fill_sinks_xxl_wang_liu(
+  elev = mnt,
+  minslope = .01)
+
+# 2 - Flow Accumulation (Top-Down)
+TotalCatchmentArea <- Saga$ta_hydrology$flow_accumulation_top_down(
+  elevation = mntFilledSinks,
+  method = 'Multiple Flow Direction')
+
+# The ‘flow’ component of the TotalCatchmentArea object will be used as initiation grid for the channel network computation.
+
+# 3 - Channel Network
+ChannelNetwork <- Saga$ta_channels$channel_network(
+  elevation = mntFilledSinks,
+  init_grid = TotalCatchmentArea$flow,
+  init_method = "Greater than",
+  init_value = 2500)
+
+# 4 - Overland Flow Distances To Channel Network
+CreekDistances <- Saga$ta_channels$overland_flow_distance_to_channel_network(
+  elevation = mntFilledSinks,
+  channels = ChannelNetwork$chnlntwrk)
+
+# 5 - Extract Creek Horizontal and Vertical Distances
+CreekVerticalDistance <- CreekDistances$distvert # creek vertical distance 
+
+crs(CreekVerticalDistance) <- crs(mnt) # set the crs
+
+CreekHorizontalDistance <- CreekDistances$disthorz # creek horizontal distance 
+
+crs(CreekHorizontalDistance) <- crs(mnt) # set the crs
+```
+
+
+## Plot
+```{r}
+
+```
+

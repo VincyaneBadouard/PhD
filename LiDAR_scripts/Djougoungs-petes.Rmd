@@ -2,7 +2,7 @@
 title: "Djougoungs-petes"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
-output: pdf_document
+output: html_document
 ---
 Est-ce qu’on les voit au LiDAR ?
 voir sur Fugroviewer ou qgis (d'abord) : triangulation des points sols (tin)
@@ -51,7 +51,6 @@ Leur superficie est la plus étendue dans les parcelles **P13** et **P11**.
 ## Plot 13 geometry
 ```{r}
 shpGuyafor <- raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Guyafor/GuyaforSubPlots.shp")
-plot(shpGuyafor)
 
 shpParacou <- shpGuyafor[shpGuyafor@data$Forest == "Paracou",]
 plot(shpParacou, col = shpParacou@data$Plot == "13")
@@ -117,12 +116,13 @@ PC@data <- PC@data[Classification != 7,]
 lidR::plot(PC) 
 
 # Write
-writeLAS(PC, "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13_2022.laz")
+# writeLAS(PC, "D:/Mes Donnees/PhD/Lidar/ALS2022/P13/P13_2022.laz")
 
 # Read
-# PC <- lidR::readLAS(files = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13_2022.laz")
+PC <- lidR::readLAS(files = "D:/Mes Donnees/PhD/Lidar/ALS2022/P13/P13_2022.laz")
 
 ST <- PC
+plot(ST)
 ```
 
 ## Generate a DTM
@@ -204,7 +204,7 @@ ggplot() +
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(20)) + 
   geom_sf(data = Djougoung_P13) +
-  ggtitle("Paracou 2019 - Thalwegs and Djougoung petes") + 
+  ggtitle("Paracou 2019 P13 - Djougoung petes") + 
   coord_sf()
 
 ```
@@ -212,8 +212,13 @@ Elevation in the Djougoungs zones different of outside?
 ```{r}
 Djougoung_P13 <- st_set_crs(Djougoung_P13, 2972) # attribuer le dernier crs
 
-In_Djougoungs <- mask(mnt, Djougoung_P13)
-plot(In_Djougoungs)
+In_Djoug1 <- mask(mnt, Djougoung_P13[1,])
+In_Djoug2 <- mask(mnt, Djougoung_P13[2,])
+
+plot(In_Djoug1, col = terrain.colors(30),
+     main = "P13 - Djougoung Bas-Fond")
+plot(In_Djoug2, col = terrain.colors(30),
+     main = "P13 - Djougoung Plateau")
 
 ```
 
