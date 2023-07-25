@@ -75,7 +75,6 @@ ctg <- st_set_crs(ctg, 2972) # attribuer le dernier crs
 # 
 # df_list <- lapply(trajfilenames, readLAS) # read all the folder files
 # ALSP13 <- bind_rows(df_list)
-
 ```
 
 
