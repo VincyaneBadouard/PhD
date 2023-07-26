@@ -50,19 +50,8 @@ ST <- ALS
 https://r-lidar.github.io/lidRbook/dtm.html
 ```{r}
 # Triangulation
-# dtm_tin <- rasterize_terrain(ST, res = 1, algorithm = tin())
-# plot_dtm3d(dtm_tin, bg = "black") 
-
-# Invert distance weighting
-dtm_idw <- rasterize_terrain(ST, algorithm = knnidw(k = 10L, p = 2))
-plot_dtm3d(dtm_idw, bg = "black")
-
-# Kriging
-# dtm_kriging <- rasterize_terrain(ST, algorithm = kriging(k = 40))
-# plot_dtm3d(dtm_kriging, bg = "black") 
-
-mnt <- dtm_idw
-
+mnt <- rasterize_terrain(ST, res = 1, algorithm = tin())
+# plot_dtm3d(dtm_tin, bg = "black")
 
 writeRaster(mnt, "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif", overwrite = TRUE) 
 
@@ -128,16 +117,17 @@ ggplot() +
   coord_sf()
 ```
 
+**A FAIRE TWI vérifier avec celui de saga**
 
 ## With saga
 ```{r}
-# rasterFiles <- list.files(system.file('extdata', package='envirem'), full.names=TRUE)
-# elev <- raster(grep('elev', rasterFiles, value=TRUE))
-# 
-# # setting up appropriate RSAGA environment
-# sagaEnv <- RSAGA::rsaga.env(modules = '/usr/lib/x86_64-linux-gnu/saga/', cores = 2, 
-#                             parallel = TRUE, version = "2.2.0")
-# topoWetnessIndex(elev, sagaEnv)
+rasterFiles <- list.files(system.file('extdata', package='envirem'), full.names=TRUE)
+elev <- raster(grep('elev', rasterFiles, value=TRUE))
+
+# setting up appropriate RSAGA environment
+sagaEnv <- RSAGA::rsaga.env(modules = 'C:/Program Files/QGIS 3.28.3/bin', cores = 2,
+                            parallel = TRUE, version = "7.8.2")
+topoWetnessIndex(elev, sagaEnv)
 ```
 
 # Compute altitude relative to the creek

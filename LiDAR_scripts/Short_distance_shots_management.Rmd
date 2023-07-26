@@ -1,0 +1,69 @@
+---
+title: "Algorithme détection des faux tirs sans écho (courte distance)"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Cas problématiques : 
+1) aucune interception : voxel non vide mais le faisceux ne l'a pas vu et n'a rien intercepté derrière : sans retour.
+
+2) interception partielle mais sans écho car dans zone aveugle (il manque un écho : sous-estimation de la densité, et mauvaise pondération des échos)
+
+
+Solutions :
+- faire démarrer les trajets optiques à 50 cm de la source
+
+il nous reste le biais de la mauvaise pondération des échos, mais qu'on a de toute facon pcq il garde que 3 échos (dont l'écho max)
+
+Peut-être que prendre l'écho d'intensité max : faiseaux arrété non traversant. Ce qui est le cas pour tout objet complètement touché par le faisceaux
+
+
+
+On pourrait en principe tout faire hors d'AMAPvox mais l'algorithme de suivi des rayons étant déjà implémenté dans AMAPVox le plus efficace serait de s'en servir.  
+
+Principe :  les faux tirs vides probables peuvent être détectés **s’ils intersectent des voxels denses/non vides à proximité (<50cm) de la source (= dans la zone aveugle).**
+Dans ce cas, ces tirs sont éliminés (-> NA).
+Les tirs sans échos (direction et position de départ) doivent être reconstruits au préalable.
+
+Mise en œuvre : 
+
+1) on filtre les échos suffisamment proches du trajet optique, susceptibles de renseigner sur les faux tirs vides (e.g. <60cm) ; cela peut être fait avec la fonction *knn* de RANN après **sous-échantillonnage de la trajecto** (e.g. tous les ~10 cm) afin d’éviter de rater les zones aveugles tout en évitant la redondance d’informations qu’on aurait à plus petite échelle spatiale.
+
+2) voxelisation de ces échos proches à haute résolution (e.g. 5 cm ?) ; application d’un nombre d’échos définissant la non-lacunarité (par défaut 1 écho)
+
+3) suivi des trajets optiques (via AMAPVox) des seuls tirs sans retours ; si un tir intersecte un voxel proche non vide (à une distance inférieure ou égale à distance de cécité + epsilon) il est marqué comme « faux tir vide »
+
+4) voxelisation standard après exclusion des faux tirs vides
+
+Zone aveugle : < 50 cm de la source
+
+# Packages
+```{r, include = F}
+library(data.table)
+library(lidR)
+# library(zoo) # permet de synchroniser temps gps et tirs
+library(rgl) # visulaisation 3D
+library(interp)
+library(ggplot2)
+library(plot3D)
+```
+
+# The point cloud and trajectory 
+```{r}
+ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_subsampled_laz1_4.laz")
+
+Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_traj.xyz")
+```
+
+# View data
+```{r}
+Traj
+ST@data
+
+range(ST@data$Range)
+
+```
+Filter entre 0.5 et 1.50 sur cloud compare et on voit la personne qui scanne
+
+

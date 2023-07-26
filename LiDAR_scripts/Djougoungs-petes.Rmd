@@ -127,6 +127,17 @@ plot(ST)
 ## Generate a DTM
 https://r-lidar.github.io/lidRbook/dtm.html
 ```{r}
+# triangulation sans rasteriser
+dtm1 = grid_terrain(ST, 1, tin())
+sdtm1 = shade(dtm1)
+
+dtm2 = grid_terrain(ST, 1, tin(), is_concave = TRUE)
+sdtm2 = shade(dtm2)
+
+sdtm = addLayer(sdtm1, sdtm2)
+plot(sdtm, col = gray.colors(50,0,1))
+
+
 # Triangulation
 dtm_tin <- rasterize_terrain(ST, res = 1, algorithm = tin())
 plot_dtm3d(dtm_tin, bg = "black") 
@@ -139,7 +150,7 @@ plot_dtm3d(dtm_idw, bg = "black") # semble le plus fin
 dtm_kriging <- rasterize_terrain(ST, algorithm = kriging(k = 40))
 plot_dtm3d(dtm_kriging, bg = "black") 
 
-mnt <- dtm_idw
+mnt <- dtm_tin
 ```
 
 
@@ -221,3 +232,4 @@ plot(In_Djoug2, col = terrain.colors(30),
 
 ```
 
+Dans fufro viewer on ne voit rien meme en ne prenant que les tirs verticaux (plus précis) : trop de bruit donc djougoungs pas différenciables du bruit
