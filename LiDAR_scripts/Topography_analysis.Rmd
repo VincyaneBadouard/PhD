@@ -23,7 +23,6 @@ library(sf)
 library(ggplot2)
 library(tidyterra)
 library(tmap) # interactive viewing
-# library(RSAGA)
 
 # For TWI
 library(whitebox)
@@ -38,9 +37,9 @@ library(Rsagacmd)
 ```{r}
 ALS <- lidR::readLAS(files ="D:/Mes Donnees/PhD/Lidar/ALS2022/P13/P13_2022.laz")
 
-UAV <- "Z:/users/VincyaneBadouard/Lidar/.laz"
-
-MLS <- "Z:/users/VincyaneBadouard/Lidar/.laz"
+# UAV <- "Z:/users/VincyaneBadouard/Lidar/.laz"
+# 
+# MLS <- "Z:/users/VincyaneBadouard/Lidar/.laz"
 
 ST <- ALS
 ```
@@ -71,12 +70,13 @@ How:
 
 - raster ou terra
 
-- with saga : 
+- with saga (the better one): 
 - **envirem::topoWetnessIndex()** 
 - RSAGA::rsaga.geoprocessor(lib = "terrain_analysis", module = "Topographic Wetness Index (One Step)", env = envi)
 
 - with GRASS : **fasterTopidx()**
 
+## without SAGA
 ```{r}
 # Compute the Specific Contributing Area (SCA)
 wbt_d_inf_flow_accumulation(input = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif",
@@ -95,7 +95,7 @@ wbt_wetness_index(sca = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_sc
                   verbose_mode = T)
 
 ```
-## Plot
+### Plot
 ```{r}
 # Slopes (degrees)
 Slope_deg <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_slope.tif")
@@ -120,15 +120,30 @@ ggplot() +
 **A FAIRE TWI vérifier avec celui de saga**
 
 ## With saga
+- **envirem::topoWetnessIndex()** 
+- RSAGA::rsaga.geoprocessor(lib = "terrain_analysis", module = "Topographic Wetness Index (One Step)", env = envi)
+
 ```{r}
 rasterFiles <- list.files(system.file('extdata', package='envirem'), full.names=TRUE)
 elev <- raster(grep('elev', rasterFiles, value=TRUE))
 
+library(RSAGA)
+# Avec RSAGA
 # setting up appropriate RSAGA environment
-sagaEnv <- RSAGA::rsaga.env(modules = 'C:/Program Files/QGIS 3.28.3/bin', cores = 2,
-                            parallel = TRUE, version = "7.8.2")
-topoWetnessIndex(elev, sagaEnv)
+# C:/Program Files/QGIS 3.28.3/apps/saga/saga_cmd.exe
+Saga_env <- rsaga.env() 
+Saga_env
+Saga_env <- rsaga.env(workspace = 'C:/Program Files/QGIS 3.28.3/bin', modules = , cores = 2, parallel = TRUE, version = "7.8.2")
+
+
+rsaga.wetness.index(mnt, "TWI.sgrd", env = Saga_env)
+
+# Avec envirem
+library(envirem)
+topoWetnessIndex(mnt, sagaEnv = Saga_env)
 ```
+
+
 
 # Compute altitude relative to the creek
 ```{r}

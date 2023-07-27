@@ -38,6 +38,8 @@ Mise en œuvre :
 
 Zone aveugle : < 50 cm de la source
 
+scripts : Y:\users\VincyaneBadouard\codemartyr\DetectClutteredVolumesCloseToSensor.R
+
 # Packages
 ```{r, include = F}
 library(data.table)
