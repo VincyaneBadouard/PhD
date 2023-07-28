@@ -1,0 +1,115 @@
+---
+title: "Correct stake coordinates"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+1) Faire une carte des piquets tels que placés réellement
+- Celui le plus au sud-ouest est 0.0
+- Puis en allant à l’est, tu rajoutes les Y2
+- Et en allant au nord, tu rajoutes les X2
+
+2) Faire une carte de leur position théorique : rajouter 10 à chaque fois
+
+# Packages
+```{r}
+library(readr)
+library(tidyverse)
+```
+
+# Import data
+Site : Paracou - P16
+Subplots :
+- 13, 18, 23, 24 : oui
+- 14-15-19-20 : pas encore 
+
+```{r}
+Piquets_Paracou <- read_delim("~/PhD/Inventories/Measures_piquets_Paracou.csv", 
+                              delim = ";", escape_double = FALSE, trim_ws = TRUE)
+View(Piquets_Paracou)
+names(Piquets_Paracou)
+original <- Piquets_Paracou
+```
+"plot" : numéro du subplot
+"quadra.nb.X" : number of column where the 10m x 10m quadrat is placed (0 - 9. 0 = sud; 9 = north).
+"quadra.nb.Y" : number of row where the 10m x 10m quadrat is placed (0 - 9. 0 = west; 9 = east).
+"q.length.X" : size of the southern side of the 10m x 10m quadrat (m).
+"q.length.X2" : size of the northern side of the 10m x 10m quadrat (m).
+"q.length.Y" : size of the western side of the 10m x 10m quadrat (m).
+"q.length.Y2" : size of the eastern side of the 10m x 10m quadrat (m).
+
+
+
+# Real place
+## Empty data
+```{r}
+P13_real <- data.frame(Plot = rep(13, 12),
+                       Num = seq(0.00, 0.11, by = 0.01),
+                       X = rep(NA, 12),
+                       Y = rep(NA, 12)
+)
+View(P13)
+```
+
+```{r}
+Supp_rows <- data.frame(plot = rep(c(13, 18, 23, 24), times = 10),
+                        quadra.nb.X = rep(c(1:9), times = 4),
+                        quadra.nb.Y = rep(10, times = 10),
+                        q.length.X = rep(NA, times = 10),
+                        q.length.X2 = rep(NA, times = 10),
+                        q.length.Y = rep(NA, times = 10),
+                        q.length.Y2 = rep(NA, times = 10))
+
+test <- Piquets_Paracou %>% 
+  rbind(Supp_rows) %>% 
+  arrange(plot) %>% 
+  arrange(quadra.nb.Y)
+
+test <- Piquets_Paracou %>% 
+  add_row(quadra.nb.Y = 10, .after = c(10, 20))
+mutate(X = ifelse(quadra.nb.X == 0, 0, NA)) %>% 
+  mutate(Y = ifelse(quadra.nb.Y == 0, 0, NA)) # %>% 
+# group_by(Plot) %>% 
+# mutate(X = ifelse(quadra.nb.X == 0, quadra.nb.Y == 1
+
+# Remplir Y pour X = 0
+Y <- c(0, rep(NA, 10))
+Y_length <- Piquets_Paracou[Piquets_Paracou$plot==24 &
+                              Piquets_Paracou$quadra.nb.X == 0,]$q.length.Y
+
+for(i in 1:10){
+  Y[i+1] = Y[i] + Y_length[i]
+}    
+
+Y_length
+Y
+
+Piquets_Paracou[Piquets_Paracou$plot==24 &
+                  Piquets_Paracou$quadra.nb.X == 0,]$Y <- Y
+```
+
+
+## Data filling
+```{r}
+
+
+```
+
+# Plot
+une couleur par plot
+```{r}
+plot(Piquets_Paracou)
+```
+
+# Theoric place
+Rajouter 10 à chaque fois
+```{r}
+
+```
+
+## Plot
+une couleur par plot
+```{r}
+plot(Piquets_Paracou)
+```

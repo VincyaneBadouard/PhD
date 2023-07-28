@@ -24,11 +24,6 @@ library(ggplot2)
 library(tidyterra)
 library(tmap) # interactive viewing
 
-# For TWI
-library(whitebox)
-whitebox::install_whitebox() # important pour utiliser les WhiteboxTools
-whitebox::wbt_init() # important pour utiliser les WhiteboxTools
-
 # For altitude relative to the creek
 library(Rsagacmd)
 ```
@@ -49,12 +44,12 @@ ST <- ALS
 https://r-lidar.github.io/lidRbook/dtm.html
 ```{r}
 # Triangulation
-mnt <- rasterize_terrain(ST, res = 1, algorithm = tin())
-# plot_dtm3d(dtm_tin, bg = "black")
+mnt <- rasterize_terrain(ST, res = 5, algorithm = tin())
+plot_dtm3d(mnt, bg = "black")
 
-writeRaster(mnt, "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif", overwrite = TRUE) 
+writeRaster(mnt, "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt5m.tif", overwrite = TRUE) 
 
-mnt <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif")
+mnt <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt5m.tif")
 
 ```
 
@@ -78,13 +73,17 @@ How:
 
 ## without SAGA
 ```{r}
+library(whitebox)
+whitebox::install_whitebox() # important pour utiliser les WhiteboxTools
+whitebox::wbt_init() # important pour utiliser les WhiteboxTools
+
 # Compute the Specific Contributing Area (SCA)
-wbt_d_inf_flow_accumulation(input = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif",
+wbt_d_inf_flow_accumulation(input = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt5m.tif",
                             output = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_sca.tif",
                             out_type = "Specific Contributing Area")
 
 # Compute the slope raster in degrees
-wbt_slope(dem = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt.tif",
+wbt_slope(dem = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt5m.tif",
           output = "Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_slope.tif",
           units = "degrees")
 
@@ -116,10 +115,12 @@ ggplot() +
   ggtitle("Paracou P13 - TWI") + 
   coord_sf()
 ```
+Même à 5m de résolution ce n'est pas ce qu'on attend. On fera donc le TWI sous SAGA
 
 **A FAIRE TWI vérifier avec celui de saga**
 
 ## With saga
+Il faut saga 8.4.1 max
 - **envirem::topoWetnessIndex()** 
 - RSAGA::rsaga.geoprocessor(lib = "terrain_analysis", module = "Topographic Wetness Index (One Step)", env = envi)
 
@@ -130,17 +131,18 @@ elev <- raster(grep('elev', rasterFiles, value=TRUE))
 library(RSAGA)
 # Avec RSAGA
 # setting up appropriate RSAGA environment
-# C:/Program Files/QGIS 3.28.3/apps/saga/saga_cmd.exe
 Saga_env <- rsaga.env() 
 Saga_env
-Saga_env <- rsaga.env(workspace = 'C:/Program Files/QGIS 3.28.3/bin', modules = , cores = 2, parallel = TRUE, version = "7.8.2")
+# Saga_env <- rsaga.env(workspace = ".", path = "C:/Progra~1/SAGA",
+#                       modules = "C:/Progra~1/SAGA/tools", cores = 2, parallel = TRUE, version = "9.0.0")
 
+rsaga.geoprocessor(lib = "terrain_analysis", module = "Topographic Wetness Index (One Step)", env = Saga_env)
 
-rsaga.wetness.index(mnt, "TWI.sgrd", env = Saga_env)
+SWI1 <- rsaga.wetness.index("P13_2022_mnt.sgrd", "TWI.sgrd", env = Saga_env)
 
 # Avec envirem
 library(envirem)
-topoWetnessIndex(mnt, sagaEnv = Saga_env)
+SWI2 <- topoWetnessIndex(mnt, sagaEnv = Saga_env)
 ```
 
 
