@@ -29,6 +29,8 @@ Piquets_Paracou <- read_delim("~/PhD/Inventories/Measures_piquets_Paracou.csv",
                               delim = ";", escape_double = FALSE, trim_ws = TRUE)
 View(Piquets_Paracou)
 names(Piquets_Paracou)
+summary(Piquets_Paracou) # Min q.length.X : 1.0
+Piquets_Paracou <- Piquets_Paracou[complete.cases(Piquets_Paracou),] # enlever les lignes à NA
 original <- Piquets_Paracou
 ```
 "plot" : numéro du subplot
@@ -42,74 +44,199 @@ original <- Piquets_Paracou
 
 
 # Real place
-## Empty data
+
+## Ajouter les lignes et colonnes manquantes pour les coordonnées des piquets
 ```{r}
-P13_real <- data.frame(Plot = rep(13, 12),
-                       Num = seq(0.00, 0.11, by = 0.01),
-                       X = rep(NA, 12),
-                       Y = rep(NA, 12)
-)
-View(P13)
+nrow(Piquets_Paracou[Piquets_Paracou$quadra.nb.X==9,]) # 40
+nrow(Piquets_Paracou[Piquets_Paracou$quadra.nb.Y==9,]) # 40
+# 4 plots
+Supp_rowsX <- data.frame(plot = rep(c(13, 18, 23, 24), times = 11),
+                         quadra.nb.X = rep(10, times = 11),
+                         quadra.nb.Y = rep(c(0:10), times = 4),
+                         q.length.X = rep(NA, times = 11),
+                         q.length.X2 = rep(NA, times = 11),
+                         q.length.Y = rep(NA, times = 11),
+                         q.length.Y2 = rep(NA, times = 11))
+
+Supp_rowsY <- data.frame(plot = rep(c(13, 18, 23, 24), times = 11),
+                         quadra.nb.X = rep(c(0:10), times = 4),
+                         quadra.nb.Y = rep(10, times = 11),
+                         q.length.X = rep(NA, times = 11),
+                         q.length.X2 = rep(NA, times = 11),
+                         q.length.Y = rep(NA, times = 11),
+                         q.length.Y2 = rep(NA, times = 11))
+
+Supp_rows <- unique(rbind(Supp_rowsX, Supp_rowsY))
+
+Piquets_Paracou <- Piquets_Paracou %>% 
+  rbind(Supp_rows) %>% 
+  arrange(quadra.nb.Y) %>% 
+  arrange(quadra.nb.X) %>% 
+  arrange(plot) %>% 
+  mutate(X = NA) %>% 
+  mutate(Y = NA) 
+
 ```
 
 ```{r}
-Supp_rows <- data.frame(plot = rep(c(13, 18, 23, 24), times = 10),
-                        quadra.nb.X = rep(c(1:9), times = 4),
-                        quadra.nb.Y = rep(10, times = 10),
-                        q.length.X = rep(NA, times = 10),
-                        q.length.X2 = rep(NA, times = 10),
-                        q.length.Y = rep(NA, times = 10),
-                        q.length.Y2 = rep(NA, times = 10))
+plots <- unique(Piquets_Paracou$plot)
 
-test <- Piquets_Paracou %>% 
-  rbind(Supp_rows) %>% 
-  arrange(plot) %>% 
-  arrange(quadra.nb.Y)
-
-test <- Piquets_Paracou %>% 
-  add_row(quadra.nb.Y = 10, .after = c(10, 20))
-mutate(X = ifelse(quadra.nb.X == 0, 0, NA)) %>% 
-  mutate(Y = ifelse(quadra.nb.Y == 0, 0, NA)) # %>% 
-# group_by(Plot) %>% 
-# mutate(X = ifelse(quadra.nb.X == 0, quadra.nb.Y == 1
-
-# Remplir Y pour X = 0
-Y <- c(0, rep(NA, 10))
-Y_length <- Piquets_Paracou[Piquets_Paracou$plot==24 &
-                              Piquets_Paracou$quadra.nb.X == 0,]$q.length.Y
-
-for(i in 1:10){
-  Y[i+1] = Y[i] + Y_length[i]
-}    
-
-Y_length
-Y
-
-Piquets_Paracou[Piquets_Paracou$plot==24 &
-                  Piquets_Paracou$quadra.nb.X == 0,]$Y <- Y
+for(p in plots){
+  # for quadra Y = 10
+  Piquets_Paracou[Piquets_Paracou$plot==p &
+                    Piquets_Paracou$quadra.nb.Y == 10,]$q.length.X <- Piquets_Paracou[Piquets_Paracou$plot==p & Piquets_Paracou$quadra.nb.Y == 9,]$q.length.X2
+  
+  # For quadra X = 10
+  Piquets_Paracou[Piquets_Paracou$plot==p &
+                    Piquets_Paracou$quadra.nb.X == 10,]$q.length.Y <- Piquets_Paracou[Piquets_Paracou$plot==p & Piquets_Paracou$quadra.nb.X == 9,]$q.length.Y2
+}
 ```
 
 
 ## Data filling
 ```{r}
+# Remplir Y pour tous les X
 
-
+for(p in plots){ # for each plot
+  for (x in 0:10){ # for each X
+    
+    Y <- c(0, rep(NA, 10))
+    
+    Y_length <- Piquets_Paracou[Piquets_Paracou$plot==p &
+                                  Piquets_Paracou$quadra.nb.X == x,]$q.length.Y
+    Y_length <- Y_length[-length(Y_length)]
+    
+    for(i in 1:10){ # for each subplot
+      Y[i+1] = Y[i] + Y_length[i]
+    }    
+    
+    # Y_length
+    # Y
+    
+    Piquets_Paracou[Piquets_Paracou$plot==p &
+                      Piquets_Paracou$quadra.nb.X == x,]$Y <- Y
+  }
+}
 ```
 
-# Plot
-une couleur par plot
 ```{r}
-plot(Piquets_Paracou)
+# Remplir X pour tous les Y
+
+for(p in plots){ # for each plot
+  for (y in 0:10){ # for each Y
+    X <- c(0, rep(NA, 10))
+    
+    X_length <- Piquets_Paracou[Piquets_Paracou$plot==p &
+                                  Piquets_Paracou$quadra.nb.Y == y,]$q.length.X
+    X_length <- X_length[-length(X_length)]
+    
+    for(i in 1:10){ # for each subplot
+      X[i+1] = X[i] + X_length[i]
+    }    
+    
+    Piquets_Paracou[Piquets_Paracou$plot==p &
+                      Piquets_Paracou$quadra.nb.Y == y,]$X <- X
+  }
+}
+```
+
+## Plot
+```{r}
+
+ggplot(Piquets_Paracou) +
+  aes(x = X, y = Y) +
+  geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+  theme_minimal() +
+  facet_wrap(vars(plot))
 ```
 
 # Theoric place
 Rajouter 10 à chaque fois
+## Data filling
 ```{r}
+Piquets_theor <- Piquets_Paracou %>% 
+  select(plot, quadra.nb.X, quadra.nb.Y) %>% 
+  mutate(X = NA) %>% 
+  mutate(Y = NA)
 
+# Remplir Y pour tous les X
+
+for(p in plots){ # for each plot
+  for (x in 0:10){ # for each X
+    
+    Y <- c(0, rep(NA, 10))
+    
+    Y_length <- rep(10, 10)
+    
+    for(i in 1:10){ # for each subplot
+      Y[i+1] = Y[i] + Y_length[i]
+    }    
+    
+    # Y_length
+    # Y
+    
+    Piquets_theor[Piquets_theor$plot==p &
+                    Piquets_theor$quadra.nb.X == x,]$Y <- Y
+  }
+}
+```
+
+```{r}
+# Remplir X pour tous les Y
+
+for(p in plots){ # for each plot
+  for (y in 0:10){ # for each Y
+    X <- c(0, rep(NA, 10))
+    
+    X_length <- rep(10, 10)
+    
+    for(i in 1:10){ # for each subplot
+      X[i+1] = X[i] + X_length[i]
+    }    
+    
+    Piquets_theor[Piquets_theor$plot==p &
+                    Piquets_theor$quadra.nb.Y == y,]$X <- X
+  }
+}
 ```
 
 ## Plot
-une couleur par plot
 ```{r}
-plot(Piquets_Paracou)
+ggplot(Piquets_theor) +
+  aes(x = X, y = Y) +
+  geom_point(shape = "circle", size = 1.5, colour = "#112446") +
+  theme_minimal() +
+  facet_wrap(vars(plot))
 ```
+
+## Plot both
+```{r}
+ggplot(Piquets_Paracou) +
+  aes(x = X, y = Y, colour = quadra.nb.X) +
+  geom_point(shape = "circle", size = 1.5,
+             aes(colour = "Reality")) +
+  theme_minimal() +
+  facet_wrap(vars(plot)) +
+  geom_point(data = Piquets_theor, aes(x = X, y = Y, colour = "Expectation"), shape = "circle", size = 1.5) +
+  theme_minimal() +
+  facet_wrap(vars(plot)) +
+  scale_colour_manual(values = c("Reality" = "red",
+                                 "Expectation" = "darkgrey"),
+                      breaks=c("Reality", "Expectation")) +
+  labs(color = "Stakes position")
+```
+
+```{r}
+ggplot(Piquets_Paracou) +
+  aes(x = X, y = Y, colour = as.character(quadra.nb.X)) +
+  geom_point(shape = "circle", size = 1.5) +
+  theme_minimal() +
+  facet_wrap(vars(plot)) +
+  geom_point(data = Piquets_theor, shape = "circle", size = 1.5) +
+  theme_minimal() +
+  facet_wrap(vars(plot)) +
+  scale_fill_brewer(palette = "Blues") +
+  # scale_colour_manual(breaks=c(as.character(0:10))) +
+  labs(color = "Quadra number")
+```
+
