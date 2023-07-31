@@ -4,6 +4,7 @@ author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
 ---
+Algorithme de détection des tirs interrompus par des obstacles trop proches pour être détectés
 
 Cas problématiques : 
 1) aucune interception : voxel non vide mais le faisceux ne l'a pas vu et n'a rien intercepté derrière : sans retour.
