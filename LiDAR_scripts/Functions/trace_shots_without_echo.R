@@ -47,6 +47,7 @@ trace_shots_without_echo <- function(ST, Traj, vector_coord){
     ngaps <- round(gaps/dt_mean) # nombre de shots sans écho qui on pu se faire entre ceux avec écho
     # ngaps
     
+    
     index <- which(diff_time > reg_val) # indice des shots pas réguliers
     
     all(Ring$gpstime[index+1]-Ring$gpstime[index] == gaps) # vérifier que le temps de gaps correspond au temps entre  entre 2 shots à écho
