@@ -4,6 +4,7 @@ author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
 ---
+Algorithme de détection des tirs interrompus par des obstacles trop proches pour être détectés
 
 
 1) Lorsqu'on aura acquis nos données, avant de filtrer pour enlever l'humain il faut coder que les acquitions entre 0 et 1.50 sont donc pas des tirs vides.

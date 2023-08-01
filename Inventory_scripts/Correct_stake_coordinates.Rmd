@@ -78,6 +78,7 @@ Piquets_Paracou <- Piquets_Paracou %>%
 
 ```
 
+## Ajouter les lignes et colonnes manquantes pour les coordonnées des piquets
 ```{r}
 plots <- unique(Piquets_Paracou$plot)
 
@@ -99,7 +100,7 @@ for(p in plots){
 
 for(p in plots){ # for each plot
   for (x in 0:10){ # for each X
-    
+
     Y <- c(0, rep(NA, 10))
     
     Y_length <- Piquets_Paracou[Piquets_Paracou$plot==p &
@@ -163,7 +164,7 @@ Piquets_theor <- Piquets_Paracou %>%
 
 for(p in plots){ # for each plot
   for (x in 0:10){ # for each X
-    
+
     Y <- c(0, rep(NA, 10))
     
     Y_length <- rep(10, 10)
