@@ -8,45 +8,64 @@
 #' - Ring
 #' - gpstime
 #' 
-#' @param Traj Trajectory file
+#' @param Traj () Trajectory file
 #' 
-#' @param vector_coord Table of the vector coordinates of the shots *with* echo
+#' @param vector_coord () Table of the vector coordinates of the shots *with* echo
+#' 
+#' @param frot : frequence de rotation en Hz
+#' @param SampleTime (integer) Samples the dataset by the number of seconds given to quickly test the function
 #'
 #' @return A table with the vector coordinates of the shots without echo
 #' @export
 #'
 #' @examples
+#' library(lidR)
+#' 
 #' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_subsampled_laz1_4.laz")
 #' ST_broc <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_decim2.5cm_range1.5.laz")
 #' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4.laz")
-#' Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_traj.xyz")
+#' Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_traj.xyz")
 #' 
 #' ST <- ST_broc
-#' vector_coord <- trace_shots_with_echo(ST, traj)
-#' Gaps_vect_coord <- trace_shots_without_echo(ST, traj)
+#' vector_coord <- trace_shots_with_echo(ST, Traj)
+#' Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord SampleTime = 3, OneRing = TRUE)
 #' 
-trace_shots_without_echo <- function(ST, Traj, vector_coord){
+trace_shots_without_echo <- function(ST,
+                                     Traj,
+                                     vector_coord,
+                                     frot = 20,
+                                     SampleTime = NULL,
+                                     OneRing = FALSE){
+  
+  options(digits=22) # to see all the digits
   
   # Take only the 1st echo
   Cloud <- ST@data[ReturnNumber == 0]
   
-  for(R in 1:max(Cloud[,Ring])){
+  if(!is.null(SampleTime)){ # sample only few seconds
+    fstsec <- Cloud$gpstime[50]
+    Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
+    Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
+  }
+  
+  if(OneRing){Rings <- 2} else {Rings <- min(Cloud[,Ring]):max(Cloud[,Ring])}
+  
+  for(R in Rings){
     # Separate data of each ring in different tables
     Ring <- Cloud[Ring == R]
-
+    
     # Find the temporal gaps in the regular time step --------------------------
-    options(digits=22) # to see all the digits
     
     ## Compute time step 
     diff_time <- diff(sort(Ring$gpstime))
     # any(diff_time==0)
+    # prendre la valeur la plus fréquente (pas le mode)
     reg_val <- round(median(diff_time),digits = 5) + 0.00001 # 0.00005 seems to be the most regular value
     dt_mean <- mean(diff_time[diff_time < reg_val]) # pas de temps de référence (dt) (moyenne des réguliers)
     gaps <- diff_time[diff_time > reg_val] # ceux qui ne sont pas réguliers
     # gaps
-    ngaps <- round(gaps/dt_mean) # nombre de shots sans écho qui on pu se faire entre ceux avec écho
+    ngaps <- round(gaps/dt_mean)-1 # nombre de shots sans écho qui on pu se faire entre ceux avec écho
     # ngaps
-    
     
     index <- which(diff_time > reg_val) # indice des shots pas réguliers
     
@@ -55,7 +74,7 @@ trace_shots_without_echo <- function(ST, Traj, vector_coord){
     # Calculer les gps time manqués ---------------------------------------------
     # chaque index a un ngaps
     # Ring$gpstime[index] + seq(ngaps) * dt_mean # temps de chaque tir manqué par index
-    
+   
     gpstime_gaps <- unlist(sapply(seq(ngaps), function(i)
       # temps annormal + (nbr)
       Ring$gpstime[index][i] + seq(ngaps[i]) * dt_mean # un index pour chaque tir sans écho
@@ -97,6 +116,19 @@ trace_shots_without_echo <- function(ST, Traj, vector_coord){
     gaps_vector_coord$X0 <- Xa
     gaps_vector_coord$Y0 <- Ya
     gaps_vector_coord$Z0 <- Za
+    
+    # (1/40)/(5*(10^-5))
+    inverse_gaps <- gaps>(1/40) # 1/40 temps mis pour faire un demi tour
+    demitour <- (1/frot)/2
+    
+    val <- ceiling(gpstime_gaps/demitour)-1
+    impair <- val%%2 != 0 # T = pair
+    
+    
+    gaps_vector_coord$x_dir[impair] <-  gaps_vector_coord$x_dir[impair]*(-1)
+    gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$y_dir[impair]*(-1)
+    gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$z_dir[impair]*(-1)
+    
     
   } # end each Ring
   

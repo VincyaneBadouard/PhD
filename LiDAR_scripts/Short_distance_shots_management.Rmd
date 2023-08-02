@@ -65,9 +65,9 @@ library(rgl) # visulaisation 3D
 
 # The point cloud and trajectory 
 ```{r}
-ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_subsampled_laz1_4.laz")
+ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4.laz")
 
-Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_traj.xyz")
+Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_traj.xyz")
 ```
 
 # View data
@@ -75,8 +75,8 @@ Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Esca
 Traj
 ST@data
 
-range(ST@data$Range)
-
+range(ST@data$gpstime)
+range(Traj$gpstime)
 ```
 Filter entre 0.5 et 1.50 sur cloud compare et on voit la personne qui scanne
 
@@ -84,7 +84,7 @@ Filter entre 0.5 et 1.50 sur cloud compare et on voit la personne qui scanne
 
 ## Lecture de la trajectoire (IMU)
 ```{r}
-traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_traj.xyz")
+traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_traj.xyz")
 plot3d(traj[,.(x,y,z)])
 ```
 
@@ -100,9 +100,9 @@ plot3d(sel_ds[,.(x,y,z)], aspect=F) # si on zoom on voit les points plus espacé
 
 ## Lecture du nuage de points
 Au préalable :
-- décimer le ndp dans les zones de fortes densité (2.5 cm),
+- décimer le ndp dans les zones de fortes densité (2.5 cm) (edid>subsample (0.025m)) sur CloudCompare
 - dont le range est supérieur à 1.5m pour exclure l’opérateur mobile
-- ne charger que les coordonnées et les points
+- ne charger que les coordonnées et les points sous R
 
 
 Tout ceci afin d’alléger le coût mémoire.
@@ -118,7 +118,7 @@ En cas de coût prohibitif en mémoire penser à daller le nuage de points et d�
 #            select="xyzRange")
 
 ndp_clutter <- readLAS(
-  "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_decim2.5cm_range1.5.laz",
+  "Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4_decim- Cloud.laz",
   select = "xyz")
 plot(ndp_clutter)
 ndp <- ndp_clutter
@@ -135,7 +135,7 @@ start.time <- Sys.time()
 encomb <- nn2(ndp@data[,.(X,Y,Z)], sel_ds[,.(x,y,z)],
               treetype="kd", # k-dimensional tree : partition de l'espace
               k=min(50,nrow(ndp@data[,.(X,Y,Z)])), # maximum number of nearest neighbours to compute
-              searchtype = "radius", radius = 0.6)
+              searchtype = "radius", radius = 1.5) # 0.6
 
 # A list of length 2 with elements:
 # nn.idx : A N x k integer matrix returning the near neighbour indices.
@@ -156,14 +156,88 @@ points3d(sel_ds[,.(x,y,z)], aspect=F, col="red", add=T) # emission points
 # Partie 2 - Retracer les tirs sans écho
 **avec** la zone 1.5m **non enlevée** : sans filtre (= l'humain)
 
+```{r}
+vector_coord <- trace_shots_with_echo(ST, Traj, SampleTime = 3, OneRing = TRUE)
 
+Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime = 3, OneRing = TRUE)
+
+# pq tirs vides dans le plafond 
+
+```
+
+
+```{r}
+
+XB <- c()
+YB <- c()
+ZB <- c()
+# for(i in 1:nrow(Gaps_vect_coord)){
+for(p in seq(0.05,1.50, by= 0.05)){ 
+  p= 0.05
+  XB = Gaps_vect_coord$X0 + Gaps_vect_coord$x_dir * p
+  YB = Gaps_vect_coord$Y0 + Gaps_vect_coord$y_dir * p
+  ZB = Gaps_vect_coord$Z0 + Gaps_vect_coord$z_dir * p
+  # idx = # reccupérer l'id du vecteur 
+  # pas : # 5, 10, 15 etc
+}
+# }
+
+options(digits = 2)
+project_points <- function(Gaps_vect_coord, p = 0.05){
+  XB = Gaps_vect_coord$X0 + Gaps_vect_coord$x_dir * p
+  YB = Gaps_vect_coord$Y0 + Gaps_vect_coord$y_dir * p
+  ZB = Gaps_vect_coord$Z0 + Gaps_vect_coord$z_dir * p
+  
+  cloud_virt <- data.frame(XB = XB,
+                           YB = YB,
+                           ZB = ZB,
+                           Dist = p,
+                           gpstime = Gaps_vect_coord$gpstime)
+  return(cloud_virt)
+}
+
+res <- c()
+for(p in seq(0.05,1.50, by= 0.05)){
+  res <- rbind(res, project_points(Gaps_vect_coord, p = p))
+}
+
+mapply(project_points, )
+
+
+
+cloud_virt <- data.frame(XB = XB,
+                         YB = YB,
+                         ZB = ZB)
+# idx = nrow(),
+# pas = )
+encomb <- ndp@data[idx, .(X,Y,Z)] 
+
+cloud_virt <- as.data.table(res)
+
+rgl::plot3d(cloud_virt, aspect = F, col = "red")
+rgl::plot3d(encomb, aspect = F, add = T, col = "green")
+rgl::plot3d(Traj[,.(x,y,z)], aspect = F, add = T, col = "black")
+
+```
+
+```{r}
+
+neigh <- nn2(na.omit(cloud_virt[,.(XB,YB,ZB)]), encomb,
+             treetype="kd", # k-dimensional tree : partition de l'espace
+             k=min(1,nrow(ndp@data[,.(X,Y,Z)])), # maximum number of nearest neighbours to compute
+             searchtype = "radius", radius = 0.1) # 0.6
+options(digits=22)
+fake_empty <- unique(cloud_virt[neigh$nn.idx, gpstime]) # les faux vides
+length(fake_empty) # 666
+head(sort(fake_empty))
+```
 
 
 # tester pour chaque vecteur si un point ROUGE 
-  - a au moins un voisin « proche » e.g à moins de 10 cm
-  - a un voisinage encombré (bcp de points proches)
-  - a un voisinage dense (ratio points/tirs élevé)
-  
+- a au moins un voisin « proche » e.g à moins de 10 cm
+- a un voisinage encombré (bcp de points proches)
+- a un voisinage dense (ratio points/tirs élevé)
+
 
 # Vérifier que notre script fonctionne
 Recréer un buffer cécité plus longue distance :1-2m autour de chaque point d'émission
@@ -171,3 +245,5 @@ Enlever tous les points dans ce buffer pour un faisceau
 faire tourner l'algo
 voir si l'algo détecte que ce sont des faux tirs vides
 et n'en crée pas trop 
+
+
