@@ -2,21 +2,33 @@
 #'
 #' @description Retracer les tirs sans écho
 #'
-#' @param ST 
+#' @param ST (LAS) Points cloud
 #' with:
 #' - ReturnNumber
 #' - Ring
 #' - gpstime
 #' 
-#' @param Traj () Trajectory file
-#' 
-#' @param vector_coord () Table of the vector coordinates of the shots *with* echo
-#' 
-#' @param frot : frequence de rotation en Hz
-#' @param SampleTime (integer) Samples the dataset by the number of seconds given to quickly test the function
+#' @param Traj (data.table) Trajectory file
 #'
-#' @return A table with the vector coordinates of the shots without echo
+#' @param vector_coord (data.frame) Table of the vector coordinates of the shots
+#'   *with* echo
+#'
+#' @param frot (integer) Frequency of rotation in Hz
+#'
+#' @param SampleTime (integer) Samples the dataset by the number of seconds given
+#'   to quickly test the function
+#'
+#' @param OneRing (logical) TRUE: process only one ring ; FALSE (default):
+#'   process all the rings
+#'
+#' @return A table (data.frame) with the vector coordinates of the shots without
+#'   echo
+#'   
 #' @export
+#' 
+#' @importFrom lidR
+#' @importFrom data.table
+#' @importFrom interp
 #'
 #' @examples
 #' library(lidR)
@@ -57,10 +69,9 @@ trace_shots_without_echo <- function(ST,
     # Find the temporal gaps in the regular time step --------------------------
     
     ## Compute time step 
-    diff_time <- diff(sort(Ring$gpstime))
+    diff_time <- diff(Ring$gpstime)
     # any(diff_time==0)
-    # prendre la valeur la plus fréquente (pas le mode)
-    reg_val <- round(median(diff_time),digits = 5) + 0.00001 # 0.00005 seems to be the most regular value
+    reg_val <- round(DescTools::Mode(diff_time)[1],digits = 5) + 0.00001 # 0.00005 seems to be the most regular value
     dt_mean <- mean(diff_time[diff_time < reg_val]) # pas de temps de référence (dt) (moyenne des réguliers)
     gaps <- diff_time[diff_time > reg_val] # ceux qui ne sont pas réguliers
     # gaps
@@ -102,7 +113,7 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord <- data.frame(x_dir = x_dir, # vector coordinates
                                     y_dir = y_dir,
                                     z_dir = z_dir,
-                                    Distance = 200,# m. Il n'y a pas de distance puisqu'il n'y a pas d'echo
+                                    Distance = 200,# on projette à 200m. Il n'y a pas de distance puisqu'il n'y a pas d'echo
                                     gpstime = gpstime_gaps) 
     
     ## Compute the norm of the direction vector
@@ -117,11 +128,16 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord$Y0 <- Ya
     gaps_vector_coord$Z0 <- Za
     
-    # (1/40)/(5*(10^-5))
-    inverse_gaps <- gaps>(1/40) # 1/40 temps mis pour faire un demi tour
-    demitour <- (1/frot)/2
     
-    val <- ceiling(gpstime_gaps/demitour)-1
+    # Inverser les vecteurs qui on changé de plan de rotation par rapport aux
+    # vecteurs dont ils sont interpolés : ils ont dépassé le demi-tour (n fois)
+    # (1/40)/(5*(10^-5))
+    # (1/frot)/2 = 1/40 : temps mis pour faire un demi tour
+    # gaps>(1/40) -> vecteurs inversés
+    demitour <- (1/frot)/2 # frot : frequency of rotation in Hz
+    val <- ceiling(gpstime_gaps/demitour)-1 # ils ont dépassé le demi-tour
+    # Les impairs c'est dans le plan oposé à ceux des vecteurs dont ils sont interpolés 
+    # Les pairs ont eu le temps de revcenir dans le même plan
     impair <- val%%2 != 0 # T = pair
     
     

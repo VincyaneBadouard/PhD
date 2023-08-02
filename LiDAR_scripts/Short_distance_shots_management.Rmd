@@ -9,10 +9,6 @@ Algorithme de détection des tirs interrompus par des obstacles trop proches pou
 
 1) Lorsqu'on aura acquis nos données, avant de filtrer pour enlever l'humain il faut coder que les acquitions entre 0 et 1.50 sont donc pas des tirs vides.
 
-2) 
-
-
-
 
 Algorithme de détection des tirs interrompus par des obstacles trop proches pour être détectés.  
 
@@ -77,29 +73,25 @@ ST@data
 
 range(ST@data$gpstime)
 range(Traj$gpstime)
+
+plot3d(Traj[,.(x,y,z)])
 ```
-Filter entre 0.5 et 1.50 sur cloud compare et on voit la personne qui scanne
+Filtrer entre 0.5 et 1.50 sur cloud compare et on voit la personne qui scanne
 
 # Part 1: caractérisation de l'encombrement proche du capteur
-
-## Lecture de la trajectoire (IMU)
-```{r}
-traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_traj.xyz")
-plot3d(traj[,.(x,y,z)])
-```
 
 ## Sur la trajecto sélectionner un point tous les ~10cm
 ```{r}
 ## Function modulo 
 mod <- function(n,m) {n - m * floor(n/m)} # pas trop compris ça 
 
-sel_ds <- traj[mod(1:nrow(traj),10) == 0,] # un point tous les 10° de seconde
-#sel_s=traj[mod(1:nrow(traj),100)==0,]
+sel_ds <- Traj[mod(1:nrow(Traj),10) == 0,] # un point tous les 10° de seconde
+#sel_s=Traj[mod(1:nrow(Traj),100)==0,]
 plot3d(sel_ds[,.(x,y,z)], aspect=F) # si on zoom on voit les points plus espacés
 ```
 
 ## Lecture du nuage de points
-Au préalable :
+Au préalable (unqiquement pour le calcul du voisinage dans la zone de cécité) :
 - décimer le ndp dans les zones de fortes densité (2.5 cm) (edit>subsample (0.025m)) sur CloudCompare
 - dont le range est supérieur à 1.5m pour exclure l’opérateur mobile
 - ne charger que les coordonnées et les points sous R
@@ -113,27 +105,21 @@ Tout ceci afin d’alléger le coût mémoire.
 En cas de coût prohibitif en mémoire penser à daller le nuage de points et d’étendre les trajecto à la jonction des dalles.
 
 ```{r}
-#ndp <- readLAS("y:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_subsampled_laz1_4.laz")
-#ndp <- readLAS("y:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_laz1_4.laz",
-#            select="xyzRange")
-
-ndp_clutter <- readLAS(
+ndp <- readLAS(
   "Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4_decim- Cloud.laz",
   select = "xyz")
-plot(ndp_clutter)
-ndp <- ndp_clutter
-rm(ndp_clutter)
+plot(ndp)
 ```
 
-## Sélection des points proches de la trajecto
-Sélectionner dans le NDP tous les points à moins de 60cm des points de la trajecto
+## Sélection des points proches de la trajecto (points d'émission)
+Sélectionner dans le NDP tous les points à moins de 60cm des points de la trajecto (dans la zone de cécité)
 
 ```{r}
 start.time <- Sys.time()
 # Nearest Neighbour Search with nn2()
 encomb <- nn2(ndp@data[,.(X,Y,Z)], sel_ds[,.(x,y,z)],
               treetype="kd", # k-dimensional tree : partition de l'espace
-              k=min(50,nrow(ndp@data[,.(X,Y,Z)])), # maximum number of nearest neighbours to compute
+              k=min(50,nrow(ndp@data[,.(X,Y,Z)])), # maximum number of nearest neighbours to compute : 50
               searchtype = "radius", radius = 1.5) # 0.6
 
 # A list of length 2 with elements:
@@ -154,11 +140,16 @@ points3d(sel_ds[,.(x,y,z)], aspect=F, col="red", add=T) # emission points
 
 # Partie 2 - Retracer les tirs sans écho
 **avec** la zone 1.5m **non enlevée** : sans filtre (= l'humain)
+et les données non décimées
 
 ```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_with_echo.R")
+
 vector_coord <- trace_shots_with_echo(ST, Traj, SampleTime = 3, OneRing = TRUE)
 
-Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime = 3, OneRing = TRUE)
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_without_echo.R")
+
+Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime = 3, OneRing = TRUE, frot = 20)
 
 # pq tirs vides dans le plafond 
 

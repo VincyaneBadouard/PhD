@@ -3,13 +3,23 @@
 #'@description Compute the direction vectors (AB) between the emission (A) and the
 #'  acquired points (B).
 #'
+#' @param ST (LAS) Points cloud
+#' with:
+#' - ReturnNumber
+#' - Ring
+#' - gpstime
 #'
-#' @param ST 
-#' @param Traj 
-#' @param SampleTime 
-#' @param OneRing 
+#' @param Traj (data.table) Trajectory file
 #'
-#' @return A table with the vector coordinates of the shots with echo
+#' @param SampleTime (integer) Samples the dataset by the number of seconds given
+#'   to quickly test the function
+#'
+#' @param OneRing (logical) TRUE: process only one ring ; FALSE (default):
+#'   process all the rings
+#'
+#' @return A table (data.frame) with the vector coordinates of the shots with
+#'   echo
+#'   
 #' @export
 #' 
 #' @importFrom lidR
