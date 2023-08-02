@@ -1,16 +1,17 @@
 ---
-title: "Correct stake coordinates"
+title: "Correct stake and trees coordinates"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
 1) Faire une carte des piquets tels que placés réellement
-- Celui le plus au sud-ouest est 0.0
-- Puis en allant à l’est, tu rajoutes les Y2
-- Et en allant au nord, tu rajoutes les X2
+ - Faire la moyenne de X et X2 , et la moyenne de Y et Y2 qui devraient être égaux mais qui à la re-mesure ne donne pas exactement la même valeur.
+ - Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)
+ - Les coordonnées y des piquets se calculent en ajoutant la moyenne Y-Y2 de chaque cadrat à la valeur y du quadrat précédent, en commençant de y = 0. Cela pour chaque quadrat X. (du sud vers le nord et d’ouest en est, colonne par colonne)
 
-2) Faire une carte de leur position théorique : rajouter 10 à chaque fois
+
+2) Faire une carte de leur position théorique :  piquets espacés de 10x10
 
 # Packages
 ```{r}
@@ -93,8 +94,15 @@ for(p in plots){
 }
 ```
 
+## Moyenne X-X2 et Y-Y2 (A FAIRE)
+- Faire la moyenne de X et X2 , et la moyenne de Y et Y2 qui devraient être égaux mais qui à la re-mesure ne donne pas exactement la même valeur.
+```{r}
+
+```
+
 
 ## Data filling
+ - Les coordonnées y des piquets se calculent en ajoutant la moyenne Y-Y2 de chaque cadrat à la valeur y du quadrat précédent, en commençant de y = 0. Cela pour chaque quadrat X. (du sud vers le nord et d’ouest en est, colonne par colonne)
 ```{r}
 # Remplir Y pour tous les X
 
@@ -119,6 +127,7 @@ for(p in plots){ # for each plot
   }
 }
 ```
+ - Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)
 
 ```{r}
 # Remplir X pour tous les Y
@@ -152,7 +161,7 @@ ggplot(Piquets_Paracou) +
 ```
 
 # Theoric place
-Rajouter 10 à chaque fois
+ piquets espacés de 10x10
 ## Data filling
 ```{r}
 Piquets_theor <- Piquets_Paracou %>% 
@@ -239,5 +248,27 @@ ggplot(Piquets_Paracou) +
   scale_fill_brewer(palette = "Blues") +
   # scale_colour_manual(breaks=c(as.character(0:10))) +
   labs(color = "Quadra number")
+```
+
+# Correction des coordonnées des arbres (A FAIRE)
+1) Les 4 coins du carré de 1 ha sont eux normalement bien positionnés.
+Nous les prendrons comme référence en projetant les piquets de manière à ce que les 4 coins du carré de 1 ha soient bien représentés (100x100m) (= que le point rouge se superpose au point gris)
+Méthode à chercher : interpolation polynomiale de degré 2 (voir gdalwarp), sur qgis ou R
+
+Après avoir reprojeté les piquets selon ces bornes, on obtient les coordonnées corrigées de chaque piquet
+
+2) et on recalcule les coordonnées des arbres relatives au coin Sud-Ouest corrigé de chaque quadrat.
+
+
+Subsistera l’erreur de mesure des distances.
+
+## Reprojection des piquets selon les coins du carré
+```{r}
+
+```
+
+## Correction des coordonées des arbres selon les piquets S-O corrigés
+```{r}
+
 ```
 

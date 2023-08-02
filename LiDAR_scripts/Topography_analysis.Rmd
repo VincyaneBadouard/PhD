@@ -42,6 +42,7 @@ ST <- ALS
 
 # Digital elevation model (DTM)
 https://r-lidar.github.io/lidRbook/dtm.html
+MNT 2022 de l'entreprise ? non le reconstruire moi avec tin
 ```{r}
 # Triangulation
 mnt <- rasterize_terrain(ST, res = 5, algorithm = tin())

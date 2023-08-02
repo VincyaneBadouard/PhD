@@ -100,7 +100,7 @@ plot3d(sel_ds[,.(x,y,z)], aspect=F) # si on zoom on voit les points plus espacé
 
 ## Lecture du nuage de points
 Au préalable :
-- décimer le ndp dans les zones de fortes densité (2.5 cm) (edid>subsample (0.025m)) sur CloudCompare
+- décimer le ndp dans les zones de fortes densité (2.5 cm) (edit>subsample (0.025m)) sur CloudCompare
 - dont le range est supérieur à 1.5m pour exclure l’opérateur mobile
 - ne charger que les coordonnées et les points sous R
 
@@ -126,8 +126,7 @@ rm(ndp_clutter)
 ```
 
 ## Sélection des points proches de la trajecto
-Sélectionner dans le NDP tous les points à moins de 60cm des points de la trajecto 
-Pour tous les tirs sans échos, tracer un segment de points ROUGES tous les 5cm entre 0 et 50cm
+Sélectionner dans le NDP tous les points à moins de 60cm des points de la trajecto
 
 ```{r}
 start.time <- Sys.time()
@@ -165,24 +164,11 @@ Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime =
 
 ```
 
-
+# Partie 3 - Projeter un nuage de points (B) d'après ces vecteurs dans la zone de cécité tous les 5 cm
+Pour tous les tirs sans échos, tracer un segment de points ROUGES tous les 5cm entre 0 et 50cm
 ```{r}
-
-XB <- c()
-YB <- c()
-ZB <- c()
-# for(i in 1:nrow(Gaps_vect_coord)){
-for(p in seq(0.05,1.50, by= 0.05)){ 
-  p= 0.05
-  XB = Gaps_vect_coord$X0 + Gaps_vect_coord$x_dir * p
-  YB = Gaps_vect_coord$Y0 + Gaps_vect_coord$y_dir * p
-  ZB = Gaps_vect_coord$Z0 + Gaps_vect_coord$z_dir * p
-  # idx = # reccupérer l'id du vecteur 
-  # pas : # 5, 10, 15 etc
-}
-# }
-
 options(digits = 2)
+
 project_points <- function(Gaps_vect_coord, p = 0.05){
   XB = Gaps_vect_coord$X0 + Gaps_vect_coord$x_dir * p
   YB = Gaps_vect_coord$Y0 + Gaps_vect_coord$y_dir * p
@@ -196,36 +182,34 @@ project_points <- function(Gaps_vect_coord, p = 0.05){
   return(cloud_virt)
 }
 
-res <- c()
+cloud_virt <- c()
 for(p in seq(0.05,1.50, by= 0.05)){
-  res <- rbind(res, project_points(Gaps_vect_coord, p = p))
+  cloud_virt <- rbind(cloud_virt, project_points(Gaps_vect_coord, p = p))
 }
 
-mapply(project_points, )
+cloud_virt <- as.data.table(cloud_virt)
 
-
-
-cloud_virt <- data.frame(XB = XB,
-                         YB = YB,
-                         ZB = ZB)
-# idx = nrow(),
-# pas = )
 encomb <- ndp@data[idx, .(X,Y,Z)] 
 
-cloud_virt <- as.data.table(res)
-
-rgl::plot3d(cloud_virt, aspect = F, col = "red")
-rgl::plot3d(encomb, aspect = F, add = T, col = "green")
+rgl::plot3d(cloud_virt, aspect = F, col = "red")# points projetés par le vecteur 
+rgl::plot3d(encomb, aspect = F, add = T, col = "green") # Voisinage à 60 cm
 rgl::plot3d(Traj[,.(x,y,z)], aspect = F, add = T, col = "black")
 
 ```
 
+# Calculer le voisinage à 10 cm de chaque point projeté par le vecteur 
 ```{r}
 
 neigh <- nn2(na.omit(cloud_virt[,.(XB,YB,ZB)]), encomb,
              treetype="kd", # k-dimensional tree : partition de l'espace
              k=min(1,nrow(ndp@data[,.(X,Y,Z)])), # maximum number of nearest neighbours to compute
-             searchtype = "radius", radius = 0.1) # 0.6
+             searchtype = "radius", radius = 0.1)
+
+rgl::plot3d(cloud_virt[,.(XB,YB,ZB)], aspect = F, col = "red")# points projetés par le vecteur 
+rgl::plot3d(neigh, aspect = F, add = T, col = "green") # Voisinage à 60 cm
+rgl::plot3d(Traj[,.(x,y,z)], aspect = F, add = T, col = "black")
+
+
 options(digits=22)
 fake_empty <- unique(cloud_virt[neigh$nn.idx, gpstime]) # les faux vides
 length(fake_empty) # 666
