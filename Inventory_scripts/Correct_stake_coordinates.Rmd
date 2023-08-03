@@ -34,13 +34,13 @@ summary(Piquets_Paracou) # Min q.length.X : 1.0
 Piquets_Paracou <- Piquets_Paracou[complete.cases(Piquets_Paracou),] # enlever les lignes à NA
 original <- Piquets_Paracou
 ```
-"plot" : numéro du subplot
-"quadra.nb.X" : number of column where the 10m x 10m quadrat is placed (0 - 9. 0 = sud; 9 = north).
-"quadra.nb.Y" : number of row where the 10m x 10m quadrat is placed (0 - 9. 0 = west; 9 = east).
-"q.length.X" : size of the southern side of the 10m x 10m quadrat (m).
-"q.length.X2" : size of the northern side of the 10m x 10m quadrat (m).
-"q.length.Y" : size of the western side of the 10m x 10m quadrat (m).
-"q.length.Y2" : size of the eastern side of the 10m x 10m quadrat (m).
+"plot" : numéro du subplot  
+"quadra.nb.X" : number of column where the 10m x 10m quadrat is placed (0 - 9. 0 = sud; 9 = north).  
+"quadra.nb.Y" : number of row where the 10m x 10m quadrat is placed (0 - 9. 0 = west; 9 = east).  
+"q.length.X" : size of the southern side of the 10m x 10m quadrat (m).  
+"q.length.X2" : size of the northern side of the 10m x 10m quadrat (m).  
+"q.length.Y" : size of the western side of the 10m x 10m quadrat (m).  
+"q.length.Y2" : size of the eastern side of the 10m x 10m quadrat (m).  
 
 
 
@@ -127,7 +127,7 @@ for(p in plots){ # for each plot
   }
 }
 ```
- - Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)
+ - Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)  
 
 ```{r}
 # Remplir X pour tous les Y
@@ -161,7 +161,7 @@ ggplot(Piquets_Paracou) +
 ```
 
 # Theoric place
- piquets espacés de 10x10
+piquets espacés de 10x10  
 ## Data filling
 ```{r}
 Piquets_theor <- Piquets_Paracou %>% 
@@ -251,16 +251,16 @@ ggplot(Piquets_Paracou) +
 ```
 
 # Correction des coordonnées des arbres (A FAIRE)
-1) Les 4 coins du carré de 1 ha sont eux normalement bien positionnés.
-Nous les prendrons comme référence en projetant les piquets de manière à ce que les 4 coins du carré de 1 ha soient bien représentés (100x100m) (= que le point rouge se superpose au point gris)
-Méthode à chercher : interpolation polynomiale de degré 2 (voir gdalwarp), sur qgis ou R
+1) Les 4 coins du carré de 1 ha sont eux normalement bien positionnés.  
+Nous les prendrons comme référence en projetant les piquets de manière à ce que les 4 coins du carré de 1 ha soient bien représentés (100x100m) (= que le point rouge se superpose au point gris)  
+Méthode à chercher : interpolation polynomiale de degré 2 (voir gdalwarp), sur qgis ou R  
 
-Après avoir reprojeté les piquets selon ces bornes, on obtient les coordonnées corrigées de chaque piquet
+Après avoir reprojeté les piquets selon ces bornes, on obtient les coordonnées corrigées de chaque piquet  
 
-2) et on recalcule les coordonnées des arbres relatives au coin Sud-Ouest corrigé de chaque quadrat.
+2) et on recalcule les coordonnées des arbres relatives au coin Sud-Ouest corrigé de chaque quadrat.  
 
 
-Subsistera l’erreur de mesure des distances.
+Subsistera l’erreur de mesure des distances.  
 
 ## Reprojection des piquets selon les coins du carré
 ```{r}

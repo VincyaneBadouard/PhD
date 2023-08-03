@@ -6,11 +6,11 @@ output:
   html_document: default
 ---
 
-Voxel pas vu pas échantilloné (occlusion), pas de données, ou mal échantilloné (selon un seuil)
-estimer selon le plus probable selon les besoins
-qui ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
+Concerne les voxels pas vus, pas échantillonés (occlusion), sans données, ou mal échantillonés (selon un seuil).  
+Estimer selon le plus probable selon les besoins,
+lesquels ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 (long)
-Prendre en compte le voisinage en excluant les trouées
+Prendre en compte le voisinage en excluant les trouées.
 
 # Packages
 ```{r, include = F}
@@ -145,7 +145,7 @@ HLE(fullcanopy,
 # fullcanopy@data$attenuation_FPL_unbiasedMLE <-pmin(fullcanopy@data$attenuation_FPL_unbiasedMLE,quantile(x=fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.99)))
 ```
 
-# Create PadBVTotal here
+# Create PadBVTotal
 ```{r}
 fullcanopy@data$PadBVTotal<-2*fullcanopy@data$HLE
 

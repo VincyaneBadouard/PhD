@@ -132,7 +132,7 @@ vector_coord$Z0 <- Za
 vector_coord$gpstime <- Ring1$gpstime 
 ```
 
-### Check that we retreive the original point for emission point, direction vector and distance:
+### Check that we retrieve the original point for emission point, direction vector and distance:
 
 Recalculer x,y,zb : à partir de x,y,zo : xb = x0 + xdir * distance
 pour vérifier qu'on est bon
@@ -141,7 +141,7 @@ check_B <- data.frame(XB = vector_coord$X0 + vector_coord$x_dir * vector_coord$D
                       YB = vector_coord$Y0 + vector_coord$y_dir * vector_coord$Distance,
                       ZB = vector_coord$Z0 + vector_coord$z_dir * vector_coord$Distance)
 
-# Check that we retreive the original point from emission point, direction vector and distance:
+# Check that we retrieve the original point from emission point, direction vector and distance:
 all(check_B$XB - Ring1$X == 0)
 all(check_B$YB - Ring1$Y == 0)
 all(check_B$ZB - Ring1$Z == 0)
@@ -238,7 +238,7 @@ all(diff(all_gpstime[order(all_gpstime)]) < 0.00006) # tous bien < 0.00006
 length(gpstime_gaps) == sum(ngaps) # check qu'il y a autant de temps gps que de tirs sans écho
 ```
 
-### Retreive direction vectors
+### retrieve direction vectors
 ```{r}
 # Interpolate coordinates of the emission point (A) (in the traj) for the gaps gpstime (shots without echo)
 Xa <- approx(x = Traj$gpstime, y = Traj$x, xout = gpstime_gaps)$y # x : temps de la traj, xout : temps des gaps, $y pour avoir les coordonées x et non les temps
@@ -272,6 +272,29 @@ gaps_vector_coord$Z0 <- Za
 
 ```
 
+## Cas des tirs ayant eu le temps de faire un demi tour
+```{r}
+    # Inverser les vecteurs qui on changé de plan de rotation par rapport aux
+    # vecteurs dont ils sont interpolés : ils ont dépassé le demi-tour (n fois)
+    # (1/40)/(5*(10^-5))
+    # (1/frot)/2 = 1/40 : temps mis pour faire un demi tour
+    # gaps>(1/40) -> vecteurs inversés
+    demitour <- (1/frot)/2 # frot : frequency of rotation in Hz
+    val <- ceiling(gpstime_gaps/demitour)-1 # ils ont dépassé le demi-tour
+    # Les impairs c'est dans le plan oposé à ceux des vecteurs dont ils sont interpolés 
+    # Les pairs ont eu le temps de revcenir dans le même plan
+    impair <- val%%2 != 0 # T = pair
+    
+    
+    gaps_vector_coord$x_dir[impair] <-  gaps_vector_coord$x_dir[impair]*(-1)
+    gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$y_dir[impair]*(-1)
+    gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$z_dir[impair]*(-1)
+```
+
+## Cas de tour complet vide
+```{r}
+
+```
 
 # Test our calcul for shots without echo
 To check if our calcul works, we can remove a part of known data and check if we retrieve it : créer des faux sans écho
@@ -283,7 +306,7 @@ We can also quantified the error at 100 m :
 2) après je vire les 10%  (on fait des faux sans écho)
 3) après on essaye de les retouver les faux tirs sans écho (on compare le Xb Initial à 100m et celui estimé à 100m)
 
-If we retreive the removed points means that the sensor rotation speed is stable.
+If we retrieve the removed points means that the sensor rotation speed is stable.
 
 ## Project the points 100 m from their point of emission 
 Emission point (X,Y,Z0) + coord of the direction vector(x,y,z_dir) * Distance (100 m)
@@ -356,14 +379,14 @@ check_B <- data.frame(XB = X0 + x_dir * 100,
                       YB = Y0 + y_dir * 100,
                       ZB = Z0 + z_dir * 100)
 
-# Check that we retreive the original point from emission point, direction vector and distance:
+# Check that we retrieve the original point from emission point, direction vector and distance:
 all(check_B$XB - vector_coord$XB100[removed] == 0)
 all(check_B$YB - vector_coord$YB100[removed] == 0)
 all(check_B$ZB - vector_coord$ZB100[removed] == 0)
 
 all(X0 - vector_coord$X0[removed] == 0)
 all(Y0 - vector_coord$Y0[removed] == 0)
-all(Z0 - vector_coord$Z0[removed] == 0) # the emission coordinates are well retreived!
+all(Z0 - vector_coord$Z0[removed] == 0) # the emission coordinates are well retrieved!
 
 check_B$XB[1]; vector_coord$XB100[removed][1]
 check_B$YB[1]; vector_coord$YB100[removed][1]
@@ -406,10 +429,65 @@ arrows3D(
 ## Check if we retrieve initial data
 
 
-faire pour tous les rings et pour tous les temps
+## Pour tous le jeu de données (A FAIRE)
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_with_echo.R")
 
+vector_coord <- trace_shots_with_echo(ST, Traj, OneRing = F)
+
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_without_echo.R")
+
+Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, OneRing = F, frot = 20)
+```
 
 Pour bosser dans amapvox
-projeter les points sans écho originellment en dehors de la zone d'étude (à 500 m par ex) et enregistrer ces points sous un nouveau laz
+projeter les points sans écho originellement en dehors de la zone d'étude (à 500 m par ex) et enregistrer ces points sous un nouveau laz.
 
-soit compléter le laz existant soit faire un laz à part et combinder avec lidr
+## Project the points 500 m from their point of emission (A FAIRE)
+Emission point (X,Y,Z0) + coord of the direction vector(x,y,z_dir) * Distance (500 m)
+```{r}
+distance <- 500
+vector_coord$XB = vector_coord$X0 + vector_coord$x_dir * distance
+vector_coord$YB = vector_coord$Y0 + vector_coord$y_dir * distance
+vector_coord$ZB = vector_coord$Z0 + vector_coord$z_dir * distance
+```
+
+
+# Ajouter les points projetés dans le nuage de points
+soit compléter le laz existant soit faire un laz à part et binder avec lidr (A FAIRE)
+```{r}
+# transform in a LAS object
+las2 <- LAS(vector_coord[,.(XB,YB,ZB)], ST@header)
+
+# This triggers some warning because we input some inccorectly quantized coordinates. Check the output of las_check()
+las_check(las2)
+# We can fix that
+las2 <- las_quantize(las2, TRUE)
+las2 <- las_update(las2)
+
+las_check(las2)
+
+# To combine the ST and las2 they must have the same columns.
+# We need to make them manually.
+# Here if you load only XYZ in las the job is easier.
+
+las2@data$gpstime = 0
+las2@data$Intensity = 0L
+las2@data$ReturnNumber = 1L
+las2@data$NumberOfReturns = 1L
+las2@data$ScanDirectionFlag = 0L
+las2@data$EdgeOfFlightline = 0L
+las2@data$Classification = 0L
+las2@data$Synthetic_flag = FALSE
+las2@data$Keypoint_flag = FALSE
+las2@data$Withheld_flag = FALSE
+las2@data$ScanAngleRank = 0L
+las2@data$UserData = 0L
+las2@data$PointSourceID = 0L
+
+# Bind
+Output <- lidR::rbind(ST, las2)
+
+writeLAS(Output, "Z:/users/VincyaneBadouard/ALS2022/P16_ALS2022_without_echo.laz")
+```
+

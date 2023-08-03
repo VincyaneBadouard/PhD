@@ -111,7 +111,7 @@ options(digits=12)
 ```
 
 
-# Netoyer les points isolés avant AMAPVox
+# Nettoyer les points isolés avant AMAPVox
 - statistical points removal (enlève les points isolés)
 - autre méthode : dans un espace voxel selon densité de points
 ```{r}
@@ -120,7 +120,7 @@ ST@data <- ST@data[Classification != 7,] # enlever le bruit
 plot(ST) # quasi plus de bruit
 # Question : ça suffit ?
 ```
-
+# Classifier les points sol
 ```{r}
 ST <- PC
 # Modèle numérique de terrain
@@ -178,6 +178,8 @@ plot(initial_intensity~Intensity, data = VP[VP_samp,])
 
 ARRETE LA
 # Calculer la matrice de pondération des échos (matrice de poids)
+finalement on ne considèrera que l’écho d’intensité max (MIR) ?
+car cas d’interception partielle non détectée à courte distance
 ```{r}
 # Compute average intensity per Number Of Returns x Return Number
 # get max return number (variable!)
@@ -262,6 +264,8 @@ Prendre en compte le voisinage en excluant les trouées
 ```
 
 ## Generate light maps from a voxel space
+On simule ensuite à l’aide d’AMAPVox des cartes de transmittance à différentes altitudes au-dessus du sol à l’aide du module transmittance light maps. 
+
 script de traitement : lightMap_1m.xml
 input : test1m_PadHLE.vox
 
@@ -285,7 +289,4 @@ levelplot(`Period 1`~X*Y, data=Light[X<90 & X> -90 & Y<90 & Y> -90 ])
 ```
 
 
-
-Faux tirs manquants à faible distance faire un script au cours de juillet
-
-
+# Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox

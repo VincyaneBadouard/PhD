@@ -4,30 +4,20 @@ author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-Algorithme de détection des tirs interrompus par des obstacles trop proches pour être détectés
+Algorithme de détection des tirs interrompus par des obstacles trop proches pour être détectés (< range minimum).  
 
 
-1) Lorsqu'on aura acquis nos données, avant de filtrer pour enlever l'humain il faut coder que les acquitions entre 0 et 1.50 sont donc pas des tirs vides.
+Cas d'absence de retour à courte distance :  
+1) vrai tir manquant : il n'y avait effectivement pas d'objet : trouée.  
 
+2) faux tir manquant : objet présent mais le faisceux ne l'a pas vu car trop proche.  
 
-Algorithme de détection des tirs interrompus par des obstacles trop proches pour être détectés.  
+3) interception partielle du signal : mais sans écho car dans zone aveugle (il manque un écho : sous-estimation de la densité, et mauvaise pondération des échos (qu'on a de toute facon pcq il garde que 3 échos)).  Solutionné si ne considère que l’écho d’intensité max (MIR).  
 
-Cas problématiques :  
-1) aucune interception : voxel non vide mais le faisceux ne l'a pas vu et n'a rien intercepté derrière : sans retour.  
+Echo d'intensité max : faiseaux arrété non traversant. Ce qui est le cas pour tout objet complètement touché par le faisceaux.  
 
-2) interception partielle mais sans écho car dans zone aveugle (il manque un écho : sous-estimation de la densité, et mauvaise pondération des échos)  
+Quelle est la nature de la transition entre zone aveugle et zone non-aveugle ? franche ou progressive ? 
 
-
-Solutions :
-- faire démarrer les trajets optiques à 50 cm de la source  
-
-il nous reste le biais de la mauvaise pondération des échos, mais qu'on a de toute facon pcq il garde que 3 échos (dont l'écho max)  
-
-Peut-être que prendre l'écho d'intensité max : faiseaux arrété non traversant. Ce qui est le cas pour tout objet complètement touché par le faisceaux.  
-
-
-
-On pourrait en principe tout faire hors d'AMAPvox mais l'algorithme de suivi des rayons étant déjà implémenté dans AMAPVox le plus efficace serait de s'en servir.  
 
 Principe :  les faux tirs vides probables peuvent être détectés **s’ils intersectent des voxels denses/non vides à proximité (<50cm) de la source (= dans la zone aveugle).**
 Dans ce cas, ces tirs sont éliminés (-> NA).
@@ -35,15 +25,35 @@ Les tirs sans échos (direction et position de départ) doivent être reconstrui
 
 Mise en œuvre : 
 
-1) on filtre les échos suffisamment proches du trajet optique, susceptibles de renseigner sur les faux tirs vides (e.g. <60cm) ; cela peut être fait avec la fonction *nn2* de RANN après **sous-échantillonnage de la trajecto** (e.g. tous les ~10 cm) afin d’éviter de rater les zones aveugles tout en évitant la redondance d’informations qu’on aurait à plus petite échelle spatiale.
+1) coder que les acquisitions entre 0 et 1.50 ne sont donc pas des tirs vides
+2) Au préalable (unqiquement pour le calcul du voisinage dans la zone de cécité) :
+- décimer le ndp dans les zones de fortes densité (2.5 cm) (edit>subsample (0.025m)) sur CloudCompare
+- dont le range est supérieur à 1.5m pour exclure l’opérateur
+- ne charger que les coordonnées et les points sous R
 
-2) voxelisation de ces échos proches à haute résolution (e.g. 5 cm ?) ; application d’un nombre d’échos définissant la non-lacunarité (par défaut 1 écho)
+**Version avec AMAPvox** :
+3) on filtre les échos suffisamment proches du trajet optique, susceptibles de renseigner sur les faux tirs vides (e.g. <60cm) ; cela peut être fait avec la fonction *nn2* de RANN après **sous-échantillonnage de la trajecto** (e.g. tous les ~10 cm) afin d’éviter de rater les zones aveugles tout en évitant la redondance d’informations qu’on aurait à plus petite échelle spatiale.
 
-3) suivi des trajets optiques (via AMAPVox) des seuls tirs sans retours ; si un tir intersecte un voxel proche non vide (à une distance inférieure ou égale à distance de cécité + epsilon) il est marqué comme « faux tir vide »
+4) voxelisation de ces échos proches à haute résolution (e.g. 5 cm ?) ; application d’un nombre d’échos définissant la non-lacunarité (par défaut 1 écho)
 
-4) voxelisation standard après exclusion des faux tirs vides
+5) suivi des trajets optiques (via AMAPVox) des seuls tirs sans retours ; si un tir intersecte un voxel proche non vide (à une distance inférieure ou égale à distance de cécité + epsilon) il est marqué comme « faux tir vide »
+
+6) voxelisation standard après exclusion des faux tirs vides
 
 Zone aveugle : < 50 cm de la source
+
+**Version uniquement sous R** : 
+3) sur la trajecto sélectionner un point tous les ~10cm
+4) sélectionner dans le NDP tous les points à moins de 60cm des points de la trajecto 
+5) Retracer les tirs sans écho (vecteurs)
+6) Projeter un nuage de points d'après ces vecteurs dans la zone de cécité tous les 5 cm entre 0 et 50cm
+7) Calculer le voisinage à 10 cm de chaque point projeté par le vecteur
+8) Tester pour chaque vecteur si un point projeté par le vecteur 
+ - a au moins un voisin « proche » (à moins de 10 cm)
+ - a un voisinage encombré (bcp de points proches)
+ - a un voisinage dense (ratio points/tirs élevé)
+ 9) Si oui c'est un faux tir vide : le supprimer. Si non c'est un vrai tir vide (trouée) le garder projeté à 500m.
+
 
 script d'origine de Greg : Y:\users\VincyaneBadouard\codemartyr\DetectClutteredVolumesCloseToSensor.R
 
@@ -78,7 +88,7 @@ plot3d(Traj[,.(x,y,z)])
 ```
 Filtrer entre 0.5 et 1.50 sur cloud compare et on voit la personne qui scanne
 
-# Part 1: caractérisation de l'encombrement proche du capteur
+# Caractérisation de l'encombrement proche du capteur
 
 ## Sur la trajecto sélectionner un point tous les ~10cm
 ```{r}
@@ -138,8 +148,8 @@ points3d(sel_ds[,.(x,y,z)], aspect=F, col="red", add=T) # emission points
 ```
 
 
-# Partie 2 - Retracer les tirs sans écho
-**avec** la zone 1.5m **non enlevée** : sans filtre (= l'humain)
+# Retracer les tirs sans écho
+**avec** la zone 1.5m **non enlevée** : sans filtre (= l'opérateur)
 et les données non décimées
 
 ```{r}
@@ -155,7 +165,7 @@ Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime =
 
 ```
 
-# Partie 3 - Projeter un nuage de points (B) d'après ces vecteurs dans la zone de cécité tous les 5 cm
+# Projeter un nuage de points (B) d'après ces vecteurs dans la zone de cécité tous les 5 cm
 Pour tous les tirs sans échos, tracer un segment de points ROUGES tous les 5cm entre 0 et 50cm
 ```{r}
 options(digits = 2)
@@ -208,10 +218,20 @@ head(sort(fake_empty))
 ```
 
 
-# tester pour chaque vecteur si un point ROUGE 
-- a au moins un voisin « proche » e.g à moins de 10 cm
-- a un voisinage encombré (bcp de points proches)
-- a un voisinage dense (ratio points/tirs élevé)
+# Tester pour chaque vecteur si un point projeté par le vecteur (rouge) (A FAIRE)
+ - a au moins un voisin « proche » (à moins de 10 cm)
+ - a un voisinage encombré (bcp de points proches)
+ - a un voisinage dense (ratio points/tirs élevé)
+```{r}
+
+```
+ 
+
+# Classement des vrais et faux tirs sans écho courte distance (A FAIRE)
+Si oui c'est un faux tir vide : le supprimer. Si non c'est un vrai tir vide (trouée) le garder projeté à 500m.
+```{r}
+
+```
 
 
 # Vérifier que notre script fonctionne
@@ -220,5 +240,7 @@ Enlever tous les points dans ce buffer pour un faisceau
 faire tourner l'algo
 voir si l'algo détecte que ce sont des faux tirs vides
 et n'en crée pas trop 
+
+
 
 

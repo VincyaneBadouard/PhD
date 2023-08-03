@@ -70,6 +70,7 @@ trace_shots_without_echo <- function(ST,
     
     ## Compute time step 
     diff_time <- diff(Ring$gpstime)
+    vector_coord$diff_time <- c(NA,diff_time)
     # any(diff_time==0)
     reg_val <- round(DescTools::Mode(diff_time)[1],digits = 5) + 0.00001 # 0.00005 seems to be the most regular value
     dt_mean <- mean(diff_time[diff_time < reg_val]) # pas de temps de référence (dt) (moyenne des réguliers)
@@ -85,7 +86,7 @@ trace_shots_without_echo <- function(ST,
     # Calculer les gps time manqués ---------------------------------------------
     # chaque index a un ngaps
     # Ring$gpstime[index] + seq(ngaps) * dt_mean # temps de chaque tir manqué par index
-   
+    
     gpstime_gaps <- unlist(sapply(seq(ngaps), function(i)
       # temps annormal + (nbr)
       Ring$gpstime[index][i] + seq(ngaps[i]) * dt_mean # un index pour chaque tir sans écho
@@ -113,7 +114,7 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord <- data.frame(x_dir = x_dir, # vector coordinates
                                     y_dir = y_dir,
                                     z_dir = z_dir,
-                                    Distance = 200,# on projette à 200m. Il n'y a pas de distance puisqu'il n'y a pas d'echo
+                                    Distance = 0,# on projette à 200m. Il n'y a pas de distance puisqu'il n'y a pas d'echo
                                     gpstime = gpstime_gaps) 
     
     ## Compute the norm of the direction vector
@@ -128,22 +129,32 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord$Y0 <- Ya
     gaps_vector_coord$Z0 <- Za
     
+    gaps_vector_coord$diff_time <- NA
+    vectors <- rbind(vector_coord,gaps_vector_coord)
+    vectors <- vectors[with(vectors, order(gpstime)),] 
+    # a faire
+    # mettre le diff-time du bas sur les NA du desssus
     
+    si diff_time > (1/frot)/2 -> on inverse # s'il a dépassé le demi-tour
+    si diff_time > (1/frot) -> on jette (distance = NULL) # tour complet
+    
+    
+    # Cas des tirs ayant eu le temps de faire un demi tour ----------------------
     # Inverser les vecteurs qui on changé de plan de rotation par rapport aux
     # vecteurs dont ils sont interpolés : ils ont dépassé le demi-tour (n fois)
     # (1/40)/(5*(10^-5))
     # (1/frot)/2 = 1/40 : temps mis pour faire un demi tour
     # gaps>(1/40) -> vecteurs inversés
     demitour <- (1/frot)/2 # frot : frequency of rotation in Hz
-    val <- ceiling(gpstime_gaps/demitour)-1 # ils ont dépassé le demi-tour
+    val <- ceiling(diff-time/demitour)-1 # ils ont dépassé le demi-tour
     # Les impairs c'est dans le plan oposé à ceux des vecteurs dont ils sont interpolés 
     # Les pairs ont eu le temps de revcenir dans le même plan
-    impair <- val%%2 != 0 # T = pair
+    impair <- val%%2 != 0 
     
-    
-    gaps_vector_coord$x_dir[impair] <-  gaps_vector_coord$x_dir[impair]*(-1)
+    gaps_vector_coord$x_dir[impair] <- gaps_vector_coord$x_dir[impair]*(-1)
     gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$y_dir[impair]*(-1)
     gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$z_dir[impair]*(-1)
+    
     
     
   } # end each Ring
