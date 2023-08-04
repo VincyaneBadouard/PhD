@@ -56,6 +56,8 @@ mnt <- raster("Z:/users/VincyaneBadouard/Lidar/ALS2022/P13/P13_2022_mnt5m.tif")
 
 
 # Compute Topographic Wetness Index (TWI)
+A calculer pour l’ALS et pour le MLS mais **pas pour l’UAV**
+
 TWI = Ln(As/ tan(slope))
 As : specific contributing area
 Slope : the slope at the cell
