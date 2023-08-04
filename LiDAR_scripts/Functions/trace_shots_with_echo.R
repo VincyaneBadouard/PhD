@@ -51,13 +51,19 @@ trace_shots_with_echo <- function(ST,
   Cloud <- ST@data[ReturnNumber == 0]
   
   if(!is.null(SampleTime)){ # sample only few seconds
-    fstsec <- Cloud$gpstime[50]
+    a <- Cloud[,.(Ring, gpstime)]
+    a <- a[, .SD[1], by = .(Ring)] # 1er gpstime de chaque ring
+    fstsec <- max(max(a$gpstime), min(Traj$gpstime)) # le 1er gpstime commun
     Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
     Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
   }
   
-  if(OneRing){Rings <- 2} else {Rings <- min(Cloud[,Ring]):max(Cloud[,Ring])}
   
+  if(OneRing){Rings <- unique(Cloud[,Ring])[1]
+  }else{ Rings <- unique(Cloud[,Ring]) }
+  
+  # R = Rings
+  vector_coord_Rings <- c()
   for(R in Rings){
     # Separate data of each ring in different tables
     Ring <- Cloud[Ring == R]
@@ -79,9 +85,10 @@ trace_shots_with_echo <- function(ST,
     Za <- approx(Traj$gpstime, y = Traj$z , Ring$gpstime)$y
     
     # Compute the coordinates of the AB vector between the emission and the acquired point
-    vector_coord <- data.frame(x_dir = Xb-Xa,
+    vector_coord <- data.table(x_dir = Xb-Xa,
                                y_dir = Yb-Ya,
-                               z_dir = Zb-Za) # coordinates
+                               z_dir = Zb-Za,
+                               Ring = R) # coordinates
     
     # Compute the norm of the direction vector (AB)
     vector_coord$Distance <- sqrt(
@@ -100,8 +107,10 @@ trace_shots_with_echo <- function(ST,
     # and associated time 
     vector_coord$gpstime <- Ring$gpstime 
     
-    
-    return(vector_coord)
+    # Bind the vectors table of all the rings
+    vector_coord_Rings <- rbind(vector_coord_Rings, vector_coord)
     
   }
+  
+  return(vector_coord_Rings)
 }

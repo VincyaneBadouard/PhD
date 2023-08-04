@@ -55,13 +55,18 @@ trace_shots_without_echo <- function(ST,
   Cloud <- ST@data[ReturnNumber == 0]
   
   if(!is.null(SampleTime)){ # sample only few seconds
-    fstsec <- Cloud$gpstime[50]
+    a <- Cloud[,.(Ring, gpstime)]
+    a <- a[, .SD[1], by = .(Ring)] # 1er gpstime de chaque ring
+    fstsec <- max(max(a$gpstime), min(Traj$gpstime)) # le 1er gpstime commun
     Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
     Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
   }
   
-  if(OneRing){Rings <- 2} else {Rings <- min(Cloud[,Ring]):max(Cloud[,Ring])}
+  if(OneRing){Rings <- unique(Cloud[,Ring])[1]
+  }else{ Rings <- unique(Cloud[,Ring]) }
   
+  # R = Rings
+  vector_coord_Rings <- c()
   for(R in Rings){
     # Separate data of each ring in different tables
     Ring <- Cloud[Ring == R]
@@ -70,7 +75,7 @@ trace_shots_without_echo <- function(ST,
     
     ## Compute time step 
     diff_time <- diff(Ring$gpstime)
-    vector_coord$diff_time <- c(NA,diff_time)
+    vector_coord[Ring==R, diff_time := c(NA,diff_time)] # marche pas
     # any(diff_time==0)
     reg_val <- round(DescTools::Mode(diff_time)[1],digits = 5) + 0.00001 # 0.00005 seems to be the most regular value
     dt_mean <- mean(diff_time[diff_time < reg_val]) # pas de temps de référence (dt) (moyenne des réguliers)
@@ -111,11 +116,12 @@ trace_shots_without_echo <- function(ST,
     
     
     ## In a table:
-    gaps_vector_coord <- data.frame(x_dir = x_dir, # vector coordinates
+    gaps_vector_coord <- data.table(x_dir = x_dir, # vector coordinates
                                     y_dir = y_dir,
                                     z_dir = z_dir,
                                     Distance = 0,# on projette à 200m. Il n'y a pas de distance puisqu'il n'y a pas d'echo
-                                    gpstime = gpstime_gaps) 
+                                    gpstime = gpstime_gaps,
+                                    Ring = R) 
     
     ## Compute the norm of the direction vector
     gaps_dir_norm <- sqrt(gaps_vector_coord$x_dir^2 + gaps_vector_coord$y_dir^2 + gaps_vector_coord$z_dir^2)# n'a pas conservé une norme =1
@@ -130,9 +136,9 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord$Z0 <- Za
     
     gaps_vector_coord$diff_time <- NA
-    vectors <- rbind(vector_coord,gaps_vector_coord)
+    vectors <- rbind(vector_coord, gaps_vector_coord)
     vectors <- vectors[with(vectors, order(gpstime)),] 
-    # a faire
+    # A FAIRE
     # mettre le diff-time du bas sur les NA du desssus
     
     si diff_time > (1/frot)/2 -> on inverse # s'il a dépassé le demi-tour
@@ -155,9 +161,10 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$y_dir[impair]*(-1)
     gaps_vector_coord$y_dir[impair] <- gaps_vector_coord$z_dir[impair]*(-1)
     
-    
+    # Bind the vectors table of all the rings
+    vector_coord_Rings <- rbind(vector_coord_Rings, gaps_vector_coord)
     
   } # end each Ring
   
-  return(gaps_vector_coord)
+  return(vector_coord_Rings)
 }

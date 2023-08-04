@@ -155,11 +155,11 @@ et les données non décimées
 ```{r}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_with_echo.R")
 
-vector_coord <- trace_shots_with_echo(ST, Traj, SampleTime = 3, OneRing = TRUE)
+vector_coord <- trace_shots_with_echo(ST, Traj, SampleTime = 3, OneRing = F)
 
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_without_echo.R")
 
-Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime = 3, OneRing = TRUE, frot = 20)
+Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime = 3, OneRing = F, frot = 20)
 
 # pq tirs vides dans le plafond 
 
