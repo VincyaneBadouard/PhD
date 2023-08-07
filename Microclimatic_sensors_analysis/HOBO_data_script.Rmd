@@ -10,6 +10,7 @@ Objectives:
 - open the HOBO data
 - create a script to open HOBO data in several folders
 - prepare HOBO data for analysis
+- spatialiser tous les capteurs en x,y (triangulation) (A FAIRE)
 - descriptive analysis
 
 Problematics:
@@ -29,7 +30,11 @@ library(RColorBrewer)
 
 # Read 
 ```{r , include = F}
+HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
+
 filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
+
+filenames <- gtools::mixedsort(sort(filenames))
 
 df_list <- lapply(filenames, read_delim, 
                   delim = ";", escape_double = FALSE,
@@ -39,6 +44,17 @@ df_list <- lapply(filenames, read_delim,
                          `Ch: 2 - Lumière   (lux)` = col_number()),
                   locale = locale(decimal_mark = ","), 
                   trim_ws = TRUE) # read all the folder files
+
+HOBOdata <- bind_rows(df_list, .id = "HoboID")
+```
+
+# Combine data and environnment
+```{r}
+HOBOdata <- HOBOdata %>% 
+  mutate(HoboID = as.numeric(HoboID)) %>% 
+  left_join(HOBO_Paracou_env, by = "HoboID")
+
+
 ```
 
 # Rename files
@@ -54,61 +70,66 @@ df_list <- lapply(filenames, read_delim,
 
 
 # Understand the HOBO file
-
+Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
+Ils collectent bien toutes les 15 minutes.
 ```{r}
 # str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
-
-Df1 <- df_list[[1]]
-Df1
-names(Df1)
-summary(Df1)
-# Les capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
-# Ils collectent bien toutes les 15 minutes.
+names(HOBOdata)
+range(HOBOdata$HoboID) # 30 sensors
+range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
+# filter à > "30/03/23 18:00:00"
 ```
 
 # Prepare HOBO data for analysis
-We will keep only data of interest
+Rename variables
 ```{r}
-Df1 <- Df1 %>% 
+HOBOdata <- HOBOdata %>% 
   rename(Index = '#') %>% 
   rename(Time = 'Date et heure (French Guiana Standard Time)') %>% 
   rename(Temp = 'Ch: 1 - Température   (°C)') %>% 
   rename(Light = 'Ch: 2 - Lumière   (lux)') 
-Df1
+HOBOdata
 ```
 
 ## Manage date and hours
 ```{r}
-class(Df1$Time) # the time is in character
+class(HOBOdata$Time) # the time is in character
 
-Df1 <- Df1 %>% 
+HOBOdata <- HOBOdata %>% 
   separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
   mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
+  mutate(Month = month(Date)) %>%
   mutate(Hour = hms::as_hms(Hour)) %>% 
   mutate(Time = mdy_hms(Time)) # format: 2023-03-30 18:15:00
 
 
-max(Df1$Date) # "2023-05-25" the collect date
-max(Df1$Date) - min(Df1$Date) # 56 days of collect
+max(HOBOdata$Date) # "2023-05-25" the collect date
+max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
 ```
 
 ## NA ?
 ```{r}
-# Na_tabble <- Df1 %>% 
+# Na_tabble <- HOBOdata %>% 
 #   filter(is.na(Light) | is.na(Temp))
 # 
-# NA1 <- Df1 %>% 
+# NA1 <- HOBOdata %>% 
 #   filter(Date == "2023-04-04")
 # 
 # # Remove what is between the 15 minutes
-# Df1 <- Df1 %>%
-#   filter(minute(Df1$Time) %in% c("0", "15", "30", "45"))
+# HOBOdata <- HOBOdata %>%
+#   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
 ```
+
+## Sensors coordinates
+```{r}
+
+```
+
 
 ## Different time steps
 ```{r}
 # Average per day
-Df1_stats <- Df1 %>%
+HOBO_stats <- HOBOdata %>%
   group_by(Date) %>%
   mutate(Mean_Temp = mean(Temp)) %>%
   mutate(Sd_Temp = sd(Temp)) %>%
@@ -123,7 +144,7 @@ Df1_stats <- Df1 %>%
   unique()
 
 # By Hour
-Df1_Hour_stats <- Df1 %>%
+HOBO_Hour_stats <- HOBOdata %>%
   group_by(Hour) %>%
   mutate(Mean_Temp = mean(Temp)) %>%
   mutate(Sd_Temp = sd(Temp)) %>%
@@ -140,18 +161,18 @@ Df1_Hour_stats <- Df1 %>%
 
 # Day and night averages (A FAIRE)
 # Night: 19-5h 
-Df1 <- Df1 %>%
+HOBOdata <- HOBOdata %>%
   mutate(Phase = ifelse((Hour >= hms::as_hms("19:00:00") |
                            Hour <= hms::as_hms("05:00:00")), 
                         "Night", "Day"))
 
-max(as.character(Df1[Df1$Phase == "Day",]$Hour)) # 18:45
-min(as.character(Df1[Df1$Phase == "Day",]$Hour)) # 5:15
-max(Df1[Df1$Phase == "Night",]$Light) # 0.2 lux
-min(Df1[Df1$Phase == "Day",]$Light)
+max(as.character(HOBOdata[HOBOdata$Phase == "Day",]$Hour)) # 18:45
+min(as.character(HOBOdata[HOBOdata$Phase == "Day",]$Hour)) # 5:15
+max(HOBOdata[HOBOdata$Phase == "Night",]$Light) # 0.2 lux
+min(HOBOdata[HOBOdata$Phase == "Day",]$Light)
 
 
-Df1_NightDay_stats <- Df1 %>%
+HOBO_NightDay_stats <- HOBOdata %>%
   group_by(Date,Phase) %>%
   mutate(Mean_Temp = mean(Temp)) %>%
   mutate(Sd_Temp = sd(Temp)) %>%
@@ -170,17 +191,17 @@ Df1_NightDay_stats <- Df1 %>%
 # Quick view of the temperature and light over time (dates)
 ```{r}
 # over time: dates
-ggplot(Df1, aes(x = Date, y = Temp)) +
+ggplot(HOBOdata, aes(x = Date, y = Temp)) +
   geom_point() +
   scale_x_date(date_breaks = "1 week")
 
-ggplot(Df1, aes(x = Date, y = Light)) +
+ggplot(HOBOdata, aes(x = Date, y = Light)) +
   geom_point() +
   # scale_y_continuous(limits = c(0, 2000)) +
   scale_x_date(date_breaks = "1 week")
 
 # Over a day
-oneday <- Df1 %>% 
+oneday <- HOBOdata %>% 
   filter(Date == "2023-04-04")
 
 ggplot(oneday, aes(x = Hour,y = Light)) +
@@ -218,30 +239,30 @@ ggplot(oneday, aes(x = Hour)) +
 ## Descriptive stats
 ```{r}
 # for full data
-mean(Df1$Light) # 150 lux
-sd(Df1$Light) # 529 lux
-min(Df1$Light) # 0 lux
-max(Df1$Light) # 21944 lux
+mean(HOBOdata$Light) # 150 lux
+sd(HOBOdata$Light) # 529 lux
+min(HOBOdata$Light) # 0 lux
+max(HOBOdata$Light) # 21944 lux
 
-mean(Df1$Temp) # 25 °C
-sd(Df1$Temp) # 1 °C
-min(Df1$Temp) # 21 °C
-max(Df1$Temp) # 31 °C
+mean(HOBOdata$Temp) # 25 °C
+sd(HOBOdata$Temp) # 1 °C
+min(HOBOdata$Temp) # 21 °C
+max(HOBOdata$Temp) # 31 °C
 
 ```
 
 ## Corrélations
 ```{r}
-cor(Df1$Light,Df1$Temp) # 0.34
-plot(Df1$Temp,Df1$Light) 
-plot(Df1$Temp[Df1$Light<1000],Df1$Light[Df1$Light<1000]) 
-cor(Df1$Light,as.numeric(Df1$Hour)) # 0.023
-cor(Df1$Temp,as.numeric(Df1$Hour)) # 0.31
+cor(HOBOdata$Light,HOBOdata$Temp) # 0.34
+plot(HOBOdata$Temp,HOBOdata$Light) 
+plot(HOBOdata$Temp[HOBOdata$Light<1000],HOBOdata$Light[HOBOdata$Light<1000]) 
+cor(HOBOdata$Light,as.numeric(HOBOdata$Hour)) # 0.023
+cor(HOBOdata$Temp,as.numeric(HOBOdata$Hour)) # 0.31
 # corrélation entre température et lumière
 # corrélation entre l'heure de la journée et la température 
 # pas de corrélation entre l'heure de la journée et la lumière
 
-DF_cor <- Df1 %>% 
+DF_cor <- HOBOdata %>% 
   select(- Index, -Time) %>% 
   mutate(Hour = as.numeric(Hour)) %>% 
   mutate(Date = as.numeric(Date)) %>% 
@@ -263,9 +284,9 @@ corrplot(CorMatrix, method="circle", type="lower",
 Plot evolution of the light (lux) and temperature (°C)
 between the "2023-03-30" and the "2023-05-24"
 ```{r}
-mean(max(Df1$Light)/max(Df1$Temp))
+mean(max(HOBOdata$Light)/max(HOBOdata$Temp))
 coeff <- 715
-ggplot(Df1, aes(x = Date)) +
+ggplot(HOBOdata, aes(x = Date)) +
   geom_point(aes(y = Temp), col = "red") +
   geom_point(aes(y = Light/coeff), col = "orange") +
   scale_y_continuous(
@@ -283,7 +304,7 @@ ggplot(Df1, aes(x = Date)) +
 ```
 
 ```{r}
-ggplot(Df1, aes(x = as.character(Date), y = Light)) +
+ggplot(HOBOdata, aes(x = as.character(Date), y = Light)) +
   geom_boxplot() +
   labs(y = "Light (lux)") +
   scale_y_continuous(limits = c(0, 1000))
@@ -292,10 +313,10 @@ Bon par date c'est pas une bonne manière d'observer le comportement des variabl
 
 ### Per day:
 ```{r}
-Df1bis <- Df1 %>% 
+HOBObis <- HOBOdata %>% 
   mutate(Date = as.character(Date)) %>% mutate(Time = as.character(Time)) # %>% mutate(Hour = format(Hour, as.POSIXct("%H:%M")))
 
-ggplot(Df1bis) +
+ggplot(HOBObis) +
   aes(x = Hour, y = Temp) +
   geom_point(shape = "circle", size = 1.5, colour = "#112446") +
   theme_minimal() +
@@ -304,7 +325,7 @@ ggplot(Df1bis) +
   scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))+
   labs(title = "HOBO 1 : Temperature over the day for each date")
 
-Df1bis %>%
+HOBObis %>%
   ggplot() +
   aes(x = Hour, y = Light) +
   geom_col(fill = "#112446") +
@@ -319,7 +340,7 @@ Df1bis %>%
 ### Average per day (pas intéressant, ça fluctue au cours de la journée)
 ```{r}
 coeff <- 700
-ggplot(Df1_stats, aes(x = Date)) +
+ggplot(HOBO_stats, aes(x = Date)) +
   geom_line(aes(y = Mean_Temp), col = "red", linewidth=2) +
   geom_errorbar(aes(ymin= Min_Temp, ymax= Max_Temp), col = "red") +
   geom_line(aes(y = Mean_Light/coeff), col = "orange", linewidth=2) +
@@ -340,7 +361,7 @@ ggplot(Df1_stats, aes(x = Date)) +
 ### Night/Day
 ```{r}
 # Over a day
-oneday <- Df1 %>% 
+oneday <- HOBOdata %>% 
   filter(Date == "2023-04-04")
 
 ggplot(oneday, aes(x = Hour,y = Light)) +
@@ -353,7 +374,7 @@ ggplot(oneday, aes(x = Hour,y = Temp)) +
   labs(title="Temperature over a day (2023-04-04)",
        x ="Hour", y = "Temperature (°C)")
 
-Df1_Hour_stats %>%
+HOBO_Hour_stats %>%
   filter(Max_Light <= 5000) %>%
   ggplot(aes(x = Hour, y = Mean_Light)) +
   geom_errorbar(aes(ymin=Min_Light, ymax=Max_Light, color = "Min and max value of Light"))+
@@ -363,7 +384,7 @@ Df1_Hour_stats %>%
   labs(y = "Light (lux)",
        title ="HOBO 1: Average light for all dates over the day for (maximum light <= 5000 lux)")
 
-ggplot(Df1_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
+ggplot(HOBO_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
   geom_errorbar(aes(ymin=Min_Temp, ymax=Max_Temp, color = "Min and max value of temperature"))+
   geom_line(linewidth=2, aes(color = "Mean of temperature (C°)")) +
   scale_color_manual(name = "Legend",values=c('black', "grey"))+

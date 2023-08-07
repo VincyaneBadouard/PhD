@@ -1,0 +1,147 @@
+---
+title: "Compute MNT, TWI, relative elevation and Hillshade"
+author: "Sylvain"
+date: "2023-08-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(terra)
+library(lidR)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+[code example](https://github.com/sylvainschmitt/PhD/blob/master/documents/preliminary/environment/TopoDerivate.sh)
+
+# DEM from LAS
+
+1. LAZ > MNT on-by-one
+
+```{r, eval=FALSE}
+las_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/test"
+mnt_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT"
+
+lases <- list.files(las_path)
+
+# A paraliser
+las_to_dem <- function(las_file, las_path, mnt_path) {
+  name <- gsub(".laz", "", las_file) # name of the file
+  readLAS(file.path(las_path, las_file)) %>% 
+    rasterize_terrain(algorithm = tin()) %>% # to mnt
+    writeRaster(file.path(mnt_path, paste0(name, ".tif")), overwrite=TRUE) # write the mnt in .tif
+  # print(name, "is done.\n")
+}
+  
+lapply(lases, las_to_dem, las_path = las_path,
+       mnt_path = mnt_path)
+```
+
+```{r}
+# las <- readLAS("input/Paracou_284500_581500.laz")
+# dem <- rasterize_terrain(las, algorithm = tin())
+# 
+# dems <- list.files('input', full.names = T) %>% 
+#   lapply(readLAS) %>% 
+#   lapply(rasterize_terrain, algorithm = tin())
+# 
+# dem <- do.call(terra::merge, dems)
+# 
+# writeRaster(dem, "output/dem.tif")
+```
+
+2. Merge MNTs
+```{r, eval=FALSE}
+dems <- list.files(mnt_path, full.names = TRUE) %>% 
+  lapply(terra::rast)
+dem <- do.call(terra::merge, dems)
+writeRaster(dem, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/MNT.tif")
+```
+
+3. View DEM
+```{r}
+terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/MNT.tif") %>% 
+  terra::plot()
+```
+
+# TWI
+in bash commands
+
+`cd`: change directory command
+`var=`: define a variable
+`$var`: call the value of the variable
+
+```{bash, eval=FALSE}
+cd "/d/Mes Donnees/PhD/R_codes/PhD"
+saga="/d/Program/SAGA/saga_cmd.exe" # chemin executable
+dem="test/dem.tif"
+twi="test/twi.srgd"
+$saga ta_hydrology 15 -DEM $dem -TWI $twi # commande
+
+# " ta_hydrology 15" :  module
+# " -DEM " : dem filled
+# dem : chemin
+# " -TWI " : sortie
+# twi : chemin
+```
+translate in .tif
+```{r, eval=FALSE}
+terra::rast("test/twi.sdat") %>% # sdat données du fichier TWI au format SAGA
+  terra::writeRaster("test/twi.tif", overwrite=TRUE)
+```
+plot
+```{r}
+terra::rast("test/twi.tif") %>% 
+  terra::plot()
+```
+```{r}
+library(tidyverse)
+terra::rast("test/twi.sdat") %>% 
+  terra::aggregate(5) %>% 
+  terra::plot()
+terra::rast("test/dem.tif") %>% 
+  terra::aggregate(5) %>% 
+  terra::plot()
+```
+
+# Relative Elevation
+
+https://gis.stackexchange.com/questions/154172/saga-tool-relative-heights-and-slope-positions-what-do-results-tell-me
+
+```{bash, eval=FALSE}
+cd "/d/Mes Donnees/PhD/R_codes/PhD"
+saga="/d/Program/SAGA/saga_cmd.exe"
+dem="test/dem.tif"
+re="test/re.srgd"
+$saga ta_morphometry 14 -DEM $dem -SH $re
+```
+translate in .tif
+```{r, eval=FALSE}
+terra::rast("test/re.sdat") %>% # sdat données du fichier RE au format SAGA
+  terra::writeRaster("test/re.tif", overwrite=TRUE)
+```
+plot
+```{r}
+terra::rast("test/re.tif") %>% 
+  terra::plot()
+```
+
+# Hillshade
+
+```{bash, eval=FALSE}
+cd "/d/Mes Donnees/PhD/R_codes/PhD"
+saga="/d/Program/SAGA/saga_cmd.exe"
+dem="test/dem.tif"
+hs="test/hs.srgd"
+$saga ta_lighting 0 -ELEVATION $dem -SHADE $hs
+```
+translate in .tif
+```{r, eval=FALSE}
+terra::rast("test/hs.sdat") %>% # sdat données du fichier HS au format SAGA
+  terra::writeRaster("test/hs.tif", overwrite=TRUE)
+```
+plot
+```{r}
+terra::rast("test/hs.tif") %>% 
+  terra::plot()
+```
