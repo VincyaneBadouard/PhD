@@ -9,6 +9,10 @@ output: html_document
 library(tidyverse)
 library(terra)
 library(lidR)
+library(foreach)
+library(tidyterra)
+library(sf)
+
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -19,22 +23,45 @@ knitr::opts_chunk$set(echo = TRUE)
 1. LAZ > MNT on-by-one
 
 ```{r, eval=FALSE}
-las_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/test"
+las_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/las"
 mnt_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT"
 
 lases <- list.files(las_path)
 
-# A paraliser
 las_to_dem <- function(las_file, las_path, mnt_path) {
   name <- gsub(".laz", "", las_file) # name of the file
-  readLAS(file.path(las_path, las_file)) %>% 
-    rasterize_terrain(algorithm = tin()) %>% # to mnt
-    writeRaster(file.path(mnt_path, paste0(name, ".tif")), overwrite=TRUE) # write the mnt in .tif
+  lidR::readLAS(file.path(las_path, las_file)) %>% 
+    
+    lidR::rasterize_terrain(algorithm = lidR::tin()) %>% # to mnt
+    
+    terra::writeRaster(file.path(mnt_path, paste0(name, ".tif")), overwrite=TRUE) # write the mnt in .tif
   # print(name, "is done.\n")
 }
-  
-lapply(lases, las_to_dem, las_path = las_path,
-       mnt_path = mnt_path)
+
+# lapply(lases, las_to_dem, las_path = las_path,
+#        mnt_path = mnt_path)
+```
+
+```{r}
+cores = 2
+j = length(lases)
+
+# l'enregistrement des clusters
+cl <- parallel::makeCluster(cores)
+doSNOW::registerDoSNOW(cl)
+
+output <- foreach::foreach(
+  i=1:j,
+  .packages = c("magrittr") #, .options.snow = opts
+) %dopar% {
+  print(i)
+  las_to_dem(lases[i], 
+             las_path = las_path,
+             mnt_path = mnt_path)
+}
+
+# close the cluster
+stopCluster(cl)
 ```
 
 ```{r}
@@ -55,13 +82,25 @@ lapply(lases, las_to_dem, las_path = las_path,
 dems <- list.files(mnt_path, full.names = TRUE) %>% 
   lapply(terra::rast)
 dem <- do.call(terra::merge, dems)
-writeRaster(dem, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/MNT.tif")
+writeRaster(dem, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT.tif")
 ```
 
 3. View DEM
 ```{r}
-terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/MNT.tif") %>% 
-  terra::plot()
+Paracou <- sf::st_read("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/OverallPlots.shp")
+
+mnt <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT_cor.tif")
+
+terra::plot(mnt)
+plot(Paracou, add=T)
+
+ggplot() + 
+  geom_spatraster(data = mnt, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(45, rev=T)) + 
+  geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  ggtitle("Paracou MNT ALS 2022") + 
+  coord_sf()
 ```
 
 # TWI
@@ -74,8 +113,8 @@ in bash commands
 ```{bash, eval=FALSE}
 cd "/d/Mes Donnees/PhD/R_codes/PhD"
 saga="/d/Program/SAGA/saga_cmd.exe" # chemin executable
-dem="test/dem.tif"
-twi="test/twi.srgd"
+dem="test/Paracou_MNT_cor.tif" # dans le meme dossier que cd
+twi="test/Paracou_TWI.srgd" # dans le meme dossier que cd
 $saga ta_hydrology 15 -DEM $dem -TWI $twi # commande
 
 # " ta_hydrology 15" :  module
@@ -86,22 +125,26 @@ $saga ta_hydrology 15 -DEM $dem -TWI $twi # commande
 ```
 translate in .tif
 ```{r, eval=FALSE}
-terra::rast("test/twi.sdat") %>% # sdat données du fichier TWI au format SAGA
-  terra::writeRaster("test/twi.tif", overwrite=TRUE)
+TWI <- terra::rast("test/Paracou_TWI.sdat") %>%  # sdat données du fichier TWI au format SAGA 
+  terra::aggregate(5) 
+
+terra::writeRaster(TWI, "test/Paracou_TWI_5m.tif", overwrite=TRUE)
 ```
 plot
 ```{r}
-terra::rast("test/twi.tif") %>% 
+terra::rast("test/Paracou_MNT_cor.tif") %>% 
+  terra::plot()
+terra::rast("test/Paracou_TWI.tif") %>% 
   terra::plot()
 ```
 ```{r}
-library(tidyverse)
-terra::rast("test/twi.sdat") %>% 
-  terra::aggregate(5) %>% 
-  terra::plot()
-terra::rast("test/dem.tif") %>% 
-  terra::aggregate(5) %>% 
-  terra::plot()
+ggplot() + 
+  geom_spatraster(data = TWI, aes(fill = Paracou_TWI)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T)) + 
+  geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  ggtitle("Paracou TWI 5 m ALS 2022") + 
+  coord_sf()
 ```
 
 # Relative Elevation
@@ -111,37 +154,122 @@ https://gis.stackexchange.com/questions/154172/saga-tool-relative-heights-and-sl
 ```{bash, eval=FALSE}
 cd "/d/Mes Donnees/PhD/R_codes/PhD"
 saga="/d/Program/SAGA/saga_cmd.exe"
-dem="test/dem.tif"
+dem="test/Paracou_MNT_cor.tif"
 re="test/re.srgd"
 $saga ta_morphometry 14 -DEM $dem -SH $re
 ```
 translate in .tif
 ```{r, eval=FALSE}
-terra::rast("test/re.sdat") %>% # sdat données du fichier RE au format SAGA
-  terra::writeRaster("test/re.tif", overwrite=TRUE)
+RE <- terra::rast("test/re.sdat") # sdat données du fichier RE au format SAGA
+terra::writeRaster(RE, "test/re.tif", overwrite=TRUE)
 ```
 plot
 ```{r}
-terra::rast("test/re.tif") %>% 
-  terra::plot()
+ggplot() + 
+  geom_spatraster(data = RE, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(45, "Blues")) +
+  geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  ggtitle("Paracou Relative elevation to the creek - ALS 2022") + 
+  coord_sf()
 ```
-
 # Hillshade
 
 ```{bash, eval=FALSE}
 cd "/d/Mes Donnees/PhD/R_codes/PhD"
 saga="/d/Program/SAGA/saga_cmd.exe"
-dem="test/dem.tif"
+dem="test/Paracou_MNT_cor.tif"
 hs="test/hs.srgd"
 $saga ta_lighting 0 -ELEVATION $dem -SHADE $hs
 ```
 translate in .tif
 ```{r, eval=FALSE}
-terra::rast("test/hs.sdat") %>% # sdat données du fichier HS au format SAGA
-  terra::writeRaster("test/hs.tif", overwrite=TRUE)
+Hillshade <- terra::rast("test/hs.sdat") # sdat données du fichier HS au format SAGA
+terra::writeRaster(Hillshade, "test/hs.tif", overwrite=TRUE)
 ```
 plot
 ```{r}
-terra::rast("test/hs.tif") %>% 
-  terra::plot()
+ggplot() + 
+  geom_spatraster(data = Hillshade, aes(fill = hs)) +
+  scale_fill_gradientn(name = "Hillshade",
+                       colors = hcl.colors(2, "Grays", rev=T)) +
+  geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  ggtitle("Paracou Hillshade - ALS 2022") + 
+  coord_sf()
 ```
+
+# For P16
+## Plot 16 geometry
+```{r}
+shpGuyafor <- raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Guyafor/GuyaforSubPlots.shp")
+
+shpParacou <- shpGuyafor[shpGuyafor@data$Forest == "Paracou",]
+plot(shpParacou, col = shpParacou@data$Plot == "16")
+
+Plot16 <- shpParacou[shpParacou@data$Plot == "16",] %>% 
+  st_as_sf()
+plot(Plot16)
+```
+
+# Clip for just the plot 16
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Clip_raster.R")
+
+P16_mnt <- Rslt <- Clip_raster(file_to_clip = "test/Paracou_MNT_cor.tif",
+                               mask = Plot16, 
+                               outpout = "test/Paracou_P16_MNT.tif")
+
+
+P16_TWI <- Clip_raster(file_to_clip = "test/Paracou_TWI_5m.tif",
+                       mask = Plot16, 
+                       outpout = "test/Paracou_P16_TWI_5m.tif")
+
+P16_RE <- Clip_raster(file_to_clip = "test/re.tif",
+                      mask = Plot16, 
+                      outpout = "test/Paracou_P16_RelativeElev.tif")
+```
+
+## Plot the P16 rasters
+```{r}
+# MNT
+ggplot() + 
+  geom_spatraster(data = P16_mnt, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(Plot16, "LINESTRING")) +
+  ggtitle("Paracou P16: MNT - ALS 2022") +
+  theme_classic() +
+  coord_sf()
+
+# TWI
+ggplot() + 
+  geom_spatraster(data = P16_TWI, aes(fill = Paracou_TWI)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(9, "Blues", rev = T),
+                       na.value="white") + 
+  geom_sf(data = sf::st_cast(Plot16, "LINESTRING")) +
+  ggtitle("Paracou P16: TWI 5 m - ALS 2022") + 
+  theme_classic() +
+  coord_sf()
+
+# Relative elevation
+ggplot() + 
+  geom_spatraster(data = P16_RE, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(25, "Blues"),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(Plot16, "LINESTRING")) +
+  ggtitle("Paracou P16: Relative elevation to the creek - ALS 2022") + 
+  theme_classic() +
+  coord_sf()
+```
+
+# For ALT zone
+## ALT zone geometry
+```{r}
+ALT <- shpParacou[shpParacou@data$Plot == "16" & shpParacou@data$SubPlot %in% c("13","14","15","18","19","20", "23","24","25"),]
+plot(ALT)
+```
+
+

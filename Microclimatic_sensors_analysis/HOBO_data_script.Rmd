@@ -84,10 +84,11 @@ range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
 Rename variables
 ```{r}
 HOBOdata <- HOBOdata %>% 
-  rename(Index = '#') %>% 
-  rename(Time = 'Date et heure (French Guiana Standard Time)') %>% 
-  rename(Temp = 'Ch: 1 - Température   (°C)') %>% 
-  rename(Light = 'Ch: 2 - Lumière   (lux)') 
+  rename(Index = '#') %>%
+  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
+  rename(Temp = 'Ch: 1 - Température   (°C)') %>%
+  rename(Light = 'Ch: 2 - Lumière   (lux)')
+
 HOBOdata
 ```
 
@@ -100,17 +101,19 @@ HOBOdata <- HOBOdata %>%
   mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
   mutate(Month = month(Date)) %>%
   mutate(Hour = hms::as_hms(Hour)) %>% 
-  mutate(Time = mdy_hms(Time)) # format: 2023-03-30 18:15:00
+  mutate(Time = mdy_hms(Time)) %>% # format Date-times: 2023-03-30 18:15:00
+  filter(Time >= mdy_hms("03/30/2023 18:00:00")) 
 
 
+range(HOBOdata$Time)
 max(HOBOdata$Date) # "2023-05-25" the collect date
 max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
 ```
 
 ## NA ?
 ```{r}
-# Na_tabble <- HOBOdata %>% 
-#   filter(is.na(Light) | is.na(Temp))
+Na_tabble <- HOBOdata %>%
+  filter(is.na(Light) | is.na(Temp))
 # 
 # NA1 <- HOBOdata %>% 
 #   filter(Date == "2023-04-04")
@@ -122,6 +125,17 @@ max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
 
 ## Sensors coordinates
 ```{r}
+coord_table <- HOBO_Paracou_env %>% 
+  select(HoboID,
+         TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
+         DTree1, DTree2, DTree3) # distances to neighbouring trees
+
+idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
+
+Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+  filter(idTree %in% idTrees)
+
+
 
 ```
 

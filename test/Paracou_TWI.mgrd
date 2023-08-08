@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SAGA_METADATA>
+  <DATABASE></DATABASE>
+  <SOURCE></SOURCE>
+  <HISTORY saga-version="9.1.1">
+    <TOOL library="ta_hydrology" id="15" name="SAGA Wetness Index">
+      <OPTION type="grid_system" id="PARAMETERS_GRID_SYSTEM" name="Grid System">
+        <CELLSIZE>1</CELLSIZE>
+        <XMIN>284500.5</XMIN>
+        <XMAX>287999.5</XMAX>
+        <YMIN>580500.5</YMIN>
+        <YMAX>584499.5</YMAX>
+      </OPTION>
+      <OPTION type="double" id="SUCTION" name="Suction">10</OPTION>
+      <OPTION type="choice" id="AREA_TYPE" name="Type of Area" index="2">specific catchment area</OPTION>
+      <OPTION type="choice" id="SLOPE_TYPE" name="Type of Slope" index="1">catchment slope</OPTION>
+      <OPTION type="double" id="SLOPE_MIN" name="Minimum Slope">0</OPTION>
+      <OPTION type="double" id="SLOPE_OFF" name="Offset Slope">0.1</OPTION>
+      <OPTION type="double" id="SLOPE_WEIGHT" name="Slope Weighting">1</OPTION>
+      <INPUT type="grid" id="DEM" name="Elevation" system="PARAMETERS_GRID_SYSTEM"/>
+      <OUTPUT type="grid" id="TWI" name="Topographic Wetness Index">Topographic Wetness Index</OUTPUT>
+    </TOOL>
+  </HISTORY>
+  <FILE></FILE>
+  <DESCRIPTION></DESCRIPTION>
+</SAGA_METADATA>

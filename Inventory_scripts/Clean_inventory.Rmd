@@ -8,6 +8,9 @@ output: pdf_document
 
 # Packages
 ```{r, include = F}
+remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
+library(EcoFoG)
+
 library(tidyverse)
 library(data.table)
 # library() # TreeData
@@ -18,7 +21,9 @@ library(ggplot2)
 Plot 16, SubPlot X
 ```{r}
 # Understory <-
-# Adults <-
+Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
+
+write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 ```
 
 

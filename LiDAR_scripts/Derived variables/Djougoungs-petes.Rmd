@@ -13,7 +13,7 @@ voir sur Fugroviewer ou qgis (d'abord) : triangulation des points sols (tin)
 library(tidyverse)
 library(lidR)
 library(data.table)
-library(rgl) # visulaisation 3D
+library(rgl) # visualisation 3D
 library(terra)
 library(sf)
 library(ggplot2)
