@@ -10,12 +10,24 @@ Objectives:
 - open the HOBO data
 - create a script to open HOBO data in several folders
 - prepare HOBO data for analysis
-- spatialiser tous les capteurs en x,y (triangulation) (A FAIRE)
+- spatialiser tous les capteurs en x,y (trilateration) (A FAIRE)
 - descriptive analysis
 
 Problematics:
 - A quelle échelle la variabilité est la plus forte (saison, mois, jour, jour/nuit, 15min) ?
 - La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?
+
+Variables à calculer :
+- moyenne de l’année
+- moyenne diurne
+- moyenne nocturne
+- moyenne saison sèche
+    - diurne
+    - nocturne
+- moyenne saison des pluies
+    - diurne
+    - nocturne
+- coefficient variation à ces échelles
 
 # Packages
 ```{r echo = T,results = 'hide', message=FALSE}
@@ -32,10 +44,13 @@ library(RColorBrewer)
 ```{r , include = F}
 HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
 
-filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
+# catch the name of all the files of the folder
+filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) 
 
-filenames <- gtools::mixedsort(sort(filenames))
+# dans l'ordre du numéro des capteurs
+filenames <- gtools::mixedsort(sort(filenames)) 
 
+# read all the files
 df_list <- lapply(filenames, read_delim, 
                   delim = ";", escape_double = FALSE,
                   col_types =
@@ -45,16 +60,14 @@ df_list <- lapply(filenames, read_delim,
                   locale = locale(decimal_mark = ","), 
                   trim_ws = TRUE) # read all the folder files
 
+# bind all the files
 HOBOdata <- bind_rows(df_list, .id = "HoboID")
 ```
-
 # Combine data and environnment
 ```{r}
 HOBOdata <- HOBOdata %>% 
   mutate(HoboID = as.numeric(HoboID)) %>% 
   left_join(HOBO_Paracou_env, by = "HoboID")
-
-
 ```
 
 # Rename files
@@ -123,22 +136,6 @@ Na_tabble <- HOBOdata %>%
 #   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
 ```
 
-## Sensors coordinates
-```{r}
-coord_table <- HOBO_Paracou_env %>% 
-  select(HoboID,
-         TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
-         DTree1, DTree2, DTree3) # distances to neighbouring trees
-
-idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
-
-Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
-  filter(idTree %in% idTrees)
-
-
-
-```
-
 
 ## Different time steps
 ```{r}
@@ -153,7 +150,7 @@ HOBO_stats <- HOBOdata %>%
   mutate(Sd_Light = sd(Light)) %>%
   mutate(Max_Light = max(Light)) %>%
   mutate(Min_Light = min(Light)) %>%
-  select(-Temp,-Light, -Index,-Time,-Hour) %>%
+  select(-Temp,-Light, -Index,-Time, -Date, -Month, -Hour) %>%
   ungroup() %>% 
   unique()
 
@@ -408,38 +405,20 @@ ggplot(HOBO_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
 
 ```
 
-# For all the HOBO files
-## All the HOBO files in one
+
+# Sensors coordinates (mis de côté, à continuer, attente script Sylvain)
 ```{r}
-# Add a sensorID column at each dataframe with the correspondant sensor ID
-for(n in seq_len(length(df_list))) {
-  df_list[[n]] <- add_column(df_list[[n]], HoboID = as.character(n))
-}
+coord_table <- HOBO_Paracou_env %>% 
+  select(HoboID, SubPlot,
+         TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
+         DTree1, DTree2, DTree3) # distances to neighbouring trees
 
-df_list[[10]]
+idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
 
-# Bind all the data.frames
-FullHOBOdata <- bind_rows(df_list)
+Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+  filter(TreeFieldNum %in% idTrees) %>% 
+  filter(SubPlot %in% unique(coord_table$SubPlot)) %>% 
+  select(SubPlot, TreeFieldNum, Xfield, Yfield, Xutm, Yutm)
 
-rm(n, filenames)
+stop("Sensors coordinates: mis de côté, à continuer")
 ```
-
-## Import environment informations
-```{r}
-HOBO_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
-View(HOBO_env)
-
-HOBO_env <- HOBO_env %>% 
-  select(HoboID, TopoHabitat, LightHabitat, Transect) %>% 
-  mutate(HoboID = as.character(HoboID))
-
-FullHOBOdata <- FullHOBOdata %>% 
-  left_join(HOBO_env, by = "HoboID")
-
-```
-
-
-```{r}
-
-```
-

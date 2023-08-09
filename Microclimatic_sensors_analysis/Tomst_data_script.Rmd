@@ -5,6 +5,8 @@ date: "`r Sys.Date()`"
 output: pdf_document
 
 ---
+package myClim : http://labgis.ibot.cas.cz/myclim/articles/myclim-demo.html
+Intéressant pour les plots et les aggrégations potentiellement
 
 # Working directory
 Change the path if your work with another folder
@@ -249,5 +251,43 @@ plottmsM(tms7,"blue")
 #plottmsM(tms9,"blue")
 plottmsM(tms10,"blue")
 dev.off()
+```
+
+# myClim aggregations
+Using the mc_agg() function, you can aggregate time-series data (e.g., from 15-minute intervals) into hourly, daily, weekly, monthly, seasonal, or yearly intervals using various functions such as mean, max, percentile, sum, and more.
+```{r}
+# with defaults only convert Raw-format  to Agg-format
+tms.ag <- mc_agg(tms.m,fun = NULL, period = NULL)
+
+# aggregate to daily mean, range, coverage, and 95 percentile. 
+tms.day <- mc_agg(tms, fun = c("mean", "range", "coverage", "percentile"),
+                percentiles = 95, period = "day", min_coverage = 0.95)
+
+# aggregate all time-series, return one value per sensor.
+tms.all <- mc_agg(tms, fun = c("mean", "range", "coverage", "percentile"),
+                percentiles = 95, period = "all", min_coverage = 0.95)
+
+# aggregate with your custom function. (how many records are below -5°C per month)
+tms.all.custom <- mc_agg(tms.out, fun = list(TMS_T3 = "below5"), period = "month",
+                         custom_functions = list(below5 = function(x){length(x[x<(-5)])}))
+r <- mc_reshape_long(tms.all.custom)
+```
+
+# myClim plots
+```{r}
+# install.packages("myClim")
+library(myClim)
+
+## lines
+p <- mc_plot_line(tms, sensors = c("TMS_T3", "TMS_T1", "TMS_TMSmoisture"))
+p <- p+ggplot2::scale_x_datetime(date_breaks = "1 week", date_labels = "%W")
+p <- p+ggplot2::xlab("week")
+p <- p+ggplot2::aes(size = sensor_name)
+p <- p+ggplot2::scale_size_manual(values = c(1, 1 ,2))
+p <- p+ggplot2::guides(size = "none")
+p <- p+ggplot2::scale_color_manual(values = c("hotpink", "pink", "darkblue"), name = NULL)
+
+## raster
+mc_plot_raster(tms, sensors = c("TMS_T3"))
 ```
 

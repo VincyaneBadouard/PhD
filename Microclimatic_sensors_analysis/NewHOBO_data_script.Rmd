@@ -1,0 +1,288 @@
+---
+title: "HOBO_data_script"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+**les données très fortes de lumière = sunflex étude sunflecks**
+
+Objectives: 
+- open the HOBO data
+- create a script to open HOBO data in several folders
+- prepare HOBO data for analysis
+- spatialiser tous les capteurs en x,y (trilateration) (A FAIRE)
+- descriptive analysis
+
+Problematics:
+- A quelle échelle la variabilité est la plus forte (saison, mois, jour, jour/nuit, 15min) ?
+- La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?
+
+Variables à calculer :
+- moyenne de l’année
+- moyenne diurne
+- moyenne nocturne
+- moyenne saison sèche
+- diurne
+- nocturne
+- moyenne saison des pluies
+- diurne
+- nocturne
+- coefficient variation à ces échelles
+
+# Packages
+```{r echo = T,results = 'hide', message=FALSE}
+library(tidyverse)
+library(readr)
+library(stringr)
+library(lubridate) # for dates and time
+library(chron) # for dates and time
+library(corrplot)
+library(RColorBrewer)
+```
+
+# Read 
+```{r , include = F}
+HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
+
+# catch the name of all the files of the folder
+filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) 
+
+# dans l'ordre du numéro des capteurs
+filenames <- gtools::mixedsort(sort(filenames)) 
+
+# read all the files
+df_list <- lapply(filenames, read_delim, 
+                  delim = ";", escape_double = FALSE,
+                  col_types =
+                    cols(`#` = col_character(),
+                         `Ch: 1 - Température   (°C)` = col_number(), 
+                         `Ch: 2 - Lumière   (lux)` = col_number()),
+                  locale = locale(decimal_mark = ","), 
+                  trim_ws = TRUE) # read all the folder files
+
+# bind all the files
+HOBOdata <- bind_rows(df_list, .id = "HoboID")
+```
+# Combine data and environnment
+```{r}
+HOBOdata <- HOBOdata %>% 
+  mutate(HoboID = as.numeric(HoboID)) %>%
+  left_join(HOBO_Paracou_env, by = "HoboID") %>%
+  select(-Tomst_Material_info_30_03_23, -Operator)
+```
+
+# Rename files
+```{r , include = F}
+# truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
+# truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
+# truc3 <- stringr::str_replace(truc2, ".csv", "")
+# truc4 <- stringr::str_replace(truc3, " AST ", "")
+# truc5 <- gsub("[()]", "", truc4)
+# 
+# names(df_list) <- truc5
+```
+
+
+# Understand the HOBO file
+Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
+Ils collectent bien toutes les 15 minutes.
+```{r}
+# str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
+names(HOBOdata)
+range(HOBOdata$HoboID) # 30 sensors
+range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
+# filter à > "30/03/23 18:00:00"
+```
+
+# Prepare HOBO data for analysis
+Rename variables
+```{r}
+HOBOdata <- HOBOdata %>% 
+  rename(Index = '#') %>%
+  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
+  rename(Temp = 'Ch: 1 - Température   (°C)') %>%
+  rename(Light = 'Ch: 2 - Lumière   (lux)')
+```
+
+## Manage date and hours
+```{r}
+class(HOBOdata$Time) # the time is in character
+
+HOBOdata <- HOBOdata %>% 
+  separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
+  mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
+  mutate(Month = month(Date)) %>%
+  mutate(Hour = hms::as_hms(Hour)) %>% 
+  mutate(Time = mdy_hms(Time)) %>% # format Date-times: 2023-03-30 18:15:00
+  # filtrer sur les dates d'étude (1 an):
+  filter(Time >= mdy_hms("03/30/2023 18:00:00") & Time < mdy_hms("03/30/2024 18:00:00")) 
+
+
+range(HOBOdata$Time)
+max(HOBOdata$Date) # "2023-05-25" the collect date
+max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
+```
+
+## NA ?
+```{r}
+Na_tabble <- HOBOdata %>%
+  filter(is.na(Light) | is.na(Temp))
+# 
+# NA1 <- HOBOdata %>% 
+#   filter(Date == "2023-04-04")
+# 
+# # Remove what is between the 15 minutes
+# HOBOdata <- HOBOdata %>%
+#   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
+```
+
+
+# Variables à calculer
+à l'échelle du capteur :
+- moyenne de l’année
+- moyenne diurne
+- moyenne nocturne
+- moyenne saison sèche
+- diurne
+- nocturne
+- moyenne saison des pluies
+- diurne
+- nocturne
+- coefficient variation à ces échelles
+```{r}
+# Annual average
+Annual_stats <- HOBOdata %>%
+  group_by(HoboID) %>%
+  # T°
+  mutate(Mean_Temp = mean(Temp)) %>%
+  mutate(Sd_Temp = sd(Temp)) %>%
+  mutate(VarCoef_Temp = (Sd_Temp/Mean_Temp)*100) %>% # coefficient de variation = écart-type/moyenne
+  mutate(Max_Temp = max(Temp)) %>%
+  mutate(Min_Temp = min(Temp)) %>%
+  
+  # Light
+  mutate(Mean_Light = mean(Light)) %>%
+  mutate(Sd_Light = sd(Light)) %>%
+  mutate(VarCoef_Light = (Sd_Light/Mean_Light)*100) %>% # coefficient de variation = écart-type/moyenne
+  mutate(Max_Light = max(Light)) %>%
+  mutate(Min_Light = min(Light)) %>%
+  select(-Temp,-Light, -Index,-Time, -Date, -Month, -Hour) %>%
+  ungroup() %>% 
+  unique() %>% 
+  mutate_if(is.numeric, round, digits = 2)
+
+```
+
+```{r}
+# Day and night averages 
+# See when it's the night
+ggplot(HOBOdata, aes(x = Hour,y = Light)) +
+  geom_line() +
+  labs(title="Light over a day",
+       x ="Hour", y = "Light (lux)")
+
+HOBOdata <- HOBOdata %>%
+  mutate(Phase = ifelse((Hour <= hms::as_hms("18:45:00") &
+                           Hour >= hms::as_hms("06:15:00")),
+                        "Day", "Night"))# %>%
+# mutate(Phase = ifelse(Light == 0, "Night", "Day"))
+
+ggplot(HOBOdata, aes(x = Hour,y = Light)) +
+  geom_point(aes(color = Phase)) +
+  labs(title="Light over a day",
+       x ="Hour", y = "Light (lux)")
+
+ggplot(HOBOdata[HOBOdata$Phase=="Night",], aes(x = Hour,y = Light)) +
+  geom_point() +
+  labs(title="Night over a day",
+       x ="Hour", y = "Light (lux)")
+
+max(HOBOdata[HOBOdata$Phase == "Night",]$Light) # 1.7 lux
+min(HOBOdata[HOBOdata$Phase == "Day",]$Light) # 0 lux
+
+
+HOBO_NightDay_stats <- HOBOdata %>%
+  group_by(HoboID,Phase) %>%
+  # T°
+  mutate(Mean_Temp = mean(Temp)) %>%
+  mutate(Sd_Temp = sd(Temp)) %>%
+  mutate(VarCoef_Temp = (Sd_Temp/Mean_Temp)*100) %>% # coefficient de variation = écart-type/moyenne
+  mutate(Max_Temp = max(Temp)) %>%
+  mutate(Min_Temp = min(Temp)) %>%
+  
+  # Light
+  mutate(Mean_Light = mean(Light)) %>%
+  mutate(Sd_Light = sd(Light)) %>%
+  mutate(VarCoef_Light = (Sd_Light/Mean_Light)*100) %>% # coefficient de variation = écart-type/moyenne
+  mutate(Max_Light = max(Light)) %>%
+  mutate(Min_Light = min(Light)) %>%
+  select(-Temp,-Light, -Index,-Time, -Date, -Month, -Hour) %>%
+  ungroup() %>% 
+  unique() %>% 
+  mutate_if(is.numeric, round, digits = 2)
+```
+
+
+```{r}
+grouped_stats <- function(data, var,...){
+  
+  data %>%
+    group_by(...) %>%
+    # T°
+    mutate(Mean_Temp = mean({{var}})) %>%
+    mutate(Sd_Temp = sd({{var}})) %>%
+    mutate(VarCoef_Temp = (Sd_Temp/Mean_Temp)*100) %>% # coefficient de variation = écart-type/moyenne
+    mutate(Max_Temp = max({{var}})) %>%
+    mutate(Min_Temp = min({{var}})) %>%
+    
+    ungroup() %>% 
+    mutate_if(is.numeric, round, digits = 2)
+  
+}
+
+HOBOdata %>% grouped_stats(var = Temp, HoboID, Phase)
+
+```
+
+
+```{r}
+Annual_stats <- summarise(HOBOdata, 
+                          Mean_Temp = mean(Temp),
+                          Sd_Temp = sd(Temp),
+                          VarCoef_Temp = (Sd_Temp/Mean_Temp)*100,# coefficient de variation = écart-type/moyenne
+                          Max_Temp = max(Temp),
+                          Min_Temp = min(Temp),
+                          .by = HoboID)
+```
+
+
+# Seasons
+```{r}
+HOBOdata <- HOBOdata %>%
+  mutate(Season = ifelse(Month  %in% c(7:11,3), # juill-nov et mars
+                        "Dry", "Wet"))
+
+ggplot(HOBOdata, aes(x = Month,y = Temp)) +
+  geom_point(aes(color = Season)) +
+  labs(title="Temperature over the seasons",
+       x ="Month", y = "Temp (°C)")
+```
+
+
+
+# Sensors coordinates (mis de côté, à continuer, attente script Sylvain)
+```{r}
+coord_table <- HOBO_Paracou_env %>% 
+  select(HoboID, SubPlot,
+         TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
+         DTree1, DTree2, DTree3) # distances to neighbouring trees
+
+idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
+
+Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+  filter(TreeFieldNum %in% idTrees) %>% 
+  filter(SubPlot %in% unique(coord_table$SubPlot)) %>% 
+  select(SubPlot, TreeFieldNum, Xfield, Yfield, Xutm, Yutm)
+
+stop("Sensors coordinates: mis de côté, à continuer")
+```
