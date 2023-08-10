@@ -18,21 +18,17 @@ Problematics:
 - La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?
 
 Variables à calculer :
-- moyenne de l’année
-- moyenne diurne
-- moyenne nocturne
-- moyenne saison sèche
+moyenne, sd, coefficient de variation, min, max :
+- de l’année
 - diurne
 - nocturne
-- moyenne saison des pluies
-- diurne
-- nocturne
-- coefficient variation à ces échelles
+- saison sèche
+- saison des pluies
 
 # Packages
 ```{r echo = T,results = 'hide', message=FALSE}
-library(tidyverse)
 library(readr)
+library(tidyverse)
 library(stringr)
 library(lubridate) # for dates and time
 library(chron) # for dates and time
@@ -43,6 +39,12 @@ library(RColorBrewer)
 # Read 
 ```{r , include = F}
 HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
+
+# Set the categorical variable as a factor with the custom order
+HOBO_Paracou_env$TopoHabitat <- factor(HOBO_Paracou_env$TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau"))
+
+env <- HOBO_Paracou_env %>% 
+  select(HoboID,Transect,LightHabitat,TopoHabitat)
 
 # catch the name of all the files of the folder
 filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) 
@@ -136,45 +138,8 @@ Na_tabble <- HOBOdata %>%
 #   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
 ```
 
-
-# Variables à calculer
-à l'échelle du capteur :
-- moyenne de l’année
-- moyenne diurne
-- moyenne nocturne
-- moyenne saison sèche
-- diurne
-- nocturne
-- moyenne saison des pluies
-- diurne
-- nocturne
-- coefficient variation à ces échelles
+# Day/night 
 ```{r}
-# Annual average
-Annual_stats <- HOBOdata %>%
-  group_by(HoboID) %>%
-  # T°
-  mutate(Mean_Temp = mean(Temp)) %>%
-  mutate(Sd_Temp = sd(Temp)) %>%
-  mutate(VarCoef_Temp = (Sd_Temp/Mean_Temp)*100) %>% # coefficient de variation = écart-type/moyenne
-  mutate(Max_Temp = max(Temp)) %>%
-  mutate(Min_Temp = min(Temp)) %>%
-  
-  # Light
-  mutate(Mean_Light = mean(Light)) %>%
-  mutate(Sd_Light = sd(Light)) %>%
-  mutate(VarCoef_Light = (Sd_Light/Mean_Light)*100) %>% # coefficient de variation = écart-type/moyenne
-  mutate(Max_Light = max(Light)) %>%
-  mutate(Min_Light = min(Light)) %>%
-  select(-Temp,-Light, -Index,-Time, -Date, -Month, -Hour) %>%
-  ungroup() %>% 
-  unique() %>% 
-  mutate_if(is.numeric, round, digits = 2)
-
-```
-
-```{r}
-# Day and night averages 
 # See when it's the night
 ggplot(HOBOdata, aes(x = Hour,y = Light)) +
   geom_line() +
@@ -199,74 +164,169 @@ ggplot(HOBOdata[HOBOdata$Phase=="Night",], aes(x = Hour,y = Light)) +
 
 max(HOBOdata[HOBOdata$Phase == "Night",]$Light) # 1.7 lux
 min(HOBOdata[HOBOdata$Phase == "Day",]$Light) # 0 lux
-
-
-HOBO_NightDay_stats <- HOBOdata %>%
-  group_by(HoboID,Phase) %>%
-  # T°
-  mutate(Mean_Temp = mean(Temp)) %>%
-  mutate(Sd_Temp = sd(Temp)) %>%
-  mutate(VarCoef_Temp = (Sd_Temp/Mean_Temp)*100) %>% # coefficient de variation = écart-type/moyenne
-  mutate(Max_Temp = max(Temp)) %>%
-  mutate(Min_Temp = min(Temp)) %>%
-  
-  # Light
-  mutate(Mean_Light = mean(Light)) %>%
-  mutate(Sd_Light = sd(Light)) %>%
-  mutate(VarCoef_Light = (Sd_Light/Mean_Light)*100) %>% # coefficient de variation = écart-type/moyenne
-  mutate(Max_Light = max(Light)) %>%
-  mutate(Min_Light = min(Light)) %>%
-  select(-Temp,-Light, -Index,-Time, -Date, -Month, -Hour) %>%
-  ungroup() %>% 
-  unique() %>% 
-  mutate_if(is.numeric, round, digits = 2)
 ```
-
-
-```{r}
-grouped_stats <- function(data, var,...){
-  
-  data %>%
-    group_by(...) %>%
-    # T°
-    mutate(Mean_Temp = mean({{var}})) %>%
-    mutate(Sd_Temp = sd({{var}})) %>%
-    mutate(VarCoef_Temp = (Sd_Temp/Mean_Temp)*100) %>% # coefficient de variation = écart-type/moyenne
-    mutate(Max_Temp = max({{var}})) %>%
-    mutate(Min_Temp = min({{var}})) %>%
-    
-    ungroup() %>% 
-    mutate_if(is.numeric, round, digits = 2)
-  
-}
-
-HOBOdata %>% grouped_stats(var = Temp, HoboID, Phase)
-
-```
-
-
-```{r}
-Annual_stats <- summarise(HOBOdata, 
-                          Mean_Temp = mean(Temp),
-                          Sd_Temp = sd(Temp),
-                          VarCoef_Temp = (Sd_Temp/Mean_Temp)*100,# coefficient de variation = écart-type/moyenne
-                          Max_Temp = max(Temp),
-                          Min_Temp = min(Temp),
-                          .by = HoboID)
-```
-
 
 # Seasons
 ```{r}
 HOBOdata <- HOBOdata %>%
   mutate(Season = ifelse(Month  %in% c(7:11,3), # juill-nov et mars
-                        "Dry", "Wet"))
+                         "Dry", "Wet"))
 
 ggplot(HOBOdata, aes(x = Month,y = Temp)) +
   geom_point(aes(color = Season)) +
   labs(title="Temperature over the seasons",
        x ="Month", y = "Temp (°C)")
 ```
+
+# Variables à calculer
+à l'échelle du capteur :
+- moyenne de l’année
+- moyenne diurne
+- moyenne nocturne
+- moyenne saison sèche
+- diurne
+- nocturne
+- moyenne saison des pluies
+- diurne
+- nocturne
+- coefficient variation à ces échelles
+```{r}
+annual_stats <- HOBOdata %>%
+  group_by(HoboID) %>%
+  summarise(across(c("Temp", "Light"),
+                   list(annual_mean = ~mean(.),
+                        annual_sd = ~sd(.),
+                        annual_varcoef = ~(sd(.) / mean(.)) * 100,
+                        annual_max = ~max(.),
+                        annual_min = ~min(.)),
+                   .names = "{.col}_{.fn}"))
+
+phase_stats <- HOBOdata %>%
+  group_by(HoboID,Phase) %>%
+  summarise(across(c("Temp", "Light"),
+                   list(mean = ~mean(.),
+                        sd = ~sd(.),
+                        varcoef = ~(sd(.) / mean(.)) * 100,
+                        max = ~max(.),
+                        min = ~min(.)),
+                   .names = "{.col}_{.fn}")) %>% 
+  # "Phase" variable as an index for the computed variables
+  pivot_wider(names_from = Phase,
+              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min","Light_mean", "Light_sd", "Light_varcoef", "Light_max", "Light_min"),
+              names_glue = "{.value}_{Phase}")
+
+
+season_stats <- HOBOdata %>%
+  group_by(HoboID,Season) %>%
+  summarise(across(c("Temp", "Light"),
+                   list(mean = ~mean(.),
+                        sd = ~sd(.),
+                        varcoef = ~(sd(.) / mean(.)) * 100,
+                        max = ~max(.),
+                        min = ~min(.)),
+                   .names = "{.col}_{.fn}")) %>% 
+  
+  # "Season" variable as an index for the computed variables
+  pivot_wider(names_from = Season,
+              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min","Light_mean", "Light_sd", "Light_varcoef", "Light_max", "Light_min"),
+              names_glue = "{.value}_{Season}")
+
+```
+# Stats dataset
+```{r}
+stats <- annual_stats %>% 
+  left_join(season_stats, by="HoboID") %>%
+  left_join(phase_stats, by="HoboID")
+
+stats[is.na(stats)] <- 0
+stats <- stats[,colSums(stats)>0] # remove column with only 0 (min light)
+
+
+stats <- left_join(stats, env, by="HoboID")
+```
+
+
+# Some plots
+```{r}
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_annual_mean) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Average annual light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_annual_max) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Maximum annual light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_mean_Wet) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Average wet season light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_max_Day) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Maximum daily light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(TopoHabitat)) %>%
+  ggplot() +
+  aes(x = TopoHabitat, y = Temp_annual_mean) +
+  geom_boxplot(fill = "#DA2217") +
+  labs(x ="Topographic Habitat", y = "Average annual temperature (°C)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(TopoHabitat)) %>%
+  ggplot() +
+  aes(x = TopoHabitat, y = Temp_mean_Wet) +
+  geom_boxplot(fill = "#DA2217") +
+  labs(x ="Topographic Habitat", y = "Average wet season temperature (°C)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(TopoHabitat)) %>%
+  ggplot() +
+  aes(x = TopoHabitat, y = Temp_mean_Day) +
+  geom_boxplot(fill = "#DA2217") +
+  labs(x ="Topographic Habitat", y = "Average daily temperature (°C)") +
+  theme_minimal()
+```
+
+
+```{r}
+DF_cor <- stats %>% 
+  mutate(TopoHabitat = as.numeric(TopoHabitat)) %>% 
+  mutate(LightHabitat = as.numeric(factor(LightHabitat, levels = c("Understory", "Sunfleck", "Gap border", "Gap")))) %>% 
+  mutate(Transect = as.numeric(factor(Transect, levels = c("Topo", "Gap")))) %>% 
+  na.omit()
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+# dev.off()
+```
+Ces métriques de lumière et de température ne semblent pas être reliées à la topographie. Pourtant les boxplots laissent à penser que la température augmente du bas-fond vers le plateau.
+
+Sont lié à l'habitat lumineux :
+tout sauf les coefficient de variation et la température maximum nocturne.
 
 
 
@@ -275,7 +335,8 @@ ggplot(HOBOdata, aes(x = Month,y = Temp)) +
 coord_table <- HOBO_Paracou_env %>% 
   select(HoboID, SubPlot,
          TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
-         DTree1, DTree2, DTree3) # distances to neighbouring trees
+         DTree1, DTree2, DTree3) %>% # distances to neighbouring trees
+  na.omit()
 
 idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
 
@@ -284,5 +345,18 @@ Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %
   filter(SubPlot %in% unique(coord_table$SubPlot)) %>% 
   select(SubPlot, TreeFieldNum, Xfield, Yfield, Xutm, Yutm)
 
-stop("Sensors coordinates: mis de côté, à continuer")
+RefTrees <- Paracou16_2020
+Target <- coord_table
+# stop("Sensors coordinates: mis de côté, à continuer")
 ```
+
+## Trilateration
+```{r}
+
+```
+
+# Save the stats dataset
+```{r}
+write.csv(stats, "~/PhD/Microclimate/HOBO/HOBO_stats.csv")
+```
+
