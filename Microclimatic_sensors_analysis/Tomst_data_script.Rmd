@@ -1,5 +1,5 @@
 ---
-title: "Data_Tomst_visualisation_script"
+title: "Data Tomst visualisation script"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: pdf_document
@@ -26,47 +26,6 @@ Columns :
 - soil moisture count,
 - shake = 0
 - errFlag (if =1 the device couldn’t convert time from PCF chip) = NA
-```{r}
-# data <- tms1n
-format_tms <- function(
-    # data, # data name (character) with ".csv"
-    path = path0 # folder path
-){
-  
-  # Data name
-  data0 <- data 
-  
-  # Subset data
-  data <- read.csv2(file.path(path, data), h = F); # row 1 is not the headers
-  data <- data[3360:dim(data)[1],] # start at the 3360 rown (before it's jerome's office T°)
-  
-  # The date
-  date1 <- strptime(data$V2,"%Y.%m.%d %H:%M")
-  # Convert time in UTC-3 (ToDO)
-  
-  # Temperature data
-  temperature1 <- data$V4
-  temperature2 <- data$V5
-  temperature3 <- data$V6
-  
-  # Moisture data
-  moisture <- data$V7
-  
-  # Bind columns
-  data2 <- cbind(as.data.frame(date1),
-                 as.data.frame(temperature1), # soil T°
-                 as.data.frame(temperature2), # surface T°
-                 as.data.frame(temperature3), # air T°
-                 as.data.frame(moisture))
-  
-  Output <- list("data" = data2,# dataset
-                 "file" = data0, # data name
-                 "length" = length(temperature1)) # length of eah dataset
-  
-  return(Output)
-}
-```
-
 
 ```{r}
 format_tms <- function(
@@ -77,31 +36,30 @@ format_tms <- function(
   file_name <- data_path 
   
   # Subset data
-  data <- read.csv2(data_path, h = F); # row 1 is not the headers
-  # data <- data[3360:dim(data)[1],] # start at the 3360 rown (before it's jerome's office T°)
-  
+  data <- read.csv2(data_path, header = F); # row 1 is not the headers
+
   # The date
   date1 <- strptime(data$V2,"%Y.%m.%d %H:%M")
-  # Convert time in UTC-3 (ToDO)
+  # Convert time in UTC-3 (ToDO!)
   
   # Temperature data
-  temperature1 <- data$V4
-  temperature2 <- data$V5
-  temperature3 <- data$V6
+  SoilTemp <- data$V4
+  SurfaceTemp <- data$V5
+  AirTemp <- data$V6
   
   # Moisture data
-  moisture <- data$V7
+  Moisture <- data$V7
   
   # Bind columns
   data2 <- cbind(as.data.frame(date1),
-                 as.data.frame(temperature1), # soil T°
-                 as.data.frame(temperature2), # surface T°
-                 as.data.frame(temperature3), # air T°
-                 as.data.frame(moisture))
+                 as.data.frame(SoilTemp), # soil T°
+                 as.data.frame(SurfaceTemp), # surface T°
+                 as.data.frame(AirTemp), # air T°
+                 as.data.frame(Moisture))
   
   Output <- list("data" = data2,# dataset
                  "file_name" = file_name, 
-                 "length" = length(temperature1)) # length of eah dataset
+                 "length" = length(SoilTemp)) # length of eah dataset
   
   return(Output)
 }
@@ -122,26 +80,26 @@ plottmsT <- function(
   
   # Air T° 
   plot(tms$data$date1[rangex],
-       tms$data$temperature3[rangex],
+       tms$data$AirTemp[rangex],
        col = colabove,
        ylim = range(tms$data[,2:4]), pch = 20, cex = 0.3, type = "l",
        xlab = "Day", ylab = "Temperature (C)")
   
   title(main = paste("File name:",tms$file),
-        sub = paste("Mean temp: Soil=", round(mean(tms$data$temperature1),2),
-                    " Surface=", round(mean(tms$data$temperature2),2),
-                    " Air=", round(mean(tms$data$temperature3),2)))
+        sub = paste("Mean temp: Soil=", round(mean(tms$data$SoilTemp),2),
+                    " Surface=", round(mean(tms$data$SurfaceTemp),2),
+                    " Air=", round(mean(tms$data$AirTemp),2)))
   
   # Ground T°
   lines(tms$data$date1,
-        tms$data$temperature2,
+        tms$data$SurfaceTemp,
         col = coltop, pch = 20)
   
   # soil T°
-  lines(tms$data$date1,tms$data$temperature1,col = coldeep, pch = 20)
+  lines(tms$data$date1,tms$data$SoilTemp,col = coldeep, pch = 20)
   
-  #points(tms$date1,tms$temperature2, col = coldeep, pch = 20,cex = 0.5)
-  #points(tms$date1, tms$temperature3, col = colabove, pch = 20, cex = 0.5)
+  #points(tms$date1,tms$SurfaceTemp, col = coldeep, pch = 20,cex = 0.5)
+  #points(tms$date1, tms$AirTemp, col = colabove, pch = 20, cex = 0.5)
   
 }
 
@@ -156,12 +114,12 @@ plottmsM <- function(
 ){
   
   plot(tms$data$date1,
-       tms$data$moisture,
+       tms$data$Moisture,
        col = col, pch = 20,cex = 0.3, type = "b",
        xlab = "Day", ylab = "Moisture SU")
   
   title(main = paste("File name:", tms$file),
-        sub = paste("Mean moisture=", round(mean(tms$data$moisture),2))
+        sub = paste("Mean moisture=", round(mean(tms$data$Moisture),2))
   )
   
 }
@@ -202,7 +160,7 @@ bind_rows(data, .id = "file") %>%
   unnest() %>% 
   mutate(file = gsub(paste0(path, "/"), "", file)) %>% 
   mutate(date = lubridate::as_datetime(date1)) %>% 
-  select(date, temperature1, temperature2, temperature3, moisture) %>% 
+  select(date, SoilTemp, SurfaceTemp, AirTemp, Moisture) %>% 
   reshape2::melt("date") %>% 
   ggplot(aes(date, value)) +
   geom_point() +

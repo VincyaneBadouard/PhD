@@ -1,15 +1,17 @@
 ---
-title: "HOBO data script"
+title: "Tomst data script"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-**les données très fortes de lumière = sunflex étude sunflecks**
+2 sites :
+- Paracou (pour comparaison aux données Lidar)
+- Nouragues **(?)**
 
 Objectives: 
-- open the HOBO data
-- create a script to open HOBO data in several folders
-- prepare HOBO data for analysis
+- open the Tomst data
+- create a script to open Tomst data in several folders
+- prepare Tomst data for analysis
 - spatialiser tous les capteurs en x,y (trilateration) (A FAIRE)
 - descriptive analysis
 
@@ -37,19 +39,24 @@ library(RColorBrewer)
 ```
 
 # Read 
+## Sensor environnment data
+```{r}
+Tomst_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
+  mutate(TopoHabitat = factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))
+Tomst_Nouragues_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst sensors - Nouragues - Data.csv") %>% 
+  mutate(TopoHabitat = factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))
+
+
+env_Par <- Tomst_Paracou_env %>% 
+  select(TomstID,Transect,LightHabitat,TopoHabitat)
+
+env_Nour <- Tomst_Nouragues_env %>% 
+  select(TomstID,Transect,LightHabitat,TopoHabitat)
+```
+## Sensor data
 ```{r , include = F}
-# Sensor environnment data
-HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
-
-# Set the categorical variable as a factor with the custom order
-HOBO_Paracou_env$TopoHabitat <- factor(HOBO_Paracou_env$TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau"))
-
-env <- HOBO_Paracou_env %>% 
-  select(HoboID,Transect,LightHabitat,TopoHabitat)
-
-# Sensor data
 # catch the name of all the files of the folder
-filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) 
+filenames <- list.files("~/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2023_05_25_1311", pattern="data", full.names=TRUE) 
 
 # dans l'ordre du numéro des capteurs
 filenames <- gtools::mixedsort(sort(filenames)) 
@@ -65,80 +72,102 @@ df_list <- lapply(filenames, read_delim,
                   trim_ws = TRUE) # read all the folder files
 
 # bind all the files
-HOBOdata <- bind_rows(df_list, .id = "HoboID") # df number -> HoboID column
+Tomstdata <- bind_rows(df_list, .id = "TomstID") # df number -> TomstID column
 ```
+
+# Data formatting function
+Columns :
+- index number of the measure,
+- date and time in UTC,
+- time zone = 4 (French Guiana is UTC-3)
+- T1, T2, T3,
+- soil moisture count,
+- shake = 0
+- errFlag (if =1 the device couldn’t convert time from PCF chip) = NA
+
+```{r}
+format_tms <- function(
+    data_path # path of the data (character) with ".csv"
+){
+  
+  # Data name
+  file_name <- data_path 
+  
+  # Subset data
+  data <- read.csv2(data_path, header = F); # row 1 is not the headers
+  
+  # The date
+  date1 <- strptime(data$V2,"%Y.%m.%d %H:%M")
+  # Convert time in UTC-3 (ToDO!)
+  
+  # Temperature data
+  SoilTemp <- data$V4
+  SurfaceTemp <- data$V5
+  AirTemp <- data$V6
+  
+  # Moisture data
+  Moisture <- data$V7
+  
+  # Bind columns
+  data2 <- cbind(as.data.frame(date1),
+                 as.data.frame(SoilTemp), # soil T°
+                 as.data.frame(SurfaceTemp), # surface T°
+                 as.data.frame(AirTemp), # air T°
+                 as.data.frame(Moisture))
+  
+  Output <- list("data" = data2 #,# dataset
+                 # "file_name" = file_name, 
+                 # "length" = length(SoilTemp)
+                 ) # length of eah dataset
+  
+  return(Output)
+}
+```
+
+# Format all the files
+```{r}
+path <- "~/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2023_05_25_1311"
+files <- list.files(path, pattern = "data", full.names = T)# [1:20] # 20 files
+
+data <- lapply(files, format_tms)
+
+names(data) <- files
+
+Tomstdata <- bind_rows(data, .id = "TomstID") %>% # df number -> TomstID column
+  unnest() %>% 
+  mutate(TomstID = gsub(paste0(path, "/"), "", TomstID)) %>% 
+  mutate(date = lubridate::as_datetime(date1)) # %>% 
+  # select(date, SoilTemp, SurfaceTemp, AirTemp, Moisture) %>% 
+  # reshape2::melt("date") # c'était pour le facet_wrap
+
+# Rename TomstID
+# date1 ou date ?
+# filtrer à partir de la date d'installation sur le site
+
+ggplot(Tomstdata, aes(date, value)) +
+  geom_point() +
+  geom_line() +
+  facet_wrap(~variable, scales = "free_y") +
+  theme_bw()
+```
+
+
 # Combine data and environnment
 ```{r}
-HOBOdata <- HOBOdata %>% 
-  mutate(HoboID = as.numeric(HoboID)) %>%
-  left_join(HOBO_Paracou_env, by = "HoboID") %>%
+Tomstdata <- Tomstdata %>% 
+  mutate(TomstID = as.numeric(TomstID)) %>%
+  left_join(Tomst_Paracou_env, by = "TomstID") %>%
   select(-Tomst_Material_info_30_03_23, -Operator)
-```
-
-# Rename files
-```{r , include = F}
-# truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
-# truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
-# truc3 <- stringr::str_replace(truc2, ".csv", "")
-# truc4 <- stringr::str_replace(truc3, " AST ", "")
-# truc5 <- gsub("[()]", "", truc4)
-# 
-# names(df_list) <- truc5
-```
-
-
-# Understand the HOBO file
-Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
-Ils collectent bien toutes les 15 minutes.
-```{r}
-# str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
-names(HOBOdata)
-range(HOBOdata$HoboID) # 30 sensors
-range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
-# filter à > "30/03/23 18:00:00"
-```
-
-# Prepare HOBO data for analysis
-Rename variables
-```{r}
-HOBOdata <- HOBOdata %>% 
-  rename(Index = '#') %>%
-  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
-  rename(Temp = 'Ch: 1 - Température   (°C)') %>%
-  rename(Light = 'Ch: 2 - Lumière   (lux)')
-```
-
-## Manage date and hours
-```{r}
-class(HOBOdata$Time) # the time is in character
-
-HOBOdata <- HOBOdata %>% 
-  separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
-  mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
-  mutate(Month = month(Date)) %>%
-  mutate(Hour = hms::as_hms(Hour)) %>% 
-  mutate(Time = mdy_hms(Time)) %>% # format Date-times: 2023-03-30 18:15:00
-  # filtrer sur les dates d'étude (1 an):
-  filter(Time >= mdy_hms("03/30/2023 18:00:00") & Time < mdy_hms("03/30/2024 18:00:00")) 
-
-
-range(HOBOdata$Time)
-max(HOBOdata$Date) # "2023-05-25" the collect date
-max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
 ```
 
 ## NA ?
 ```{r}
-Na_tabble <- HOBOdata %>%
+Na_tabble <- Tomstdata %>%
   filter(is.na(Light) | is.na(Temp))
-# 
-# NA1 <- HOBOdata %>% 
-#   filter(Date == "2023-04-04")
-# 
-# # Remove what is between the 15 minutes
-# HOBOdata <- HOBOdata %>%
-#   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
 ```
+
+# Manage date and hours
+
 
 # Day/night 
 ```{r}
@@ -234,6 +263,7 @@ season_stats <- HOBOdata %>%
               names_glue = "{.value}_{Season}")
 
 ```
+
 # Stats dataset
 ```{r}
 stats <- annual_stats %>% 
@@ -247,64 +277,9 @@ stats <- stats[,colSums(stats)>0] # remove column with only 0 (min light)
 stats <- left_join(stats, env, by="HoboID")
 ```
 
-
 # Some plots
 ```{r}
-stats %>%
-  filter(!is.na(LightHabitat)) %>%
-  ggplot() +
-  aes(x = LightHabitat, y = Light_annual_mean) +
-  geom_boxplot(fill = "#FFAE00") +
-  labs(x ="Light Habitat", y = "Average annual light (lux)") +
-  theme_minimal()
-
-stats %>%
-  filter(!is.na(LightHabitat)) %>%
-  ggplot() +
-  aes(x = LightHabitat, y = Light_annual_max) +
-  geom_boxplot(fill = "#FFAE00") +
-  labs(x ="Light Habitat", y = "Maximum annual light (lux)") +
-  theme_minimal()
-
-stats %>%
-  filter(!is.na(LightHabitat)) %>%
-  ggplot() +
-  aes(x = LightHabitat, y = Light_mean_Wet) +
-  geom_boxplot(fill = "#FFAE00") +
-  labs(x ="Light Habitat", y = "Average wet season light (lux)") +
-  theme_minimal()
-
-stats %>%
-  filter(!is.na(LightHabitat)) %>%
-  ggplot() +
-  aes(x = LightHabitat, y = Light_max_Day) +
-  geom_boxplot(fill = "#FFAE00") +
-  labs(x ="Light Habitat", y = "Maximum daily light (lux)") +
-  theme_minimal()
-
-stats %>%
-  filter(!is.na(TopoHabitat)) %>%
-  ggplot() +
-  aes(x = TopoHabitat, y = Temp_annual_mean) +
-  geom_boxplot(fill = "#DA2217") +
-  labs(x ="Topographic Habitat", y = "Average annual temperature (°C)") +
-  theme_minimal()
-
-stats %>%
-  filter(!is.na(TopoHabitat)) %>%
-  ggplot() +
-  aes(x = TopoHabitat, y = Temp_mean_Wet) +
-  geom_boxplot(fill = "#DA2217") +
-  labs(x ="Topographic Habitat", y = "Average wet season temperature (°C)") +
-  theme_minimal()
-
-stats %>%
-  filter(!is.na(TopoHabitat)) %>%
-  ggplot() +
-  aes(x = TopoHabitat, y = Temp_mean_Day) +
-  geom_boxplot(fill = "#DA2217") +
-  labs(x ="Topographic Habitat", y = "Average daily temperature (°C)") +
-  theme_minimal()
+# esquisse::esquisser()
 ```
 
 # Correlation test
@@ -325,12 +300,6 @@ corrplot(CorMatrix, method="circle", type="lower",
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
 # dev.off()
 ```
-Ces métriques de lumière et de température ne semblent pas être reliées à la topographie. Pourtant les boxplots laissent à penser que la température augmente du bas-fond vers le plateau.
-
-Sont lié à l'habitat lumineux :
-tout sauf les coefficient de variation et la température maximum nocturne.
-
-
 
 # Sensors coordinates (mis de côté, à continuer, attente script Sylvain)
 ```{r}
@@ -361,4 +330,3 @@ Target <- coord_table
 ```{r}
 write.csv(stats, "~/PhD/Microclimate/HOBO/HOBO_stats.csv")
 ```
-
