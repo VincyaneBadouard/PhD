@@ -108,6 +108,7 @@ HOBOdata <- HOBOdata %>%
   rename(Light = 'Ch: 2 - Lumière   (lux)')
 ```
 
+
 ## Manage date and hours
 ```{r}
 class(HOBOdata$Time) # the time is in character
@@ -138,6 +139,27 @@ Na_tabble <- HOBOdata %>%
 # # Remove what is between the 15 minutes
 # HOBOdata <- HOBOdata %>%
 #   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
+```
+
+# Relation between light and temperature
+```{r}
+esquisse::esquisser()
+
+HOBOdata %>% 
+  # filter(Light>10) %>% 
+  ggplot() +
+  aes(x = Light, y = Temp) +
+  geom_point(size = 0.2) +
+  stat_smooth(method = "lm",
+              formula = y ~ x)
+
+HOBOdata %>% 
+  ggplot() +
+  aes(x = Light, y = Temp) +
+  geom_point(size = 0.2) +
+geom_smooth(span = 0.75)
+
+cor(HOBOdata$Light, HOBOdata$Temp) # 0.44
 ```
 
 # Day/night 
@@ -174,8 +196,8 @@ HOBOdata <- HOBOdata %>%
   mutate(Season = ifelse(Month  %in% c(7:11,3), # juill-nov et mars
                          "Dry", "Wet"))
 
-ggplot(HOBOdata, aes(x = Month,y = Temp)) +
-  geom_point(aes(color = Season)) +
+ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +
+  geom_boxplot(aes(color = Season)) +
   labs(title="Temperature over the seasons",
        x ="Month", y = "Temp (°C)")
 ```
@@ -310,7 +332,7 @@ stats %>%
 # Correlation test
 ```{r}
 DF_cor <- stats %>% 
-  mutate(TopoHabitat = as.numeric(TopoHabitat)) %>% 
+  mutate(TopoHabitat = as.numeric(factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
   mutate(LightHabitat = as.numeric(factor(LightHabitat, levels = c("Understory", "Sunfleck", "Gap border", "Gap")))) %>% 
   mutate(Transect = as.numeric(factor(Transect, levels = c("Topo", "Gap")))) %>% 
   na.omit()
