@@ -19,6 +19,7 @@ library(readr)
 library(tidyverse)
 library(corrplot)
 library(RColorBrewer)
+library(soiltexture)
 ```
 
 # Import data
@@ -31,15 +32,11 @@ Labo_data <- read_delim("~/PhD/Pédologie/Data/Raw/Analyses_sol_labo.csv",
 Chimie <- read_delim("~/PhD/Pédologie/Data/Raw/Chimie.csv",
                      delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(16:31)]
 
-RU <- read_delim("~/PhD/Pédologie/Data/Raw/RU.csv",
-                 delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(20:37)]
+RU <- read_csv("~/PhD/Pédologie/Data/Raw/RU.csv")
 
-Bulk_density <- read_delim("~/PhD/Pédologie/Data/Raw/Bulk_density.csv",
-                           delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(12:28)]
+Bulk_density <- read_csv("~/PhD/Pédologie/Data/Raw/Bulk_density.csv")
 
-
-Drainage <- read_delim("~/PhD/Pédologie/Data/Raw/Drainage.csv",
-                       delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(17:32)]
+Drainage <- read_csv("~/PhD/Pédologie/Data/Raw/Drainage.csv")
 ```
 
 # Join data
@@ -76,6 +73,68 @@ Labo_data[,3:27] <- lapply(Labo_data[,3:27], as.numeric)
 
 NA_table <- Labo_data[rowSums(is.na(Labo_data[, 1:27])) > 0, 1:27] # NA only in granulo
 
+```
+
+# Create tripartite texture
+```{r}
+Labo_data <- Labo_data %>% 
+  mutate(`Sand %` = `Sables fins %` + `Sables grossiers %`,
+         `Silt %` = `Limons fins %` + `Limons grossiers %`,
+         `Clay %` = `Argiles %`)
+
+# Texture selon triangle de Jamagne 1977 (Texture_Jamagne:
+source("D:/Mes Donnees/PhD/R_codes/PhD/Pedology/get_soil_texture.R")
+Labo_data <- get_soil_texture(Labo_data)
+
+txturedata <- Labo_data %>% 
+  mutate(SAND = round(Labo_data$`Sand %`),
+         SILT = round(Labo_data$`Silt %`),
+         CLAY = round(Labo_data$`Clay %`)) %>% 
+  select(SAND, SILT, CLAY) %>% 
+  mutate(GENHZ = "O") %>% 
+  mutate(sum = SAND + SILT + CLAY) # %>% 
+# mutate(CLAY = ifelse(sum <100, CLAY +7, CLAY)) %>% 
+# mutate(sum = SAND + SILT + CLAY)
+
+txturedata <- TT.normalise.sum(as.data.frame(txturedata))
+
+
+# Plot texture triangle
+TT <- soiltexture::TT.plot(
+  class.sys = "USDA-NCSS.TT",    # use "our" texture triangle
+  main = 'Loafercreek\nall horizons',          # title
+  tri.sum.tst = FALSE,            # do not test for exact sum(sand, silt, clay) == 100
+  cex.lab = 0.75,                 # scaling of label text
+  cex.axis = 0.75,                # scaling of axis
+  frame.bg.col = 'white',         # background color
+  class.lab.col = 'black',        # color for texture class labels
+  lwd.axis = 1.5,
+  lwd.lab = 2,
+  arrows.show=TRUE
+)
+
+# add data
+# screen coordinates are available for later use
+TT.points(tri.data = txturedata, geo = TT, tri.sum.tst = FALSE, cex=0.5, col=alpha('royalblue', 0.5))
+
+TT.plot(
+  class.sys= "USDA-NCSS.TT",    # use "our" texture triangle
+  tri.data=txturedata,                 # 
+  main="Textures - Paracou & Nouragues",    # title
+  tri.sum.tst=FALSE,            # do not test for exact sum(sand, silt, clay) == 100
+  cex.lab=0.75,                 # scaling of label text
+  cex.axis=0.75,                # scaling of axis
+  cex=0.5,                      # scaling of point symbols
+  col=alpha('royalblue', 0.5),  # color of point symbols, with 50% transparency
+  frame.bg.col='white',         # background color
+  class.lab.col='black',        # color for texture class labels
+  lwd.axis=2                    # line thickness for axis
+)
+
+```
+
+
+```{r}
 write.csv(Labo_data, "~/PhD/Pédologie/Data/Labo_data_binded.csv")
 ```
 
