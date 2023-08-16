@@ -19,6 +19,7 @@ library(readr)
 library(tidyverse)
 library(corrplot)
 library(RColorBrewer)
+library(soiltexture)
 ```
 
 # Import data
@@ -28,18 +29,13 @@ Labo_data <- read_delim("~/PhD/Pédologie/Data/Raw/Analyses_sol_labo.csv",
                         delim = ";", escape_double = FALSE, trim_ws = TRUE) # 27 col
 
 # Quali data
-Chimie <- read_delim("~/PhD/Pédologie/Data/Raw/Chimie.csv",
-                     delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(16:31)]
+Chimie <- read_csv("~/PhD/Pédologie/Data/Raw/Chimie.csv")
 
-RU <- read_delim("~/PhD/Pédologie/Data/Raw/RU.csv",
-                 delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(20:37)]
+RU <- read_csv("~/PhD/Pédologie/Data/Raw/RU.csv")
 
-Bulk_density <- read_delim("~/PhD/Pédologie/Data/Raw/Bulk_density.csv",
-                           delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(12:28)]
+Bulk_density <- read_csv("~/PhD/Pédologie/Data/Raw/Bulk_density.csv")
 
-
-Drainage <- read_delim("~/PhD/Pédologie/Data/Raw/Drainage.csv",
-                       delim = ";", escape_double = FALSE, trim_ws = TRUE)[,-(17:32)]
+Drainage <- read_csv("~/PhD/Pédologie/Data/Raw/Drainage.csv")
 ```
 
 # Join data
@@ -50,12 +46,12 @@ Labo_data <- Labo_data %>%
   left_join(RU, by = "Sample ID") # 59 col
 
 names(Labo_data)
-# "Site", "Topgraphy type", "Fresh weight", "Organic air dried weight", "Coarse elements air dried weight", "Air-dried fine soil weight.x", "Fine soil dry weight.x", "Labo weight.x"
+# "Site", "Topography type", "Fresh weight", "Organic air dried weight", "Coarse elements air dried weight", "Air-dried fine soil weight.x", "Fine soil dry weight.x", "Labo weight.x"
 
 Labo_data <- Labo_data %>%
   mutate( # 8 cols
     Site = coalesce(Site.x, Site.y),
-    Topgraphy = coalesce(`Topgraphy type.x` , `Topgraphy type.y`),
+    Topography = coalesce(`Topography type.x` , `Topography type.y`),
     Fresh_weight = coalesce(`Fresh weight.x`, `Fresh weight.y`),
     Organic_airdried_weight = coalesce(`Organic air dried weight.x`, `Organic air dried weight.y`),
     Coarse_elements_airdried_weight = coalesce(`Coarse elements air dried weight.x`, `Coarse elements air dried weight.y`),
@@ -76,6 +72,113 @@ Labo_data[,3:27] <- lapply(Labo_data[,3:27], as.numeric)
 
 NA_table <- Labo_data[rowSums(is.na(Labo_data[, 1:27])) > 0, 1:27] # NA only in granulo
 
+```
+
+# Decompose Sample ID
+site-analyse-topo-sample-horizon
+```{r}
+Labo_data <- Labo_data %>% 
+  mutate(`Sample ID` = ifelse(is.na(`Horizon thickness (cm)`),
+                              paste0(`Sample ID`, '-H1'), `Sample ID`),
+         Sample = transpose(strsplit(`Sample ID`, split = "-"))[[4]], # 4th elmt  
+         Horizon = transpose(strsplit(`Sample ID`, split = "-"))[[5]] # 5th 
+  )
+```
+
+
+# Create tripartite texture
+```{r}
+Labo_data <- Labo_data %>% 
+  mutate(`Sand %` = `Sables fins %` + `Sables grossiers %`,
+         `Silt %` = `Limons fins %` + `Limons grossiers %`,
+         `Clay %` = `Argiles %`,
+         `Coarse elements %` = (
+           Coarse_elements_airdried_weight/(Fine_soil_dry_weight + Coarse_elements_airdried_weight)
+         )*100
+  )
+
+# Texture selon triangle de Jamagne 1977 (Texture_Jamagne):
+source("D:/Mes Donnees/PhD/R_codes/PhD/Pedology/get_soil_texture.R")
+Labo_data <- get_soil_texture(Labo_data, Available_Water = T)
+```
+
+# Plot texture triangle (pas réussi)
+```{r}
+txturedata <- Labo_data %>% 
+  mutate(SAND = round(Labo_data$`Sand %`),
+         SILT = round(Labo_data$`Silt %`),
+         CLAY = round(Labo_data$`Clay %`)) %>% 
+  as.data.frame() %>% 
+  TT.normalise.sum() %>% # Normalises the sum of the 3 particle size classes
+  bind_cols(Labo_data)
+
+library(plotrix) # for soil texture plot
+
+soil.texture(Labo_data[,50:52],
+             main = "Soil textures - Paracou & Nouragues",    # title
+             col.symbols=1:8,
+             bg.symbols=1:8,
+             point.labels=Labo_data$Topography,
+             pch=21)
+legend(x=1, 
+       legend=Labo_data$Topography,
+       col=1:8, 
+       fill=1:8)
+
+TT.plot(
+  main = "Soil textures - Paracou & Nouragues",    # title
+  class.sys = "FR.AISNE.TT",    # use the texture triangle of the package
+  tri.data = txturedata,          # data
+  tri.sum.tst = F,            # do not test for exact sum(sand, silt, clay) == 100
+  z.name      = "Topography", 
+  cex.lab = 0.75,                 # scaling of label text
+  cex.axis = 0.75,                # scaling of axis
+  cex = 0.5,                      # scaling of point symbols
+  col = alpha('royalblue', 0.5),  # color of point symbols, with 50% transparency
+  frame.bg.col = 'white',         # background color
+  class.lab.col = 'black',        # color for texture class labels
+  lwd.axis=2                   # line thickness for axis
+)
+TT <- soiltexture::TT.plot(
+  class.sys = "USDA-NCSS.TT",    # use "our" texture triangle
+  main = 'Loafercreek\nall horizons',          # title
+  tri.sum.tst = FALSE,            # do not test for exact sum(sand, silt, clay) == 100
+  cex.lab = 0.75,                 # scaling of label text
+  cex.axis = 0.75,                # scaling of axis
+  frame.bg.col = 'white',         # background color
+  class.lab.col = 'black',        # color for texture class labels
+  lwd.axis = 1.5,
+  lwd.lab = 2,
+  arrows.show=TRUE
+)
+
+# add data
+# screen coordinates are available for later use
+TT.points(tri.data = txturedata, geo = TT, tri.sum.tst = FALSE, cex=0.5, col=alpha('royalblue', 0.5))
+```
+
+# Compute Available Water Capacity (AWC) (Reserve en eau utile)
+```{r}
+# Compute Available_Water (ml) for the sample mass
+Labo_data <- Labo_data %>%
+  mutate(`Available_Water (ml)` =
+           (`Available_Water (ml/100g)`/100)*(Fine_soil_dry_weight + Coarse_elements_airdried_weight)
+  )
+
+# Compute AWC by horizon then for the core
+Labo_data <- Labo_data %>% 
+  mutate(AWC_by_H = round(`Horizon thickness (cm)` * (`Available_Water (ml)` / `Horizon thickness (cm)`)  * (1-(`Coarse elements %`/100)),2)
+         # ou
+         # AWC_by_H = `Available_Water (ml)` * "densité apparente" * (`Coarse elements %`)/100
+  ) %>% 
+  group_by(Site,Topography, Sample) %>% 
+  mutate(AWC = sum(na.omit(AWC_by_H))) %>% # na.omit pour ne pas considérer les échantillons CH
+  ungroup() %>% 
+  mutate(AWC = ifelse(is.na(AWC_by_H), NA, AWC))
+
+```
+
+```{r}
 write.csv(Labo_data, "~/PhD/Pédologie/Data/Labo_data_binded.csv")
 ```
 
@@ -85,7 +188,7 @@ write.csv(Labo_data, "~/PhD/Pédologie/Data/Labo_data_binded.csv")
 ```{r}
 DF_cor <- Labo_data %>% 
   filter(grepl(pattern = 'CH', Labo_data$`Sample ID`)) %>%
-  mutate(Topgraphy = as.numeric(factor(Topgraphy, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
+  mutate(Topography = as.numeric(factor(Topography, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
   mutate(Site = as.numeric(factor(Site, levels = c("Nouragues", "Paracou"))))
 
 DF_cor <- DF_cor[,colSums(is.na(DF_cor))==0] # remove column with only NA

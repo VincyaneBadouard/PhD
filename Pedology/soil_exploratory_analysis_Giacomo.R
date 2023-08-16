@@ -10,7 +10,8 @@ Labo_data_binded$`Sand %` <- Labo_data_binded$`Sables fins %` + Labo_data_binded
 Labo_data_binded$`Silt %` <- Labo_data_binded$`Limons fins %` + Labo_data_binded$`Limons grossiers %`
 Labo_data_binded$`Clay %` <- Labo_data_binded$`Argiles %`
 
-#select only bas-fond and plateaux samples. I hide the cations and anions because they're redundant with CEC
+#select only bas-fond and plateaux samples.
+#I hide the cations and anions because they're redundant with CEC
 ACP_Data <- subset (Labo_data_binded, grepl("CH-BF", Labo_data_binded$'Sample ID') |
                       grepl("CH-Pl", Labo_data_binded$'Sample ID'), 
                     select =c ("Sample ID", "MO %", "Corg %", "N ‰", "Corg/N\r\n", #"Ca me/100g",
@@ -31,7 +32,7 @@ fviz_pca_biplot(res.pca, col.ind = groups, # color by groups
                 repel = TRUE
 )
 
-# boxplots
+#boxplots
 ACP_Data_long <- melt(ACP_Data[2:15], id = "Site")  
 
 ggplot(ACP_Data_long, aes(x = variable, y = value, color = Site)) +  # ggplot function
