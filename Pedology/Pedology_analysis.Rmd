@@ -175,7 +175,6 @@ Labo_data <- Labo_data %>%
   mutate(AWC = sum(na.omit(AWC_by_H))) %>% # na.omit pour ne pas considérer les échantillons CH
   ungroup() %>% 
   mutate(AWC = ifelse(is.na(AWC_by_H), NA, AWC))
-
 ```
 
 ```{r}
