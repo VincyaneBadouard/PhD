@@ -104,6 +104,7 @@ Labo_data <- get_soil_texture(Labo_data, Available_Water = T)
 
 # Plot texture triangle (pas réussi)
 ```{r}
+
 txturedata <- Labo_data %>% 
   mutate(SAND = round(Labo_data$`Sand %`),
          SILT = round(Labo_data$`Silt %`),
@@ -139,6 +140,7 @@ TT.plot(
   class.lab.col = 'black',        # color for texture class labels
   lwd.axis=2                   # line thickness for axis
 )
+
 TT <- soiltexture::TT.plot(
   class.sys = "USDA-NCSS.TT",    # use "our" texture triangle
   main = 'Loafercreek\nall horizons',          # title
@@ -176,6 +178,7 @@ Labo_data <- Labo_data %>%
   ungroup() %>% 
   mutate(AWC = ifelse(is.na(AWC_by_H), NA, AWC))
 ```
+
 
 ```{r}
 write.csv(Labo_data, "~/PhD/Pédologie/Data/Labo_data_binded.csv")
