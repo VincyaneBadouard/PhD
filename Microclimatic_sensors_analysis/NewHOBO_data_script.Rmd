@@ -3,29 +3,50 @@ title: "HOBO data script"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, echo = FALSE, fig.width = 6
+)
+```
+
 **les données très fortes de lumière = sunflex étude sunflecks**
 
-Objectives: 
-- open the HOBO data
-- create a script to open HOBO data in several folders
-- prepare HOBO data for analysis
-- spatialiser tous les capteurs en x,y (trilateration) (A FAIRE)
-- descriptive analysis
+Objectives:
+
+\- open the HOBO data
+
+\- create a script to open HOBO data in several folders
+
+\- prepare HOBO data for analysis - spatialiser tous les capteurs en x,y
+(trilateration) (A FAIRE) - descriptive analysis
 
 Problematics:
-- A quelle échelle la variabilité est la plus forte (saison, mois, jour, jour/nuit, 15min) ?
-- La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?
 
-Variables à calculer :
-moyenne, sd, coefficient de variation, min, max :
-- de l’année
-- diurne
-- nocturne
-- saison sèche
-- saison des pluies
+\- A quelle échelle la variabilité est la plus forte (saison, mois,
+jour, jour/nuit, 15min) ?
+
+\- La température de l'air et la lumière sont-elles liées à l'ouverture
+de canopée ? à la topographie ?
+
+Variables à calculer : moyenne, sd, coefficient de variation, min, max :
+
+\- de l'année
+
+\- diurne
+
+\- nocturne
+
+\- saison sèche
+
+\- saison des pluies
 
 # Packages
+
 ```{r echo = T,results = 'hide', message=FALSE}
 library(readr)
 library(tidyverse)
@@ -36,7 +57,8 @@ library(corrplot)
 library(RColorBrewer)
 ```
 
-# Read 
+# Read
+
 ```{r , include = F}
 # Sensor environnment data
 HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
@@ -67,7 +89,9 @@ df_list <- lapply(filenames, read_delim,
 # bind all the files
 HOBOdata <- bind_rows(df_list, .id = "HoboID") # df number -> HoboID column
 ```
-# Combine data and environnment
+
+# Combine data and environment
+
 ```{r}
 HOBOdata <- HOBOdata %>% 
   mutate(HoboID = as.numeric(HoboID)) %>%
@@ -76,6 +100,7 @@ HOBOdata <- HOBOdata %>%
 ```
 
 # Rename files
+
 ```{r , include = F}
 # truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
 # truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
@@ -86,10 +111,12 @@ HOBOdata <- HOBOdata %>%
 # names(df_list) <- truc5
 ```
 
-
 # Understand the HOBO file
-Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
-Ils collectent bien toutes les 15 minutes.
+
+Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter
+des données ce même jour à 18h. Ils collectent bien toutes les 15
+minutes.
+
 ```{r}
 # str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
 names(HOBOdata)
@@ -99,7 +126,9 @@ range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
 ```
 
 # Prepare HOBO data for analysis
+
 Rename variables
+
 ```{r}
 HOBOdata <- HOBOdata %>% 
   rename(Index = '#') %>%
@@ -108,8 +137,8 @@ HOBOdata <- HOBOdata %>%
   rename(Light = 'Ch: 2 - Lumière   (lux)')
 ```
 
-
 ## Manage date and hours
+
 ```{r}
 class(HOBOdata$Time) # the time is in character
 
@@ -129,6 +158,7 @@ max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
 ```
 
 ## NA ?
+
 ```{r}
 Na_tabble <- HOBOdata %>%
   filter(is.na(Light) | is.na(Temp))
@@ -142,9 +172,8 @@ Na_tabble <- HOBOdata %>%
 ```
 
 # Relation between light and temperature
-```{r}
-esquisse::esquisser()
 
+```{r}
 HOBOdata %>% 
   # filter(Light>10) %>% 
   ggplot() +
@@ -162,7 +191,8 @@ geom_smooth(span = 0.75)
 cor(HOBOdata$Light, HOBOdata$Temp) # 0.44
 ```
 
-# Day/night 
+# Day/night
+
 ```{r}
 # See when it's the night
 ggplot(HOBOdata, aes(x = Hour,y = Light)) +
@@ -191,6 +221,7 @@ min(HOBOdata[HOBOdata$Phase == "Day",]$Light) # 0 lux
 ```
 
 # Seasons
+
 ```{r}
 HOBOdata <- HOBOdata %>%
   mutate(Season = ifelse(Month  %in% c(7:11,3), # juill-nov et mars
@@ -203,17 +234,21 @@ ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +
 ```
 
 # Variables à calculer
+
 à l'échelle du capteur :
-- moyenne de l’année
-- moyenne diurne
-- moyenne nocturne
-- moyenne saison sèche
-- diurne
-- nocturne
-- moyenne saison des pluies
-- diurne
-- nocturne
-- coefficient variation à ces échelles
+
+\- moyenne de l'année
+
+\- moyenne diurne
+
+\- moyenne nocturne
+
+\- moyenne saison sèche
+
+\- moyenne saison des pluies
+
+\- coefficient variation à ces échelles
+
 ```{r}
 annual_stats <- HOBOdata %>%
   group_by(HoboID) %>%
@@ -256,7 +291,9 @@ season_stats <- HOBOdata %>%
               names_glue = "{.value}_{Season}")
 
 ```
+
 # Stats dataset
+
 ```{r}
 stats <- annual_stats %>% 
   left_join(season_stats, by="HoboID") %>%
@@ -269,8 +306,8 @@ stats <- stats[,colSums(stats)>0] # remove column with only 0 (min light)
 stats <- left_join(stats, env, by="HoboID")
 ```
 
-
 # Some plots
+
 ```{r}
 stats %>%
   filter(!is.na(LightHabitat)) %>%
@@ -330,6 +367,7 @@ stats %>%
 ```
 
 # Correlation test
+
 ```{r}
 DF_cor <- stats %>% 
   mutate(TopoHabitat = as.numeric(factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
@@ -347,14 +385,16 @@ corrplot(CorMatrix, method="circle", type="lower",
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
 # dev.off()
 ```
-Ces métriques de lumière et de température ne semblent pas être reliées à la topographie. Pourtant les boxplots laissent à penser que la température augmente du bas-fond vers le plateau.
 
-Sont lié à l'habitat lumineux :
-tout sauf les coefficient de variation et la température maximum nocturne.
+Ces métriques de lumière et de température ne semblent pas être reliées
+à la topographie. Pourtant les boxplots laissent à penser que la
+température augmente du bas-fond vers le plateau.
 
+Sont lié à l'habitat lumineux : tout sauf les coefficient de variation
+et la température maximum nocturne.
 
+# Sensors coordinates (mis de côté, à continuer)
 
-# Sensors coordinates (mis de côté, à continuer, attente script Sylvain)
 ```{r}
 coord_table <- HOBO_Paracou_env %>% 
   select(HoboID, SubPlot,
@@ -375,12 +415,13 @@ Target <- coord_table
 ```
 
 ## Trilateration
+
 ```{r}
 
 ```
 
 # Save the stats dataset
-```{r}
-write.csv(stats, "~/PhD/Microclimate/HOBO/HOBO_stats.csv")
-```
 
+```{r}
+# write.csv(stats, "~/PhD/Microclimate/HOBO/HOBO_stats.csv")
+```

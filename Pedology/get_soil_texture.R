@@ -9,6 +9,8 @@
 #'
 #' @return The initial data.frame with a computed `Texture_Jamagne` column.
 #' 
+#' @import package
+#' 
 #' @details
 #' Texture selon triangle de Jamagne (1977) (Texture_Jamagne): 
 #' S : `Sand %`>80 & `Clay %`<10 & `Silt %`<20
@@ -32,7 +34,7 @@
 #' AL : `Clay %`> 30 & `Clay %`< 45 & `Sand %`< 20 & `Silt %`>10 & `Silt %`<50
 #' Alo : `Clay %`> 45 & `Sand %`<55 & `Silt %`<55
 #' 
-#' @export
+#' @export tidyverse
 #'
 #' @examples
 #' \dontrun{

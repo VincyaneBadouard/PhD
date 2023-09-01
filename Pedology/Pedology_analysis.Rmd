@@ -4,6 +4,11 @@ author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, echo = FALSE, fig.width = 6
+)
+```
 
 Problematics:
 - Les caractéristiques du sol sont-elles liées à la topographie ?
