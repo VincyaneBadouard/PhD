@@ -47,7 +47,7 @@ Variables à calculer : moyenne, sd, coefficient de variation, min, max :
 
 # Packages
 
-```{r echo = T,results = 'hide', message=FALSE}
+```{r}
 library(readr)
 library(tidyverse)
 library(stringr)
@@ -120,8 +120,8 @@ minutes.
 ```{r}
 # str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
 names(HOBOdata)
-range(HOBOdata$HoboID) # 30 sensors
-range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
+cat("Sensors number range:",range(HOBOdata$HoboID)) # 30 sensors
+cat("Sensors time range:",range(HOBOdata$`Date et heure (French Guiana Standard Time)`))
 # filter à > "30/03/23 18:00:00"
 ```
 
@@ -152,8 +152,8 @@ HOBOdata <- HOBOdata %>%
   filter(Time >= mdy_hms("03/30/2023 18:00:00") & Time < mdy_hms("03/30/2024 18:00:00")) 
 
 
-range(HOBOdata$Time)
-max(HOBOdata$Date) # "2023-05-25" the collect date
+cat("Sensors time range:",range(HOBOdata$Time))
+cat("The collect date:",max(HOBOdata$Date)) # "2023-05-25" the collect date
 max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
 ```
 
@@ -180,25 +180,30 @@ HOBOdata %>%
   aes(x = Light, y = Temp) +
   geom_point(size = 0.2) +
   stat_smooth(method = "lm",
-              formula = y ~ x)
+              formula = y ~ x) +
+  labs(x ="Light (lux)", y = "Temperature (°C)")
 
 HOBOdata %>% 
   ggplot() +
   aes(x = Light, y = Temp) +
   geom_point(size = 0.2) +
-geom_smooth(span = 0.75)
+geom_smooth(span = 0.75) +
+  labs(x ="Light (lux)", y = "Temperature (°C)")
 
-cor(HOBOdata$Light, HOBOdata$Temp) # 0.44
+cat("cor:",cor(HOBOdata$Light, HOBOdata$Temp)) # 0.44
 ```
 
 # Day/night
 
+See when it's the night.
+
 ```{r}
-# See when it's the night
 ggplot(HOBOdata, aes(x = Hour,y = Light)) +
   geom_line() +
   labs(title="Light over a day",
        x ="Hour", y = "Light (lux)")
+
+cat("Day: 06:15 - 18:45")
 
 HOBOdata <- HOBOdata %>%
   mutate(Phase = ifelse((Hour <= hms::as_hms("18:45:00") &
@@ -216,8 +221,8 @@ ggplot(HOBOdata[HOBOdata$Phase=="Night",], aes(x = Hour,y = Light)) +
   labs(title="Night over a day",
        x ="Hour", y = "Light (lux)")
 
-max(HOBOdata[HOBOdata$Phase == "Night",]$Light) # 1.7 lux
-min(HOBOdata[HOBOdata$Phase == "Day",]$Light) # 0 lux
+cat("Maximum light by night:", max(HOBOdata[HOBOdata$Phase == "Night",]$Light)) # 1.7 lux
+cat("Minimum light by day:", min(HOBOdata[HOBOdata$Phase == "Day",]$Light)) # 0 lux
 ```
 
 # Seasons
@@ -341,6 +346,9 @@ stats %>%
   labs(x ="Light Habitat", y = "Maximum daily light (lux)") +
   theme_minimal()
 
+cat("Les gaps sont bien les zones les plus lumineuses. Le sous-bois connait des variations de lumière importantes au cours de la journée")
+
+
 stats %>%
   filter(!is.na(TopoHabitat)) %>%
   ggplot() +
@@ -364,11 +372,13 @@ stats %>%
   geom_boxplot(fill = "#DA2217") +
   labs(x ="Topographic Habitat", y = "Average daily temperature (°C)") +
   theme_minimal()
+
+cat("La température augmente avec la topographie")
 ```
 
 # Correlation test
 
-```{r}
+```{r, fig.height = 10}
 DF_cor <- stats %>% 
   mutate(TopoHabitat = as.numeric(factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
   mutate(LightHabitat = as.numeric(factor(LightHabitat, levels = c("Understory", "Sunfleck", "Gap border", "Gap")))) %>% 
@@ -386,9 +396,18 @@ corrplot(CorMatrix, method="circle", type="lower",
 # dev.off()
 ```
 
-Ces métriques de lumière et de température ne semblent pas être reliées
-à la topographie. Pourtant les boxplots laissent à penser que la
-température augmente du bas-fond vers le plateau.
+Ces métriques de lumière et de température ne semblent pas être
+fortement reliées à la topographie. Pourtant les boxplots laissent à
+penser que la température augmente du bas-fond vers le plateau.
+
+Les relations à la topographie les plus importantes cor entre 0.25 et
+0.5 :
+
+-   Average annual, dry, wet, day temperature
+
+-   Maximum night temperature
+
+-   Minimum day light
 
 Sont lié à l'habitat lumineux : tout sauf les coefficient de variation
 et la température maximum nocturne.

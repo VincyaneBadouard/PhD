@@ -34,13 +34,23 @@ ST <- readLAS(HovermapST_X_path)
 ST
 ST@data
 
-hist(ST@data$Ring) # 15 faisceaux
+hist(ST@data$Ring) # 32 faisceaux
 
 unique(ST@data$ReturnNumber) # 0 or 1 or 2
 unique(ST@data$NumberOfReturns) # 0
 
-min(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
-table(ST@data$ReturnNumber) # echo 1 = 17049347, echo 2 = 178201 
+table(ST@data$NumberOfReturns) # CONTINU. normalment : echo 1 = 0, echo 2 = 1
+table(ST@data$ReturnNumber) # echo 1 = 62963145, echo 2 = 1078485, echo 3 = 608917 
+
+# Vérifier l'unicité des gpstime
+options(digits=22)
+length(unique(ST@data$gpstime)) # 39956846. doit être égal ou supérieur à la somme des échos
+sum(table(ST@data$ReturnNumber)) # 64650547
+dup1 <- ST@data[anyDuplicated(ST@data$gpstime),]
+dup <- ST@data[duplicated(gpstime),.(gpstime)]
+dup <- ST@data[gpstime %in% dup$gpstime, .(gpstime, Ring)]
+# les gpstime sont dupliqués par couple de faisceaux : ils acquièrent en meme temps 
+# pas un problème pcq on traite par faisceau par faisceau : pas de conflit de temps
 
 # plot(ST) # trop lourd
 ```

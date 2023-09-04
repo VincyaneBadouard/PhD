@@ -498,9 +498,8 @@ corrplot(CorMatrix, method="circle",
 
 -   *Average dry and wet season air temperatures*
 
-```{=html}
 <!-- -->
-```
+
 -   *Average day surface and air temperature*
 
 -   *Maximum day air and surface temperature*
