@@ -33,14 +33,13 @@
 #' @examples
 #' library(lidR)
 #' 
-#' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_subsampled_laz1_4.laz")
+#' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_laz1_4.laz")
 #' ST_broc <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_decim2.5cm_range1.5.laz")
-#' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4.laz")
-#' Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_traj.xyz")
+#' Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_traj.xyz")
 #' 
-#' ST <- ST_broc
-#' vector_coord <- trace_shots_with_echo(ST, Traj)
-#' Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord SampleTime = 3, OneRing = TRUE)
+#' source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/trace_shots_with_echo.R")
+#' vector_coord <- trace_shots_with_echo(ST, Traj, SampleTime = 3, OneRing = TRUE)
+#' Gaps_vect_coord <- trace_shots_without_echo(ST, Traj, vector_coord, SampleTime = 3, OneRing = TRUE)
 #' 
 trace_shots_without_echo <- function(ST,
                                      Traj,
@@ -58,8 +57,9 @@ trace_shots_without_echo <- function(ST,
     a <- Cloud[,.(Ring, gpstime)]
     a <- a[, .SD[1], by = .(Ring)] # 1er gpstime de chaque ring
     fstsec <- max(max(a$gpstime), min(Traj$gpstime)) # le 1er gpstime commun
-    Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
     Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
+    Cloud <- Cloud[gpstime >= min(Traj$gpstime) & gpstime<= max(Traj$gpstime)]
+    # la traj ne doit pas être inférieure au cloud en terme de temps sinon génère des NA
   }
   
   if(OneRing){Rings <- unique(Cloud[,Ring])[1]
@@ -135,15 +135,27 @@ trace_shots_without_echo <- function(ST,
     gaps_vector_coord$Y0 <- Ya
     gaps_vector_coord$Z0 <- Za
     
-    gaps_vector_coord$diff_time <- NA
-    vectors <- rbind(vector_coord, gaps_vector_coord)
-    vectors <- vectors[with(vectors, order(gpstime)),] 
+    gaps_vector_coord$diff_time <- NA # time gaps between two emissions is unknown
+    vectors <- rbind(vector_coord, gaps_vector_coord) # table for all the vectors (with and without echo)
+    vectors <- vectors[order(gpstime),] # by ascending order of gpstime
+    
     # A FAIRE
     # mettre le diff-time du bas sur les NA du desssus
+    # pq on recalcule pas juste les diff-time  avec les gpstime ?
     
-    si diff_time > (1/frot)/2 -> on inverse # s'il a dépassé le demi-tour
-    si diff_time > (1/frot) -> on jette (distance = NULL) # tour complet
+    # si diff_time > (1/frot)/2 -> on inverse le vecteur s'il a dépassé le demi-tour
+    # si diff_time > (1/frot) -> on jette (distance = NULL) # tour complet
+    vectors[diff_time > (1/frot)/2, `:=`(x_dir = -x_dir , # s'il a dépassé le demi-tour
+                                         y_dir = -y_dir,
+                                         z_dir = -z_dir)]
     
+    vectors[diff_time > (1/frot), Distance := NULL] # tour complet
+    
+    # questions : 
+    # pq on jette si tour complet ?
+    # il faudrait prendre en compte les inversions des vecteurs précédents dans les suivants 
+# il faudrait à chaque vecteur inversé, recalculer ceux qui ont été estimés à partir de lui
+    # il faut d'abord inversé les vecteur dans la fonction with écho
     
     # Cas des tirs ayant eu le temps de faire un demi tour ----------------------
     # Inverser les vecteurs qui on changé de plan de rotation par rapport aux
@@ -154,7 +166,7 @@ trace_shots_without_echo <- function(ST,
     demitour <- (1/frot)/2 # frot : frequency of rotation in Hz
     val <- ceiling(diff-time/demitour)-1 # ils ont dépassé le demi-tour
     # Les impairs c'est dans le plan oposé à ceux des vecteurs dont ils sont interpolés 
-    # Les pairs ont eu le temps de revcenir dans le même plan
+    # Les pairs ont eu le temps de revenir dans le même plan
     impair <- val%%2 != 0 
     
     gaps_vector_coord$x_dir[impair] <- gaps_vector_coord$x_dir[impair]*(-1)

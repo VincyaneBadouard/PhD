@@ -31,11 +31,7 @@
 #' library(data.table)
 #' 
 #' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_subsampled_laz1_4.laz")
-#' ST_broc <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_decim2.5cm_range1.5.laz")
-#' ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4.laz")
-#' Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_traj.xyz")
-#' 
-#' ST <- ST_broc
+#' Traj <- fread("Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Escadrone180723_ss_filtre/local/out3_traj.xyz")
 #' 
 #' vector_coord <- trace_shots_with_echo(ST, Traj, SampleTime = 3, OneRing = TRUE)
 #' 
@@ -54,8 +50,9 @@ trace_shots_with_echo <- function(ST,
     a <- Cloud[,.(Ring, gpstime)]
     a <- a[, .SD[1], by = .(Ring)] # 1er gpstime de chaque ring
     fstsec <- max(max(a$gpstime), min(Traj$gpstime)) # le 1er gpstime commun
-    Cloud <- Cloud[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
     Traj <- Traj[gpstime >= fstsec & gpstime<= fstsec+SampleTime]
+    Cloud <- Cloud[gpstime >= min(Traj$gpstime) & gpstime<= max(Traj$gpstime)]
+    # la traj ne doit pas être inférieure au cloud en terme de temps sinon génère des NA
   }
   
   
