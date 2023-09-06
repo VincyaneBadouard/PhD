@@ -145,14 +145,20 @@ trace_shots_without_echo <- function(ST,
     
     # si diff_time > (1/frot)/2 -> on inverse le vecteur s'il a dépassé le demi-tour
     # si diff_time > (1/frot) -> on jette (distance = NULL) # tour complet
+    
+    # si plus de 180° entre 2 vecteurs avec echo, aucun vecteurs estimés n'est vrai car angle optu ou aigu est utilisé
     vectors[diff_time > (1/frot)/2, `:=`(x_dir = -x_dir , # s'il a dépassé le demi-tour
                                          y_dir = -y_dir,
                                          z_dir = -z_dir)]
     
-    vectors[diff_time > (1/frot), Distance := NULL] # tour complet
+    # plan B
+    vectors[diff_time > (1/frot)/2, Distance := NULL]
+    
+    # virer tout les vecteurs du tour complet vide (gaps mais pas les bornes des gaps)
+    vectors[diff_time > (1/frot), Distance := NULL] # tour complet (on le considère comme s'il n'y avait pas eu de tirs)
     
     # questions : 
-    # pq on jette si tour complet ?
+    # pq on jette si tour complet ? pcq compliquer à corriger voir impossible. Et si pas de données sur un tour complet c'est que le scanner fonctionne pas (objet trop proche trop longtemps ou que du ciel)
     # il faudrait prendre en compte les inversions des vecteurs précédents dans les suivants 
 # il faudrait à chaque vecteur inversé, recalculer ceux qui ont été estimés à partir de lui
     # il faut d'abord inversé les vecteur dans la fonction with écho

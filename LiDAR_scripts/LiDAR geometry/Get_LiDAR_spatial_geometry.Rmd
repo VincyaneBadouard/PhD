@@ -339,6 +339,8 @@ retained <- which(!is.na(Test_10Cloud$XB100))
 ```
 
 ## Remove a continuous part of known data
+500 lignes pour un demi-tour
+prendre 800
 ```{r}
 # Test_contCloud <- copy(vector_coord)
 # 
