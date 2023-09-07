@@ -21,10 +21,8 @@ library(plot3D)
 
 # The point cloud and trajectory paths 
 ```{r}
-Hovermap_path <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_laz1_4.laz"
 HovermapST_X_path <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Hand Scan/gcp_output/STX_third04_laz1_4.laz"
 
-Hovermap_traj <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/20220908ST0412Scan/Output/st0142target_09_Output_gcp_global_traj.xyz"
 HovermapST_X_traj <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/Scans Hovermap ST-X/Hand Scan/gcp_output/STX_third04_traj.xyz"
 ```
 
