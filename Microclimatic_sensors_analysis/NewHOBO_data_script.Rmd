@@ -415,22 +415,28 @@ et la température maximum nocturne.
 # Sensors coordinates (mis de côté, à continuer)
 
 ```{r}
+# jeux de données test : 
+
 coord_table <- HOBO_Paracou_env %>% 
   select(HoboID, SubPlot,
          TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
          DTree1, DTree2, DTree3) %>% # distances to neighbouring trees
-  na.omit()
+  na.omit() %>% 
+  mutate(TreeNum2 = ifelse(HoboID == "2", "410", TreeNum2)) %>% # just for test
+  mutate(TreeNum3 = ifelse(HoboID == "2", "411", TreeNum2))
 
 idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
 
 Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
   filter(TreeFieldNum %in% idTrees) %>% 
   filter(SubPlot %in% unique(coord_table$SubPlot)) %>% 
-  select(SubPlot, TreeFieldNum, Xfield, Yfield, Xutm, Yutm)
+  select(SubPlot, TreeFieldNum, Xutm, Yutm) %>%  # Xfield, Yfield, 
+  distinct()
 
 RefTrees <- Paracou16_2020
-Target <- coord_table
+Target <- coord_table %>% rename(ID_measure = HoboID) 
 # stop("Sensors coordinates: mis de côté, à continuer")
+
 ```
 
 ## Trilateration
