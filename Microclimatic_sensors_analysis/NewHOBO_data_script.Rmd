@@ -442,7 +442,9 @@ Target <- coord_table %>% rename(ID_measure = HoboID)
 ## Trilateration
 
 ```{r}
+source("~/PhD/R_codes/PhD/trilateration_code.R", echo=TRUE)
 
+coord_table <- trilateration(Target, RefTrees)
 ```
 
 # Save the stats dataset

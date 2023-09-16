@@ -13,12 +13,12 @@ library(sf)
 library(simplevis)
 
 # X : x subplot Y : y subplot
+# ID_measure et ID_ref c'est l'identifiant unique de mon point à estimer ?
 # T1C,T2C,T3C,T4C (les carrés dans le sens de understory de 10x10m).
 # les arbres identifiés les plus proches des plantules peuvent se situer dans un
 # carré voisin.
 # _sf indique que l’objet est de la classe sf
 # _est correspond à « estimate ».
-
 ---------------------------------------------------------------------------------
 # RefTrees <- read.csv2("Paracou_P16_C1015_2020.csv") %>%
 #   select(SubPlot, TreeFieldNum,Xutm,Yutm) %>% distinct()
