@@ -23,6 +23,7 @@ library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
 library(terra)
+library(raster)
 library(AMAPVox)
 library(sf)
 ```
@@ -120,6 +121,7 @@ ST@data <- ST@data[Classification != 7,] # enlever le bruit
 plot(ST) # quasi plus de bruit
 # Question : ça suffit ?
 ```
+
 # Classifier les points sol
 ```{r}
 ST <- PC
@@ -160,7 +162,7 @@ en calculant la réflectance apparente en ratio (albedo)
 = intensité qu'on va utiliser par la suite.
 
 Réflectance (ou Albedo) = énergie lumineuse réfléchie/énergie lumineuse incidente
- 
+
 ```{r}
 # Compute Intensity
 VP$initial_intensity <- VP$Intensity 
@@ -199,7 +201,7 @@ for (i in 1:mx_rn){
   for (j in 1:i)
   {
     mat1[i,j] <- (mean(VP[NumberOfReturns==i & ReturnNumber==j,Intensity],
-                     na.rm=T)) # moy des intensités retours par rang d'écho
+                       na.rm=T)) # moy des intensités retours par rang d'écho
   }
 }
 
@@ -217,13 +219,13 @@ fwrite(mat_rel1, "Z:/users/VincyaneBadouard/ALS2022/WeightingMatrix.txt",
 ```
 
 # Calcul de matrice de rotation (alignement N-S d’un bord de ROI)
-Utilise le fichier vecteur précédent (ROI), crée une matrice 'VOP'.
+script : **Create_VOP.Rmd**
+Utilise le fichier vecteur précédent (ROI),
+créer une matrice 'VOP'(Voxels Oriented Patches) (.txt).
 
 rotationer le nuage de points pour etre aligné avec la grille
 
 pour calculer la matrice VOP on enlève les points sol
-
-Question : ça c’est dans amapvox ou avant ?
 
 # AMAPVox
 ```{r}
@@ -243,7 +245,7 @@ fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuil
 pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
 
 ```{r}
-VX <- readVoxelSpace("Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_test")
+VX <- readVoxelSpace("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/AMAVox_output_test")
 AMAPVox::plot(VX)
 VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
 
@@ -281,13 +283,32 @@ calendrier : sur une année
 clearness coefficient : 0.5 rapport direct-diffus en gros à l'équateur (change au cours des saisons)
 ```{r}
 library(lattice) # pour plotter la carte de lumière
-Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2022/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
 # enlever les 2 lignes mean
 # Light <- Light[Y != "MEAN"]
+Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
+Light <- Light[, !c("V5", "Z"), with = FALSE] # c'est quoi Z ?
 
-levelplot(`Period 1`~X*Y, data=Light[X<90 & X> -90 & Y<90 & Y> -90 ])
+# Remove edges
+Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
+# Plot
+levelplot(`Period 1`~X*Y, data = Light) 
+
+ggplot() + 
+  geom_raster(data = Light, aes(X, Y, fill = `Period 1`)) + 
+  scale_fill_gradientn(name = "Light intensity (transmittance)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  ggtitle("Light map") +  # where ?
+  coord_sf()
+
+# Greg dit qu'on peut retrouver les cooordonnées UTM avec la VOP
 ```
 
 Amapvox peut générer des photos hémisphériques, des données, LAI2200, et des cartes 3D de lumière ()
 
 # Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox
+
+```{r}
+
+```
+

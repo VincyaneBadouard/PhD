@@ -1,0 +1,212 @@
+---
+title: "Creation des Voxels Oriented Patches (VOP)"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+Source : à partir du script de Lisa Moreno.
+
+Script permettant d'obtenir les **Voxels Oriented Patches (VOP)** (matrice)
+Ouput format: .txt
+
+# Chargement des packages
+```{r}
+library(sp)
+library(maptools)
+library(rgdal)
+library(raster)
+```
+
+
+# Paracou
+```{r}
+shp <- readOGR("Z:/users/LisaMoreno/ShapeFiles/Paracou/Sommets4ha.gpkg")  #SPDF
+shp@data # où elle a eu ça ?
+
+plot(shp)
+shp@coords # point 2 is duplicated!
+```
+OGR data source with driver: GPKG 
+45 features
+15 fields
+Integer64 fields read as strings:  N_TYPE N_PARCELLE SURFACE PERIMETRE
+
+```{r}
+coord <- shp@coords[c(1,2,4,5),] # 4 points
+dimnames(coord)[[1]] <- c("NW","NE","SE","SW") # orientations
+plot(coord)
+text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,])) # ya pas erreur là ?
+```
+
+```{r}
+vec <- coord[2,]-coord[1,] #
+rho <- atan(vec[1]/vec[2]) #
+```
+
+## New rotation center 
+```{r}
+center <- c(mean(coord[,1]),mean(coord[,2])) # moyenne des x et des y
+```
+
+## Add tag point
+```{r}
+NorthCenter <- c(mean(coord[c(1,2),1]),mean(coord[c(1,2),2])) # moyenne entre les 2 points au Nord
+points <- rbind(center, NorthCenter)
+```
+
+```{r}
+#points <- SpatialPoints(matrix(rbind(center, NorthCenter), nrow  =  2))
+plot(coord)
+text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,]))
+points(points, col = 'red')
+# coin_sud = SpatialPoints(matrix(coord[coord[,2]==min(coord[,2]),], nrow=1)) #il faudrait trier sur deuxi?me coord pour ?tre g?n?ral!
+# plot(coin_sud, col="blue", add=T)
+text(center[1], center[2],labels = c("center"))
+```
+
+## Creation matrice VOP
+MATRICE DE TRANSFORMATION
+Dans le plan cartésien, une matrice de transformation est une matrice qui permet, à partir des coordonnées d’un point initial représentées par une matrice colonne, de trouver celles de son image par une transformation géométrique donnée.  Les coordonnées de l’image sont alors obtenues en effectuant la multiplication de la matrice colonne (les coordonnées d’un point) par la matrice correspondant à la transformation géométrique concernée.
+c'est ça ?
+
+on peut m'expliquer ça ?
+Tr = R*T by definition
+so R*inv(R)*Tr = R*T so T = inv(R)*Tr
+but inv(R) = t(R) (R orthogonal!) so 
+t(R) %*% Tr = T
+
+```{r}
+# matrice identitée
+id <- diag(c(1,1,1,1)) 
+
+# matrice d'1 ligne avec x,y,z du centre
+Trans <- matrix(data = c(center[1], center[2], 0), 
+                nrow = 1,
+                dimnames  =  list(c(),c("x","y","z")))
+
+Tmat <- id  # matrice identitée
+Tmat[1:3,4] <- -as.numeric(Trans) # coord du centre en colonne 4
+```
+
+
+## Rotation by pi/2 -angle anti-clockwise
+```{r}
+# Matrice de rotation (3 lignes, 3 colonnes)
+mat_rot <- matrix(data =
+                    c(cos(rho),-sin(rho), 0, # 1ere ligne
+                      sin(rho),cos(rho),0, # 2eme
+                      0,0,1), # 3eme
+                  byrow = TRUE, nrow = 3, ncol = 3)
+
+R <- id # matrice identitée
+# on remplit que les 3 1ères lignes :
+R[1:3,1] <- mat_rot[,1] # 1ere colonne
+R[1:3,2] <- mat_rot[,2] # 2eme
+R[1:3,3] <- mat_rot[,3] # 3eme
+
+Tr <- R %*% Tmat # %*% multiple 2 matrices
+```
+
+
+## Visual check
+Add tag and center point to coordinates list
+
+```{r}
+# Points coordinates in a data.frame
+df <- data.frame(c(coord[,1], points[,1]),
+                 c(coord[,2], points[,2]),
+                 c(0,0,0,0,0,0),
+                 c(1,1,1,1,1,1))
+
+# data.frame as matrix
+dat <- as.matrix(df)
+
+# 0 au centre, -100 à 100
+datbis <- dat %*% t(Tr) # %*% multiple 2 matrices. t() : Matrix Transpose
+plot(datbis[, c(1,2)])
+
+
+plot(dat %*% t(Tmat), col = "red") # incliné
+points(dat %*% t(Tr), col = "blue") # droit (N en haut et S en bas)
+text(datbis[1:4,1], datbis[1:4,2],labels = rownames(datbis[1:4,]))
+
+# Tr c'est la VOP
+write.table(Tr,"Z:/users/LisaMoreno/Light/VOPPlotP16_4ha.txt",
+            row.names = F, col.names = F)
+```
+
+
+
+# Nouragues
+```{r}
+shp <- readOGR("Z:/users/LisaMoreno/ShapeFiles/Nouragues/Nou4ha.gpkg")  #SPDF
+plot(shp)
+shp@polygons[[1]]@Polygons[[1]]@coords[1:6,] # point 2 is duplicated again!
+```
+
+```{r}
+coord <- shp@polygons[[1]]@Polygons[[1]]@coords[c(1,2,4,5),]
+dimnames(coord)[[1]] <- c("NW","NE","SE","SW")
+plot(coord)
+text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,]))
+vec <- coord[2,]-coord[1,]
+rho <- pi/2+ atan(vec[1]/vec[2]) #because plot is tilted eastwards!
+```
+
+## New rotation center
+```{r}
+center <- c(mean(coord[,1]),mean(coord[,2]))
+plot(coord)
+```
+
+
+## Add tag point
+```{r}
+NorthCenter <- c(mean(coord[c(1,2),1]),mean(coord[c(1,2),2]))
+points <- rbind(center, NorthCenter)
+points(points, col = 'red')
+coin_sud <- SpatialPoints(matrix(coord[coord[,2]==min(coord[,2]),], nrow = 1)) #il faudrait trier sur deuxi?me coord pour ?tre g?n?ral!
+plot(coin_sud, col = "blue", add = T)
+text(center[1], center[2],labels = c("center"))
+```
+
+## Creation matrice VOP
+```{r}
+# #Tr=R*T by definition
+# #so R*inv(R)*Tr=R*T so T=inv(R)*Tr
+# # but inv(R)=t(R) (R orthogonal!) so 
+# t(R) %*% Tr= T
+
+id <- diag(c(1,1,1,1))
+Trans <- matrix(data = c(center[1], center[2], 0), nrow = 1, dimnames  =  list(c(),c("x","y","z")))
+Tmat <- id
+Tmat[1:3,4] = -as.numeric(Trans)
+```
+
+
+## Rotation by pi/2 -angle anti clockwise
+```{r}
+mat_rot <- matrix(data = c(cos(rho),-sin(rho), 0, sin(rho),cos(rho),0,0,0,1),byrow = TRUE,nrow = 3,ncol = 3)
+R <- id
+R[1:3,1] <- mat_rot[,1]
+R[1:3,2] <- mat_rot[,2]
+R[1:3,3] <- mat_rot[,3]
+Tr <-  R %*% Tmat
+```
+
+## Visual check
+```{r}
+df <- data.frame(c(coord[,1],points[,1]), c(coord[,2], points[,2]), c(0,0,0,0,0,0), c(1,1,1,1,1,1))
+dat <- as.matrix(df)
+datbis <- dat %*% t(Tr)
+plot(datbis[, c(1,2)])
+
+plot(dat %*% t(Tmat), col = "red", main = fl[i])
+points(dat %*% t(Tr), col = "blue")
+text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,]))  
+
+# Tr c'est la VOP
+write.table(Tr,"Z:/users/LisaMoreno/Light/VOPPlotNou_4ha.txt", 
+            row.names = F, col.names = F)
+```
+

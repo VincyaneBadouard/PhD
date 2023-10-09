@@ -96,6 +96,7 @@ writeRaster(dem, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT.tif")
 Paracou <- sf::st_read("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/OverallPlots.shp")
 
 mnt <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT_cor.tif")
+res(mnt) # 1
 
 terra::plot(mnt)
 plot(Paracou, add=T)
@@ -109,6 +110,25 @@ ggplot() +
   coord_sf()
 ```
 
+```{r}
+# Different resolution 
+# 5m for TWI
+mnt5m <- aggregate(mnt, fact=5)
+
+res(mnt5m) # 5
+
+ggplot() + 
+  geom_spatraster(data = mnt5m, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(45, rev=T)) + 
+  geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  ggtitle("Paracou MNT ALS 2022 - 5m resolution") + 
+  coord_sf()
+
+writeRaster(mnt5m, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT_5m.tif", overwrite=TRUE)
+writeRaster(mnt5m, "D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_MNT_5m.tif", overwrite=TRUE)
+```
+
 # TWI
 in bash commands
 
@@ -119,8 +139,8 @@ in bash commands
 ```{bash, eval=FALSE}
 cd "/d/Mes Donnees/PhD/R_codes/PhD"
 saga="/d/Program/SAGA/saga_cmd.exe" # chemin executable
-dem="test/Paracou_MNT_cor.tif" # dans le meme dossier que cd
-twi="test/Paracou_TWI.srgd" # dans le meme dossier que cd
+dem="test/Paracou_MNT_5m.tif" # dans le meme dossier que cd
+twi="test/Paracou_TWI_5m.srgd" # dans le meme dossier que cd
 $saga ta_hydrology 15 -DEM $dem -TWI $twi # commande
 
 # " ta_hydrology 15" :  module
@@ -131,8 +151,7 @@ $saga ta_hydrology 15 -DEM $dem -TWI $twi # commande
 ```
 translate in .tif
 ```{r, eval=FALSE}
-TWI <- terra::rast("test/Paracou_TWI.sdat") %>%  # sdat données du fichier TWI au format SAGA 
-  terra::aggregate(5) 
+TWI <- terra::rast("test/Paracou_TWI_5m.sdat")  # sdat données du fichier TWI au format SAGA 
 
 terra::writeRaster(TWI, "test/Paracou_TWI_5m.tif", overwrite=TRUE)
 ```
@@ -140,12 +159,12 @@ plot
 ```{r}
 terra::rast("test/Paracou_MNT_cor.tif") %>% 
   terra::plot()
-terra::rast("test/Paracou_TWI.tif") %>% 
+terra::rast("test/Paracou_TWI_5m.tif") %>% 
   terra::plot()
 ```
 ```{r}
 ggplot() + 
-  geom_spatraster(data = TWI, aes(fill = Paracou_TWI)) +
+  geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
   scale_fill_gradientn(name = "TWI",
                        colors =  hcl.colors(12, "Blues", rev = T)) + 
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
@@ -250,7 +269,7 @@ ggplot() +
 
 # TWI
 ggplot() + 
-  geom_spatraster(data = P16_TWI, aes(fill = Paracou_TWI)) +
+  geom_spatraster(data = P16_TWI, aes(fill = Paracou_TWI_5m)) +
   scale_fill_gradientn(name = "TWI",
                        colors =  hcl.colors(9, "Blues", rev = T),
                        na.value="white") + 

@@ -340,13 +340,13 @@ retained <- which(!is.na(Test_10Cloud$XB100))
 500 lignes pour un demi-tour
 prendre 800
 ```{r}
-# Test_contCloud <- copy(vector_coord)
-# 
-# # gpstime>1660049400 & gpstime<1660049401
-# Test_contCloud[100:200, c("XB100", "YB100", "ZB100") := NA_real_] # 100 points
-# 
-# removed <- which(is.na(Test_contCloud$XB100))
-# retained <- which(!is.na(Test_contCloud$XB100))
+Test_contCloud <- copy(vector_coord)
+
+# gpstime>1660049400 & gpstime<1660049401
+Test_contCloud[100:800, c("XB100", "YB100", "ZB100") := NA_real_] # 100 points
+
+removed <- which(is.na(Test_contCloud$XB100))
+retained <- which(!is.na(Test_contCloud$XB100))
 ```
 
 ## Check if we retrieve initial data
