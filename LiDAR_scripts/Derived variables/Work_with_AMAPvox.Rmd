@@ -261,9 +261,6 @@ estimer selon le plus probable selon les besoins
 qui ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 (long)
 Prendre en compte le voisinage en excluant les trouées
-```{r}
-
-```
 
 ## Generate light maps from a voxel space
 On simule ensuite à l’aide d’AMAPVox des cartes de transmittance à différentes altitudes au-dessus du sol à l’aide du module transmittance light maps. 
@@ -282,26 +279,51 @@ latitude de Paracou 5°
 calendrier : sur une année 
 clearness coefficient : 0.5 rapport direct-diffus en gros à l'équateur (change au cours des saisons)
 ```{r}
-library(lattice) # pour plotter la carte de lumière
 # enlever les 2 lignes mean
 # Light <- Light[Y != "MEAN"]
 Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
-Light <- Light[, !c("V5", "Z"), with = FALSE] # c'est quoi Z ?
+Light <- Light[, !c("V5"), with = FALSE] 
 
 # Remove edges
 Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
 # Plot
-levelplot(`Period 1`~X*Y, data = Light) 
+lattice::levelplot(`Period 1`~X*Y, data = Light) # Transmittance
+lattice::levelplot(Z~X*Y, data = Light) # Z = Altitude
 
 ggplot() + 
   geom_raster(data = Light, aes(X, Y, fill = `Period 1`)) + 
-  scale_fill_gradientn(name = "Light intensity (transmittance)",
+  scale_fill_gradientn(name = "Light intensity (Transmittance)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
-  ggtitle("Light map") +  # where ?
+  ggtitle("Paracou P16 4ha - Light map 1m") +  
+  coord_sf()
+```
+# Transformation des coordonnées relatives en UTM
+On peut retrouver les cooordonnées UTM avec la VOP
+
+```{r}
+# Lecture matrice de transformation
+VOP <- as.matrix(read.table("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/VOPPlotP16_4ha.txt"))
+
+# Apply inverse of VOP matrix to convert back to UTM
+xyz <- tcrossprod(as.matrix(Light[, .(X, Y, Z, c=1)]), solve(VOP))
+Light[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zalt = xyz[, 3])]
+
+Light <- unique(Light)
+
+ggplot() + 
+  geom_point(data = Light, size = 1.28,
+             aes(Xutm, Yutm, color = `Period 1`)) + 
+   scale_color_gradientn(name = "Light intensity (Transmittance)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 
-# Greg dit qu'on peut retrouver les cooordonnées UTM avec la VOP
+fwrite(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
+            row.names = F, col.names = T)
+
+write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
 ```
 
 Amapvox peut générer des photos hémisphériques, des données, LAI2200, et des cartes 3D de lumière ()
