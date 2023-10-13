@@ -14,6 +14,13 @@ knitr::opts_chunk$set(
 )
 ```
 
+**Métriques climatiques** (a traiter) :
+https://www.worldclim.org/data/bioclim.html . Ce sont vraiment les métriques annuelles les plus utilisées.
+
+Il y a ce package qui semble faire du calcul sur le même type de sensor pour calculer des variables journalières puis mensuelles : https://github.com/GregGuerin/microclimate .
+
+Aussi en regardant rapidement, je viens de voir que Eva a sortie un papier sur le sujet dans MEE : https://www.researchgate.net/publication/366841092_Slope_and_equilibrium_A_parsimonious_and_flexible_approach_to_model_microclimate .
+
 **les données très fortes de lumière = sunflex étude sunflecks**
 
 Objectives:

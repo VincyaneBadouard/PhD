@@ -11,6 +11,8 @@ knitr::opts_chunk$set(
 )
 ```
 
+**FAIRE CALIBRATION HUMIDITE !!**
+
 *2 sites :\
 - Paracou (pour comparaison aux données Lidar)\
 - Nouragues **(?)***
@@ -180,6 +182,21 @@ Tomstdata <- Tomstdata %>%
   filter(Time >= mdy_hms("03/30/2023 18:00:00", tz = "America/Cayenne") & Time < mdy_hms("03/30/2024 18:00:00", tz = "America/Cayenne"))
 
 Tomstdata$Time[1] >= mdy_hms("03/30/2023 18:00:00")
+```
+
+# *From raw TDT signal to volumetric moisture content, calibrated from granulometry (a faire)*
+
+Voir annexe A du papier des Tomst pour la transformation du signal en % volumique d'humidité et une calibration à partir de la granulométrie
+
+*theta=ax\^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
+
+Si la granulo match pas avec mes données, il y a la possibilité d'utiliser leur excel pour faire du sur mesure (pas accès à la formule)
+
+```{r}
+CalibParam <- read_delim("~/PhD/Microclimate/Tomst - data and scripts/Tomst_humidity_granulo_parameters.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE) # from A appendix of the Tomst article
+
+
 ```
 
 # *Relation between moisture and temperatures*
