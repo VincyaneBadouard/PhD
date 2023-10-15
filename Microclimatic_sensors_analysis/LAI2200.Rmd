@@ -1,0 +1,83 @@
+---
+title: "LAI2200 script"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, echo = FALSE, fig.width = 6
+)
+```
+
+```{r}
+library(data.table)
+library(tidyverse)
+```
+
+```{r}
+calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/PIPO1.TXT",
+               sep = "\t", 
+               skip= "Observations") %>% 
+  separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
+  rename(DateTime = V3) %>% 
+  rename(Index = V2) %>% 
+  rename(Sensor = V4) %>% 
+  rename(Ring1 = V5) %>% 
+  rename(Ring2 = V6) %>% 
+  rename(Ring3 = V7) %>% 
+  rename(Ring4 = V8) %>% 
+  rename(Ring5 = V9) %>% 
+  mutate(Sensor = case_when(
+    Sensor == "W1" ~ "BELOW",
+    Sensor == "W2" ~ "ABOVE")) %>% 
+  filter(Time != "17:10:37") %>%
+  filter(Time != "17:10:53") %>%
+  filter(Time != "17:11:09")
+```
+
+```{r}
+# Wide to long format
+calib_long <- calib %>% 
+  pivot_longer(
+    cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
+    names_to = "Ring",
+    values_to = "Value"
+)
+
+# Plot with all rings
+ggplot(calib_long, aes(x = Time, y = Value, col = Sensor)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+```
+
+```{r}
+# Long to wide format
+calib_wide <- calib %>% 
+  select(-c(1:2)) %>% 
+  pivot_wider(names_from = Sensor,
+              values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
+              names_glue = "{.value}_{Sensor}")
+
+names(calib_wide)
+ggplot(calib_wide, aes(x = Ring1_ABOVE, y = Ring1_BELOW)) + 
+  geom_point() +
+  geom_line()
+
+calib_wide <- calib_long %>% 
+  select(-c(1:2)) %>% 
+  pivot_wider(names_from = Sensor,
+              values_from = "Value",
+              names_glue = "{Sensor}")
+
+# Plot with all rings
+ggplot(calib_wide, aes(x = ABOVE, y = BELOW)) + 
+  geom_point() +
+   geom_line() +
+  facet_grid(vars(Ring), scales = "free")
+```
+si pente significativement différente de 1, l'utiliser comme facteur correctif 
