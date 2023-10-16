@@ -15,12 +15,13 @@ knitr::opts_chunk$set(
 ```
 
 ```{r}
+library(readr)
 library(data.table)
 library(tidyverse)
 ```
 
 ```{r}
-calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/PIPO1.TXT",
+calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/TEST.TXT",
                sep = "\t", 
                skip= "Observations") %>% 
   separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
@@ -34,10 +35,10 @@ calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/PIPO1.TXT",
   rename(Ring5 = V9) %>% 
   mutate(Sensor = case_when(
     Sensor == "W1" ~ "BELOW",
-    Sensor == "W2" ~ "ABOVE")) %>% 
-  filter(Time != "17:10:37") %>%
-  filter(Time != "17:10:53") %>%
-  filter(Time != "17:11:09")
+    Sensor == "W2" ~ "ABOVE")) #%>% 
+# filter(Time != "17:10:37") %>% # pour PIPO1
+# filter(Time != "17:10:53") %>%
+# filter(Time != "17:11:09")
 ```
 
 ```{r}
@@ -47,7 +48,7 @@ calib_long <- calib %>%
     cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
     names_to = "Ring",
     values_to = "Value"
-)
+  )
 
 # Plot with all rings
 ggplot(calib_long, aes(x = Time, y = Value, col = Sensor)) + 
@@ -57,7 +58,7 @@ ggplot(calib_long, aes(x = Time, y = Value, col = Sensor)) +
 
 ```{r}
 # Long to wide format
-calib_wide <- calib %>% 
+calib_wide_ring <- calib %>% 
   select(-c(1:2)) %>% 
   pivot_wider(names_from = Sensor,
               values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
@@ -77,7 +78,31 @@ calib_wide <- calib_long %>%
 # Plot with all rings
 ggplot(calib_wide, aes(x = ABOVE, y = BELOW)) + 
   geom_point() +
-   geom_line() +
+  geom_line() +
   facet_grid(vars(Ring), scales = "free")
 ```
 si pente significativement différente de 1, l'utiliser comme facteur correctif 
+```{r}
+# -1 pour forcer l'intercept à 0
+Calibration_factors <- data.frame(
+  Ring1_cor = lm(calib_wide_ring$Ring1_BELOW ~ calib_wide_ring$Ring1_ABOVE-1)$coefficients,
+  
+  Ring2_cor = lm(calib_wide_ring$Ring2_BELOW ~ calib_wide_ring$Ring2_ABOVE-1)$coefficients,
+  
+  Ring3_cor = lm(calib_wide_ring$Ring3_BELOW ~ calib_wide_ring$Ring3_ABOVE-1)$coefficients,
+  
+  Ring4_cor = lm(calib_wide_ring$Ring4_BELOW ~ calib_wide_ring$Ring4_ABOVE-1)$coefficients,
+  
+  Ring5_cor = lm(calib_wide_ring$Ring5_BELOW ~ calib_wide_ring$Ring5_ABOVE-1)$coefficients,
+  row.names = "BELOW ~ ABOVE-1"
+)
+
+write.csv(Calibration_factors, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+
+summary(lm(calib_wide_ring$Ring5_BELOW ~ calib_wide_ring$Ring5_ABOVE-1))
+```
+
+```{r}
+Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+```
+
