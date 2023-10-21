@@ -8,6 +8,10 @@ editor_options:
     wrap: 72
 ---
 
+The LAI-2200 Plant Canopy Analyzer measures: 
+the interception of blue light (320-490 nm) at 5 zenith angles (148° field-of-view) simultaneously.
+
+
 ```{r, include=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, echo = FALSE, fig.width = 6
@@ -20,6 +24,8 @@ library(data.table)
 library(tidyverse)
 ```
 
+# Calibration between both sensors
+Protocol: Take data in the same location and in the same time to check the difference of measurement and correct it.
 ```{r}
 calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/TEST.TXT",
                sep = "\t", 
@@ -104,5 +110,25 @@ summary(lm(calib_wide_ring$Ring5_BELOW ~ calib_wide_ring$Ring5_ABOVE-1))
 
 ```{r}
 Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+```
+
+
+# Test DZ (Drop Zone)
+```{r}
+calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT",
+               sep = "\t", 
+               skip= "Observations") %>% 
+  separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
+  rename(DateTime = V3) %>% 
+  rename(Index = V2) %>% 
+  rename(Sensor = V4) %>% 
+  rename(Ring1 = V5) %>% 
+  rename(Ring2 = V6) %>% 
+  rename(Ring3 = V7) %>% 
+  rename(Ring4 = V8) %>% 
+  rename(Ring5 = V9) %>% 
+  mutate(Sensor = case_when(
+    Sensor == "W1" ~ "BELOW",
+    Sensor == "W2" ~ "ABOVE"))
 ```
 
