@@ -24,32 +24,64 @@ library(data.table)
 library(tidyverse)
 ```
 
+# Functions
+```{r}
+readLAI2200 <- function(path){
+  data <- fread(path,
+                sep = "\t", 
+                skip= "Observations") %>% 
+    separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
+    rename(DateTime = V3) %>% 
+    rename(Index = V2) %>% 
+    rename(Sensor = V4) %>% 
+    rename(Ring1 = V5) %>% 
+    rename(Ring2 = V6) %>% 
+    rename(Ring3 = V7) %>% 
+    rename(Ring4 = V8) %>% 
+    rename(Ring5 = V9) %>% 
+    mutate(Sensor = case_when(
+      Sensor == "W1" ~ "BELOW",
+      Sensor == "W2" ~ "ABOVE")) #%>% 
+    # mutate(Time = hms::as.hms(Time))
+  # filter(Time != "17:10:37") %>% # pour PIPO1
+  # filter(Time != "17:10:53") %>%
+  # filter(Time != "17:11:09")
+}
+```
+
 # Calibration between both sensors
 Protocol: Take data in the same location and in the same time to check the difference of measurement and correct it.
 ```{r}
-calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/TEST.TXT",
-               sep = "\t", 
-               skip= "Observations") %>% 
-  separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
-  rename(DateTime = V3) %>% 
-  rename(Index = V2) %>% 
-  rename(Sensor = V4) %>% 
-  rename(Ring1 = V5) %>% 
-  rename(Ring2 = V6) %>% 
-  rename(Ring3 = V7) %>% 
-  rename(Ring4 = V8) %>% 
-  rename(Ring5 = V9) %>% 
-  mutate(Sensor = case_when(
-    Sensor == "W1" ~ "BELOW",
-    Sensor == "W2" ~ "ABOVE")) #%>% 
-# filter(Time != "17:10:37") %>% # pour PIPO1
-# filter(Time != "17:10:53") %>%
-# filter(Time != "17:11:09")
+path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/TEST.TXT"
+
+data <- readLAI2200(path)
+```
+
+# Join data
+```{r}
+path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/P16LAYA.TXT"
+Above <- readLAI2200(path) %>% 
+  filter(Date==20231021) %>% 
+  filter(Time > "17:18:00") %>% 
+  mutate(Sensor = "ABOVE")
+
+path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/"
+
+Below <- readLAI2200(paste(path,"P16LAY1.TXT", sep="")) %>% 
+  bind_rows(readLAI2200(paste(path,"P16LAY2.TXT", sep=""))) %>% 
+  bind_rows(readLAI2200(paste(path,"P16LAY3.TXT", sep=""))) %>% 
+  bind_rows(readLAI2200(paste(path,"P16LAY4.TXT", sep="")))
+
+data <- bind_rows(Above, Below)
+data <- data[order(data$Time),] # temps par ordre croissant
+
+
+
 ```
 
 ```{r}
 # Wide to long format
-calib_long <- calib %>% 
+data_long <- data %>% 
   pivot_longer(
     cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
     names_to = "Ring",
@@ -57,32 +89,32 @@ calib_long <- calib %>%
   )
 
 # Plot with all rings
-ggplot(calib_long, aes(x = Time, y = Value, col = Sensor)) + 
+ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 ```
 
 ```{r}
 # Long to wide format
-calib_wide_ring <- calib %>% 
+data_wide_ring <- data %>% 
   select(-c(1:2)) %>% 
   pivot_wider(names_from = Sensor,
               values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
               names_glue = "{.value}_{Sensor}")
 
-names(calib_wide)
-ggplot(calib_wide, aes(x = Ring1_ABOVE, y = Ring1_BELOW)) + 
+names(data_wide_ring)
+ggplot(data_wide_ring, aes(x = Ring1_ABOVE, y = Ring1_BELOW)) + 
   geom_point() +
   geom_line()
 
-calib_wide <- calib_long %>% 
+data_wide <- data_long %>% 
   select(-c(1:2)) %>% 
   pivot_wider(names_from = Sensor,
               values_from = "Value",
               names_glue = "{Sensor}")
 
 # Plot with all rings
-ggplot(calib_wide, aes(x = ABOVE, y = BELOW)) + 
+ggplot(data_wide, aes(x = ABOVE, y = BELOW)) + 
   geom_point() +
   geom_line() +
   facet_grid(vars(Ring), scales = "free")
@@ -91,21 +123,21 @@ si pente significativement différente de 1, l'utiliser comme facteur correctif
 ```{r}
 # -1 pour forcer l'intercept à 0
 Calibration_factors <- data.frame(
-  Ring1_cor = lm(calib_wide_ring$Ring1_BELOW ~ calib_wide_ring$Ring1_ABOVE-1)$coefficients,
+  Ring1_cor = lm(data_wide_ring$Ring1_BELOW ~ data_wide_ring$Ring1_ABOVE-1)$coefficients,
   
-  Ring2_cor = lm(calib_wide_ring$Ring2_BELOW ~ calib_wide_ring$Ring2_ABOVE-1)$coefficients,
+  Ring2_cor = lm(data_wide_ring$Ring2_BELOW ~ data_wide_ring$Ring2_ABOVE-1)$coefficients,
   
-  Ring3_cor = lm(calib_wide_ring$Ring3_BELOW ~ calib_wide_ring$Ring3_ABOVE-1)$coefficients,
+  Ring3_cor = lm(data_wide_ring$Ring3_BELOW ~ data_wide_ring$Ring3_ABOVE-1)$coefficients,
   
-  Ring4_cor = lm(calib_wide_ring$Ring4_BELOW ~ calib_wide_ring$Ring4_ABOVE-1)$coefficients,
+  Ring4_cor = lm(data_wide_ring$Ring4_BELOW ~ data_wide_ring$Ring4_ABOVE-1)$coefficients,
   
-  Ring5_cor = lm(calib_wide_ring$Ring5_BELOW ~ calib_wide_ring$Ring5_ABOVE-1)$coefficients,
+  Ring5_cor = lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1)$coefficients,
   row.names = "BELOW ~ ABOVE-1"
 )
 
 write.csv(Calibration_factors, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
 
-summary(lm(calib_wide_ring$Ring5_BELOW ~ calib_wide_ring$Ring5_ABOVE-1))
+summary(lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1))
 ```
 
 ```{r}
@@ -114,10 +146,12 @@ Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.c
 
 
 # Test DZ (Drop Zone)
+3 répétitions
+et une en poste fixe en sous bois en attendant que la nuit tombe.
 ```{r}
-calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT",
-               sep = "\t", 
-               skip= "Observations") %>% 
+data <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT",
+              sep = "\t", 
+              skip= "Observations") %>% 
   separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
   rename(DateTime = V3) %>% 
   rename(Index = V2) %>% 
@@ -129,6 +163,24 @@ calib <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT",
   rename(Ring5 = V9) %>% 
   mutate(Sensor = case_when(
     Sensor == "W1" ~ "BELOW",
-    Sensor == "W2" ~ "ABOVE"))
+    Sensor == "W2" ~ "ABOVE")) %>% 
+  mutate(Time = hms::as_hms(data$Time))
+
+data <- data[1:68,]
 ```
 
+```{r}
+# Wide to long format
+data_long <- data %>% 
+  pivot_longer(
+    cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
+    names_to = "Ring",
+    values_to = "Value"
+  )
+
+# Plot with all rings
+ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free") +
+  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
+```
