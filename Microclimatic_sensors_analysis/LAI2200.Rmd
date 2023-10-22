@@ -26,12 +26,14 @@ library(tidyverse)
 
 # Functions
 ```{r}
+# names(data)
 readLAI2200 <- function(path){
   data <- fread(path,
                 sep = "\t", 
                 skip= "Observations") %>% 
     separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
     rename(DateTime = V3) %>% 
+    rename(Position = '### Observations') %>% 
     rename(Index = V2) %>% 
     rename(Sensor = V4) %>% 
     rename(Ring1 = V5) %>% 
@@ -39,10 +41,10 @@ readLAI2200 <- function(path){
     rename(Ring3 = V7) %>% 
     rename(Ring4 = V8) %>% 
     rename(Ring5 = V9) %>% 
-    mutate(Sensor = case_when(
-      Sensor == "W1" ~ "BELOW",
-      Sensor == "W2" ~ "ABOVE")) #%>% 
-    # mutate(Time = hms::as.hms(Time))
+    mutate(Position = case_when(
+      Position == "B" ~ "BELOW",
+      Position == "A" ~ "ABOVE")) #%>% 
+  # mutate(Time = hms::as.hms(Time))
   # filter(Time != "17:10:37") %>% # pour PIPO1
   # filter(Time != "17:10:53") %>%
   # filter(Time != "17:11:09")
@@ -59,24 +61,37 @@ data <- readLAI2200(path)
 
 # Join data
 ```{r}
-path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/P16LAYA.TXT"
-Above <- readLAI2200(path) %>% 
-  filter(Date==20231021) %>% 
-  filter(Time > "17:18:00") %>% 
-  mutate(Sensor = "ABOVE")
+# path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/P16LAYA.TXT"
+# Above <- readLAI2200(path) %>% 
+#   filter(Date==20231021) %>% 
+#   filter(Time > "17:18:00") %>% 
+#   mutate(Sensor = "ABOVE")
 
 path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/"
 
-Below <- readLAI2200(paste(path,"P16LAY1.TXT", sep="")) %>% 
-  bind_rows(readLAI2200(paste(path,"P16LAY2.TXT", sep=""))) %>% 
-  bind_rows(readLAI2200(paste(path,"P16LAY3.TXT", sep=""))) %>% 
-  bind_rows(readLAI2200(paste(path,"P16LAY4.TXT", sep="")))
+# Below <- readLAI2200(paste(path,"P16LAY1.TXT", sep="")) %>% 
+#   bind_rows(readLAI2200(paste(path,"P16LAY2.TXT", sep=""))) %>% 
+#   bind_rows(readLAI2200(paste(path,"P16LAY3.TXT", sep=""))) %>% 
+#   bind_rows(readLAI2200(paste(path,"P16LAY4.TXT", sep="")))
 
-data <- bind_rows(Above, Below)
+# Path of all the transect
+files <- list.files(path, pattern = "P16LAY", full.names = T)# [1:20] # 20 files
+
+# Read all the files of the transect
+data <- lapply(files, readLAI2200)
+
+# Just keep the file id
+files <- str_remove(files, path)
+files <- str_remove(files, ".TXT")
+
+names(data) <- files
+
+data <- bind_rows(data, .id = "File_Id") %>% # df number -> File_Id column
+  filter(Date==20231021) %>%
+  filter(Time > "17:18:00")
+
+# data <- bind_rows(Above, Below)
 data <- data[order(data$Time),] # temps par ordre croissant
-
-
-
 ```
 
 ```{r}
@@ -89,8 +104,16 @@ data_long <- data %>%
   )
 
 # Plot with all rings
-ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) + 
+ggplot(data_long, aes(x = Time, y = Value, col = Position, shape = File_Id)) + 
   geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+
+data_long %>% 
+  filter(Position != "ABOVE") %>%
+  mutate(Time = hms::as_hms(Time)) %>% 
+  ggplot(aes(x = Time, y = Value, col = File_Id)) + 
+  geom_point() +
+  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5))) +
   facet_grid(vars(Ring), scales = "free")
 ```
 
@@ -98,9 +121,9 @@ ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) +
 # Long to wide format
 data_wide_ring <- data %>% 
   select(-c(1:2)) %>% 
-  pivot_wider(names_from = Sensor,
+  pivot_wider(names_from = Position,
               values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
-              names_glue = "{.value}_{Sensor}")
+              names_glue = "{.value}_{Position}")
 
 names(data_wide_ring)
 ggplot(data_wide_ring, aes(x = Ring1_ABOVE, y = Ring1_BELOW)) + 
@@ -109,9 +132,9 @@ ggplot(data_wide_ring, aes(x = Ring1_ABOVE, y = Ring1_BELOW)) +
 
 data_wide <- data_long %>% 
   select(-c(1:2)) %>% 
-  pivot_wider(names_from = Sensor,
+  pivot_wider(names_from = Position,
               values_from = "Value",
-              names_glue = "{Sensor}")
+              names_glue = "{Position}")
 
 # Plot with all rings
 ggplot(data_wide, aes(x = ABOVE, y = BELOW)) + 
