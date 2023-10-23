@@ -22,6 +22,7 @@ knitr::opts_chunk$set(
 library(readr)
 library(data.table)
 library(tidyverse)
+library(ggrepel)
 ```
 
 # Functions
@@ -87,14 +88,34 @@ files <- str_remove(files, ".TXT")
 names(data) <- files
 
 data <- bind_rows(data, .id = "File_Id") %>% # df number -> File_Id column
+  # Filter date and time
   filter(Date==20231021) %>%
-  filter(Time > "17:18:00")
+  filter(Time > "17:18:00") %>% 
+  # Recode the file attribution
+  mutate(File_Id = case_when( 
+    File_Id == "P16LAY3" ~ "P16LAY2", 
+    File_Id == "P16LAY4" ~ "P16LAY3",
+    .default = File_Id)) %>% 
+  # Recode the measurement id
+  group_by(File_Id) %>% 
+  mutate(Id = seq(1:n())) %>% 
+  ungroup() %>% 
+  mutate(Id = as.character(Id))
+
+
 
 # data <- bind_rows(Above, Below)
 data <- data[order(data$Time),] # temps par ordre croissant
 ```
 
 ```{r}
+# To check the Id
+data %>% 
+  filter(File_Id == "P16LAY1") %>% 
+  ggplot(aes(x = Time, y = Ring1, label = Id)) + 
+  geom_point() +
+  geom_text_repel() 
+
 # Wide to long format
 data_long <- data %>% 
   pivot_longer(
@@ -108,19 +129,92 @@ ggplot(data_long, aes(x = Time, y = Value, col = Position, shape = File_Id)) +
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
-data_long %>% 
+data_long_B <- data_long %>% 
   filter(Position != "ABOVE") %>%
-  mutate(Time = hms::as_hms(Time)) %>% 
+  mutate(Time = hms::as_hms(Time))
+
+data_long_B %>% 
   ggplot(aes(x = Time, y = Value, col = File_Id)) + 
   geom_point() +
   scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5))) +
   facet_grid(vars(Ring), scales = "free")
 ```
 
+# Check if transmittance change over time
+Transmittance = Below/Above for each angle (doit être <= 1)
+
+```{r}
+
+data_wide_AB <- data_long %>%
+  mutate(BELOW = ifelse(Position == "BELOW", Value, NA)) %>% 
+  mutate(ABOVE = ifelse(Position == "ABOVE", Value, NA)) %>% 
+  mutate(Time = hms::as.hms(Time)) %>%
+  mutate(TimeB = hms::as.hms(ifelse(!is.na(BELOW), Time, NA))) %>% 
+  mutate(TimeA = hms::as.hms(ifelse(!is.na(ABOVE), Time, NA)))
+
+
+# data_wide_AB <- data_long %>% 
+#   select(-c(File_Id, Sensor, Id, Index)) %>%
+#   pivot_wider(names_from = Position,
+#               values_from = "Value",
+#               names_glue = "{Position}") %>% 
+#   mutate(Time = hms::as.hms(Time)) %>%
+#   mutate(TimeB = hms::as.hms(ifelse(!is.na(BELOW), Time, NA))) %>% 
+#   mutate(TimeA = hms::as.hms(ifelse(!is.na(ABOVE), Time, NA)))
+
+
+# Take the closest Above time of Below time
+for(n in seq(1:nrow(data_wide_AB[!is.na(data_wide_AB$BELOW),]))){
+  data_wide_AB$TimeA[n] <- data_wide_AB$TimeA[which.min(abs(
+    data_wide_AB$TimeA - data_wide_AB$TimeB[n]))
+  ]
+}
+
+Above <- na.omit(select(data_wide_AB, c(TimeA, Ring, ABOVE))) %>% 
+  unique()
+
+Transmittance_data <- data_wide_AB %>% 
+  left_join(Above, by = c("TimeA", "Ring")) %>% 
+  mutate(ABOVE = coalesce(ABOVE.x, ABOVE.y)) %>%  # pour combiner les valeurs de .x et .y %>% 
+  select(-(contains(".x") | contains(".y"))) %>%
+  filter(!is.na(BELOW)) %>% 
+  mutate(Transmittance = BELOW/ABOVE)
+
+```
+
+```{r}
+ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+
+# Check that all the Transmittance are < 1
+all(Transmittance_data$Transmittance < 1)
+
+# Check correlation between Transmittance of each location (Id), for each Ring, between iteration (File_Id)
+Transmittance_cor <- Transmittance_data %>% 
+  select(File_Id, Id, Ring, Transmittance) %>% 
+  pivot_wider(names_from = File_Id,
+              values_from = "Transmittance",
+              names_glue = "{.value}_{File_Id}")
+  
+Transmittance_cor <- Transmittance_cor %>% 
+  select(-Ring)
+  
+By <- by(Transmittance_cor[2:4], Transmittance_cor[-(2:4)], cor)
+
+
+sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_cor.txt")
+#write this string to file
+By
+#close the external connection
+sink() 
+  
+```
+
 ```{r}
 # Long to wide format
 data_wide_ring <- data %>% 
-  select(-c(1:2)) %>% 
+  select(-c(File_Id, Index, Id, Sensor)) %>%
   pivot_wider(names_from = Position,
               values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
               names_glue = "{.value}_{Position}")
