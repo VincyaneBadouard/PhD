@@ -67,16 +67,32 @@ data_long <- data %>%
     cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
     names_to = "Ring",
     values_to = "Value"
-  )
+  ) #%>% 
+# mutate(Time = hms::as.hms(Time))
 
 # Plot with all rings
-ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) + 
+ggplot(data_long, aes(x = Time, y = Value, col = Position)) + 
   geom_point() +
-  facet_grid(vars(Ring), scales = "free") +
-  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
+  facet_grid(vars(Ring), scales = "free") #+
+# scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
 ```
 
-si pente significativement différente de 1, l'utiliser comme facteur correctif 
+Faire la régression entre les données des 2 capteurs
+Si pente significativement différente de 1, l'utiliser comme facteur correctif
+
+```{r}
+# Long to wide format
+data_wide_ring <- data %>% 
+  select(-c(Index, Sensor)) %>%
+  pivot_wider(names_from = Position,
+              values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
+              names_glue = "{.value}_{Position}")
+
+ggplot(data_wide_ring, aes(x = Ring1_ABOVE-1, y = Ring1_BELOW)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x)
+```
+
 ```{r}
 # -1 pour forcer l'intercept à 0
 Calibration_factors <- data.frame(
@@ -91,6 +107,7 @@ Calibration_factors <- data.frame(
   Ring5_cor = lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1)$coefficients,
   row.names = "BELOW ~ ABOVE-1"
 )
+Calibration_factors
 
 write.csv(Calibration_factors, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
 
@@ -102,19 +119,35 @@ summary(lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1))
 et une en poste fixe en sous bois en attendant que la nuit tombe.
 ```{r}
 path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT"
-
 data <- readLAI2200(path)
 
 data <- data[1:68,]
 ```
+Plot
+```{r}
+# Wide to long format
+data_long <- data %>% 
+  pivot_longer(
+    cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
+    names_to = "Ring",
+    values_to = "Value"
+  ) %>% 
+  mutate(Time = hms::as.hms(Time))
+
+# Plot with all rings
+ggplot(data_long, aes(x = Time, y = Value, col = Position)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free") +
+  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
+```
 
 # Work on our data
-
 ```{r}
+# rm(list = ls()) # Vider l'envrmt
 path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/"
 
 pattern <- "P16LAY"
-
+# ou 
 pattern <- "P16HOBO"
 ```
 
@@ -134,7 +167,7 @@ names(data) <- files
 data <- bind_rows(data, .id = "File_Id") # df number -> File_Id column
 ```
 
-# For P16LAY
+## For P16LAY
 ```{r}
 data <- data %>% 
   # Filter date and time
@@ -147,7 +180,7 @@ data <- data %>%
     .default = File_Id))
 ```
 
-# For P16HOBO
+## For P16HOBO
 ```{r}
 data <- data %>% 
   # Filter time
@@ -157,7 +190,6 @@ data <- data %>%
   mutate(File_Id = ifelse(File_Id ==  "P16HOBO3", "P16HOBO2", File_Id))
 
 ```
-
 
 ```{r}
 data <- data %>% 
@@ -169,17 +201,10 @@ data <- data %>%
 
 # To check the Id
 data %>% 
-  filter(File_Id == "P16HOBO1") %>% 
+  filter(File_Id == "P16LAY1") %>% # P16HOBO1
   ggplot(aes(x = Time, y = Ring1, label = Id)) + 
   geom_point() +
   geom_text_repel() 
-```
-
-# Correct data with calibration data (A FAIRE)
-```{r}
-Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
-
-# A FAIRE
 ```
 
 Plots the measurements
@@ -208,7 +233,18 @@ data_long_B %>%
   facet_grid(vars(Ring), scales = "free")
 ```
 
-# Check if transmittance change over time
+## Correct data with calibration data (A FAIRE)
+BELOW = (ABOVE-1) * Calibration_factors
+```{r, a placer bon au bon endroit}
+Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+Calibration_factors
+
+# A FAIRE
+data %>% 
+  mutate(Ring1 = ifelse(Position == "BELOW", ))
+```
+
+## Check if transmittance change over time
 Transmittance = Below/Above for each angle (doit être <= 1)
 
 ```{r}
@@ -236,10 +272,9 @@ Transmittance_data <- data_wide_AB %>%
   select(-(contains(".x") | contains(".y"))) %>%
   filter(!is.na(BELOW)) %>% 
   mutate(Transmittance = BELOW/ABOVE)
-
 ```
 
-
+## Compute correlations between transmittance of different iterations
 ```{r}
 ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) + 
   geom_point() +
@@ -270,7 +305,7 @@ By
 sink() # close the external connection
 
 ```
-
+## Plot regression between transmittance of different iterations
 ```{r}
 ggplot(Transmittance_data, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2))+
   geom_point()+
@@ -289,33 +324,4 @@ reg <- Transmittance_data %>%
 summary(lm(reg$Transmittance_P16HOBO1 ~ reg$Transmittance_P16HOBO2))
 
 ```
-
-```{r}
-# Long to wide format
-data_wide_ring <- data %>% 
-  select(-c(File_Id, Index, Id, Sensor)) %>%
-  pivot_wider(names_from = Position,
-              values_from = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"),
-              names_glue = "{.value}_{Position}")
-
-names(data_wide_ring)
-ggplot(data_wide_ring, aes(x = Ring1_ABOVE, y = Ring1_BELOW)) + 
-  geom_point() +
-  geom_line()
-
-data_wide <- data_long %>% 
-  select(-c(1:2)) %>% 
-  pivot_wider(names_from = Position,
-              values_from = "Value",
-              names_glue = "{Position}")
-
-# Plot with all rings
-ggplot(data_wide, aes(x = ABOVE, y = BELOW)) + 
-  geom_point() +
-  geom_line() +
-  facet_grid(vars(Ring), scales = "free")
-```
-
-
-
 
