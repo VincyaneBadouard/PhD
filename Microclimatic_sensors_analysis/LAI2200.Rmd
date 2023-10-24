@@ -60,23 +60,67 @@ path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/TEST.TXT"
 data <- readLAI2200(path)
 ```
 
-# Join data
 ```{r}
-# path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/P16LAYA.TXT"
-# Above <- readLAI2200(path) %>% 
-#   filter(Date==20231021) %>% 
-#   filter(Time > "17:18:00") %>% 
-#   mutate(Sensor = "ABOVE")
+# Wide to long format
+data_long <- data %>% 
+  pivot_longer(
+    cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
+    names_to = "Ring",
+    values_to = "Value"
+  )
 
+# Plot with all rings
+ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free") +
+  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
+```
+
+si pente significativement différente de 1, l'utiliser comme facteur correctif 
+```{r}
+# -1 pour forcer l'intercept à 0
+Calibration_factors <- data.frame(
+  Ring1_cor = lm(data_wide_ring$Ring1_BELOW ~ data_wide_ring$Ring1_ABOVE-1)$coefficients,
+  
+  Ring2_cor = lm(data_wide_ring$Ring2_BELOW ~ data_wide_ring$Ring2_ABOVE-1)$coefficients,
+  
+  Ring3_cor = lm(data_wide_ring$Ring3_BELOW ~ data_wide_ring$Ring3_ABOVE-1)$coefficients,
+  
+  Ring4_cor = lm(data_wide_ring$Ring4_BELOW ~ data_wide_ring$Ring4_ABOVE-1)$coefficients,
+  
+  Ring5_cor = lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1)$coefficients,
+  row.names = "BELOW ~ ABOVE-1"
+)
+
+write.csv(Calibration_factors, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+
+summary(lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1))
+```
+
+# Test DZ (Drop Zone)
+3 répétitions
+et une en poste fixe en sous bois en attendant que la nuit tombe.
+```{r}
+path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT"
+
+data <- readLAI2200(path)
+
+data <- data[1:68,]
+```
+
+# Work on our data
+
+```{r}
 path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/"
 
-# Below <- readLAI2200(paste(path,"P16LAY1.TXT", sep="")) %>% 
-#   bind_rows(readLAI2200(paste(path,"P16LAY2.TXT", sep=""))) %>% 
-#   bind_rows(readLAI2200(paste(path,"P16LAY3.TXT", sep=""))) %>% 
-#   bind_rows(readLAI2200(paste(path,"P16LAY4.TXT", sep="")))
+pattern <- "P16LAY"
 
-# Path of all the transect
-files <- list.files(path, pattern = "P16LAY", full.names = T)# [1:20] # 20 files
+pattern <- "P16HOBO"
+```
+
+```{r}
+# Path of all the files of the transect
+files <- list.files(path, pattern = pattern, full.names = T)
 
 # Read all the files of the transect
 data <- lapply(files, readLAI2200)
@@ -87,7 +131,12 @@ files <- str_remove(files, ".TXT")
 
 names(data) <- files
 
-data <- bind_rows(data, .id = "File_Id") %>% # df number -> File_Id column
+data <- bind_rows(data, .id = "File_Id") # df number -> File_Id column
+```
+
+# For P16LAY
+```{r}
+data <- data %>% 
   # Filter date and time
   filter(Date==20231021) %>%
   filter(Time > "17:18:00") %>% 
@@ -95,27 +144,46 @@ data <- bind_rows(data, .id = "File_Id") %>% # df number -> File_Id column
   mutate(File_Id = case_when( 
     File_Id == "P16LAY3" ~ "P16LAY2", 
     File_Id == "P16LAY4" ~ "P16LAY3",
-    .default = File_Id)) %>% 
+    .default = File_Id))
+```
+
+# For P16HOBO
+```{r}
+data <- data %>% 
+  # Filter time
+  filter(Time > "17:25:15") %>% 
+  # Recode the file attribution
+  mutate(File_Id = ifelse(File_Id == "P16HOBO2", "P16HOBO1", File_Id)) %>% 
+  mutate(File_Id = ifelse(File_Id ==  "P16HOBO3", "P16HOBO2", File_Id))
+
+```
+
+
+```{r}
+data <- data %>% 
   # Recode the measurement id
   group_by(File_Id) %>% 
   mutate(Id = seq(1:n())) %>% 
   ungroup() %>% 
   mutate(Id = as.character(Id))
 
-
-
-# data <- bind_rows(Above, Below)
-data <- data[order(data$Time),] # temps par ordre croissant
-```
-
-```{r}
 # To check the Id
 data %>% 
-  filter(File_Id == "P16LAY1") %>% 
+  filter(File_Id == "P16HOBO1") %>% 
   ggplot(aes(x = Time, y = Ring1, label = Id)) + 
   geom_point() +
   geom_text_repel() 
+```
 
+# Correct data with calibration data (A FAIRE)
+```{r}
+Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+
+# A FAIRE
+```
+
+Plots the measurements
+```{r}
 # Wide to long format
 data_long <- data %>% 
   pivot_longer(
@@ -144,24 +212,12 @@ data_long_B %>%
 Transmittance = Below/Above for each angle (doit être <= 1)
 
 ```{r}
-
 data_wide_AB <- data_long %>%
   mutate(BELOW = ifelse(Position == "BELOW", Value, NA)) %>% 
   mutate(ABOVE = ifelse(Position == "ABOVE", Value, NA)) %>% 
   mutate(Time = hms::as.hms(Time)) %>%
   mutate(TimeB = hms::as.hms(ifelse(!is.na(BELOW), Time, NA))) %>% 
   mutate(TimeA = hms::as.hms(ifelse(!is.na(ABOVE), Time, NA)))
-
-
-# data_wide_AB <- data_long %>% 
-#   select(-c(File_Id, Sensor, Id, Index)) %>%
-#   pivot_wider(names_from = Position,
-#               values_from = "Value",
-#               names_glue = "{Position}") %>% 
-#   mutate(Time = hms::as.hms(Time)) %>%
-#   mutate(TimeB = hms::as.hms(ifelse(!is.na(BELOW), Time, NA))) %>% 
-#   mutate(TimeA = hms::as.hms(ifelse(!is.na(ABOVE), Time, NA)))
-
 
 # Take the closest Above time of Below time
 for(n in seq(1:nrow(data_wide_AB[!is.na(data_wide_AB$BELOW),]))){
@@ -170,6 +226,7 @@ for(n in seq(1:nrow(data_wide_AB[!is.na(data_wide_AB$BELOW),]))){
   ]
 }
 
+# Above data
 Above <- na.omit(select(data_wide_AB, c(TimeA, Ring, ABOVE))) %>% 
   unique()
 
@@ -182,6 +239,7 @@ Transmittance_data <- data_wide_AB %>%
 
 ```
 
+
 ```{r}
 ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) + 
   geom_point() +
@@ -191,24 +249,45 @@ ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) +
 all(Transmittance_data$Transmittance < 1)
 
 # Check correlation between Transmittance of each location (Id), for each Ring, between iteration (File_Id)
-Transmittance_cor <- Transmittance_data %>% 
+Transmittance_data <- Transmittance_data %>% 
   select(File_Id, Id, Ring, Transmittance) %>% 
   pivot_wider(names_from = File_Id,
               values_from = "Transmittance",
               names_glue = "{.value}_{File_Id}")
-  
-Transmittance_cor <- Transmittance_cor %>% 
+
+Transmittance_cor <- Transmittance_data %>% 
   select(-Ring)
-  
+
+# P16HOBO
 By <- by(Transmittance_cor[2:4], Transmittance_cor[-(2:4)], cor)
 
+# P16HOBO
+By <- by(Transmittance_cor[2:3], Transmittance_cor[-(2:3)], cor)
 
-sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_cor.txt")
-#write this string to file
+# Write Transmittances correlation in text file
+sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_cor.txt") # path
 By
-#close the external connection
-sink() 
-  
+sink() # close the external connection
+
+```
+
+```{r}
+ggplot(Transmittance_data, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2))+
+  geom_point()+
+  stat_smooth(method = "lm", formula = y ~ x) +
+  facet_grid(vars(Ring), scales = "free")
+
+ring <- "Ring1"
+Transmittance_data %>% 
+  filter(Ring == ring) %>% 
+  ggplot(aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2)) +
+  geom_point() +
+  stat_smooth(method = "lm", formula = y ~ x)
+
+reg <- Transmittance_data %>% 
+  filter(Ring == ring)
+summary(lm(reg$Transmittance_P16HOBO1 ~ reg$Transmittance_P16HOBO2))
+
 ```
 
 ```{r}
@@ -236,68 +315,7 @@ ggplot(data_wide, aes(x = ABOVE, y = BELOW)) +
   geom_line() +
   facet_grid(vars(Ring), scales = "free")
 ```
-si pente significativement différente de 1, l'utiliser comme facteur correctif 
-```{r}
-# -1 pour forcer l'intercept à 0
-Calibration_factors <- data.frame(
-  Ring1_cor = lm(data_wide_ring$Ring1_BELOW ~ data_wide_ring$Ring1_ABOVE-1)$coefficients,
-  
-  Ring2_cor = lm(data_wide_ring$Ring2_BELOW ~ data_wide_ring$Ring2_ABOVE-1)$coefficients,
-  
-  Ring3_cor = lm(data_wide_ring$Ring3_BELOW ~ data_wide_ring$Ring3_ABOVE-1)$coefficients,
-  
-  Ring4_cor = lm(data_wide_ring$Ring4_BELOW ~ data_wide_ring$Ring4_ABOVE-1)$coefficients,
-  
-  Ring5_cor = lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1)$coefficients,
-  row.names = "BELOW ~ ABOVE-1"
-)
-
-write.csv(Calibration_factors, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
-
-summary(lm(data_wide_ring$Ring5_BELOW ~ data_wide_ring$Ring5_ABOVE-1))
-```
-
-```{r}
-Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
-```
 
 
-# Test DZ (Drop Zone)
-3 répétitions
-et une en poste fixe en sous bois en attendant que la nuit tombe.
-```{r}
-data <- fread("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/DZ1.TXT",
-              sep = "\t", 
-              skip= "Observations") %>% 
-  separate(V3, sep = " ", into = c("Date", "Time"), remove = F) %>% 
-  rename(DateTime = V3) %>% 
-  rename(Index = V2) %>% 
-  rename(Sensor = V4) %>% 
-  rename(Ring1 = V5) %>% 
-  rename(Ring2 = V6) %>% 
-  rename(Ring3 = V7) %>% 
-  rename(Ring4 = V8) %>% 
-  rename(Ring5 = V9) %>% 
-  mutate(Sensor = case_when(
-    Sensor == "W1" ~ "BELOW",
-    Sensor == "W2" ~ "ABOVE")) %>% 
-  mutate(Time = hms::as_hms(data$Time))
 
-data <- data[1:68,]
-```
 
-```{r}
-# Wide to long format
-data_long <- data %>% 
-  pivot_longer(
-    cols = c("Ring1", "Ring2", "Ring3", "Ring4", "Ring5"), 
-    names_to = "Ring",
-    values_to = "Value"
-  )
-
-# Plot with all rings
-ggplot(data_long, aes(x = Time, y = Value, col = Sensor)) + 
-  geom_point() +
-  facet_grid(vars(Ring), scales = "free") +
-  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
-```
