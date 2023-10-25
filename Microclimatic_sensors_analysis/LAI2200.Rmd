@@ -233,20 +233,7 @@ data_long_B %>%
   facet_grid(vars(Ring), scales = "free")
 ```
 
-## Correct data with calibration data (A FAIRE)
-BELOW = (ABOVE-1) * Calibration_factors
-```{r, a placer bon au bon endroit}
-Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
-Calibration_factors
-
-# A FAIRE
-data %>% 
-  mutate(Ring1 = ifelse(Position == "BELOW", ))
-```
-
-## Check if transmittance change over time
-Transmittance = Below/Above for each angle (doit être <= 1)
-
+## Attribute an Above measurement to a Below measurement 
 ```{r}
 data_wide_AB <- data_long %>%
   mutate(BELOW = ifelse(Position == "BELOW", Value, NA)) %>% 
@@ -266,11 +253,45 @@ for(n in seq(1:nrow(data_wide_AB[!is.na(data_wide_AB$BELOW),]))){
 Above <- na.omit(select(data_wide_AB, c(TimeA, Ring, ABOVE))) %>% 
   unique()
 
-Transmittance_data <- data_wide_AB %>% 
+data_wide_AB <- data_wide_AB %>% 
   left_join(Above, by = c("TimeA", "Ring")) %>% 
   mutate(ABOVE = coalesce(ABOVE.x, ABOVE.y)) %>%  # pour combiner les valeurs de .x et .y %>% 
   select(-(contains(".x") | contains(".y"))) %>%
-  filter(!is.na(BELOW)) %>% 
+  filter(!is.na(BELOW)) 
+```
+
+## Correct data with calibration data (A FAIRE)
+BELOW = (ABOVE-1) * Calibration_factors (ABOVE = the reference)
+so BELOW_cor = (BELOW / Calibration_factors)
+```{r, a placer bon au bon endroit}
+Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.csv")
+Calibration_factors
+
+# Correct measurements
+data_correct <- data_wide_AB %>% 
+  mutate(BELOW = ifelse(Ring == "Ring1",
+                        (BELOW / Calibration_factors$Ring1_cor),
+                        BELOW)) %>% 
+   mutate(BELOW = ifelse(Ring == "Ring2",
+                        (BELOW / Calibration_factors$Ring2_cor),
+                        BELOW)) %>% 
+   mutate(BELOW = ifelse(Ring == "Ring3",
+                        (BELOW / Calibration_factors$Ring3_cor),
+                        BELOW)) %>% 
+   mutate(BELOW = ifelse(Ring == "Ring4",
+                        (BELOW / Calibration_factors$Ring4_cor),
+                        BELOW)) %>% 
+   mutate(BELOW = ifelse(Ring == "Ring5",
+                        (BELOW / Calibration_factors$Ring5_cor),
+                        BELOW))
+
+```
+
+## Check if transmittance change over time
+Transmittance = Below/Above for each angle (doit être <= 1)
+```{r}
+# Compute Transmittance
+Transmittance_data <- data_correct %>% 
   mutate(Transmittance = BELOW/ABOVE)
 ```
 
@@ -307,7 +328,7 @@ sink() # close the external connection
 ```
 ## Plot regression between transmittance of different iterations
 ```{r}
-ggplot(Transmittance_data, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2))+
+ggplot(Transmittance_data, aes(x = Transmittance_P16LAY1, y = Transmittance_P16LAY2))+
   geom_point()+
   stat_smooth(method = "lm", formula = y ~ x) +
   facet_grid(vars(Ring), scales = "free")
@@ -315,7 +336,7 @@ ggplot(Transmittance_data, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16
 ring <- "Ring1"
 Transmittance_data %>% 
   filter(Ring == ring) %>% 
-  ggplot(aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2)) +
+  ggplot(aes(x = Transmittance_P16LAY1, y = Transmittance_P16LAY2)) +
   geom_point() +
   stat_smooth(method = "lm", formula = y ~ x)
 
