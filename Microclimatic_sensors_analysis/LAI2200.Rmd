@@ -184,10 +184,13 @@ data <- data %>%
 ```{r}
 data <- data %>% 
   # Filter time
-  filter(Time > "17:25:15") %>% 
+  filter(Time > "17:12:15") %>%
   # Recode the file attribution
   mutate(File_Id = ifelse(File_Id == "P16HOBO2", "P16HOBO1", File_Id)) %>% 
   mutate(File_Id = ifelse(File_Id ==  "P16HOBO3", "P16HOBO2", File_Id))
+
+unique(data$File_Id) # "P16HOBO1"   "P16HOBO2"   "P16HOBO4"   "P16HOBO5"   "P16HOBOA", "P16HOBOA_2"
+nrow(data[data$File_Id=="P16HOBO5",])
 
 ```
 
@@ -199,9 +202,11 @@ data <- data %>%
   ungroup() %>% 
   mutate(Id = as.character(Id))
 
+data[data$File_Id=="P16HOBO5",]$Id
+
 # To check the Id
 data %>% 
-  filter(File_Id == "P16LAY1") %>% # P16HOBO1
+  filter(File_Id == "P16HOBO4") %>% # P16HOBO1
   ggplot(aes(x = Time, y = Ring1, label = Id)) + 
   geom_point() +
   geom_text_repel() 
@@ -235,26 +240,38 @@ data_long_B %>%
 
 ## Attribute an Above measurement to a Below measurement 
 ```{r}
-data_wide_AB <- data_long %>%
+AB <- data_long %>%
   mutate(BELOW = ifelse(Position == "BELOW", Value, NA)) %>% 
   mutate(ABOVE = ifelse(Position == "ABOVE", Value, NA)) %>% 
   mutate(Time = hms::as.hms(Time)) %>%
   mutate(TimeB = hms::as.hms(ifelse(!is.na(BELOW), Time, NA))) %>% 
   mutate(TimeA = hms::as.hms(ifelse(!is.na(ABOVE), Time, NA)))
 
+AB1 <- AB %>% filter(Date == unique(AB$Date)[1])
+
+AB2 <- AB %>% filter(Date == unique(AB$Date)[2])
+
+AB <- list(AB1, AB2)
+
 # Take the closest Above time of Below time
-for(n in seq(1:nrow(data_wide_AB[!is.na(data_wide_AB$BELOW),]))){
-  data_wide_AB$TimeA[n] <- data_wide_AB$TimeA[which.min(abs(
-    data_wide_AB$TimeA - data_wide_AB$TimeB[n]))
-  ]
+for(i in 1:length(AB)){
+  for(n in seq(1:nrow(AB[[i]][!is.na(AB[[i]]$BELOW),]))){
+    AB[[i]]$TimeA[n] <- 
+      AB[[i]]$TimeA[which.min(abs(
+        AB[[i]]$TimeA - AB[[i]]$TimeB[n]))
+      ]
+  }
 }
 
+AB <- bind_rows(AB)
+
+
 # Above data
-Above <- na.omit(select(data_wide_AB, c(TimeA, Ring, ABOVE))) %>% 
+Above <- na.omit(select(AB, c(Date, TimeA, Ring, ABOVE))) %>% 
   unique()
 
-data_wide_AB <- data_wide_AB %>% 
-  left_join(Above, by = c("TimeA", "Ring")) %>% 
+AB <- AB %>% 
+  left_join(Above, by = c("Date", "TimeA", "Ring")) %>% 
   mutate(ABOVE = coalesce(ABOVE.x, ABOVE.y)) %>%  # pour combiner les valeurs de .x et .y %>% 
   select(-(contains(".x") | contains(".y"))) %>%
   filter(!is.na(BELOW)) 
@@ -268,20 +285,20 @@ Calibration_factors <- read_csv("~/PhD/Light/LAI-2200/DATA/Calibration_factors.c
 Calibration_factors
 
 # Correct measurements
-data_correct <- data_wide_AB %>% 
+data_correct <- AB %>% 
   mutate(BELOW = ifelse(Ring == "Ring1",
                         (BELOW / Calibration_factors$Ring1_cor),
                         BELOW)) %>% 
-   mutate(BELOW = ifelse(Ring == "Ring2",
+  mutate(BELOW = ifelse(Ring == "Ring2",
                         (BELOW / Calibration_factors$Ring2_cor),
                         BELOW)) %>% 
-   mutate(BELOW = ifelse(Ring == "Ring3",
+  mutate(BELOW = ifelse(Ring == "Ring3",
                         (BELOW / Calibration_factors$Ring3_cor),
                         BELOW)) %>% 
-   mutate(BELOW = ifelse(Ring == "Ring4",
+  mutate(BELOW = ifelse(Ring == "Ring4",
                         (BELOW / Calibration_factors$Ring4_cor),
                         BELOW)) %>% 
-   mutate(BELOW = ifelse(Ring == "Ring5",
+  mutate(BELOW = ifelse(Ring == "Ring5",
                         (BELOW / Calibration_factors$Ring5_cor),
                         BELOW))
 
@@ -301,24 +318,25 @@ ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) +
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
+ggplot(Transmittance_data, aes(x = Id, y = Transmittance, col = File_Id)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+
 # Check that all the Transmittance are < 1
 all(Transmittance_data$Transmittance < 1)
 
 # Check correlation between Transmittance of each location (Id), for each Ring, between iteration (File_Id)
-Transmittance_data <- Transmittance_data %>% 
+Transmittance_cor1 <- Transmittance_data %>% 
   select(File_Id, Id, Ring, Transmittance) %>% 
   pivot_wider(names_from = File_Id,
               values_from = "Transmittance",
               names_glue = "{.value}_{File_Id}")
 
-Transmittance_cor <- Transmittance_data %>% 
+Transmittance_cor <- Transmittance_cor1 %>% 
   select(-Ring)
 
 # P16HOBO
-By <- by(Transmittance_cor[2:4], Transmittance_cor[-(2:4)], cor)
-
-# P16HOBO
-By <- by(Transmittance_cor[2:3], Transmittance_cor[-(2:3)], cor)
+By <- by(Transmittance_cor[2:5], Transmittance_cor[-(2:5)], cor)
 
 # Write Transmittances correlation in text file
 sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_cor.txt") # path
@@ -328,7 +346,7 @@ sink() # close the external connection
 ```
 ## Plot regression between transmittance of different iterations
 ```{r}
-ggplot(Transmittance_data, aes(x = Transmittance_P16LAY1, y = Transmittance_P16LAY2))+
+ggplot(Transmittance_cor1, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2))+
   geom_point()+
   stat_smooth(method = "lm", formula = y ~ x) +
   facet_grid(vars(Ring), scales = "free")
@@ -343,6 +361,32 @@ Transmittance_data %>%
 reg <- Transmittance_data %>% 
   filter(Ring == ring)
 summary(lm(reg$Transmittance_P16HOBO1 ~ reg$Transmittance_P16HOBO2))
+
+```
+```{r}
+# Transmittance ~ location + Ring + iter
+
+Transmittance_data <- Transmittance_data %>% 
+  mutate(Id = as.factor(Id)) %>% 
+  mutate(Ring = as.factor(Ring)) %>% 
+  mutate(File_Id = as.factor(File_Id))
+
+M1 <- lm(Transmittance ~ Id, data=Transmittance_data)
+M1 <- lm(Transmittance ~ Ring, data=Transmittance_data)
+M1 <- lm(Transmittance ~ File_Id, data=Transmittance_data)
+
+M2 <- lm(Transmittance ~ Id + Ring, data=Transmittance_data)
+M3 <- lm(Transmittance ~ Id + Ring + File_Id, data=Transmittance_data)
+
+aov(lm(Transmittance ~ Id, data=Transmittance_data[Transmittance_data$Ring=="Ring1",]))
+# erreur de 3%
+
+mean(Transmittance_data$Transmittance)
+
+# agrégéer (mean) à plutot 2 catégories : sous-bois et trouée, ou catégorie par transmittance
+
+hist(Transmittance_data$Transmittance[which(Transmittance_data$Ring=="Ring1")], breaks=50)
+
 
 ```
 
