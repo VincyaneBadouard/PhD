@@ -168,7 +168,7 @@ Réflectance (ou Albedo) = énergie lumineuse réfléchie/énergie lumineuse inc
 VP$initial_intensity <- VP$Intensity 
 
 # Intensité = réflectance apparente en ratio (albedo)
-VP$Intensity = 10^(VP$Reflectance/10) # Réflectance initialment en decibel (et selon une référence connue)
+VP$Intensity = 10^(VP$Reflectance/10) # Réflectance initialement en decibel (et selon une référence connue)
 
 
 VP_samp <- sample(1:dim(VP)[1], 2000) # just a sample to plot
@@ -183,7 +183,7 @@ ARRETE LA
 finalement on ne considèrera que l’écho d’intensité max (MIR) ?
 car cas d’interception partielle non détectée à courte distance
 ```{r}
-# Compute average intensity per Number Of Returns x Return Number
+# Compute average intensity per Number Of Returns x Return Number (rang de l'écho)
 # get max return number (variable!)
 
 mx_rn=max(VP[,ReturnNumber]) # nbr max de retours
@@ -205,8 +205,8 @@ for (i in 1:mx_rn){
   }
 }
 
-mat_rel1 <- mat1/rowSums (mat1, na.rm = T, dims = 1) # poids relatifs à chacun des échos tous tirs confondus     
-# il faut une matrice carré !!
+mat_rel1 <- mat1/rowSums(mat1, na.rm = T, dims = 1) # poids relatifs à chacun des échos tous tirs confondus     
+# il faut une matrice carrée (même nbr de lignes et de colonnes) !!
 
 # single=list(name=m, matrix=mat_rel1)
 # len <- length(mat_list)
