@@ -229,13 +229,16 @@ pour calculer la matrice VOP on enlève les points sol
 
 # AMAPVox
 ```{r}
-remotes::install_github('umr-amap/AMAPVox')
-
-# ça marche pas
+# For the 1st time
 AMAPVox::run()
-AMAPVox::getRemoteVersions()
-AMAPVox::installVersion("1.10.4")
-AMAPVox::run("1.10.4", check.update = FALSE)
+
+# Get the configuration file
+xmlfile <- "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/AMAPvox_config.xml"
+# Run with the previous configuration file
+AMAPVox::run(xml = xmlfile)
+
+# run multiple configurations
+AMAPVox::run(xml=c("cfg1.xml", "cfg2.xml"), nt=2)
 ```
 
 PAD = 2*attenuation
@@ -326,7 +329,7 @@ fwrite(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4ha_l
 write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
 ```
 
-Amapvox peut générer des photos hémisphériques, des données, LAI2200, et des cartes 3D de lumière ()
+Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière ()
 
 # Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox
 

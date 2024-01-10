@@ -200,10 +200,9 @@ DF_cor <- Labo_data %>%
 
 DF_cor <- DF_cor[,colSums(is.na(DF_cor))==0] # remove column with only NA
 
-DF_cor <- DF_cor[,-(31:35)] # remove useless colomn
+DF_CH_cor <- DF_cor %>% select(- c(`N° Labo`, `Sample ID`, TreeNum1, Sample, Site, Horizon, Texture_Jamagne))
 
-DF_CH_cor <- DF_cor %>% select(- c(`N° Labo`, `Sample ID`, TreeNum1))
-# DF_CH_cor <- DF_CH_cor[,colSums(DF_CH_cor)>0] # remove column with only 0
+DF_CH_cor <- DF_CH_cor[,colSums(DF_CH_cor)>0] # remove column with only 0
 
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_CH_cor))
@@ -238,7 +237,7 @@ Trés corrélé négativement :
 ```{r}
 DF_P_CH_cor <- DF_cor %>% 
   filter(grepl(pattern = 'P-CH', DF_cor$`Sample ID`)) %>%
-  select(- c(`N° Labo`, `Sample ID`, TreeNum1, Site))
+  select(- c(`N° Labo`, `Sample ID`, TreeNum1, Sample, Site, Horizon, Texture_Jamagne))
 # DF_P_CH_cor <- DF_P_CH_cor[,colSums(DF_P_CH_cor)>0] # remove column with only 0
 
 
@@ -258,7 +257,7 @@ positives : Mg
 ```{r}
 DF_N_CH_cor <- DF_cor %>% 
   filter(grepl(pattern = 'N-CH', DF_cor$`Sample ID`)) %>%
-  select(- c(`N° Labo`, `Sample ID`, TreeNum1, Site))
+  select(- c(`N° Labo`, `Sample ID`, TreeNum1, Sample, Site, Horizon, Texture_Jamagne))
 # DF_N_CH_cor <- DF_N_CH_cor[,colSums(DF_N_CH_cor)>0] # remove column with only 0
 
 
