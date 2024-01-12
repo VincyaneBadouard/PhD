@@ -1,0 +1,152 @@
+---
+title: "DBH distributions by species"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r, include = F}
+remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
+library(EcoFoG)
+
+library(tidyverse)
+library(data.table)
+```
+
+# Import inventory data
+Plot 16, SubPlots 13,14,15,18,19,20,23,24,25
+```{r}
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_paracou_9ha_20231119.csv")
+
+# Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
+# write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
+
+Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25))
+
+# unique(Adults$SubPlot)
+
+# write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020_ALTzone.csv")
+```
+
+# Short clean
+```{r}
+unique(Understory$Dead)
+
+Understory <- Understory %>% 
+  filter(DBH>=1) %>% 
+  rename(idTree = TreeID) %>% 
+  rename(Species = species) %>% 
+  rename(SubPlot = subplot) %>% 
+  # rename(CodeAlive = Dead) %>% 
+  mutate(CodeAlive = as.logical(recode(Dead,
+                                       "FALSE" = "TRUE",
+                                       "FAUX" = "TRUE",
+                                       "(false)" = "TRUE",
+                                       "TRUE" = "FALSE",
+                                       "VRAI" = "FALSE"))) %>% 
+  mutate(Genus = gsub("[()]", "", Genus))
+
+# test <- select(Understory, Dead, CodeAlive)
+```
+
+
+!! ATTENTION !!: 
+- là je prends tous les POM
+Il faudrait corriger les DBH en fct des POMS
+
+- les noms d'espèces ne sont pas encore tout à fait propre (!= orthographes, double espace)
+```{r}
+Understory <- Understory %>% 
+  # add a column identifying the two datasets
+  add_column(Dataset = "ALT") %>% 
+  filter(Stem.number == 1) %>% 
+  select(Dataset, idTree, CIRAD.BigTreeID, Family, Genus, Species, DBH, POM, CodeAlive) %>% 
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+  # Create the ScientificName column
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = " ", na.rm = TRUE, remove = F) %>%
+  mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
+  mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
+  mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName))
+
+Adults <- Adults %>% 
+  # add a column identifying the two datasets
+  add_column(Dataset = "Standard") %>%
+  # idTree as character
+  mutate(idTree = as.character(idTree)) %>% 
+  # Circ to DBH
+  mutate(DBH = CircCorr/pi) %>% 
+  select(Dataset, idTree, Family, Genus, Species, DBH, MeasCode, CodeAlive)
+
+
+# Join the 2 datasets
+Total_inv <- bind_rows(Understory, Adults) %>% 
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+  # Create the ScientificName column
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = " ", na.rm = TRUE, remove = F) %>%
+  mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
+  mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
+  mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName))
+
+# unique individuals
+length(Total_inv$idTree) # 45997
+unique(length(Total_inv$idTree)) # 45997
+
+# Conceveiba  guianensis
+unique(Total_inv$ScientificName)
+
+```
+
+# Plot
+```{r}
+# All
+ggplot(Understory, aes(x=DBH)) +
+  geom_histogram(binwidth=5)
+```
+
+# Plot per species
+```{r}
+unique(length(Understory$idTree)) # 40863
+unique(Understory$ScientificName)
+
+data <- Understory %>% 
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  filter(Genus=="Xylopia")
+
+ggplot(data, aes(x=DBH)) +
+  geom_histogram(binwidth=1) +
+  facet_wrap(vars(ScientificName), scales = "free")
+
+esquisse::esquisser()
+```
+
+```{r}
+sp <- Understory$ScientificName
+
+
+dev.new()
+
+for(p in 1:(ceiling(length(unique(sp))/9))){
+  print(
+    ggplot(Understory, aes(x=DBH)) +
+      geom_histogram(binwidth=1) +
+      facet_wrap(vars(ScientificName), scales = "free")
+    
+  )
+  
+  if(p < ceiling(length(unique(sp))/9))
+    dev.new()
+  
+}
+```
+

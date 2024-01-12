@@ -13,17 +13,19 @@ library(EcoFoG)
 
 library(tidyverse)
 library(data.table)
+library(readr)
 # library() # TreeData
-library(ggplot2)
 ```
 
 # Import inventory data
 Plot 16, SubPlot X
 ```{r}
-# Understory <-
-Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_paracou_9ha_20231119.csv")
 
-write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
+# Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
+# write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
+
+Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 ```
 
 
