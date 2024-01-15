@@ -234,6 +234,8 @@ plot(shpParacou, col = shpParacou@data$Plot == "16")
 Plot16 <- shpParacou[shpParacou@data$Plot == "16",] %>% 
   st_as_sf()
 plot(Plot16)
+
+st_write(Plot16, "D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp", driver = "ESRI Shapefile")  # create to a shapefile
 ```
 
 # Clip for just the plot 16
@@ -293,8 +295,62 @@ ggplot() +
 # For ALT zone
 ## ALT zone geometry
 ```{r}
-ALT <- shpParacou[shpParacou@data$Plot == "16" & shpParacou@data$SubPlot %in% c("13","14","15","18","19","20", "23","24","25"),]
+ALT <- shpParacou[shpParacou@data$Plot == "16" & shpParacou@data$SubPlot %in% c("13","14","15","18","19","20", "23","24","25"),] %>% 
+  st_as_sf()
 plot(ALT)
+
+st_write(ALT, "D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp", driver = "ESRI Shapefile")  # create to a shapefile
+```
+# Clip for just the ALT zone
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Clip_raster.R")
+
+Paracou_ALT_mnt <- Rslt <- Clip_raster(file_to_clip = "test/Paracou_MNT_cor.tif",
+                               mask = ALT, 
+                               outpout = "test/Paracou_ALT_mnt.tif")
+
+
+Paracou_ALT_TWI <- Clip_raster(file_to_clip = "test/Paracou_TWI_5m.tif",
+                       mask = ALT, 
+                       outpout = "test/Paracou_ALT_TWI_5m.tif")
+
+Paracou_ALT_RE <- Clip_raster(file_to_clip = "test/re.tif",
+                      mask = ALT, 
+                      outpout = "test/Paracou_ALT_RelativeElev.tif")
 ```
 
+## Plot the ALT rasters
+```{r}
+# MNT
+ggplot() + 
+  geom_spatraster(data = Paracou_ALT_mnt, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  ggtitle("Paracou ALT: MNT - ALS 2022") +
+  theme_classic() +
+  coord_sf()
 
+# TWI
+ggplot() + 
+  geom_spatraster(data = Paracou_ALT_TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(9, "Blues", rev = T),
+                       na.value="white") + 
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  ggtitle("Paracou ALT: TWI 5 m - ALS 2022") + 
+  theme_classic() +
+  coord_sf()
+
+# Relative elevation
+ggplot() + 
+  geom_spatraster(data = Paracou_ALT_RE, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(25, "Blues"),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  ggtitle("Paracou ALT: Relative elevation to the creek - ALS 2022") + 
+  theme_classic() +
+  coord_sf()
+```

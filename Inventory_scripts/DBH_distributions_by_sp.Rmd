@@ -7,11 +7,15 @@ output: pdf_document
 
 # Packages
 ```{r, include = F}
-remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
-library(EcoFoG)
+# remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
+# library(EcoFoG)
 
 library(tidyverse)
 library(data.table)
+library(ggforce)
+library(raster)
+library(terra)
+library(tidyterra)
 ```
 
 # Import inventory data
@@ -31,10 +35,13 @@ Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>%
 ```
 
 # Short clean
+!! ATTENTION !! il y a des dupliqués : différents DBH pour le meme idTree et la meme stem
 ```{r}
 unique(Understory$Dead)
 
 Understory <- Understory %>% 
+  select(-"...1" ) %>% 
+  unique() %>%
   filter(DBH>=1) %>% 
   rename(idTree = TreeID) %>% 
   rename(Species = species) %>% 
@@ -46,7 +53,9 @@ Understory <- Understory %>%
                                        "(false)" = "TRUE",
                                        "TRUE" = "FALSE",
                                        "VRAI" = "FALSE"))) %>% 
-  mutate(Genus = gsub("[()]", "", Genus))
+  # remove parentheses
+  mutate(Genus = gsub("[()]", "", Genus)) %>% 
+  mutate(Family = gsub("[()]", "", Family))
 
 # test <- select(Understory, Dead, CodeAlive)
 ```
@@ -62,7 +71,7 @@ Understory <- Understory %>%
   # add a column identifying the two datasets
   add_column(Dataset = "ALT") %>% 
   filter(Stem.number == 1) %>% 
-  select(Dataset, idTree, CIRAD.BigTreeID, Family, Genus, Species, DBH, POM, CodeAlive) %>% 
+  select(Dataset, idTree, CIRAD.BigTreeID, Family, Genus, Species, DBH, POM, CodeAlive, Xutm, Yutm) %>% 
   # Only alive trees
   filter(CodeAlive == T) %>%
   # Create the ScientificName column
@@ -80,7 +89,7 @@ Adults <- Adults %>%
   mutate(idTree = as.character(idTree)) %>% 
   # Circ to DBH
   mutate(DBH = CircCorr/pi) %>% 
-  select(Dataset, idTree, Family, Genus, Species, DBH, MeasCode, CodeAlive)
+  select(Dataset, idTree, Family, Genus, Species, DBH, MeasCode, CodeAlive, Xutm, Yutm)
 
 
 # Join the 2 datasets
@@ -100,53 +109,109 @@ length(Total_inv$idTree) # 45997
 unique(length(Total_inv$idTree)) # 45997
 
 # Conceveiba  guianensis
-unique(Total_inv$ScientificName)
+# unique(Total_inv$ScientificName)
 
 ```
+
 
 # Plot
 ```{r}
 # All
 ggplot(Understory, aes(x=DBH)) +
-  geom_histogram(binwidth=5)
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9)
 ```
 
 # Plot per species
+ne prendre que :
+- les identifiés botaniquement
+- la tige principale (?)
+- les vivants
+- les mesures les plus récentes des arbres cirad 
 ```{r}
 unique(length(Understory$idTree)) # 40863
-unique(Understory$ScientificName)
+# unique(Understory$ScientificName)
 
-data <- Understory %>% 
+Understory <- Understory %>% 
+  filter(!is.na(DBH)) %>% # Only measured trees
   filter(!is.na(ScientificName)) %>% 
   filter(ScientificName!="Tres haut") %>% 
   filter(!grepl("indet", ScientificName)) %>% 
   filter(!grepl("Indet", ScientificName)) %>% 
-  filter(Genus=="Xylopia")
+  # Count individuals by species
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+
+data <- Understory %>% 
+  filter(Genus=="Xylopia"|Genus=="Parkia"| Genus=="Ocotea") 
+  
 
 ggplot(data, aes(x=DBH)) +
-  geom_histogram(binwidth=1) +
-  facet_wrap(vars(ScientificName), scales = "free")
-
-esquisse::esquisser()
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  facet_wrap(vars(ScientificName, N), scales = "free")
 ```
 
 ```{r}
 sp <- Understory$ScientificName
 
+# Define nrow and ncol for the facet
+n <- length(unique(sp))
+if(n<4) {i = 1}else{ i = 4}
 
-dev.new()
 
-for(p in 1:(ceiling(length(unique(sp))/9))){
+pdf("DBH_distributions_by_species.pdf", width = 15, height = 10)
+for(p in 1:(ceiling(length(unique(sp))/16))){
   print(
     ggplot(Understory, aes(x=DBH)) +
-      geom_histogram(binwidth=1) +
-      facet_wrap(vars(ScientificName), scales = "free")
+      geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
+      
+      ggforce::facet_wrap_paginate(vars(ScientificName, N),
+                                   scales = "free",
+                                   ncol = min(n,4), nrow = i, page = p)
     
   )
-  
-  if(p < ceiling(length(unique(sp))/9))
-    dev.new()
-  
 }
+dev.off() # Close the final graphics device
+```
+
+
+# Plot spatial distribution of species
+faire une carte par sp ? et gradient de couleurs par DBH ?
+- with X-Yutm coordinates
+- Scientific names (done)
+
+on the MNT of the ALT zone 
+!! ATTENTION !! les individus sont en UTM et le mnt est en latitude/longitude
+```{r}
+data <- Understory %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  filter(Genus=="Xylopia"|Genus=="Parkia"| Genus=="Ocotea") 
+
+ggplot(data, mapping = aes(x = Xutm, y = Yutm)) +
+  geom_point(aes(col=ScientificName))
+
+ALTmnt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp"))
+
+
+ggplot() + 
+  geom_spatraster(data = ALTmnt, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T, alpha = 0.9),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  geom_point(data, mapping = aes(x = Xutm, y = Yutm, col=ScientificName)) +
+  ggtitle("Paracou ALT: MNT - ALS 2022") +
+  theme_classic() +
+  coord_sf()
+
+
+
+
+
+
 ```
 

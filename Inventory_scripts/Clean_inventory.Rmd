@@ -5,7 +5,6 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
-
 # Packages
 ```{r, include = F}
 remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
@@ -28,4 +27,81 @@ Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_par
 Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 ```
 
+Vérifications :
+- idTree uniques A FAIRE
+- DBH au même POM (1.30) ? que faire pour les ALT ? A FAIRE
+- DBH >= 1 < ? A FAIRE
+- noms d'espèces uniques A FAIRE
+- arbres cirad tous présents A FAIRE
+
+Ne prendre que :
+- les mesurés
+- les identifiés botaniquement
+- la tige principale (?)
+- les vivants
+- les mesures les plus récentes des arbres cirad A FAIRE
+- Take only sp >= 30 ind (?)
+```{r}
+names(Understory)
+Understory <- Understory %>% 
+  select(-"...1" ) %>% 
+  unique() %>% 
+  filter(DBH>=1) %>% 
+  
+  # Standardise columns names
+  rename(idTree = TreeID) %>% 
+  rename(Species = species) %>% 
+  rename(SubPlot = subplot) %>% 
+  mutate(CodeAlive = as.logical(recode(Dead,
+                                       "FALSE" = "TRUE",
+                                       "FAUX" = "TRUE",
+                                       "(false)" = "TRUE",
+                                       "TRUE" = "FALSE",
+                                       "VRAI" = "FALSE"))) %>% 
+  # remove parentheses
+  mutate(Genus = gsub("[()]", "", Genus)) %>% 
+  mutate(Family = gsub("[()]", "", Family)) %>% 
+  
+  # add a column identifying the two datasets
+  add_column(Dataset = "ALT") %>% 
+  
+  # Only the principal stem
+  filter(Stem.number == 1) %>% 
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+  # Only measured trees
+  filter(!is.na(DBH)) %>%
+  
+  # Create the ScientificName column
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = " ", na.rm = TRUE, remove = F) %>%
+  mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
+  mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
+  mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName)) %>% 
+  
+  # Only botanical identified
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  
+  # Count individuals by species
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+  
+  # Only the needed columns
+  select(Dataset, idTree, CIRAD.BigTreeID, Family, Genus, Species, DBH, POM, CodeAlive)
+```
+
+```{r}
+# Check duplicated idTree
+Understory[duplicated(Understory$idTree),] # oui il y a des idTree dupliqués
+
+# Check the scientific names list
+unique(Understory$ScientificName)
+```
 
