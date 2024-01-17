@@ -4,6 +4,15 @@ author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
+Début de l’inventaire :  novembre 2020
+Fin de l'inventaire : décembre 2023
+
+**Cibler les priorités d’identification botanique**
+
+
+Pour les subplots 19, 20, 14 et 15 (les 4 1ers ha) les arbres CIRAD n'ont pas été mesurés par l'équipe ALT, ce sont les DBH du dataset CIRAD 2020.
+
+Pour les autres subplots, les DBH des arbres CIRAD ont été mesuré par l'équipe ALT.
 
 # Packages
 ```{r, include = F}
@@ -91,10 +100,10 @@ Understory <- Understory %>%
   mutate(N = n()) %>% 
   ungroup() %>% 
   # Take only sp >= 30 ind
-  filter(N >= 30)
+  filter(N >= 30) %>% 
   
   # Only the needed columns
-  select(Dataset, idTree, CIRAD.BigTreeID, Family, Genus, Species, DBH, POM, CodeAlive)
+  select(Dataset, idTree, CIRAD.BigTreeID, ScientificName, Family, Genus, Species, DBH, POM, CodeAlive, Xutm, Yutm)
 ```
 
 ```{r}
