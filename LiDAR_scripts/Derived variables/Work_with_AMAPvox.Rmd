@@ -7,6 +7,9 @@ output: pdf_document
 
 https://amapvox.org/
 
+Le principe est d’utiliser le LiDAR pour reconstruire en 3D la canopée forestière en représentant au mieux les caractéristiques de transmittance locale de la végétation puis de simuler à partir de cette maquette et d’un modèle d’ensoleillement la quantité relative de lumière disponible en tout point de la canopée
+
+
 # Install AMAPVox
 ```{r}
 # install "remotes" package if not already installed
@@ -259,7 +262,9 @@ writeVoxelSpace(VX, "Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_PAD")
 ## Fill empty voxels
 voir Fill_empty_voxels.Rmd
 
-voxel pas vu pas échantilloné (occlusion), pas de données, ou mal échantilloné (selon un seuil)
+Certains voxels (en bas de canopée) ne sont pas échantillonnés du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 26 voisins les plus proches**.
+
+Voxel pas vu pas échantilloné (occlusion), pas de données, ou mal échantilloné (selon un seuil)
 estimer selon le plus probable selon les besoins
 qui ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 (long)
@@ -332,6 +337,9 @@ write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4h
 Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière ()
 
 # Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox
+
+Tester différentes hauteurs permettra aussi de tester la disponibilité en lumière à l'endroit
+où se trouve la couronne des arbres considérés.
 
 ```{r}
 

@@ -5,6 +5,9 @@ date: "2023-08-07"
 output: html_document
 ---
 
+Le rééchantillonnage du MNT à une maille plus grossière (5m, 10m, 20m, 50m) permet de lisser les micro-variations du relief dues au bruit dans les coordonnées en z (altitude).
+
+
 ```{r, include=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, echo = FALSE, fig.width = 6
@@ -110,8 +113,11 @@ ggplot() +
   coord_sf()
 ```
 
+# Different MNT resolutions
+Le rééchantillonnage du MNT à une maille plus grossière (5m, 10m, 20m, 50m) permet de lisser les micro-variations du relief dues au bruit dans les coordonnées en z (altitude).
+
+La résolution choisie pour chaque variable est celle qui donne le meilleur compromis entre le moins d’incohérence de pixel et la meilleure précision, d’après la visualisation.
 ```{r}
-# Different resolution 
 # 5m for TWI
 mnt5m <- aggregate(mnt, fact=5)
 
