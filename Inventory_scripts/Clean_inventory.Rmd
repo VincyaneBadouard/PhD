@@ -46,6 +46,7 @@ Vérifications :
 - DBH >= 1 < ? A FAIRE
 - noms d'espèces uniques A FAIRE
 - arbres cirad tous présents A TRAITER (attention arbres sans stem 1)
+- joindre les infos manquantes des cirad (DBH, bota, coordonnées)
 
 Ne prendre que :
 - les mesurés
