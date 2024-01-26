@@ -9,8 +9,10 @@ Fin de l'inventaire : décembre 2023
 
 **Cibler les priorités d’identification botanique**
 
+4 ha : 19,20,14,15 
+9 ha : 13,14,15,18,19,20,23,24,25
 
-Pour les subplots 19, 20, 14 et 15 (les 4 1ers ha) les arbres CIRAD n'ont pas été mesurés par l'équipe ALT, ce sont les DBH du dataset CIRAD 2020.
+Pour les  4 1ers ha les arbres CIRAD n'ont pas été mesurés par l'équipe ALT, ce sont les DBH du dataset CIRAD 2020.
 
 Pour les autres subplots, les DBH des arbres CIRAD ont été mesuré par l'équipe ALT.
 
@@ -27,21 +29,23 @@ library(readr)
 
 # Import inventory data
 Plot 16, SubPlot X
-```{r}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_paracou_9ha_20231119.csv")
+```{r,include = F, message=F}
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_paracou_9ha_20240124.csv")
 
 # Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
 # write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 
-Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
+Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9 ha
 ```
 
 Vérifications :
+- the 9 subplots
 - idTree uniques A FAIRE
 - DBH au même POM (1.30) ? que faire pour les ALT ? A FAIRE
 - DBH >= 1 < ? A FAIRE
 - noms d'espèces uniques A FAIRE
-- arbres cirad tous présents A FAIRE
+- arbres cirad tous présents A TRAITER (attention arbres sans stem 1)
 
 Ne prendre que :
 - les mesurés
@@ -51,16 +55,19 @@ Ne prendre que :
 - les mesures les plus récentes des arbres cirad A FAIRE
 - Take only sp >= 30 ind (?)
 ```{r}
+# check that we have the 9 subplots
+sort(unique(Understory$subplot)) == c(13,14,15,18,19,20,23,24,25)
 names(Understory)
+
 Understory <- Understory %>% 
   select(-"...1" ) %>% 
   unique() %>% 
-  filter(DBH>=1) %>% 
   
   # Standardise columns names
   rename(idTree = TreeID) %>% 
   rename(Species = species) %>% 
-  rename(SubPlot = subplot) %>% 
+  rename(SubPlot = subplot) %>%
+  rename(CIRAD1 = CIRAD.BigTreeID) %>%
   mutate(CodeAlive = as.logical(recode(Dead,
                                        "FALSE" = "TRUE",
                                        "FAUX" = "TRUE",
@@ -74,13 +81,6 @@ Understory <- Understory %>%
   # add a column identifying the two datasets
   add_column(Dataset = "ALT") %>% 
   
-  # Only the principal stem
-  filter(Stem.number == 1) %>% 
-  # Only alive trees
-  filter(CodeAlive == T) %>%
-  # Only measured trees
-  filter(!is.na(DBH)) %>%
-  
   # Create the ScientificName column
   unite(col = "ScientificName", c("Genus", "Species"),
         sep = " ", na.rm = TRUE, remove = F) %>%
@@ -88,6 +88,68 @@ Understory <- Understory %>%
   mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
   mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
   mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName)) %>% 
+  
+  # Only the needed columns
+  select(Dataset, SubPlot, Stem.number, idTree, CIRAD1, ScientificName, Family, Genus, Species, DBH, POM, CodeAlive, Xutm, Yutm)
+```
+
+```{r}
+# Check duplicated idTree
+Understory[duplicated(Understory$idTree),] # oui il y a des idTree dupliqués
+
+# Check the scientific names list
+unique(Understory$ScientificName)
+```
+
+# Check if the cirad trees are all in the understory inventories
+```{r}
+Understory <- Understory %>% 
+  mutate(CIRADid= tstrsplit(CIRAD1, split = "_")[[1]]) %>% #1er elmt  
+  mutate(CIRADplot= tstrsplit(CIRAD1, split = "_")[[2]]) #2nd
+
+all(na.omit(Understory$CIRADplot == Understory$SubPlot)) # il ya des erreurs dans les n° de subplots des identifiants cirad
+
+Adults <- Adults %>% 
+  filter(CodeAlive == T) %>%
+  unite(col = "CIRAD", c("TreeFieldNum", "SubPlot"),
+        sep = "_", na.rm = F, remove = F) %>% 
+  mutate(CIRAD = gsub("[[:space:]]", "", CIRAD)) %>%
+  mutate(CIRAD = str_squish(CIRAD)) # remove double spaces
+
+Understory <- Understory %>% 
+  unite(col = "CIRAD", c("CIRADid", "SubPlot"),
+        sep = "_", na.rm = F, remove = F) %>% 
+  mutate(CIRAD = gsub("[[:space:]]", "", CIRAD)) %>% 
+  mutate(CIRAD = str_squish(CIRAD)) # remove double spaces
+
+Adults$CIRAD %in% Understory$CIRAD | Adults$CIRAD %in% Understory$CIRAD1 # CIRAD1 has some different suplot numer than SubPlot
+
+MissingCirad <- Adults %>% 
+  filter(!(CIRAD %in% Understory$CIRAD|CIRAD %in% Understory$CIRAD1))
+
+unique(MissingCirad$CIRAD)
+
+Understory[!is.na(Understory$CIRAD1),]$Stem.number # cirad stem id
+stems <- Understory[!is.na(Understory$CIRAD1) & Understory$Stem.number!=1,]$CIRAD1 # cirad stem id >1
+stem1 <- Understory[Understory$CIRAD1 %in% stems & Understory$Stem.number==1,]$CIRAD1 # cirad stem id == 1
+
+#!! ATTENTION cirad trees without stem 1 !!
+stems[!stems %in% stem1] # "392_14" "340_19" "106_15" "356_20" "131_14" cirad with multiple stems but without a stem 1
+```
+
+
+
+# For my analyses
+```{r}
+Understory <- Understory %>% 
+  filter(DBH>=1) %>% 
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+    # Only the principal stem
+  filter(Stem.number == 1) %>% 
+  
+  # Only measured trees
+  filter(!is.na(DBH)) %>%
   
   # Only botanical identified
   filter(!is.na(ScientificName)) %>% 
@@ -99,18 +161,9 @@ Understory <- Understory %>%
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% 
-  # Take only sp >= 30 ind
-  filter(N >= 30) %>% 
-  
-  # Only the needed columns
-  select(Dataset, idTree, CIRAD.BigTreeID, ScientificName, Family, Genus, Species, DBH, POM, CodeAlive, Xutm, Yutm)
-```
+    # Take only sp >= 30 ind
+  filter(N >= 30)
 
-```{r}
-# Check duplicated idTree
-Understory[duplicated(Understory$idTree),] # oui il y a des idTree dupliqués
 
-# Check the scientific names list
-unique(Understory$ScientificName)
 ```
 
