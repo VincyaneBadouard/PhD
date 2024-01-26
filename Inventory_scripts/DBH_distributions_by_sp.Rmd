@@ -21,7 +21,7 @@ library(tidyterra)
 
 # Import inventory data
 Plot 16, SubPlots 13,14,15,18,19,20,23,24,25
-```{r}
+```{r,include = F, message=F}
 Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_paracou_9ha_20231119.csv")
 
 # Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
