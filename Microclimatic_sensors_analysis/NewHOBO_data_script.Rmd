@@ -23,6 +23,8 @@ Aussi en regardant rapidement, je viens de voir que Eva a sortie un papier sur l
 
 **les données très fortes de lumière = sunflex étude sunflecks**
 
+HOBO : variabilité intra-annuelle entre envir lumineux (corriger mon horloge), effet de la saison sur la lumière ? qui varie en fct de l’ouverture de canopée
+
 Objectives:
 
 \- open the HOBO data
