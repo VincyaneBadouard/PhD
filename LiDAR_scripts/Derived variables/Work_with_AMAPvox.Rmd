@@ -7,10 +7,11 @@ output: pdf_document
 
 https://amapvox.org/
 
-Le principe est d’utiliser le LiDAR pour reconstruire en 3D la canopée forestière en représentant au mieux les caractéristiques de transmittance locale de la végétation puis de simuler à partir de cette maquette et d’un modèle d’ensoleillement la quantité relative de lumière disponible en tout point de la canopée
+Le principe est d’utiliser le LiDAR pour reconstruire en 3D la canopée forestière en représentant au mieux les caractéristiques de transmittance locale de la végétation puis de simuler à partir de cette maquette et d’un modèle d’ensoleillement la quantité relative de lumière disponible en tout point de la canopée.
 
 
 # Install AMAPVox
+V2.2 : Z:\users\PhilippeVerley\amapvox\nightly-build\AMAPVox-2.2.0-windows
 ```{r}
 # install "remotes" package if not already installed
 if (!any(grepl("remotes", rownames(installed.packages())))) install.packages("remotes")
@@ -27,39 +28,60 @@ library(data.table)
 library(rgl) # visulaisation 3D
 library(terra)
 library(raster)
+library(lidR)
+library(tidyterra)
 library(AMAPVox)
 library(sf)
+```
+
+# Load points cloud
+ctg : catalog of laz files
+```{r}
+# Si en dalles :
+ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog
+
+# Si 1 fichier
+ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/ALS2023/P16_bbx_buf100m.laz")
+
+plot(ST)
+crs(ST) # no crs
+ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
+crs(ST)
 ```
 
 # Extraire la zone d'intéret (données classifiées dallées)
 Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fichier vecteur (polygone) de la zone d'intéret (ROI), si possible sous forme rectangulaire stricte.
 
-ctg : catalog of laz files
 ROI : Region of Interest
 ```{r}
-ctg <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog
-# 4 carrés
-crs(ctg) # no crs
-plot(ctg)
-
-ctg <- st_set_crs(ctg, 2972) # attribuer le dernier crs
-crs(ctg)
-
 # Region of Interest (ROI)
 ROI <- vect("Z:/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp") # 4 carrés
 plot(ROI)
 class(ROI) # SpatVector (terra)
-
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 crs(ROI)
 plot(ROI)
+
+# Create a 100 m buffer around
+st_crs(ROI)$units # in meter
+buffer <- st_buffer(ROI, dist=100, endCapStyle = "SQUARE") %>% st_union() # the square doesn't works
+plot(buffer)
+plot(ROI, add=T)
+ROI <- st_union(ROI, buffer)
+plot(ROI)
+
+st_write(ROI, "Z:/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp", driver = "ESRI Shapefile")  # create to a shapefile
+
+
 # Clip the point cloud in region of interest
-PC <- clip_roi(las = ctg, geometry = ROI) # très long
+PC <- clip_roi(las = ST, geometry = ROI) # très long
 str(PC) # List of 4 las
 
 # Join the 4 las
 PC <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
+# or if only the first not empty
+PC <- PC[[1]]
 lidR::plot(PC) 
 
 # Enlever le bruit (sous sol et au dessus canopée)
@@ -67,98 +89,88 @@ table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
 PC@data <- PC@data[Classification != 7,]
 lidR::plot(PC) 
 
-writeLAS(PC, "Z:/users/VincyaneBadouard/ALS2022/P16_2022_v2_4ha.laz")
+writeLAS(PC, "Z:/users/VincyaneBadouard/Lidar/ALS2023/P16_2023_4ha_buffer.laz")
+
+# Crop the DEM in region of interest
+# Modèle numérique de terrain
+mnt <- rast("Z:/users/VincyaneBadouard/Lidar/ALS2023/dtm2023.asc")
+plot(mnt)
+mntROI <- raster::crop(mnt,extent(ROI))
+plot(mntROI)
+ggplot() + 
+  geom_spatraster(data = mntROI, aes(fill = dtm2023)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
+
+writeRaster(raster(mntROI),"Z:/users/VincyaneBadouard/Lidar/ALS2023/dtm2023_4ha_buffer.asc", format="ascii")
 ```
-
-# The point cloud path
-```{r}
-ALS_P16_2022_path <- "Z:/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_dnz_4ha.laz"
-```
-
-# Import the points cloud
-```{r}
-ST <- readLAS(ALS_P16_2022_path)
-table(ST@data$NumberOfReturns)
-ST@data
-range(ST$Z) # min et max de l'altitude: 8.82 - 67.13 m
-
-plot(ST) # ya du bruit
-```
-
 
 # Read, bind and rewrite the trajectory files in the folder
 ```{r , include = F}
+# if multiple files :
 trajfilenames <- list.files("Z:/users/VincyaneBadouard/Lidar/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
-
 df_list <- lapply(trajfilenames, fread) # read all the folder files
-ALS_P16_2022_traj <- bind_rows(df_list)
+ALS_P16_2023_traj <- bind_rows(df_list)
 
-ALS_P16_2022_traj <- ALS_P16_2022_traj %>% 
+# if one file :
+traj <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt")
+traj
+plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
+range(traj$x) # 283770.8 285719.1
+range(traj$y) # 578263.8 586617.6
+
+ALS_P16_2023_traj <- ALS_P16_2023_traj %>% 
   select(V1,V2,V3,V4) %>% 
   rename(time = V1) %>% 
   rename(X = V2) %>% 
   rename(Y = V3) %>% 
   rename(Z = V4) 
-view(ALS_P16_2022_traj)
+view(ALS_P16_2023_traj)
 
-fwrite(ALS_P16_2022_traj, "Z:/users/VincyaneBadouard/Lidar/ALS2022/trajecto/ALS_P16_2022_traj.txt")
+fwrite(ALS_P16_2023_traj, "Z:/users/VincyaneBadouard/Lidar/ALS2023/trajecto/ALS_P16_2023_traj.txt")
 ```
 
-# Import the trajectory
+# Check points cloud data
 ```{r}
-traj <- ALS_P16_2022_traj
-traj 
+table(PC@data$NumberOfReturns) # 14 echos
+PC@data
+range(PC$Z) # min et max de l'altitude: 4.19 65.74 m
 
-plot3d(traj[,2:4]) # plot the trajectory (x,y,z)
-
-options(digits=12)
+plot(PC) 
 ```
 
-
-# Nettoyer les points isolés avant AMAPVox
-- statistical points removal (enlève les points isolés)
-- autre méthode : dans un espace voxel selon densité de points
-```{r}
-table(ST@data$Classification)
-ST@data <- ST@data[Classification != 7,] # enlever le bruit
-plot(ST) # quasi plus de bruit
-# Question : ça suffit ?
-```
 
 # Classifier les points sol
 ```{r}
-ST <- PC
-# Modèle numérique de terrain
-mnt <- rast("Z:/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc")
-plot(mnt)
-
 # Normaliser la hauteur du sol
-ST_norm <- lidR::normalize_height(ST, mnt) # applati le relief
-plot(ST_norm)# sol plat
-hist(ST_norm@data$Z)
+PC_norm <- lidR::normalize_height(PC, mntROI) # applati le relief
+plot(PC_norm) # sol plat
+hist(PC_norm@data$Z)
 
 # Classifier les points sol
-ST_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] 
+PC_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] 
 
-table(ST_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
-# plot(ST_norm, color = "Classification") # trop long
+table(PC_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
+# plot(PC_norm, color = "Classification") # trop long
 
 # Dénormaliser la hauteur du sol
-ST <- lidR::unnormalize_height(ST_norm) 
+PC <- lidR::unnormalize_height(PC_norm) 
 ```
 
 # Garder uniquement les points de végétation
 On enlève tout le sol, on garde que les tirs qui atteignent la végétation
 ```{r}
-GP <- ST@data[(Classification==2 | Classification==7),] # Ground Points
-GS <- ST@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
-VP <- ST@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
+GP <- PC@data[(Classification==2 | Classification==7),] # Ground Points
+GS <- PC@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
+VP <- PC@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
 # question : pq enlever tous les tirs pris en meme temps que les tirs ayant touché le sol, et pas juste enlever les données sol ?
 rm(GP)
 rm(GS)
 ```
 
-# Calculer la moyenne de réflectance (appelée intensité) par écho
+# Calculer la moyenne de réflectance (appelée intensité) par écho (pas fait pour 2023)
 
 On utilise la réflectance pour calculer l'intensité
 en calculant la réflectance apparente en ratio (albedo)
@@ -182,7 +194,7 @@ plot(initial_intensity~Intensity, data = VP[VP_samp,])
 ```
 
 ARRETE LA
-# Calculer la matrice de pondération des échos (matrice de poids)
+# Calculer la matrice de pondération des échos (matrice de poids) (pas fait pour 2023)
 finalement on ne considèrera que l’écho d’intensité max (MIR) ?
 car cas d’interception partielle non détectée à courte distance
 ```{r}
@@ -217,18 +229,41 @@ mat_rel1 <- mat1/rowSums(mat1, na.rm = T, dims = 1) # poids relatifs à chacun d
 
 
 # Enregistrer cette matrice dans le dossier de travail
-fwrite(mat_rel1, "Z:/users/VincyaneBadouard/ALS2022/WeightingMatrix.txt",
+fwrite(mat_rel1, "Z:/users/VincyaneBadouard/Lidar/ALS2023/WeightingMatrix.txt",
        sep= " ", na="NaN", row.names = F, col.names = F)
 ```
 
 # Calcul de matrice de rotation (alignement N-S d’un bord de ROI)
+
+Créer une matrice 'VOP'(Voxels Oriented Patches) (.txt).
+Rotationer le nuage de points pour etre aligné avec la grille
+
 script : **Create_VOP.Rmd**
-Utilise le fichier vecteur précédent (ROI),
-créer une matrice 'VOP'(Voxels Oriented Patches) (.txt).
 
-rotationer le nuage de points pour etre aligné avec la grille
+# Compute the clearness index from the tower data
 
-pour calculer la matrice VOP on enlève les points sol
+Clearness index = rapport entre l'irradiation solaire globale mesurée au niveau du sol G et sa contrepartie estimée au sommet de l'atmosphère Gext : k=G/Gext (Liu and Jordan, 1960).
+
+Clearness index = global solar irradiance (données de la tour)/top of atmosphere (extraterrestrial radiation) (données de ref des satellites (site soda)
+
+all on the same periode, and in the same unit
+```{r}
+# Load tower data
+# GlobalRad <- 
+
+# Compute extraterrestrial radiation
+# ExtraRad <- 
+  
+# Compute clearness index for 1 year (2022)
+# Clearness_2022 <- GlobalIrr/ExtraRad
+
+# Compute clearness index for wet and dry season (2022)
+# ClearnessWet <-
+# ClearnessDry <-
+```
+
+
+
 
 # AMAPVox
 ```{r}
@@ -236,7 +271,7 @@ pour calculer la matrice VOP on enlève les points sol
 AMAPVox::run()
 
 # Get the configuration file
-xmlfile <- "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/AMAPvox_config.xml"
+xmlfile <- "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAPvox_config.xml"
 # Run with the previous configuration file
 AMAPVox::run(xml = xmlfile)
 
@@ -251,11 +286,11 @@ fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuil
 pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
 
 ```{r}
-VX <- readVoxelSpace("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/AMAVox_output_test")
+VX <- readVoxelSpace("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAVox_output_test")
 AMAPVox::plot(VX)
 VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
 
-writeVoxelSpace(VX, "Z:/users/VincyaneBadouard/ALS2022/AMAVox_output_PAD")
+writeVoxelSpace(VX, "Z:/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
 
 ```
 
@@ -289,7 +324,7 @@ clearness coefficient : 0.5 rapport direct-diffus en gros à l'équateur (change
 ```{r}
 # enlever les 2 lignes mean
 # Light <- Light[Y != "MEAN"]
-Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
+Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
 Light <- Light[, !c("V5"), with = FALSE] 
 
 # Remove edges
@@ -311,7 +346,7 @@ On peut retrouver les cooordonnées UTM avec la VOP
 
 ```{r}
 # Lecture matrice de transformation
-VOP <- as.matrix(read.table("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/VOPPlotP16_4ha.txt"))
+VOP <- as.matrix(read.table("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/VOPPlotP16_4ha.txt"))
 
 # Apply inverse of VOP matrix to convert back to UTM
 xyz <- tcrossprod(as.matrix(Light[, .(X, Y, Z, c=1)]), solve(VOP))
@@ -328,10 +363,10 @@ ggplot() +
   ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 
-fwrite(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
+fwrite(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
             row.names = F, col.names = T)
 
-write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
+write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
 ```
 
 Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière ()

@@ -9,6 +9,16 @@ Source : à partir du script de Lisa Moreno.
 Script permettant d'obtenir les **Voxels Oriented Patches (VOP)** (matrice)
 Ouput format: .txt
 
+Rotatione le nuage de points pour etre aligné avec la grille.
+
+Il faut connaître le point de coordonnées (0,0).
+
+Le choix de la VOP ne préjuge pas des limites de l'espace voxel que tu vas étudier.
+Conseil : n'utiliser qu'une seule et même VOP (4, 9 ou 25ha).
+
+La convention est de prendre le coin SUD-EST de la parcelle pour origine.
+Par défaut on n'inclut pas les buffer dans la VOP.
+
 # Chargement des packages
 ```{r}
 library(sp)
@@ -16,10 +26,15 @@ library(maptools)
 library(rgdal)
 library(raster)
 ```
-
+```{r}
+ALT <- st_read("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")
+ALT$geometry # xmin: 285305.8 ymin: 581256.6 xmax: 285680 ymax: 581629.8
+min(ALT$geometry)
+```
 
 # Paracou
 ```{r}
+# Coins zone d'intéret
 shp <- readOGR("Z:/users/LisaMoreno/ShapeFiles/Paracou/Sommets4ha.gpkg")  #SPDF
 shp@data # où elle a eu ça ?
 
@@ -59,7 +74,7 @@ points <- rbind(center, NorthCenter)
 plot(coord)
 text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,]))
 points(points, col = 'red')
-# coin_sud = SpatialPoints(matrix(coord[coord[,2]==min(coord[,2]),], nrow=1)) #il faudrait trier sur deuxi?me coord pour ?tre g?n?ral!
+# coin_sud = SpatialPoints(matrix(coord[coord[,2]==min(coord[,2]),], nrow=1)) #il faudrait trier sur deuxieme coord pour etre general!
 # plot(coin_sud, col="blue", add=T)
 text(center[1], center[2],labels = c("center"))
 ```
