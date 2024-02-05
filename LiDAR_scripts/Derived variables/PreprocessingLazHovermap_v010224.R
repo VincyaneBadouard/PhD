@@ -1,5 +1,5 @@
 ##################### Correct Hovermap Laz files ##########################
-# scanAngleRank & NumberOfReturns are not populated!!
+# scanAngleRank & NumberOfReturns are not populated (all = 0)!!
 # ReturnNumber needs updating (+1); Returns not coded by increasing distance!!
 
 library(lidR)
@@ -20,10 +20,10 @@ LAStool <- function(tool, inputFile, ...){
 }
 
 # Define the directory for the ALS project
-cloudPath <-  "D:/temp/dump/HovermapSTX/trop65m/" # je mets quoi ?
+cloudPath <-  "D:/temp/dump/HovermapSTX/trop65m/" # je mets quoi ? Y:\lidar\MLS\Paracou\Tropiscat\UMLS\65mOK
 
 # Define las/laz files to be processed
-inFiles = paste(cloudPath, 'Output_tropiscat_05_slow_no_filter_laz1_4.laz', sep='')
+inFiles = paste(cloudPath, 'Output_tropiscat_05_slow_no_filter_laz1_4.laz', sep ='')
 outFile = "FullDensity.laz"
 #outFile = "SubSamp.laz"
 
@@ -42,36 +42,41 @@ LASrun <- LAStool('lassplit64', inFiles,
                  '-o', outFile
                  )
 
-lof <- dir(outDir, full.names=T)
+lof <- dir(outDir, full.names=T) # list files in the named directory
+
+# Loop for each file
 for (f in 1:length(lof))
 {
   #f=5
-  lasf <- readLAS(lof[f])
+  lasf <- readLAS(lof[f]) # Laz
   
   # Filter noise points (intensity=0) and points close to scanner (<1.5m)
   # maybe not enough; could be better to use noise filter in Aura adapted to ST-X scanner ???
   # lasf@data <- lasf@data[Range > 1.5 & Intensity!=0,]
   
-  # get NumberOfReturns
-  NoR = lasf@data[,.N, by = c("gpstime","Ring")]
+  # Get NumberOfReturns
+  # Number of pulses of the same ring and gpstime
+  NoR <- lasf@data[,.N, by = c("gpstime","Ring")] # number of rows of the same ring and gpstime
   lasf@data <- merge(lasf@data, NoR, by = c("gpstime","Ring"))
-  lasf@data$NumberOfReturns <- NULL
-  names(lasf@data)[which(names(lasf@data) == "N")] <- "NumberOfReturns"
+  lasf@data$NumberOfReturns <- NULL # remove the initial column
+  names(lasf@data)[which(names(lasf@data) == "N")] <- "NumberOfReturns" # rename the new column
   
-  # get ReturnNumber
-  lasf@data[, ReturnNumber := frank(Range, ties.method = "min"), by = c("gpstime","Ring")]
+  # Get ReturnNumber
+  # Returns coded by increasing distance
+  lasf@data[, ReturnNumber := frank(Range, ties.method = "min"), by = c("gpstime","Ring")] # Give the minimum rank
   
-  # ring_num=sort(unique(lasf@data$Ring))
+  ## Parallelisation by ring
+  # ring_num <- sort(unique(lasf@data$Ring))
   
-  # Doing it ring by ring is not faster, maybe will save memory? Could be parallelized!
   # for (i in ring_num)
   # {
   #   i=1
   #   dat <- lasf@data[Ring==i,][,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime]
-  # }
+  # } # loop end for each ring
   
   writeLAS(lasf,lof[f])
-}
+  
+} # loop end for each file
 
 # table(lasf@data$NumberOfReturns, lasf@data$ReturnNumber)
 # hist(lasf@data$Intensity, breaks=1000)
@@ -89,6 +94,7 @@ LASrun <- LAStool('lasmerge64', inFiles,
                  '-o', outFile
 )
 
+--------------------------------------------------------------------------------
 ### Correct time stamp
 library(lidR)
 subsamp <- readLAS("d:/temp/Intercalib/Hovermap/65mOK/SubSamp_cor.laz")

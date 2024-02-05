@@ -1,9 +1,12 @@
 # Check echo range of Hovermap data
+# ReturnNumber starts from 0
+# gpstime are not unique, by ring neither
 
 library(lidR)
 options(digits = 22)
 ech <- readLAS("Z:/users/VincyaneBadouard/Lidar/Hovermap/Data_test/out1_laz1_4.laz")
-table(ech@data$NumberOfReturns)
+summary(ech@data)
+table(ech@data$NumberOfReturns) # 0 
 table(ech@data$ReturnNumber) # 0 1 2
 nrow(ech@data) # 61052763
 length(unique(ech@data$gpstime)) # 38148942 unique gpstime on 61052763
@@ -23,7 +26,8 @@ sum(table(ech2@data$ReturnNumber)) # 173213094
 dup <- ech2@data[duplicated(gpstime),.(gpstime)] # duplicated gpstime
 check = ech2@data[gpstime %in% dup$gpstime, ] # trop lourd
 
-ring16 = ech2@data[Ring==16, ]
+# By ring
+ring16 = ech2@data[Ring == 16, ]
 sum(table(ring16$ReturnNumber)) # 5384990
 length(unique(ring16$gpstime)) # 5122284 (still duplicated gpstime in 1 ring)
 countN <- (ring16[,.N, by = gpstime]) # how many duplicated gpstime (N)
@@ -31,8 +35,9 @@ ring16 <- merge(ring16,countN, by = "gpstime", all.x = T)
 ring16[N<(ReturnNumber+1),]
 
 range(ring16$Range)
+range(ech2@data$Range)
+
 rm(ring16)
 rm(dup)
-range(ech2@data$Range)
 rm(ech2)
 

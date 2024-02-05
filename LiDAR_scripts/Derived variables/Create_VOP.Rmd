@@ -22,17 +22,15 @@ Par défaut on n'inclut pas les buffer dans la VOP.
 # Chargement des packages
 ```{r}
 library(sp)
+library(sf)
 library(maptools)
 library(rgdal)
 library(raster)
 ```
-```{r}
-ALT <- st_read("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")
-ALT$geometry # xmin: 285305.8 ymin: 581256.6 xmax: 285680 ymax: 581629.8
-min(ALT$geometry)
-```
 
 # Paracou
+
+## Understory zone (4 ha)
 ```{r}
 # Coins zone d'intéret
 shp <- readOGR("Z:/users/LisaMoreno/ShapeFiles/Paracou/Sommets4ha.gpkg")  #SPDF
@@ -40,14 +38,29 @@ shp@data # où elle a eu ça ?
 
 plot(shp)
 shp@coords # point 2 is duplicated!
+coord <- shp@coords[c(1,2,4,5),] # 4 points
 ```
 OGR data source with driver: GPKG 
 45 features
 15 fields
 Integer64 fields read as strings:  N_TYPE N_PARCELLE SURFACE PERIMETRE
 
+## ALT zone (9 ha)
 ```{r}
-coord <- shp@coords[c(1,2,4,5),] # 4 points
+ALT <- st_read("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")
+plot(ALT$geometry)
+
+class(ALT$geometry)
+car <- st_cast(st_union(ALT), "POLYGON")
+car <- st_set_crs(car, 2972) # crs
+coord <- st_coordinates(car)[c(7,4, 1, 10),][,1:2]
+
+plot(coord,pch=19,cex=2)
+plot(ALT, add=T)
+
+```
+
+```{r}
 dimnames(coord)[[1]] <- c("NW","NE","SE","SW") # orientations
 plot(coord)
 text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,])) # ya pas erreur là ?
@@ -146,7 +159,7 @@ points(dat %*% t(Tr), col = "blue") # droit (N en haut et S en bas)
 text(datbis[1:4,1], datbis[1:4,2],labels = rownames(datbis[1:4,]))
 
 # Tr c'est la VOP
-write.table(Tr,"Z:/users/LisaMoreno/Light/VOPPlotP16_4ha.txt",
+write.table(Tr,"Z:/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt",
             row.names = F, col.names = F)
 ```
 
@@ -221,7 +234,7 @@ points(dat %*% t(Tr), col = "blue")
 text(coord[1:4,1], coord[1:4,2],labels = rownames(coord[1:4,]))  
 
 # Tr c'est la VOP
-write.table(Tr,"Z:/users/LisaMoreno/Light/VOPPlotNou_4ha.txt", 
+write.table(Tr,"Z:/users/VincyaneBadouard/Lidar/ALS2023/VOP_Nou_6ha.txt", 
             row.names = F, col.names = F)
 ```
 

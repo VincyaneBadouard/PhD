@@ -22,7 +22,6 @@ remotes::install_github('umr-amap/AMAPVox')
 # Packages
 ```{r, include = F}
 library(tidyverse)
-library(zoo) # permet de synchroniser temps gps et tirs
 library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
@@ -242,6 +241,13 @@ script : **Create_VOP.Rmd**
 
 # Compute the clearness index from the tower data
 
+"clearness" est bien le clearness de la "littérature" scientifique et est utilisé dans la routine d'AMAPVox pour calculer : 
+
+1/ l'éclairement total (le RG extraterrestre est recalculé à partir de la date, de l'heure et de la geolocalisation)
+2/ la répartition rayonnement direct/diffus.
+
+Il te faut donc bien reprendre les données  de rayonnement incident mesuré à la tour à Flux pour calculer l'évolution saisonnière de clearness index.
+
 Clearness index = rapport entre l'irradiation solaire globale mesurée au niveau du sol G et sa contrepartie estimée au sommet de l'atmosphère Gext : k=G/Gext (Liu and Jordan, 1960).
 
 Clearness index = global solar irradiance (données de la tour)/top of atmosphere (extraterrestrial radiation) (données de ref des satellites (site soda)
@@ -249,17 +255,62 @@ Clearness index = global solar irradiance (données de la tour)/top of atmospher
 all on the same periode, and in the same unit
 ```{r}
 # Load tower data
-# GlobalRad <- 
+# Rg in MJ m^-2 day^-1
+FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
+                                delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+FluxTowerData2022[FluxTowerData2022$Rg < (-999),]
+
+FluxTowerData2022 <- FluxTowerData2022 %>% 
+  filter(Year == 2022) %>% 
+  filter(Rg > 0) %>%
+  select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
+  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
+                         "Dry", "Wet"))
+
+ggplot(FluxTowerData2022, aes(x = as.character(Month),y = Rain)) +
+  geom_boxplot(aes(color = Season)) +
+  labs(title="Rainfall over the seasons",
+       x ="Month", y = "Rainfall (mm)")
+
+GlobalRad <- sum(FluxTowerData2022$Rg) # 5402.89 MJ m^-2 day^-1
+GlobalRadWet <- sum(FluxTowerData2022[FluxTowerData2022$Season=="Wet",]$Rg) # 2598.80
+GlobalRadDry <- sum(FluxTowerData2022[FluxTowerData2022$Season=="Dry",]$Rg) # 2804.07
+
 
 # Compute extraterrestrial radiation
-# ExtraRad <- 
-  
+G <- 0.0820 # solar constant (MJ m-2 min-1)
+phi <- 5*(pi/180) # latitude (rad) 5° à Paracou
+# J <- # Julian day
+d <- 1+0.033*cos(((2*pi)/365)*J) #  inverse relative distance Earth-Sun
+delta <- 0.409*sin(((2*pi)/365)*J-1.39)  # solar decimation (rad)
+omega <- acos[-tan(phi)*tan(delta)] # sunset hour angle (rad) 1.527
+
+ExtraRad <- ((24*60)/pi)*G*d[omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega)]
+
+rm(c(J,d,delta,omega))
+# WET
+# J <- # Julian day
+d <- 1+0.033*cos(((2*pi)/365)*J) #  inverse relative distance Earth-Sun
+delta <- 0.409*sin(((2*pi)/365)*J-1.39)  # solar decimation (rad)
+omega <- acos[-tan(phi)*tan(delta)] # sunset hour angle (rad) 1.527
+# ExtraRadWet <- ((24*60)/pi)*G*d[omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega)]
+
+rm(c(J,d,delta,omega))
+# DRY
+# J <- # Julian day
+d <- 1+0.033*cos(((2*pi)/365)*J) #  inverse relative distance Earth-Sun
+delta <- 0.409*sin(((2*pi)/365)*J-1.39)  # solar decimation (rad)
+omega <- acos[-tan(phi)*tan(delta)] # sunset hour angle (rad) 1.527
+# ExtraRadDry <- ((24*60)/pi)*G*d[omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega)]
+
+
 # Compute clearness index for 1 year (2022)
-# Clearness_2022 <- GlobalIrr/ExtraRad
+Clearness_2022 <- GlobalRad/ExtraRad
 
 # Compute clearness index for wet and dry season (2022)
-# ClearnessWet <-
-# ClearnessDry <-
+ClearnessWet <- GlobalRadWet/ExtraRadWet
+ClearnessDry <- GlobalRadDry/ExtraRadDry
 ```
 
 
@@ -357,14 +408,14 @@ Light <- unique(Light)
 ggplot() + 
   geom_point(data = Light, size = 1.28,
              aes(Xutm, Yutm, color = `Period 1`)) + 
-   scale_color_gradientn(name = "Light intensity (Transmittance)",
-                       colors = terrain.colors(30, rev=T),
-                       na.value="white") +
+  scale_color_gradientn(name = "Light intensity (Transmittance)",
+                        colors = terrain.colors(30, rev=T),
+                        na.value="white") +
   ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 
 fwrite(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
-            row.names = F, col.names = T)
+       row.names = F, col.names = T)
 
 write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
 ```
