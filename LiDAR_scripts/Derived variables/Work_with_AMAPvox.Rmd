@@ -253,11 +253,13 @@ Clearness index = rapport entre l'irradiation solaire globale mesurée au niveau
 Clearness index = global solar irradiance (données de la tour)/top of atmosphere (extraterrestrial radiation) (données de ref des satellites (site soda)
 
 all on the same periode, and in the same unit
+
+Method: https://www.fao.org/3/x0490e/x0490e07.htm#solar%20radiation
 ```{r}
 # Load tower data
-# Rg in MJ m^-2 day^-1
+# Rg in MJ m^-2 day^-1 (megajoules per square metre and per day)
 FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
-                                delim = ";", escape_double = FALSE, trim_ws = TRUE)
+                                       delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
 FluxTowerData2022[FluxTowerData2022$Rg < (-999),]
 
@@ -273,46 +275,36 @@ ggplot(FluxTowerData2022, aes(x = as.character(Month),y = Rain)) +
   labs(title="Rainfall over the seasons",
        x ="Month", y = "Rainfall (mm)")
 
-GlobalRad <- sum(FluxTowerData2022$Rg) # 5402.89 MJ m^-2 day^-1
-GlobalRadWet <- sum(FluxTowerData2022[FluxTowerData2022$Season=="Wet",]$Rg) # 2598.80
-GlobalRadDry <- sum(FluxTowerData2022[FluxTowerData2022$Season=="Dry",]$Rg) # 2804.07
 
-
-# Compute extraterrestrial radiation
+# Compute extraterrestrial radiation per day (because unit it's per day)
 G <- 0.0820 # solar constant (MJ m-2 min-1)
 phi <- 5*(pi/180) # latitude (rad) 5° à Paracou
 # J <- # Julian day
-d <- 1+0.033*cos(((2*pi)/365)*J) #  inverse relative distance Earth-Sun
-delta <- 0.409*sin(((2*pi)/365)*J-1.39)  # solar decimation (rad)
-omega <- acos[-tan(phi)*tan(delta)] # sunset hour angle (rad) 1.527
 
-ExtraRad <- ((24*60)/pi)*G*d[omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega)]
 
-rm(c(J,d,delta,omega))
-# WET
-# J <- # Julian day
-d <- 1+0.033*cos(((2*pi)/365)*J) #  inverse relative distance Earth-Sun
-delta <- 0.409*sin(((2*pi)/365)*J-1.39)  # solar decimation (rad)
-omega <- acos[-tan(phi)*tan(delta)] # sunset hour angle (rad) 1.527
-# ExtraRadWet <- ((24*60)/pi)*G*d[omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega)]
+FluxTowerData2022 <- FluxTowerData2022 %>%
+  mutate(d = 1+0.033*cos(((2*pi)/365)*`Julian Day`),#inverse relative distance Earth-Sun
+         delta = 0.409*sin(((2*pi)/365)*`Julian Day`-1.39),  # solar decimation (rad)
+         omega = acos(-tan(phi)*tan(delta)),         # sunset hour angle (rad) 1.527) 
+         Re = ((24*60)/pi)*G*d*(omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega))) # in MJ m^-2 day^-1
 
-rm(c(J,d,delta,omega))
-# DRY
-# J <- # Julian day
-d <- 1+0.033*cos(((2*pi)/365)*J) #  inverse relative distance Earth-Sun
-delta <- 0.409*sin(((2*pi)/365)*J-1.39)  # solar decimation (rad)
-omega <- acos[-tan(phi)*tan(delta)] # sunset hour angle (rad) 1.527
-# ExtraRadDry <- ((24*60)/pi)*G*d[omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega)]
-
+# Compute clearness for each day (because unit it's per day)
+FluxTowerData2022 <- FluxTowerData2022 %>% 
+  mutate(Clearness = Rg/Re)
 
 # Compute clearness index for 1 year (2022)
-Clearness_2022 <- GlobalRad/ExtraRad
+Clearness_2022 <- mean(FluxTowerData2022$Clearness) # 0.46
 
 # Compute clearness index for wet and dry season (2022)
-ClearnessWet <- GlobalRadWet/ExtraRadWet
-ClearnessDry <- GlobalRadDry/ExtraRadDry
-```
+ClearnessWet <- mean(FluxTowerData2022[FluxTowerData2022$Season=="Wet",]$Clearness) # 0.39
+ClearnessDry <- mean(FluxTowerData2022[FluxTowerData2022$Season=="Dry",]$Clearness) # 0.55
 
+ClearnessIndex <- data.frame(Clearness_2022 = Clearness_2022,
+                             ClearnessWet = ClearnessWet,
+                             ClearnessDry = ClearnessDry)
+
+write.csv(ClearnessIndex, "Z:/users/VincyaneBadouard/Lidar/ALS2023/ClearnessIndex.csv")
+```
 
 
 

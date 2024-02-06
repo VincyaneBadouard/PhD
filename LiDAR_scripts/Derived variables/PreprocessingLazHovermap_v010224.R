@@ -1,5 +1,5 @@
 ##################### Correct Hovermap Laz files ##########################
-# scanAngleRank & NumberOfReturns are not populated (all = 0)!!
+# scanAngleRank (not necessary) & NumberOfReturns are not populated (all = 0)!!
 # ReturnNumber needs updating (+1); Returns not coded by increasing distance!!
 
 library(lidR)
