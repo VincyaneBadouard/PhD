@@ -384,12 +384,12 @@ ggplot() +
   ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 ```
+
 # Transformation des coordonnées relatives en UTM
 On peut retrouver les cooordonnées UTM avec la VOP
-
 ```{r}
 # Lecture matrice de transformation
-VOP <- as.matrix(read.table("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/VOPPlotP16_4ha.txt"))
+VOP <- as.matrix(read.table("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/VOP_P16_9ha.txt"))
 
 # Apply inverse of VOP matrix to convert back to UTM
 xyz <- tcrossprod(as.matrix(Light[, .(X, Y, Z, c=1)]), solve(VOP))

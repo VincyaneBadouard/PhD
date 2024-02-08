@@ -20,17 +20,17 @@ LAStool <- function(tool, inputFile, ...){
 }
 
 # Define the directory for the ALS project
-cloudPath <-  "D:/temp/dump/HovermapSTX/trop65m/" # je mets quoi ? Y:\lidar\MLS\Paracou\Tropiscat\UMLS\65mOK
+cloudPath <- "Z:/users/VincyaneBadouard/Lidar/Hovermap/MLS/Paracou/Tropiscat/UMLS/65mOK" # je mets quoi ? D:/temp/dump/HovermapSTX/trop65m/
 
 # Define las/laz files to be processed
-inFiles = paste(cloudPath, 'Output_tropiscat_05_slow_no_filter_laz1_4.laz', sep ='')
+inFiles = paste(cloudPath, 'SubSamp_cor', sep ='') # Output_tropiscat_05_slow_no_filter_laz1_4.laz
 outFile = "FullDensity.laz"
 #outFile = "SubSamp.laz"
 
 # Define output directory (and creates it ... if doesn't exist)
-outDir = paste(cloudPath, 'FullDens_split', sep='')
-#outDir = paste(cloudPath, 'SubSamp_split', sep='')
-dir.create(outDir, showWarnings = F)
+outDir = paste(cloudPath, 'FullDens_split', sep ='')
+#outDir = paste(cloudPath, 'SubSamp_split', sep ='')
+dir.create(outDir) # , showWarnings = F (pas le droit de le faire dans le serveur safe)
 
 # Call the lastools function
 cores = 3
@@ -65,7 +65,7 @@ for (f in 1:length(lof))
   # Returns coded by increasing distance
   lasf@data[, ReturnNumber := frank(Range, ties.method = "min"), by = c("gpstime","Ring")] # Give the minimum rank
   
-  ## Parallelisation by ring
+  ## Parallelisation by ring ----------------------------------------------------
   # ring_num <- sort(unique(lasf@data$Ring))
   
   # for (i in ring_num)

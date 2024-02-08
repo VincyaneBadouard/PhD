@@ -1,0 +1,212 @@
+---
+title: "Correct Hovermap Laz files"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+Source : à partir du script de Grégoire Vincent.
+
+scanAngleRank (not necessary) & NumberOfReturns are not populated (all = 0)!!
+ReturnNumber needs updating (+1); Returns not coded by increasing distance!!
+
+
+```{r, packages}
+library(lidR)
+library(data.table)
+library(parallel)
+library(foreach)
+```
+
+# Need to split for instance by gpstime (per mn) to reduce size of file
+```{r}
+rm(list=ls())
+
+# Define the path for lastools executables
+LAStoolsDir = "D:/Program/LAStools/bin/"
+
+# Define the R function that calls lastools executables
+LAStool <- function(tool, inputFile, ...){
+  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...)
+  cat(cmd)
+  system(cmd)
+  return(cmd)
+}
+
+# Define the directory for the ALS project
+cloudPath <- "Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/" 
+
+# Define las/laz files to be processed
+inFiles = paste(cloudPath, 'Output-(2)_subsampled_laz1_4.laz', sep ='') # Output_laz1_4
+outFile = "FullDensity.laz"
+#outFile = "SubSamp.laz"
+
+# Define output directory (and creates it ... if doesn't exist)
+outDir = paste(cloudPath, 'FullDens_split', sep ='')
+#outDir = paste(cloudPath, 'SubSamp_split', sep ='')
+dir.create(outDir) # , showWarnings = F (pas le droit de le faire dans le serveur safe)
+
+# Call the lastools function
+cores <- detectCores()
+
+LASrun <- LAStool('lassplit64', inFiles,
+                  '-cores', cores,
+                  '-by_gps_time_interval 60',
+                  '-odir', outDir,
+                  '-odix _split',
+                  '-o', outFile
+)
+
+lof <- dir(outDir, full.names=T) # list files in the named directory
+```
+
+# For each file correct the NumberOfReturns and the ReturnNumber
+```{r}
+cores <- detectCores()
+
+# Loop for each file
+for (f in 1:length(lof))
+{
+  #f=1
+  lasf <- readLAS(lof[f]) # Laz
+  
+  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) # mon ajout (oui ya des lignes dupliquées..)
+  
+  # Filter noise points (intensity=0) and points close to scanner (<1.5m)
+  # maybe not enough; could be better to use noise filter in Aura adapted to ST-X scanner ???
+  # lasf@data <- lasf@data[Range > 1.5 & Intensity!=0,]
+  
+  # Get NumberOfReturns ---------------------------------------------------------
+  # Number of pulses of the same ring and gpstime
+  NoR <- lasf@data[,.N, by = c("gpstime","Ring")] # number of rows of the same ring and gpstime
+  lasf@data <- merge(lasf@data, NoR, by = c("gpstime","Ring"))
+  lasf@data$NumberOfReturns <- NULL # remove the initial column
+  names(lasf@data)[which(names(lasf@data) == "N")] <- "NumberOfReturns" # rename the new column
+  
+  # Get ReturnNumber ------------------------------------------------------------
+  ## Parallelisation by ring
+  j <- length(unique(lasf@data$Ring))
+  # ring_num <- sort(unique(lasf@data$Ring))
+  
+  # Create clusters
+  cl <- parallel::makeCluster(cores)
+  doSNOW::registerDoSNOW(cl)
+  
+  # Progressbar
+  if(interactive()) pb <- txtProgressBar(max = j, style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
+  progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
+  opts <- list(progress = progress)
+  
+  # The loop
+  output <- foreach::foreach(
+    i=1:j,
+    .packages = c("data.table","lidR"), .options.snow = opts
+  ) %dopar% {
+    # print(i) # to debug
+    # Get ReturnNumber
+    # Returns coded by increasing distance
+    lasf@data[Ring==i,][,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime] # Give the minimum rank
+    
+  } # loop end for each ring
+  
+  # close the progressbar
+  close(pb)
+  # close the cluster
+  stopCluster(cl)
+  
+  writeLAS(lasf,lof[f]) # replace by the corrected file in the folder
+  
+} # loop end for each file
+```
+# Checks
+```{r}
+lof <- dir("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory
+
+# Loop for each file
+for (f in 1:length(lof))
+{
+  f=2
+  print(f)
+  lasf <- readLAS(lof[f]) # Laz
+  
+  
+  options(digits = 22)
+  # lasf@data[,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
+  
+  # != 0
+  all(lasf@data[,ReturnNumber] != 0)
+  all(lasf@data[,NumberOfReturns] != 0)
+  
+  # by ring-gpstime, ReturnNumber = c(1:NumberOfReturns)
+  lasf@data[order(gpstime,Ring,ReturnNumber)][, .(test = all(ReturnNumber == c(1:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
+  lasf@data[gpstime== 1697736323.571918487549 & Ring ==26]
+  
+  # their range are in the increasing order
+  lasf@data[order(gpstime,Ring,ReturnNumber)][,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
+  # lasf@data[gpstime== 1697737530.000000715256 & Ring ==24]
+  
+}
+```
+
+
+# The parallelisation code
+```{r}
+j <- length(unique(lasf@data$Ring))
+# ring_num <- sort(unique(lasf@data$Ring))
+
+# Create clusters
+cl <- parallel::makeCluster(cores)
+doSNOW::registerDoSNOW(cl)
+
+# Progressbar
+if(interactive()) pb <- txtProgressBar(max = j, style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
+progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+# The loop
+output <- foreach::foreach(
+  i=1:j,
+  .packages = c("data.table","lidR"), .options.snow = opts
+) %dopar% {
+  # print(i) # to debug
+  # Get ReturnNumber
+  # Returns coded by increasing distance
+  lasf@data[Ring==i,][,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime] # Give the minimum rank
+  
+} # loop end for each ring
+
+# close the progressbar
+close(pb)
+# close the cluster
+stopCluster(cl)
+
+output
+```
+
+```{r}
+# table(lasf@data$NumberOfReturns, lasf@data$ReturnNumber)
+# hist(lasf@data$Intensity, breaks=1000)
+# hist(lasf@data$Range, breaks=1000)
+# plot(lasf)
+
+# Merge files once corrected
+# outDir2 = paste(cloudPath, 'subsampled_cor', sep='')
+outDir2 <- paste(cloudPath, 'FullDens_cor', sep='')
+dir.create(outDir2, showWarnings = F)
+inFiles <- paste(outDir, '/*.laz', sep='')
+LASrun <- LAStool('lasmerge64', inFiles,
+                  '-odir', outDir2,
+                  '-odix _cor',
+                  '-o', outFile
+)
+```
+
+# Correct time stamp
+temps gps + 1 microseconde * n° du ring
+```{r}
+subsamp <- readLAS("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/SubSamp_cor.laz")
+
+subsamp@data$gpstime <- subsamp@data$gpstime +(10^-6) * subsamp@data$Ring
+
+writeLAS(subsamp,"Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/SubSamp_cor_mod.laz")
+```
+
