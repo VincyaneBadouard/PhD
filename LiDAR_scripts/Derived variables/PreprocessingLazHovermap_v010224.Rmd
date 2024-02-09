@@ -107,7 +107,7 @@ for (f in 3:6) { #1:length(lof)
     
     # Get ReturnNumber
     # Returns coded by increasing distance
-    lasf@data[Ring==i][("Patate") := frank(Range), by = gpstime] # Give the minimum rank , ties.method = "min"
+    lasf@data[Ring==i,][,("Patate") := frank(Range), by = gpstime] # Give the minimum rank , ties.method = "min"
     lasf@data[Ring==0]
     
     print(i)
