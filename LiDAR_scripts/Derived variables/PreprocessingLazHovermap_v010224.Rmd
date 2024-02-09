@@ -61,12 +61,14 @@ lof <- dir(outDir, full.names=T) # list files in the named directory
 
 # For each file correct the NumberOfReturns and the ReturnNumber
 ```{r}
+lof <- dir("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory
+
 cores <- detectCores()
 
 # Loop for each file
-for (f in 1:length(lof))
-{
-  #f=1
+for (f in 3:6) { #1:length(lof)
+  
+  #f=3
   lasf <- readLAS(lof[f]) # Laz
   
   lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) # mon ajout (oui ya des lignes dupliquées..)
@@ -84,34 +86,40 @@ for (f in 1:length(lof))
   
   # Get ReturnNumber ------------------------------------------------------------
   ## Parallelisation by ring
-  j <- length(unique(lasf@data$Ring))
-  # ring_num <- sort(unique(lasf@data$Ring))
+  # j <- length(unique(lasf@data$Ring))
+  j <- sort(unique(lasf@data$Ring))
   
   # Create clusters
   cl <- parallel::makeCluster(cores)
   doSNOW::registerDoSNOW(cl)
   
   # Progressbar
-  if(interactive()) pb <- txtProgressBar(max = j, style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
+  if(interactive()) pb <- txtProgressBar(max = length(j), style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
   progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
   opts <- list(progress = progress)
   
   # The loop
   output <- foreach::foreach(
-    i=1:j,
+    i=j, # i=1:j
     .packages = c("data.table","lidR"), .options.snow = opts
   ) %dopar% {
-    # print(i) # to debug
+    # j=1
+    
     # Get ReturnNumber
     # Returns coded by increasing distance
-    lasf@data[Ring==i,][,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime] # Give the minimum rank
+    lasf@data[Ring==i][("Patate") := frank(Range), by = gpstime] # Give the minimum rank , ties.method = "min"
+    lasf@data[Ring==0]
     
+    print(i)
   } # loop end for each ring
   
   # close the progressbar
   close(pb)
   # close the cluster
   stopCluster(cl)
+  
+  print(f)
+  print("Patate" %in% names(lasf@data))
   
   writeLAS(lasf,lof[f]) # replace by the corrected file in the folder
   
@@ -124,13 +132,15 @@ lof <- dir("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_
 # Loop for each file
 for (f in 1:length(lof))
 {
-  f=2
+  f=3
   print(f)
   lasf <- readLAS(lof[f]) # Laz
   
   
   options(digits = 22)
-  # lasf@data[,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
+  # i= 1
+  test <- lasf@data
+  lasf@data[Ring==i,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
   
   # != 0
   all(lasf@data[,ReturnNumber] != 0)
