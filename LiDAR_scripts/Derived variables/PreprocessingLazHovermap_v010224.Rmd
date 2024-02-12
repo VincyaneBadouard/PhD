@@ -18,11 +18,12 @@ library(foreach)
 ```
 
 # Need to split for instance by gpstime (per mn) to reduce size of file
+data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz -cores 4 -by_gps_time_interval 60 -odir //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split -odix _split -o FullDensity.laz
 ```{r}
 rm(list=ls())
 
 # Define the path for lastools executables
-LAStoolsDir = "D:/Program/LAStools/bin/"
+LAStoolsDir = "C:/Users/SPARE-N219/Desktop/PhD/" # "D:/Program/LAStools/bin/"
 
 # Define the R function that calls lastools executables
 LAStool <- function(tool, inputFile, ...){
@@ -33,16 +34,14 @@ LAStool <- function(tool, inputFile, ...){
 }
 
 # Define the directory for the ALS project
-cloudPath <- "Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/" 
+cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/" 
 
 # Define las/laz files to be processed
-inFiles = paste(cloudPath, 'Output-(2)_subsampled_laz1_4.laz', sep ='') # Output_laz1_4
+inFiles = paste(cloudPath, 'Output_laz1_4.laz', sep ='')
 outFile = "FullDensity.laz"
-#outFile = "SubSamp.laz"
 
 # Define output directory (and creates it ... if doesn't exist)
 outDir = paste(cloudPath, 'FullDens_split', sep ='')
-#outDir = paste(cloudPath, 'SubSamp_split', sep ='')
 dir.create(outDir) # , showWarnings = F (pas le droit de le faire dans le serveur safe)
 
 # Call the lastools function
@@ -78,14 +77,13 @@ opts <- list(progress = progress)
 
 # The loop
 foreach::foreach(
-  f=3, #1:length(lof),
+  f=1:length(lof), 
   .packages = c("data.table","lidR"), .options.snow = opts
 ) %dopar% {
   
-  #f=3
   lasf <- readLAS(lof[f]) # Laz
   
-  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) # mon ajout (oui ya des lignes dupliquées..)
+  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
   
   # Get NumberOfReturns ---------------------------------------------------------
   # Number of pulses of the same ring and gpstime
@@ -118,7 +116,6 @@ lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV20
 # Loop for each file
 for (f in 1:length(lof))
 {
-  f=3
   lasf <- readLAS(lof[f]) # Laz
   
   
@@ -183,10 +180,9 @@ output
 # plot(lasf)
 
 # Merge files once corrected
-# outDir2 = paste(cloudPath, 'subsampled_cor', sep='')
-outDir2 <- paste(cloudPath, 'FullDens_cor', sep='')
+outDir2 <- paste(cloudPath, 'FullDens_cor', sep='') # new folder: files rebinded and corrected
 dir.create(outDir2, showWarnings = F)
-inFiles <- paste(outDir, '/*.laz', sep='')
+inFiles <- paste(outDir, '/*.laz', sep='') # files corrected
 LASrun <- LAStool('lasmerge64', inFiles,
                   '-odir', outDir2,
                   '-odix _cor',
@@ -198,10 +194,10 @@ LASrun <- LAStool('lasmerge64', inFiles,
 # Correct time stamp
 temps gps + 1 microseconde * n° du ring
 ```{r}
-subsamp <- readLAS("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/SubSamp_cor.laz")
+subsamp <- readLAS("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_cor")
 
 subsamp@data$gpstime <- subsamp@data$gpstime +(10^-6) * subsamp@data$Ring
 
-writeLAS(subsamp,"Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/SubSamp_cor_mod.laz")
+writeLAS(subsamp,"Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_cor")
 ```
 
