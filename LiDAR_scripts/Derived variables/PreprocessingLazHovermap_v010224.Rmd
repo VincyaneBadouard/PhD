@@ -61,21 +61,31 @@ lof <- dir(outDir, full.names=T) # list files in the named directory
 
 # For each file correct the NumberOfReturns and the ReturnNumber
 ```{r}
-lof <- dir("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory
+lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
 
 cores <- detectCores()
 
-# Loop for each file
-for (f in 3:6) { #1:length(lof)
+## Parallelisation by file
+
+# Create clusters
+cl <- parallel::makeCluster(cores)
+doSNOW::registerDoSNOW(cl)
+
+# Progressbar
+if(interactive()) pb <- txtProgressBar(max = length(lof), style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
+progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+# The loop
+foreach::foreach(
+  f=3, #1:length(lof),
+  .packages = c("data.table","lidR"), .options.snow = opts
+) %dopar% {
   
   #f=3
   lasf <- readLAS(lof[f]) # Laz
   
   lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) # mon ajout (oui ya des lignes dupliquées..)
-  
-  # Filter noise points (intensity=0) and points close to scanner (<1.5m)
-  # maybe not enough; could be better to use noise filter in Aura adapted to ST-X scanner ???
-  # lasf@data <- lasf@data[Range > 1.5 & Intensity!=0,]
   
   # Get NumberOfReturns ---------------------------------------------------------
   # Number of pulses of the same ring and gpstime
@@ -85,55 +95,30 @@ for (f in 3:6) { #1:length(lof)
   names(lasf@data)[which(names(lasf@data) == "N")] <- "NumberOfReturns" # rename the new column
   
   # Get ReturnNumber ------------------------------------------------------------
-  ## Parallelisation by ring
-  # j <- length(unique(lasf@data$Ring))
-  j <- sort(unique(lasf@data$Ring))
-  
-  # Create clusters
-  cl <- parallel::makeCluster(cores)
-  doSNOW::registerDoSNOW(cl)
-  
-  # Progressbar
-  if(interactive()) pb <- txtProgressBar(max = length(j), style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
-  progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
-  opts <- list(progress = progress)
-  
-  # The loop
-  output <- foreach::foreach(
-    i=j, # i=1:j
-    .packages = c("data.table","lidR"), .options.snow = opts
-  ) %dopar% {
-    # j=1
-    
-    # Get ReturnNumber
-    # Returns coded by increasing distance
-    lasf@data[Ring==i,][,("Patate") := frank(Range), by = gpstime] # Give the minimum rank , ties.method = "min"
-    lasf@data[Ring==0]
-    
-    print(i)
-  } # loop end for each ring
-  
-  # close the progressbar
-  close(pb)
-  # close the cluster
-  stopCluster(cl)
-  
-  print(f)
-  print("Patate" %in% names(lasf@data))
-  
+  # Returns coded by increasing distance
+  lasf@data$ReturnNumber <- NULL # remove the initial column
+  lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
+
+  # Write the modified dataset
   writeLAS(lasf,lof[f]) # replace by the corrected file in the folder
   
 } # loop end for each file
+
+# close the progressbar
+close(pb)
+# close the cluster
+stopCluster(cl)
+
 ```
+
 # Checks
 ```{r}
-lof <- dir("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory
+lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory
 
 # Loop for each file
 for (f in 1:length(lof))
 {
   f=3
-  print(f)
   lasf <- readLAS(lof[f]) # Laz
   
   
@@ -160,8 +145,7 @@ for (f in 1:length(lof))
 
 # The parallelisation code
 ```{r}
-j <- length(unique(lasf@data$Ring))
-# ring_num <- sort(unique(lasf@data$Ring))
+j <- sort(unique(lasf@data$Ring))
 
 # Create clusters
 cl <- parallel::makeCluster(cores)
@@ -175,12 +159,12 @@ opts <- list(progress = progress)
 # The loop
 output <- foreach::foreach(
   i=1:j,
-  .packages = c("data.table","lidR"), .options.snow = opts
+  .packages = c("data.table"), .options.snow = opts
 ) %dopar% {
   # print(i) # to debug
   # Get ReturnNumber
   # Returns coded by increasing distance
-  lasf@data[Ring==i,][,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime] # Give the minimum rank
+  lasf@data[Ring==i,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime] # Give the minimum rank
   
 } # loop end for each ring
 
@@ -208,6 +192,7 @@ LASrun <- LAStool('lasmerge64', inFiles,
                   '-odix _cor',
                   '-o', outFile
 )
+
 ```
 
 # Correct time stamp
