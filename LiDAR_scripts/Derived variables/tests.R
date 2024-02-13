@@ -12,9 +12,9 @@ data
 
 data <- unique(setorder(data, gpstime,Ring,Range,Patate)) 
 
-microbenchmark(
+# microbenchmark(
   data[, Patate := frank(Range), by = .(gpstime, Ring)]
-) # min = 893.6 mean = 1024.839  max = 1862.7 microsec (+ rapide)
+# ) # min = 893.6 mean = 1024.839  max = 1862.7 microsec (+ rapide)
 
 
 # Paraleliisation --------------------------------------------------------------

@@ -11,7 +11,7 @@ Le principe est d’utiliser le LiDAR pour reconstruire en 3D la canopée forest
 
 
 # Install AMAPVox
-V2.2 : Z:\users\PhilippeVerley\amapvox\nightly-build\AMAPVox-2.2.0-windows
+V2.2 : //amap-data.cirad.fr/work\users\PhilippeVerley\amapvox\nightly-build\AMAPVox-2.2.0-windows
 ```{r}
 # install "remotes" package if not already installed
 if (!any(grepl("remotes", rownames(installed.packages())))) install.packages("remotes")
@@ -40,7 +40,7 @@ ctg : catalog of laz files
 ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog
 
 # Si 1 fichier
-ST <- readLAS("Z:/users/VincyaneBadouard/Lidar/ALS2023/P16_bbx_buf100m.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/P16_bbx_buf100m.laz")
 
 plot(ST)
 crs(ST) # no crs
@@ -54,7 +54,7 @@ Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fi
 ROI : Region of Interest
 ```{r}
 # Region of Interest (ROI)
-ROI <- vect("Z:/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp") # 4 carrés
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp") # 4 carrés
 plot(ROI)
 class(ROI) # SpatVector (terra)
 ROI <- st_as_sf(ROI) # as sf object
@@ -70,16 +70,24 @@ plot(ROI, add=T)
 ROI <- st_union(ROI, buffer)
 plot(ROI)
 
-st_write(ROI, "Z:/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp", driver = "ESRI Shapefile")  # create to a shapefile
+st_write(ROI, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp", driver = "ESRI Shapefile")  # create to a shapefile
 
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 
 # Clip the point cloud in region of interest
 PC <- clip_roi(las = ST, geometry = ROI) # très long
 str(PC) # List of 4 las
 
 # Join the 4 las
-PC <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
-# or if only the first not empty
+rm(buffer, ST)
+gc()
+# usethis::edit_r_environ()
+PCall <- rbind(PC[[1]], PC[[2]])
+PCall <- rbind(PCall, PC[[3]])
+PCall <- rbind(PCall, PC[[4]])
+# or if only the first is not empty
 PC <- PC[[1]]
 lidR::plot(PC) 
 
@@ -88,11 +96,11 @@ table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
 PC@data <- PC@data[Classification != 7,]
 lidR::plot(PC) 
 
-writeLAS(PC, "Z:/users/VincyaneBadouard/Lidar/ALS2023/P16_2023_4ha_buffer.laz")
+writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/P16_2023_4ha_buffer.laz")
 
 # Crop the DEM in region of interest
 # Modèle numérique de terrain
-mnt <- rast("Z:/users/VincyaneBadouard/Lidar/ALS2023/dtm2023.asc")
+mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/dtm2023.asc")
 plot(mnt)
 mntROI <- raster::crop(mnt,extent(ROI))
 plot(mntROI)
@@ -103,18 +111,18 @@ ggplot() +
                        na.value="white") +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-writeRaster(raster(mntROI),"Z:/users/VincyaneBadouard/Lidar/ALS2023/dtm2023_4ha_buffer.asc", format="ascii")
+writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/dtm2023_4ha_buffer.asc", format="ascii")
 ```
 
 # Read, bind and rewrite the trajectory files in the folder
 ```{r , include = F}
 # if multiple files :
-trajfilenames <- list.files("Z:/users/VincyaneBadouard/Lidar/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
+trajfilenames <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
 df_list <- lapply(trajfilenames, fread) # read all the folder files
 ALS_P16_2023_traj <- bind_rows(df_list)
 
 # if one file :
-traj <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt")
+traj <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt")
 traj
 plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
 range(traj$x) # 283770.8 285719.1
@@ -128,7 +136,7 @@ ALS_P16_2023_traj <- ALS_P16_2023_traj %>%
   rename(Z = V4) 
 view(ALS_P16_2023_traj)
 
-fwrite(ALS_P16_2023_traj, "Z:/users/VincyaneBadouard/Lidar/ALS2023/trajecto/ALS_P16_2023_traj.txt")
+fwrite(ALS_P16_2023_traj, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/ALS_P16_2023_traj.txt")
 ```
 
 # Check points cloud data
@@ -228,7 +236,7 @@ mat_rel1 <- mat1/rowSums(mat1, na.rm = T, dims = 1) # poids relatifs à chacun d
 
 
 # Enregistrer cette matrice dans le dossier de travail
-fwrite(mat_rel1, "Z:/users/VincyaneBadouard/Lidar/ALS2023/WeightingMatrix.txt",
+fwrite(mat_rel1, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/WeightingMatrix.txt",
        sep= " ", na="NaN", row.names = F, col.names = F)
 ```
 
@@ -303,7 +311,7 @@ ClearnessIndex <- data.frame(Clearness_2022 = Clearness_2022,
                              ClearnessWet = ClearnessWet,
                              ClearnessDry = ClearnessDry)
 
-write.csv(ClearnessIndex, "Z:/users/VincyaneBadouard/Lidar/ALS2023/ClearnessIndex.csv")
+write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/ClearnessIndex.csv")
 ```
 
 
@@ -314,7 +322,7 @@ write.csv(ClearnessIndex, "Z:/users/VincyaneBadouard/Lidar/ALS2023/ClearnessInde
 AMAPVox::run()
 
 # Get the configuration file
-xmlfile <- "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAPvox_config.xml"
+xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAPvox_config.xml"
 # Run with the previous configuration file
 AMAPVox::run(xml = xmlfile)
 
@@ -329,11 +337,11 @@ fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuil
 pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
 
 ```{r}
-VX <- readVoxelSpace("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAVox_output_test")
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAVox_output_test")
 AMAPVox::plot(VX)
 VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
 
-writeVoxelSpace(VX, "Z:/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
+writeVoxelSpace(VX, "//amap-data.cirad.fr/work/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
 
 ```
 
@@ -367,7 +375,7 @@ clearness coefficient : 0.5 rapport direct-diffus en gros à l'équateur (change
 ```{r}
 # enlever les 2 lignes mean
 # Light <- Light[Y != "MEAN"]
-Light <- fread("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
+Light <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
 Light <- Light[, !c("V5"), with = FALSE] 
 
 # Remove edges
@@ -389,7 +397,7 @@ ggplot() +
 On peut retrouver les cooordonnées UTM avec la VOP
 ```{r}
 # Lecture matrice de transformation
-VOP <- as.matrix(read.table("Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/VOP_P16_9ha.txt"))
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/VOP_P16_9ha.txt"))
 
 # Apply inverse of VOP matrix to convert back to UTM
 xyz <- tcrossprod(as.matrix(Light[, .(X, Y, Z, c=1)]), solve(VOP))
@@ -406,10 +414,10 @@ ggplot() +
   ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 
-fwrite(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
+fwrite(Light, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
        row.names = F, col.names = T)
 
-write.csv(Light, "Z:/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
+write.csv(Light, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
 ```
 
 Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière ()

@@ -21,9 +21,10 @@ library(foreach)
 data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz -cores 4 -by_gps_time_interval 60 -odir //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split -odix _split -o FullDensity.laz
 ```{r}
 rm(list=ls())
+gc(reset = TRUE)  # Remove Garbage collection
 
 # Define the path for lastools executables
-LAStoolsDir = "C:/Users/SPARE-N219/Desktop/PhD/" # "D:/Program/LAStools/bin/"
+LAStoolsDir =  "D:/Program/LAStools/bin/" # "C:/Users/SPARE-N219/Desktop/PhD/"
 
 # Define the R function that calls lastools executables
 LAStool <- function(tool, inputFile, ...){
@@ -34,7 +35,7 @@ LAStool <- function(tool, inputFile, ...){
 }
 
 # Define the directory for the ALS project
-cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/" 
+cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
 
 # Define las/laz files to be processed
 inFiles = paste(cloudPath, 'Output_laz1_4.laz', sep ='')
@@ -60,9 +61,12 @@ lof <- dir(outDir, full.names=T) # list files in the named directory
 
 # For each file correct the NumberOfReturns and the ReturnNumber
 ```{r}
+rm(list=ls())
+gc(reset = TRUE)  # Remove Garbage collection
+
 lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
 
-cores <- detectCores()
+cores <- 2 # detectCores()
 
 ## Parallelisation by file
 
@@ -77,7 +81,7 @@ opts <- list(progress = progress)
 
 # The loop
 foreach::foreach(
-  f=1:length(lof), 
+  f=1,#:length(lof), 
   .packages = c("data.table","lidR"), .options.snow = opts
 ) %dopar% {
   
@@ -96,9 +100,12 @@ foreach::foreach(
   # Returns coded by increasing distance
   lasf@data$ReturnNumber <- NULL # remove the initial column
   lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
-
+  # View(lasf@data)
+  
   # Write the modified dataset
   writeLAS(lasf,lof[f]) # replace by the corrected file in the folder
+  
+  gc()  # Remove Garbage collection
   
 } # loop end for each file
 
@@ -117,6 +124,7 @@ lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV20
 for (f in 1:length(lof))
 {
   lasf <- readLAS(lof[f]) # Laz
+  lasf@data <- lasf@data[1:1000]
   
   
   options(digits = 22)
@@ -129,11 +137,13 @@ for (f in 1:length(lof))
   all(lasf@data[,NumberOfReturns] != 0)
   
   # by ring-gpstime, ReturnNumber = c(1:NumberOfReturns)
-  lasf@data[order(gpstime,Ring,ReturnNumber)][, .(test = all(ReturnNumber == c(1:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
-  lasf@data[gpstime== 1697736323.571918487549 & Ring ==26]
+  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
+  
+  lasf@data[, .(test = all(ReturnNumber == c(1:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
+  # lasf@data[gpstime== 1697736323.571918487549 & Ring ==26]
   
   # their range are in the increasing order
-  lasf@data[order(gpstime,Ring,ReturnNumber)][,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
+  lasf@data[,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
   # lasf@data[gpstime== 1697737530.000000715256 & Ring ==24]
   
 }

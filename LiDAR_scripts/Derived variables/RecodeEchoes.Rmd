@@ -1,0 +1,71 @@
+---
+title: "Correct Hovermap Laz files"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+Source : à partir du script de Grégoire Vincent.
+
+```{r, packages}
+library(lidR)
+library(data.table)
+library(parallel)
+library(foreach)
+```
+
+# For each file correct the NumberOfReturns and the ReturnNumber
+```{r}
+rm(list=ls())
+gc(reset = TRUE)  # Remove Garbage collection
+
+lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
+
+cores <- 5 # detectCores()
+
+## Parallelisation by file
+
+# Create clusters
+cl <- parallel::makeCluster(cores)
+doSNOW::registerDoSNOW(cl)
+
+# Progressbar
+if(interactive()) pb <- txtProgressBar(max = length(lof), style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
+progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+# The loop
+foreach::foreach(
+  f=1:length(lof), 
+  .packages = c("data.table","lidR"), .options.snow = opts
+) %dopar% {
+  
+  lasf <- readLAS(lof[f]) # Laz
+  
+  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
+  
+  # Get NumberOfReturns ---------------------------------------------------------
+  # Number of pulses of the same ring and gpstime
+  NoR <- lasf@data[,.N, by = c("gpstime","Ring")] # number of rows of the same ring and gpstime
+  lasf@data <- merge(lasf@data, NoR, by = c("gpstime","Ring"))
+  lasf@data$NumberOfReturns <- NULL # remove the initial column
+  names(lasf@data)[which(names(lasf@data) == "N")] <- "NumberOfReturns" # rename the new column
+  
+  # Get ReturnNumber ------------------------------------------------------------
+  # Returns coded by increasing distance
+  lasf@data$ReturnNumber <- NULL # remove the initial column
+  lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
+  # View(lasf@data)
+
+  # Write the modified dataset
+  writeLAS(lasf,lof[f]) # replace by the corrected file in the folder
+  
+  gc()  # Remove Garbage collection
+  
+} # loop end for each file
+
+# close the progressbar
+close(pb)
+# close the cluster
+stopCluster(cl)
+
+```
