@@ -21,7 +21,7 @@ library(foreach)
 data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz -cores 4 -by_gps_time_interval 60 -odir //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split -odix _split -o FullDensity.laz
 ```{r}
 rm(list=ls())
-gc(reset = TRUE)  # Remove Garbage collection
+gc()  # Remove Garbage collection
 
 # Define the path for lastools executables
 LAStoolsDir =  "D:/Program/LAStools/bin/" # "C:/Users/SPARE-N219/Desktop/PhD/"
@@ -59,14 +59,14 @@ LASrun <- LAStool('lassplit64', inFiles,
 lof <- dir(outDir, full.names=T) # list files in the named directory
 ```
 
-# For each file correct the NumberOfReturns and the ReturnNumber
+# For each file correct the NumberOfReturns and the ReturnNumber (12 min)
 ```{r}
 rm(list=ls())
 gc(reset = TRUE)  # Remove Garbage collection
 
 lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
 
-cores <- 2 # detectCores()
+cores <- 2
 
 ## Parallelisation by file
 
@@ -81,7 +81,7 @@ opts <- list(progress = progress)
 
 # The loop
 foreach::foreach(
-  f=1,#:length(lof), 
+  f=1:length(lof), 
   .packages = c("data.table","lidR"), .options.snow = opts
 ) %dopar% {
   
@@ -100,6 +100,7 @@ foreach::foreach(
   # Returns coded by increasing distance
   lasf@data$ReturnNumber <- NULL # remove the initial column
   lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
+  # lasf@data[order(Range), ReturnNumber := 1:.N, by = .(gpstime, Ring)]
   # View(lasf@data)
   
   # Write the modified dataset
@@ -149,65 +150,83 @@ for (f in 1:length(lof))
 }
 ```
 
-
-# The parallelisation code
+# Correct time stamp (5 min)
+temps gps + 1 microseconde * n° du ring
 ```{r}
-j <- sort(unique(lasf@data$Ring))
+rm(list=ls())
+gc(reset = TRUE)  # Remove Garbage collection
+
+lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
+
+cores <- 2 # more is to much for my RAM
+
+## Parallelisation by file
 
 # Create clusters
 cl <- parallel::makeCluster(cores)
 doSNOW::registerDoSNOW(cl)
 
 # Progressbar
-if(interactive()) pb <- txtProgressBar(max = j, style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
+if(interactive()) pb <- txtProgressBar(max = length(lof), style = 3) # if(interactive()) pour qu’elles n’apparaissent pas dans les documents markdown 
 progress <- function(n) if(interactive()) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 
 # The loop
-output <- foreach::foreach(
-  i=1:j,
-  .packages = c("data.table"), .options.snow = opts
+foreach::foreach(
+  f=1:length(lof), 
+  .packages = c("data.table","lidR"), .options.snow = opts
 ) %dopar% {
-  # print(i) # to debug
-  # Get ReturnNumber
-  # Returns coded by increasing distance
-  lasf@data[Ring==i,ReturnNumber := frank(Range, ties.method = "min"), by = gpstime] # Give the minimum rank
   
-} # loop end for each ring
+  lasf <- readLAS(lof[f]) # Laz
+  
+  lasf@data$gpstime <- lasf@data$gpstime +(10^-6) * lasf@data$Ring
+
+  # Write the modified dataset
+  writeLAS(lasf,lof[f]) # replace by the corrected file in the folder
+  
+  gc()  # Remove Garbage collection
+  
+} # loop end for each file
 
 # close the progressbar
 close(pb)
 # close the cluster
 stopCluster(cl)
-
-output
 ```
-
+# Merge files once corrected
 ```{r}
 # table(lasf@data$NumberOfReturns, lasf@data$ReturnNumber)
 # hist(lasf@data$Intensity, breaks=1000)
 # hist(lasf@data$Range, breaks=1000)
 # plot(lasf)
 
-# Merge files once corrected
+# Define the directory for the ALS project
+rm(list=ls())
+gc()  # Remove Garbage collection
+
+# Define the path for lastools executables
+LAStoolsDir =  "D:/Program/LAStools/bin/" # "C:/Users/SPARE-N219/Desktop/PhD/"
+
+# Define the R function that calls lastools executables
+LAStool <- function(tool, inputFile, ...){
+  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...)
+  cat(cmd)
+  system(cmd)
+  return(cmd)
+}
+
+cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
+
 outDir2 <- paste(cloudPath, 'FullDens_cor', sep='') # new folder: files rebinded and corrected
 dir.create(outDir2, showWarnings = F)
+
+outDir = paste(cloudPath, 'FullDens_split', sep ='')
 inFiles <- paste(outDir, '/*.laz', sep='') # files corrected
+outFile = "FullDensity.laz"
+
 LASrun <- LAStool('lasmerge64', inFiles,
                   '-odir', outDir2,
                   '-odix _cor',
                   '-o', outFile
 )
-
 ```
-
-# Correct time stamp
-temps gps + 1 microseconde * n° du ring
-```{r}
-subsamp <- readLAS("Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_cor")
-
-subsamp@data$gpstime <- subsamp@data$gpstime +(10^-6) * subsamp@data$Ring
-
-writeLAS(subsamp,"Z:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_cor")
-```
-

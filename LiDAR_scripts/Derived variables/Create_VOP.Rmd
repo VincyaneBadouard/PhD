@@ -34,7 +34,7 @@ library(raster)
 ```{r}
 # Coins zone d'intéret
 shp <- readOGR("Z:/users/LisaMoreno/ShapeFiles/Paracou/Sommets4ha.gpkg")  #SPDF
-shp@data # où elle a eu ça ?
+shp@data 
 
 plot(shp)
 shp@coords # point 2 is duplicated!
@@ -47,7 +47,7 @@ Integer64 fields read as strings:  N_TYPE N_PARCELLE SURFACE PERIMETRE
 
 ## ALT zone (9 ha)
 ```{r}
-ALT <- st_read("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")
+ALT <- st_read("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp") # shapefile
 plot(ALT$geometry)
 
 class(ALT$geometry)
