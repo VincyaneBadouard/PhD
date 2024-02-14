@@ -210,10 +210,7 @@ plot(initial_intensity~Intensity, data = VP[VP_samp,])
 
 ```
 
-ARRETE LA
-# Calculer la matrice de pondération des échos (matrice de poids) (pas fait pour 2023)
-finalement on ne considèrera que l’écho d’intensité max (MIR) ?
-car cas d’interception partielle non détectée à courte distance
+# Calculer la matrice de pondération des échos (matrice de poids) (pas la meilleur méthode)
 ```{r}
 # Compute average intensity per Number Of Returns x Return Number (rang de l'écho)
 # get max return number (variable!)

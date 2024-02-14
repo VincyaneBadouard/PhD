@@ -1,5 +1,5 @@
 ---
-title: "Correct Hovermap Laz files"
+title: "Correct Hovermap Laz files - Recode echoes and gpstime"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: pdf_document
@@ -7,7 +7,8 @@ output: pdf_document
 Source : à partir du script de Grégoire Vincent.
 
 scanAngleRank (not necessary) & NumberOfReturns are not populated (all = 0)!!
-ReturnNumber needs updating (+1); Returns not coded by increasing distance!!
+Returns not coded by increasing distance!!
+gpstime are not unique
 
 
 ```{r, packages}
