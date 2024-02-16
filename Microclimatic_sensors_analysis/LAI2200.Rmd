@@ -17,8 +17,8 @@ Sensors calibration:
 
 Sensibility analyses:
 1) Compute correlation of B/A over time for a same location  
-If low, measurement are sufficient and we can take the mean or the average for each location.  
-If strong measurement are insufficient.  
+If low, measurement are sufficient and we can take the mean for each location.  
+If strong, measurement are insufficient.  
 
 
 ```{r, include=FALSE}
@@ -213,14 +213,14 @@ data <- data %>%
   group_by(File_Id) %>% 
   mutate(Id = seq(1:n())) %>% 
   ungroup() %>% 
-  mutate(Id = as.character(Id))
+  mutate(Id = factor(as.numeric(Id)))
 
-data[data$File_Id=="P16LAY2",]$Id # P16HOBO5
+data[data$File_Id=="P16HOBO5",]$Id # P16HOBO5
 
 # To check the Id
 data %>% 
-  filter(File_Id == "P16LAY2") %>% # P16HOBO1
-  ggplot(aes(x = Time, y = Ring1, label = Id)) + 
+  filter(File_Id == "P16HOBO1") %>% # P16HOBO1
+  ggplot(aes(x = Time, y = Ring1, label = as.character(Id))) + 
   geom_point() +
   geom_text_repel() 
 ```
@@ -275,7 +275,7 @@ for(i in 1:length(AB)){
       
       AB[[i]]$TimeA[which.min(abs( # le temps A dont l'écart est le plus petit au temps B
         AB[[i]]$TimeA - AB[[i]]$TimeB[n]
-        ))
+      ))
       ]
   }
 }
@@ -320,11 +320,11 @@ data_correct <- AB %>%
 ## Check if transmittance change over time
 Sensibility analyses: 
 Compute correlation of B/A over time for a same location  
-- If low, measurement are sufficient and we can take the mean or the average for each location.  
-- If strong measurement are insufficient.  
+- If low, measurement are sufficient and we can take the mean for each location.  
+- If strong, measurement are insufficient.  
 
 Transmittance = Below/Above for each angle (doit être <= 1) 
-```{r}
+```{r, Transmittance}
 # Compute Transmittance
 Transmittance_data <- data_correct %>% 
   mutate(Transmittance = BELOW/ABOVE)
@@ -333,8 +333,7 @@ Transmittance_data <- data_correct %>%
 all(Transmittance_data$Transmittance < 1)
 ```
 
-### Compute correlations between transmittance of different iterations
-```{r}
+```{r, Transmittance plots}
 # Transmittance over time by ring
 ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) + 
   geom_point() +
@@ -344,49 +343,83 @@ ggplot(Transmittance_data, aes(x = Time, y = Transmittance, col = File_Id)) +
 ggplot(Transmittance_data, aes(x = Id, y = Transmittance, col = File_Id)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
+# Les 2 1ers rings sont les plus liés à l'ouverture locale de canopée
 
 Transmittance_data %>% 
   filter(Ring=="Ring1") %>% 
-   mutate(Id = factor(as.numeric(Id))) %>% 
   ggplot() + 
   geom_point(aes(x = factor(Id), y = Transmittance, col = File_Id))
 
+Transmittance_data %>% 
+  filter(Ring=="Ring2") %>% 
+  ggplot() + 
+  geom_point(aes(x = factor(Id), y = Transmittance, col = File_Id))
+
+# id 12 : P16HOBO4 très mauvais
+```
+
+### Compute correlations between transmittance of different iterations
+```{r, Transmittance corr}
 # Check correlation between Transmittance of each location (Id), for each Ring, between iteration (File_Id)
 Transmittance_cor1 <- Transmittance_data %>% 
-  select(File_Id, Id, Ring, Transmittance) %>% 
+  select(File_Id, Id, Ring, Transmittance) %>% # only var for cor test
   pivot_wider(names_from = File_Id,
               values_from = "Transmittance",
               names_glue = "{.value}_{File_Id}") # ARRETE LA
 
+ggplot(Transmittance_cor1, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO5)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+
+# By Id ------------------------------------------------------------------------
+# Transmittances comparées au meme id et au meme ring dans tous les cas, c'est juste summarisé par id ou par ring
 Transmittance_cor <- Transmittance_cor1 %>% 
   select(-Ring)
 
-# P16HOBO
-By <- by(Transmittance_cor[2:5], Transmittance_cor[-(2:5)], cor)
+By <- by(Transmittance_cor[-1], INDICES = Transmittance_cor[1], cor) # by() apply a Function to a Data Frame Split by Factors
+
+# P16HOBO5 moins bien corrélé à P16HOBO1 pour l'id 1 (0.38) et 7 (0.47)
+# id 5 : P16HOBO1 très mauvais
+# id 12 : P16HOBO4 très mauvais
+# id 17 :  P16HOBO1 très mauvais
 
 # Write Transmittances correlation in text file
-sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_cor.txt") # path
+sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_P16HOBO_cor_byId.txt") # path
+By[1:max(as.numeric(Transmittance_cor$Id))]
+sink() # close the external connection
+
+# By Ring ----------------------------------------------------------------------
+Transmittance_cor <- Transmittance_cor1 %>% 
+  select(-Id)
+
+By <- by(Transmittance_cor[-1], INDICES = Transmittance_cor[1], cor)
+
+# Write Transmittances correlation in text file
+sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_P16HOBO_cor_byRing.txt") # path
 By
 sink() # close the external connection
 
+# Ring 5 : acquisitions moins corrélées (0.7)
+# Ring 4 : P16HOBO4 moins bon (0.6)
 ```
 
 ## Plot regression between transmittance of different iterations
 ```{r}
-ggplot(Transmittance_cor1, aes(x = Transmittance_P16LAY1, y = Transmittance_P16LAY2))+
+ggplot(Transmittance_cor1, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2))+
   geom_point()+
   stat_smooth(method = "lm", formula = y ~ x) +
   facet_grid(vars(Ring), scales = "free")
 
 ring <- "Ring1"
-Transmittance_data %>% 
+Transmittance_cor1 %>% 
   filter(Ring == ring) %>% 
-  ggplot(aes(x = Transmittance_P16LAY1, y = Transmittance_P16LAY2)) +
+  ggplot(aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO2)) +
   geom_point() +
   stat_smooth(method = "lm", formula = y ~ x)
 
-reg <- Transmittance_data %>% 
+reg <- Transmittance_cor1 %>% 
   filter(Ring == ring)
+
 summary(lm(reg$Transmittance_P16HOBO1 ~ reg$Transmittance_P16HOBO2))
 
 ```
@@ -399,20 +432,39 @@ Transmittance_data <- Transmittance_data %>%
   mutate(Ring = as.factor(Ring)) %>% 
   mutate(File_Id = as.factor(File_Id))
 
-M1 <- lm(Transmittance ~ Id, data=Transmittance_data)
-M1 <- lm(Transmittance ~ Ring, data=Transmittance_data)
+M1 <- lm(Transmittance ~ Id, data=Transmittance_data) # Id10 : 0.1
+M1 <- lm(Transmittance ~ Ring, data=Transmittance_data) # rings ordonnés dans leur caractérisation de la transmittance
 M1 <- lm(Transmittance ~ File_Id, data=Transmittance_data)
 
 M2 <- lm(Transmittance ~ Id + Ring, data=Transmittance_data)
 M3 <- lm(Transmittance ~ Id + Ring + File_Id, data=Transmittance_data)
 
-aov(lm(Transmittance ~ Id, data=Transmittance_data[Transmittance_data$Ring=="Ring1",]))
+aov(lm(Transmittance ~ Id, data=Transmittance_data[Transmittance_data$Ring=="Ring1",])) # 0.45 pour Ring1 et décroit fortement sur les autres rings
 # erreur de 3%
 
-mean(Transmittance_data$Transmittance)
+hist(Transmittance_data$Transmittance[which(Transmittance_data$Ring=="Ring1")], breaks=50)
+```
+
+# Moyenner les transmittances par location
+```{r}
+mean <- Transmittance_data %>% 
+  select(-c(Position, Sensor, Index)) %>% 
+  group_by(Id, Ring) %>% 
+  mutate(Transmittance_mean = mean(Transmittance))
+
+# Mean transmittance by ring for each location 
+ggplot(mean, aes(x = Id, y = Transmittance_mean, col = File_Id)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+
+mean %>% 
+  filter(Ring=="Ring1") %>% 
+  ggplot() + 
+  geom_point(aes(x = factor(Id), y = Transmittance_mean))
+
 
 # agrégéer (mean) à plutot 2 catégories : sous-bois et trouée, ou catégorie par transmittance
 
-hist(Transmittance_data$Transmittance[which(Transmittance_data$Ring=="Ring1")], breaks=50)
+write.csv(Transmittance_data, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/LAI2200_data_P16HOBO_mean.csv")
 ```
 
