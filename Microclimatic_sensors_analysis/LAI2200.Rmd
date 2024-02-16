@@ -184,7 +184,7 @@ data <- bind_rows(data, .id = "File_Id") # df number -> File_Id column
 data <- data %>% 
   # Filter date and time
   filter(Date==20231021) %>%
-  filter(Time > "17:18:00") %>% 
+  filter(Time > "17:18:00") %>% # before it's Above sensor alone
   # Recode the file attribution
   mutate(File_Id = case_when( 
     File_Id == "P16LAY3" ~ "P16LAY2", 
@@ -219,10 +219,10 @@ data[data$File_Id=="P16HOBO5",]$Id # P16HOBO5
 
 # To check the Id
 data %>% 
-  filter(File_Id == "P16HOBO1") %>% # P16HOBO1
+  filter(File_Id == "P16LAY3") %>% # P16HOBO1
   ggplot(aes(x = Time, y = Ring1, label = as.character(Id))) + 
   geom_point() +
-  geom_text_repel() 
+  geom_text_repel() # P16LAY3 has only 21/26 values
 ```
 
 Plots the measurements
@@ -383,8 +383,10 @@ By <- by(Transmittance_cor[-1], INDICES = Transmittance_cor[1], cor) # by() appl
 # id 12 : P16HOBO4 très mauvais
 # id 17 :  P16HOBO1 très mauvais
 
+# id 19 : P16LAY3 moins bon
+
 # Write Transmittances correlation in text file
-sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_P16HOBO_cor_byId.txt") # path
+sink("D:/Mes Donnees/PhD/Light/LAI-2200/Transmittance_P16HOBO_cor_byId.txt") # path
 By[1:max(as.numeric(Transmittance_cor$Id))]
 sink() # close the external connection
 
@@ -395,7 +397,7 @@ Transmittance_cor <- Transmittance_cor1 %>%
 By <- by(Transmittance_cor[-1], INDICES = Transmittance_cor[1], cor)
 
 # Write Transmittances correlation in text file
-sink("D:/Mes Donnees/PhD/Light/LAI-2200/DATA/Transmittance_P16HOBO_cor_byRing.txt") # path
+sink("D:/Mes Donnees/PhD/Light/LAI-2200/Transmittance_P16HOBO_cor_byRing.txt") # path
 By
 sink() # close the external connection
 
@@ -465,6 +467,36 @@ mean %>%
 
 # agrégéer (mean) à plutot 2 catégories : sous-bois et trouée, ou catégorie par transmittance
 
-write.csv(Transmittance_data, "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/LAI2200_data_P16HOBO_mean.csv")
+write.csv(mean, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_nocalib_mean.csv")
+```
+
+# Add environment data
+```{r}
+mean <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
+
+# For LAY
+LAYenv <- read_delim("~/PhD/Light/LAI-2200/LAI2200_environment.csv", 
+    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+mean <- mean %>% 
+  left_join(LAYenv, by= c('Id' = 'SampleID')) %>%
+  mutate(Id = as.factor(Id))
+
+ggplot(mean, aes(x = Id, y = Transmittance_mean, col = Environment)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
+
+# For HOBO
+HOBOenv <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
+  select(Site, Plot, SubPlot, HoboID, LightHabitat, TopoHabitat, LayonEdge) %>% 
+  filter(HoboID<=20)
+
+mean <- mean %>% 
+  left_join(HOBOenv, by= c('Id' = 'HoboID')) %>%
+  mutate(Id = as.factor(Id))
+
+ggplot(mean, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
+  geom_point() +
+  facet_grid(vars(Ring), scales = "free")
 ```
 

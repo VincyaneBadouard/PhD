@@ -8,7 +8,7 @@ lidR::las_check(ST)
 
 
 crs(ST)
-range(ST@data$gpstime)
+range(ST@data$gpstime) # 354557511 354559330
 range(ST@data$Z)
 table(ST@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
 
@@ -30,6 +30,6 @@ lidR::plot(ST)
 traj <- fread("//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2022/trajecto/merged/trajectory.txt")
 plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
 summary(traj)
-range(traj$time)  
+range(traj$time)  # 354555656 354559914
 
 rm(traj)
