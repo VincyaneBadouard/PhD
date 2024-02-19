@@ -356,40 +356,42 @@ writeVoxelSpace(VX, "//amap-data.cirad.fr/work/users/VincyaneBadouard/ALS2023/AM
 ## Fill empty voxels
 voir Fill_empty_voxels.Rmd
 
-Certains voxels (en bas de canopée) ne sont pas échantillonnés du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 26 voisins les plus proches**.
-
-Voxel pas vu pas échantilloné (occlusion), pas de données, ou mal échantilloné (selon un seuil)
-estimer selon le plus probable selon les besoins
-qui ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
-(long)
-Prendre en compte le voisinage en excluant les trouées
+Certains voxels (en bas de canopée) ne sont pas échantillonnés du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 27 voisins les plus proches**.
 
 ## Generate light maps from a voxel space
 On simule ensuite à l’aide d’AMAPVox des cartes de transmittance à différentes altitudes au-dessus du sol à l’aide du module transmittance light maps. 
 
 script de traitement : lightMap_1m.xml
 input : test1m_PadHLE.vox
-
 output : lightMap_1m.txt
 
 each = 2 m
 height = 1, 10 m
 direction number : 136 (pas calculé uniquement selon la verticale mais sur un hémisphère)
-plot rotation : pour prendre en compte la course du soleil : 17° à la louche mais à remesurer sur qgis
-Repetitve scene si tu n'as pas de buffer mais pas ouf
-latitude de Paracou 5°
-calendrier : sur une année 
-clearness coefficient : 0.5 rapport direct-diffus en gros à l'équateur (change au cours des saisons)
+Plot rotation : pour prendre en compte la course du soleil : 17° à la louche mais à remesurer sur qgis
+"Repetitve scene" si il n'y a pas de buffer mais pas ouf
+Latitude de Paracou : 5°
+Calendrier : sur une année et pour chaque saison de l’année d’acquisition des données LiDAR
+ 
+Clearness index : voir section "Compute the clearness index from the tower data"
+
 ```{r}
-# enlever les 2 lignes mean
-# Light <- Light[Y != "MEAN"]
-Light <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/lightMap_1mAGL_2by2.txt", skip=10, nrows = 20403)
+
+AMAPVox::run()
+
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/lightMap_1mAGL_2by2.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_Light_annual.txt"
+
+Light <- fread(path, skip=10) # skip the 10 1st lines of header
+Light <- Light[Y != "MEAN"] # enlever les 2 lignes mean
 Light <- Light[, !c("V5"), with = FALSE] 
+Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))]
 
 # Remove edges
 Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
+
 # Plot
-lattice::levelplot(`Period 1`~X*Y, data = Light) # Transmittance
+lattice::levelplot(`Period 1` ~ X*Y, data = Light) # Transmittance
 lattice::levelplot(Z~X*Y, data = Light) # Z = Altitude
 
 ggplot() + 
@@ -405,7 +407,9 @@ ggplot() +
 On peut retrouver les cooordonnées UTM avec la VOP
 ```{r}
 # Lecture matrice de transformation
-VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/VOP_P16_9ha.txt"))
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/AMAPvox/VOPPlotP16_4ha.txt"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/VOP_P16_9ha.txt"
+VOP <- as.matrix(read.table(path))
 
 # Apply inverse of VOP matrix to convert back to UTM
 xyz <- tcrossprod(as.matrix(Light[, .(X, Y, Z, c=1)]), solve(VOP))
@@ -413,22 +417,27 @@ Light[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zalt = xyz[, 3])]
 
 Light <- unique(Light)
 
+buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")) # interest zone with buffer
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
 ggplot() + 
   geom_point(data = Light, size = 1.28,
              aes(Xutm, Yutm, color = `Period 1`)) + 
   scale_color_gradientn(name = "Light intensity (Transmittance)",
                         colors = terrain.colors(30, rev=T),
                         na.value="white") +
+ geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer (to remove after)
+ geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 
-fwrite(Light, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.txt", 
+fwrite(Light, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/P16_2022_4ha_buffer_Lightmap_annual_1m_UTM.txt",
        row.names = F, col.names = T)
 
-write.csv(Light, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/Paracou_P16 4ha_lightMap_1m_UTM.csv")
+write.csv(Light, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/P16_2022_4ha_buffer_Lightmap_annual_1m_UTM.csv")
 ```
 
-Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière ()
+Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière.
 
 # Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox
 
@@ -436,6 +445,8 @@ Tester différentes hauteurs permettra aussi de tester la disponibilité en lumi
 où se trouve la couronne des arbres considérés.
 
 ```{r}
+# LAI2200 <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_spatialised.csv") # spatialised LAI2200 sensors
+
 
 ```
 

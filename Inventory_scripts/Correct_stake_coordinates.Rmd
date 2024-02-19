@@ -26,10 +26,10 @@ Subplots :
 - 14-15-19-20 : pas encore 
 
 ```{r}
-Piquets_Paracou <- read_delim("~/PhD/Inventories/Measures_piquets_Paracou.csv", 
+Piquets_Paracou <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou.csv", 
                               delim = ";", escape_double = FALSE, trim_ws = TRUE)
 View(Piquets_Paracou)
-names(Piquets_Paracou)
+names(Piquets_Paracou) # "plot" "quadra.nb.X" "quadra.nb.Y" "q.length.X"  "q.length.X2" "q.length.Y"  "q.length.Y2"
 summary(Piquets_Paracou) # Min q.length.X : 1.0
 Piquets_Paracou <- Piquets_Paracou[complete.cases(Piquets_Paracou),] # enlever les lignes à NA
 original <- Piquets_Paracou
@@ -41,8 +41,6 @@ original <- Piquets_Paracou
 "q.length.X2" : size of the northern side of the 10m x 10m quadrat (m).  
 "q.length.Y" : size of the western side of the 10m x 10m quadrat (m).  
 "q.length.Y2" : size of the eastern side of the 10m x 10m quadrat (m).  
-
-
 
 # Real place
 
@@ -152,12 +150,15 @@ for(p in plots){ # for each plot
 
 ## Plot
 ```{r}
-
 ggplot(Piquets_Paracou) +
   aes(x = X, y = Y) +
   geom_point(shape = "circle", size = 1.5, colour = "#112446") +
   theme_minimal() +
   facet_wrap(vars(plot))
+```
+
+```{r}
+write.csv(LAI2200, "~/PhD/Inventories/Data/Piquets_ALT/XY_Stakes_Paracou.csv") # à mettre en vraies coordonnées UTM
 ```
 
 # Theoric place

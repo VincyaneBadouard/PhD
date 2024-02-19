@@ -467,36 +467,66 @@ mean %>%
 
 # agrégéer (mean) à plutot 2 catégories : sous-bois et trouée, ou catégorie par transmittance
 
-write.csv(mean, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_nocalib_mean.csv")
+write.csv(mean, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
 ```
 
 # Add environment data
 ```{r}
-mean <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
-
 # For LAY
-LAYenv <- read_delim("~/PhD/Light/LAI-2200/LAI2200_environment.csv", 
-    delim = ";", escape_double = FALSE, trim_ws = TRUE)
+LAY <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16LAY_mean.csv")
 
-mean <- mean %>% 
+LAYenv <- read_csv("~/PhD/Light/LAI-2200/LAI2200_environment.csv")
+
+LAY <- LAY %>% 
   left_join(LAYenv, by= c('Id' = 'SampleID')) %>%
-  mutate(Id = as.factor(Id))
+  mutate(Id = as.factor(Id))  %>% 
+  mutate(Plot = as.character(Plot))
 
-ggplot(mean, aes(x = Id, y = Transmittance_mean, col = Environment)) + 
+ggplot(LAY, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
 # For HOBO
+HOBO <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
+
 HOBOenv <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
   select(Site, Plot, SubPlot, HoboID, LightHabitat, TopoHabitat, LayonEdge) %>% 
   filter(HoboID<=20)
 
-mean <- mean %>% 
+HOBO <- HOBO %>% 
   left_join(HOBOenv, by= c('Id' = 'HoboID')) %>%
-  mutate(Id = as.factor(Id))
+  mutate(Id = as.factor(Id)) %>% 
+  mutate(Transect = "HOBO") %>% 
+  mutate(Plot = "16") %>% 
+  mutate(SubPlot = as.character(SubPlot))
 
-ggplot(mean, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
+
+
+ggplot(HOBO, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
+
+# names(LAY)[!(names(LAY) %in% names(HOBO))]
+# names(HOBO)[!(names(HOBO) %in% names(LAY))]
+
+# Merge LAY and HOBO data with their environment
+LAI2200 <- bind_rows(LAY, HOBO) %>% select(-c("...1","...2" )) %>%  # 22 col, 765 rows
+  select(c(Site, Plot, Transect, SubPlot, File_Id : LayonEdge)) # reorder columns
+
+```
+
+# Spacialisation (A FAIRE)
+Attribute stakes coordinates to the sensors
+each 10 m
+```{r}
+# stakes coordinates data
+
+
+# attribute coordinates to the sensors
+# LAI2200 <- 
+
+
+
+# write.csv(LAI2200, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_spatialised.csv")
 ```
 

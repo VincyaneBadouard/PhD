@@ -299,13 +299,23 @@ ggplot() +
 ```
 
 # For ALT zone
+
+## Understory zone geometry
+```{r}
+Understory <- shpParacou[shpParacou@data$Plot == "16" & shpParacou@data$SubPlot %in% c("14","15","19","20"),] %>% 
+  st_as_sf()
+plot(Understory)
+
+st_write(Understory, "D:/Mes Donnees/PhD/SIG_data/Parcelles_Understory.shp", driver = "ESRI Shapefile")  # create to a shapefile
+```
+
 ## ALT zone geometry
 ```{r}
 ALT <- shpParacou[shpParacou@data$Plot == "16" & shpParacou@data$SubPlot %in% c("13","14","15","18","19","20", "23","24","25"),] %>% 
   st_as_sf()
 plot(ALT)
 
-st_write(ALT, "D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp", driver = "ESRI Shapefile")  # create to a shapefile
+st_write(ALT, "D:/Mes Donnees/PhD/SIG_data/ALT.shp", driver = "ESRI Shapefile")  # create to a shapefile
 ```
 # Clip for just the ALT zone
 ```{r}

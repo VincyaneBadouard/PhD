@@ -6,11 +6,27 @@ output:
   html_document: default
 ---
 
-Concerne les voxels pas vus, pas échantillonés (occlusion), sans données, ou mal échantillonés (selon un seuil).  
-Estimer selon le plus probable selon les besoins,
-lesquels ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
-(long)
-Prendre en compte le voisinage en excluant les trouées.
+Source: Adapted to the script of Grégoire Vincent.
+
+Certains voxels (en bas de canopée) ne sont pas ou mal échantillonnés (seuil) du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 26 voisins les plus proches**.
+
+Ce ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
+
+Estimer selon le plus probable et selon les besoins
+Prendre en compte le voisinage en excluant les trouées
+
+1) get the vegetation voxels only (z > 0.5 m)
+
+2) Compute a reasonnable fallback value (the median of attenuation) if local re-estimation fails
+
+3) Re-estimation of poorly sampled voxels
+- subset of voxels below sampling threshold level
+- but all voxels can contribute to local estimate
+- Get neighbors in immediate neighborhood (27 nearest voxels including target = 3 neighbors)
+- Recompute attenuation from local neighbourhood : sum(bsIntercepted)/sum(weightedFreepathLength)
+- When no value was found, take the fallback value
+ 
+4) Create PadBVTotal
 
 # Packages
 ```{r, include = F}
@@ -29,16 +45,20 @@ rm(list=ls())
 ##### New function defined here #####
 ##### just a poor hack of fillNA #####
 # HLE : hierarchical estimation
+# HLE = bsIntercepted/weightedFreepathLength (default attenuation) (?)
 # HLE max quand rencontre un tronc sur tout un voxel 
-HLE <- function (vxsp, # espace voxel
-                 variable.name1 = bsIntercepted, # nbr echo pondéré par l'épaisseur du faisceau = surface occluse dans le faisceau
-                 variable.name2 = weightedFreepathLength, # longueur des trajets optic pondéré par l'épaisseur de faisceau
-                 variable.min = -Inf, variable.max = Inf, # bornes pas forcément utiles
-                 variable.fallback, #  variable qui donne une valeur si l'algorithme n'en a pas trouvé
-                 radius = 2, # rayon de voisinage en mètre
-                 pulse.min = 25) # nbr non de pulse satisfaisant pour faire une estimation locale
-  
-{
+
+HLE <- function (
+    vxsp, # espace voxel
+    variable.name1 = bsIntercepted, # nbr echo pondéré (?) par l'épaisseur du faisceau = surface occluse dans le faisceau
+    variable.name2 = weightedFreepathLength, # longueur des trajets optiques pondérée par l'épaisseur du faisceau
+    variable.min = -Inf, variable.max = Inf, # bornes pas forcément utiles
+    variable.fallback, #  valeur d'atténuation si l'algorithme n'en a pas trouvée
+    radius = 2, # rayon de voisinage en mètre
+    pulse.min = 25 # nbr de pulses satisfaisant pour faire une estimation locale (threshold)
+    
+){
+  # Checks
   stopifnot(is.VoxelSpace(vxsp))
   stopifnot(variable.name1 %in% colnames(vxsp@data),
             length(variable.name1) == 1)
@@ -47,124 +67,162 @@ HLE <- function (vxsp, # espace voxel
   stopifnot(is.numeric(variable.min), length(variable.min) == 
               1, is.numeric(variable.max), length(variable.max) == 
               1)
+  
   if (!missing(variable.fallback)) 
     stopifnot(is.numeric(variable.fallback), length(variable.fallback) == 
                 1)
+  
   if (missing(radius)) 
-    radius <- max(getVoxelSize(vxsp))
+    radius <- max(getVoxelSize(vxsp)) # if no radius take the max voxelsize
   stopifnot(is.numeric(radius), length(radius) == 1)
+  
   stopifnot(is.numeric(pulse.min), pulse.min >= 0)
+  
+  # fct
   vx <- vxsp@data
   
-  # Put an NA if the pulse is too low
-  vx.na <- vx[nbSampling<pulse.min] # subset of voxels below sampling threshold level
-  vx.pool <- vx #a ll voxels can contribute to local estimate!
-  radius <- max(getVoxelSize(vxsp), radius) # just in case
+  # Put an NA if the pulse number is too low
+  vx.na <- vx[nbSampling < pulse.min] # subset of voxels below sampling threshold level
+  vx.pool <- vx # all voxels can contribute to local estimate!
+  radius <- max(getVoxelSize(vxsp), radius) # radius would be at less the voxel size 
   
-  #get neighbours in immediate neighbourhood (27 nearest voxels including target)
-  #this k value could be set as a parameter of the HLE function (for ex. could be 125, i.e.a full step larger)
+  # Get neighbors in immediate neighborhood (27 nearest voxels including target)
+  # This k value could be set as a parameter of the HLE function (for ex. could be 125, i.e.a full step larger)
   
-  # k = 27 : 3 voisins
-  neighbors <- RANN::nn2(data = getPosition(vxsp, vx.pool), 
+  neighbors <- RANN::nn2(data = getPosition(vxsp, vx.pool), # Nearest Neighbor Search
                          query = getPosition(vxsp, vx.na),
-                         k = 27,
+                         k = 27, # k = 27 : 3 voisins
                          searchtype = "radius", radius = radius)
   
   neighbors <- neighbors$nn.idx # keep list of indices only
   
-  # recompute attenuation from local neighbourhood
-  fill.value <- apply(neighbors, 1, function(nghb) vx.pool[as.vector(nghb), 
-                                                           sum(get(variable.name1), na.rm = T)/sum(get(variable.name2), na.rm=T)])
-  fill.value[which(is.nan(fill.value))]<- NA #why would this ever happen?
+  # Recompute attenuation from local neighborhood : sum(bsIntercepted)/sum(weightedFreepathLength)
+  fill.value <- apply(
+    neighbors, 1,
+    function(nghb) vx.pool[as.vector(nghb), 
+                           sum(get(variable.name1), na.rm = T)/sum(get(variable.name2), na.rm=T)]
+  )
+  
+  fill.value[which(is.nan(fill.value))] <- NA # NaN to NA. why would this ever happen?
+  
+  # When no value was found, take the fallback value
   if (!missing(variable.fallback)) 
     fill.value[which(is.na(fill.value))] <- variable.fallback
-  na.count <- length(which(is.na(fill.value)))
-  if (na.count > 0) 
+  na.count <- length(which(is.na(fill.value))) # how many NA are left?
+  
+  if (na.count > 0) # if any NAs remain
     warning(paste(na.count, " NA left", "\nSomething went wrong somewhere..."))
+  
+  # Apply the thresholds
   fill.value[which(fill.value > variable.max)] <- variable.max
   fill.value[which(fill.value < variable.min)] <- variable.min
-  vxsp@data[,HLE:=.(get(variable.name1)/get(variable.name2))] #default attenuation
-  vxsp@data[neighbors[,1], HLE:=fill.value] #modified attenuation
+  
+  # HLE = bsIntercepted/weightedFreepathLength
+  vxsp@data[, HLE := .(get(variable.name1)/get(variable.name2))] # default attenuation
+  vxsp@data[neighbors[,1], HLE := fill.value] # modified attenuation
 }
 ```
 
 # Read voxelSpace
 ```{r}
-vxsp <- readVoxelSpace("Z:/users/VincyaneBadouard/Lidar/ALS2022/AMAVox_output_test")
-# vxsp=readVoxelSpace("y:/users/GregVincent/fromMarianneDebue/OutPutAMAPVox/Vox_PUE_1_Echo_MNT1_discard0_leaf0.001_vox0.5.vox")
-#vxsp=readVoxelSpace("y:/users/GregVincent/fromMarianneDebue/OutPutAMAPVox/Vox_PUE_1_Echo_MNT1_discard0_leaf0.001_vox0.5_small.vox")
-#vxsp=readVoxelSpace("d:/Mes Donnees/GVincent/Rapports et notes/Articles/LaserPenetrationAndPAD/vox/FinalWeigthing/CNES_2020_YS_110932.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox")
+vxsp
+summary(vxsp@data)
 ```
 
 # First get vegetation voxels only
 ```{r}
-bcnp <- belowCanopy(vxsp) # enève tous les voxels au dessus de la canopée
-dz = getVoxelSize(vxsp)["z"]
+bcnp <- belowCanopy(vxsp) # enlève tous les voxels au dessus de la canopée
+summary(bcnp)
 
-# considérer tout ce qui est à + de 0.5 m du z=0 comme de la végétation
-veg <- vxsp@data[bcnp,list(i,j,k,ground_distance),
+dz = getVoxelSize(vxsp)["z"] # Gets the elemental size of a voxel (dx, dy, dz) in meter.
+
+# Considérer tout ce qui est à + de 0.5 m du z=0 comme de la végétation
+veg <- vxsp@data[bcnp, list(i,j,k,ground_distance), # combine data.tables on i,j,k columns
                  on = list(i, j, k)][ground_distance >= (0.5 * dz),
-                                     list(i,j,k)]
-fullcanopy<-vxsp
-fullcanopy@data=vxsp@data[veg,,on=list(i,j,k)]
+                                     list(i,j,k)] # keep only i,j,k columns
+fullcanopy <- vxsp
+fullcanopy@data <- vxsp@data[veg,,on = list(i,j,k)] # only veg part
 ```
 
 # Compute a reasonnable fallback value if local re-estimation fails 
+fallback value = the median of attenuation
+
+nbSampling : nombre d'échantillonage. Prendre les plus fiables (>=25)
+
+On utilise l'atténuation biaisée pcq la débiaisée ne peut pas être utilisée à multiple échelle.
+
+Biais d'échantillonage : quand peu échantilloné a tendence à renvoyer une grande densité
+
 ```{r}
-# la médiane pour aggréger si le voisinage ne suffit pas
-# nbSampling : nombre d'échantillonage. Prendre les plus fiables
-# on utilise l'atténuation biaisée pcq la débiaisée ne peut pas être utilisé à multiple échelle
-# biais d'échantillonage : quand peu échantilloné a tentence à renvoyer une grande densité
-fbv <- median(fullcanopy@data[nbSampling>=25,attenuation_FPL_biasedMLE])
+fbv <- median(fullcanopy@data[nbSampling>=25, attenuation_FPL_biasedMLE]) # 0.0257098
 ```
 
 # Re-estimation of poorly sampled voxels
+un peu long
 ```{r}
-HLE(fullcanopy,
+HLE(fullcanopy, # voxel space (only vegetation)
     variable.name1 = "bsIntercepted",
     variable.name2 = "weightedFreepathLength",
     variable.min = -Inf, variable.max = Inf, 
-    variable.fallback = fbv, radius=2, pulse.min = 25)
+    variable.fallback = fbv, radius = 2, pulse.min = 25)
 ```
 
 # Visualisation
 ```{r}
-# plot(HLE~attenuation_FPL_biasedMLE, data=fullcanopy@data)
-# plot(HLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data)
-# plot(attenuation_FPL_biasedMLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data)
-# fullcanopy@data[HLE>40,]
-# plot(fullcanopy, variable.name="HLE")
-# plot(fullcanopy, variable.name="attenuation_FPL_unbiasedMLE")
-# plot(fullcanopy, variable.name="attenuation_FPL_biasedMLE")
-# hist(fullcanopy@data$attenuation_FPL_unbiasedMLE, breaks=1000)
-# #replace extreme low and high values
-# quantile(x=fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.5,0.9,0.95,0.99))
-# range(fullcanopy@data$attenuation_FPL_unbiasedMLE)
-# range(fullcanopy@data$HLE)
-# fullcanopy@data$attenuation_FPL_unbiasedMLE <-pmax(fullcanopy@data$attenuation_FPL_unbiasedMLE,0)
-# fullcanopy@data$attenuation_FPL_unbiasedMLE <-pmin(fullcanopy@data$attenuation_FPL_unbiasedMLE,quantile(x=fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.99)))
+plot(HLE~attenuation_FPL_biasedMLE, data=fullcanopy@data[1:1000])
+plot(HLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data[1:10000])
+plot(attenuation_FPL_biasedMLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data[1:1000])
+
+fullcanopy@data[HLE>40,]
+
+plot(fullcanopy, variable.name="HLE")
+plot(fullcanopy, variable.name="attenuation_FPL_unbiasedMLE")
+plot(fullcanopy, variable.name="attenuation_FPL_biasedMLE")
+hist(fullcanopy@data$attenuation_FPL_unbiasedMLE, breaks=1000)
+
+quantile(x=fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.5,0.9,0.95,0.99), na.rm = T)
+range(fullcanopy@data$attenuation_FPL_unbiasedMLE, na.rm = T)
+range(fullcanopy@data$HLE)
+
+#replace extreme low and high values
+fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmax(fullcanopy@data$attenuation_FPL_unbiasedMLE,0)
+fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmin(fullcanopy@data$attenuation_FPL_unbiasedMLE, quantile(fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.99), na.rm = T))
 ```
 
 # Create PadBVTotal
+ref : VINCENT, Gregoire; PIMONT, François; VERLEY, Philippe, 2021, "A note on PAD/LAD estimators implemented in AMAPVox 1.7", doi:10.23708/1AJNMP , DataSuds, V1
+
+Computes Plant Area Density either from (transmittance or) attenuation coefficient estimates.
+PAD is defind as the plant area per unit volume (PAD plant area / voxel volume = m^2 / m^3).
+Plant area density (PAD in m2·m−3)
+
+PadBVTotal = 2 * HLE
+
 ```{r}
-fullcanopy@data$PadBVTotal<-2*fullcanopy@data$HLE
+fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$HLE
 
-# import updated fields
-vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i","j","k"), all.x=T)
+# Import updated fields
+vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i","j","k"), all.x=T) # veg and ground data
 
-# fill-in above canopy and below ground voxels with 0 PadBVTotal value
-vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  #to allow later LAI2200 computations using AMAPVox
+# Fill-in above canopy and below ground voxels with 0 PadBVTotal value
+vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later LAI2200 computations using AMAPVox
 
-writeVoxelSpace(vxsp,"Z:/users/VincyaneBadouard/Lidar/ALS2022/test1m_PadHLE.vox")
+writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
+```
+
+# Plot vertical profile
+```{r}
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox")
+
+ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
+  geom_path() + geom_point()
+
 ```
 
 # Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
 
-fichier checkeffectdecimation.R
+fichier CheckEffectDecimation.R
+
 full - decim = écart systématique ou non selon le numbre de pulse
-```{r}
-
-
-
-```
 
