@@ -13,6 +13,8 @@ knitr::opts_chunk$set(
 
 **FAIRE CALIBRATION HUMIDITE !!**
 
+- Tomst mauvais horaires : confronter température de tomst et hobo pour recaller les horaires, vérifier que j’ai bien fait -3h
+
 *2 sites :\
 - Paracou (pour comparaison aux données Lidar)\
 - Nouragues **(?)***

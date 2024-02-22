@@ -15,15 +15,23 @@ knitr::opts_chunk$set(
 ```
 
 **Métriques climatiques** (a traiter) :
-https://www.worldclim.org/data/bioclim.html . Ce sont vraiment les métriques annuelles les plus utilisées.
+<https://www.worldclim.org/data/bioclim.html> . Ce sont vraiment les
+métriques annuelles les plus utilisées.
 
-Il y a ce package qui semble faire du calcul sur le même type de sensor pour calculer des variables journalières puis mensuelles : https://github.com/GregGuerin/microclimate .
+Il y a ce package qui semble faire du calcul sur le même type de sensor
+pour calculer des variables journalières puis mensuelles :
+<https://github.com/GregGuerin/microclimate> .
 
-Aussi en regardant rapidement, je viens de voir que Eva a sortie un papier sur le sujet dans MEE : https://www.researchgate.net/publication/366841092_Slope_and_equilibrium_A_parsimonious_and_flexible_approach_to_model_microclimate .
+Aussi en regardant rapidement, je viens de voir que Eva a sortie un
+papier sur le sujet dans MEE :
+<https://www.researchgate.net/publication/366841092_Slope_and_equilibrium_A_parsimonious_and_flexible_approach_to_model_microclimate>
+.
 
 **les données très fortes de lumière = sunflex étude sunflecks**
 
-HOBO : variabilité intra-annuelle entre envir lumineux (corriger mon horloge), effet de la saison sur la lumière ? qui varie en fct de l’ouverture de canopée
+HOBO : variabilité intra-annuelle entre envir lumineux (corriger mon
+horloge), effet de la saison sur la lumière ? qui varie en fct de
+l’ouverture de canopée
 
 Objectives:
 
@@ -67,6 +75,23 @@ library(RColorBrewer)
 ```
 
 # Read
+```{r}
+# Données capteurs de mars 2023 à mars 2024
+FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
+                                       delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+FluxTowerData2022 <- FluxTowerData2022 %>% 
+  filter(Year >= 2022) %>% 
+  # filter(Rg > 0) %>%
+  # select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
+  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
+                         "Dry", "Wet"))
+
+ggplot(FluxTowerData2022, aes(x = as.character(Month),y = Rain)) +
+  geom_boxplot(aes(color = Season)) +
+  labs(title="Rainfall over the seasons",
+       x ="Month", y = "Rainfall (mm)")
+```
 
 ```{r , include = F}
 # Sensor environnment data
@@ -238,7 +263,7 @@ cat("Minimum light by day:", min(HOBOdata[HOBOdata$Phase == "Day",]$Light)) # 0 
 
 ```{r}
 HOBOdata <- HOBOdata %>%
-  mutate(Season = ifelse(Month  %in% c(7:11,3), # juill-nov et mars
+  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov et mars
                          "Dry", "Wet"))
 
 ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +

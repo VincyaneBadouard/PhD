@@ -15,6 +15,11 @@ Ce ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 Estimer selon le plus probable et selon les besoins
 Prendre en compte le voisinage en excluant les trouées
 
+3 possibilités si pas de voisins : 
+- une valeur fallback (fait actuellement)
+- augmenter le voisinage
+- tourner le script plusieurs de fois et faire donc du proche en proche
+
 1) get the vegetation voxels only (z > 0.5 m)
 
 2) Compute a reasonnable fallback value (the median of attenuation) if local re-estimation fails
@@ -44,14 +49,14 @@ rm(list=ls())
 ```{r}
 ##### New function defined here #####
 ##### just a poor hack of fillNA #####
-# HLE : hierarchical estimation
+# HLE : hierarchical local estimation
 # HLE = bsIntercepted/weightedFreepathLength (default attenuation) (?)
 # HLE max quand rencontre un tronc sur tout un voxel 
 
 HLE <- function (
     vxsp, # espace voxel
-    variable.name1 = bsIntercepted, # nbr echo pondéré (?) par l'épaisseur du faisceau = surface occluse dans le faisceau
-    variable.name2 = weightedFreepathLength, # longueur des trajets optiques pondérée par l'épaisseur du faisceau
+    variable.name1 = bsIntercepted, # nbr de pulses interceptés par l'empreinte du faisceau = surface occluse dans le faisceau
+    variable.name2 = weightedFreepathLength, # longueur des trajets optiques pondérée par l'empreinte du faisceau
     variable.min = -Inf, variable.max = Inf, # bornes pas forcément utiles
     variable.fallback, #  valeur d'atténuation si l'algorithme n'en a pas trouvée
     radius = 2, # rayon de voisinage en mètre
@@ -161,11 +166,15 @@ fbv <- median(fullcanopy@data[nbSampling>=25, attenuation_FPL_biasedMLE]) # 0.02
 # Re-estimation of poorly sampled voxels
 un peu long
 ```{r}
+pulse.min = 25
+na <- nrow(fullcanopy@data[nbSampling < pulse.min])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
+write.csv(na, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion.csv")
+
 HLE(fullcanopy, # voxel space (only vegetation)
     variable.name1 = "bsIntercepted",
     variable.name2 = "weightedFreepathLength",
     variable.min = -Inf, variable.max = Inf, 
-    variable.fallback = fbv, radius = 2, pulse.min = 25)
+    variable.fallback = fbv, radius = 2, pulse.min = pulse.min)
 ```
 
 # Visualisation
@@ -200,7 +209,7 @@ Plant area density (PAD in m2·m−3)
 PadBVTotal = 2 * HLE
 
 ```{r}
-fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$HLE
+fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$HLE # *2 car hp d'orientation sphérique des feuilles
 
 # Import updated fields
 vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i","j","k"), all.x=T) # veg and ground data
@@ -213,11 +222,33 @@ writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS
 
 # Plot vertical profile
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
+
+# Crop voxel to test
+# subvox <- crop(vxsp, -50, 50, -50, 50)
+# AMAPVox::plot(subvox)
+# writeVoxelSpace(subvox,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/subvox.vox")
 
 ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
   geom_path() + geom_point()
 
+```
+# Compute Transmittance from attenuation
+T = I/Io, where I = transmitted light (“output”) and Io = incident light (“input”)
+Transmission=1-Attenuation ?
+
+(l'attenuation n'est pas censé être >0, elle l'est dues aux statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est débiaisée)
+
+```{r}
+# "attenuation_FPL_biasedMLE" "attenuation_FPL_biasCorrection" "attenuation_FPL_unbiasedMLE" "attenuation_PPL_MLE" 
+range(na.omit(vxsp@data$attenuation_FPL_unbiasedMLE)) ; range(na.omit(vxsp@data$attenuation_PPL_MLE))
+# -17.28929 1657.19849 ;  0 20
+
+vxsp@data[,Transmittance_FPL := 1-attenuation_FPL_unbiasedMLE] # -1656.19849 18.28929"
+vxsp@data[,Transmittance_PPL := 1-attenuation_PPL_MLE] # -19 1
+range(na.omit(vxsp@data$Transmittance_FPL)) ; range(na.omit(vxsp@data$Transmittance_PPL))
+
+writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
 ```
 
 # Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
