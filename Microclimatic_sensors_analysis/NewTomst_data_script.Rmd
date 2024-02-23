@@ -52,6 +52,36 @@ library(RColorBrewer)
 
 # *Read*
 
+## Flux tower data
+- Temp(55) : Mean Air temperature at 55 m (°C)
+- T_soil_10cm	: mean Soil temperature at 10 cm depth	(°C)
+
+- Rain : sum Rainfall (mm)
+- Rain_precis_55m	: sum Rainfall (mm)
+
+- SWC	: mean Soil water content at 10 cm depth (m3 m-3)
+- VWC_10cm	: mean Soil water content at 10 cm depth (m3 m-3)
+- ISWC2	: mean Index of soil water content integrated over 2.6 m (m)
+- RH(55) : Mean Air humidity at 55 m (%)
+
+```{r}
+# Données capteurs de mars 2023 à mars 2024
+FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
+                                       delim = ";", escape_double = FALSE, trim_ws = TRUE)
+
+FluxTowerData2022 <- FluxTowerData2022 %>% 
+  filter(Year >= 2022) %>% 
+  # filter(Rg > 0) %>%
+  # select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
+  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
+                         "Dry", "Wet"))
+
+ggplot(FluxTowerData2022, aes(x = as.character(Month),y = Rain)) +
+  geom_boxplot(aes(color = Season)) +
+  labs(title="Rainfall over the seasons",
+       x ="Month", y = "Rainfall (mm)")
+```
+
 ## *Sensor environnment data*
 
 ```{r include = F}

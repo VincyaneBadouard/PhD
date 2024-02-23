@@ -63,7 +63,6 @@ Variables à calculer : moyenne, sd, coefficient de variation, min, max :
 \- saison des pluies
 
 # Packages
-
 ```{r}
 library(readr)
 library(tidyverse)
@@ -75,6 +74,13 @@ library(RColorBrewer)
 ```
 
 # Read
+
+## Flux tower data
+- Rain : sum Rainfall (mm)
+
+- Rg : sum Global radiation (incident)	(MJ m-2 day-1)
+
+- Temp(55) : Mean Air temperature at 55 m (°C)
 ```{r}
 # Données capteurs de mars 2023 à mars 2024
 FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
@@ -82,19 +88,36 @@ FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - J
 
 FluxTowerData2022 <- FluxTowerData2022 %>% 
   filter(Year >= 2022) %>% 
-  # filter(Rg > 0) %>%
-  # select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
+  select(Year, 'Julian Day', Month, Rain, Rg, Rn, 'Temp(55)') %>% # 365 days, 12 months
   mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
-                         "Dry", "Wet"))
+                         "Dry", "Wet")) %>% 
+  mutate(Month = factor(Month))
 
-ggplot(FluxTowerData2022, aes(x = as.character(Month),y = Rain)) +
+
+ggplot(FluxTowerData2022, aes(x = Month,y = Rain)) +
   geom_boxplot(aes(color = Season)) +
-  labs(title="Rainfall over the seasons",
+  labs(title="FluxTower 2022 - Rainfall over the seasons",
        x ="Month", y = "Rainfall (mm)")
+
+FluxTowerData2022 %>% 
+  filter(`Temp(55)` > 0) %>%
+  ggplot(aes(x = Month,y = `Temp(55)`)) +
+  geom_boxplot(aes(color = Season)) +
+  labs(title="FluxTower 2022 - Mean air temperature (°C) over the seasons",
+       x ="Month", y = "Mean air temperature at 55 m (°C)")
+
+FluxTowerData2022 %>% 
+  filter(Rg > 0) %>%
+  ggplot(aes(x = Month,y = Rg)) +
+  geom_boxplot(aes(color = Season)) +
+  labs(title="FluxTower 2022 - Global incident radiation (MJ m-2 day-1) over the seasons",
+       x ="Month", y = "Global incident radiation (MJ m-2 day-1)")
+
+# Plots enregistrés à width = 900
 ```
 
+## Sensor environnment data
 ```{r , include = F}
-# Sensor environnment data
 HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
 
 # Set the categorical variable as a factor with the custom order
@@ -102,97 +125,80 @@ HOBO_Paracou_env$TopoHabitat <- factor(HOBO_Paracou_env$TopoHabitat, levels = c(
 
 env <- HOBO_Paracou_env %>% 
   select(HoboID,Transect,LightHabitat,TopoHabitat)
+```
 
-# Sensor data
+## Sensor data
+```{r , include = F}
 # catch the name of all the files of the folder
-filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) 
-
+# filenames <- list.files("~/PhD/Microclimate/HOBO/16_10_2023/csv", pattern="*.csv", full.names=TRUE) 
+filenames <- list.files("~/PhD/Microclimate/HOBO/16_10_2023", pattern="*.xlsx", full.names=TRUE)
 # dans l'ordre du numéro des capteurs
 filenames <- gtools::mixedsort(sort(filenames)) 
 
 # read all the files
-df_list <- lapply(filenames, read_delim, 
-                  delim = ";", escape_double = FALSE,
-                  col_types =
-                    cols(`#` = col_character(),
-                         `Ch: 1 - Température   (°C)` = col_number(), 
-                         `Ch: 2 - Lumière   (lux)` = col_number()),
-                  locale = locale(decimal_mark = ","), 
+library(readxl)
+
+df_list <- lapply(filenames, read_excel, 
                   trim_ws = TRUE) # read all the folder files
+
+# df_list <- lapply(filenames, read_delim, 
+#                   delim = ";", escape_double = FALSE,
+#                   col_types =
+#                     cols(`#` = col_character(),
+#                          `Ch: 1 - Température   (°C)` = col_number(), 
+#                          `Ch: 2 - Lumière   (lux)` = col_number()),
+#                   locale = locale(decimal_mark = ","), 
+#                   trim_ws = TRUE) # read all the folder files
 
 # bind all the files
 HOBOdata <- bind_rows(df_list, .id = "HoboID") # df number -> HoboID column
 ```
 
 # Combine data and environment
-
 ```{r}
 HOBOdata <- HOBOdata %>% 
   mutate(HoboID = as.numeric(HoboID)) %>%
   left_join(HOBO_Paracou_env, by = "HoboID") %>%
-  select(-Tomst_Material_info_30_03_23, -Operator)
-```
-
-# Rename files
-
-```{r , include = F}
-# truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
-# truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
-# truc3 <- stringr::str_replace(truc2, ".csv", "")
-# truc4 <- stringr::str_replace(truc3, " AST ", "")
-# truc5 <- gsub("[()]", "", truc4)
-# 
-# names(df_list) <- truc5
+  select(-c(`#`,`...1`, Tomst_Material_info_30_03_23, Operator))
 ```
 
 # Understand the HOBO file
-
 Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter
 des données ce même jour à 18h. Ils collectent bien toutes les 15
 minutes.
 
-```{r}
-# str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
-names(HOBOdata)
-cat("Sensors number range:",range(HOBOdata$HoboID)) # 30 sensors
-cat("Sensors time range:",range(HOBOdata$`Date et heure (French Guiana Standard Time)`))
-# filter à > "30/03/23 18:00:00"
-```
-
 # Prepare HOBO data for analysis
-
 Rename variables
-
 ```{r}
 HOBOdata <- HOBOdata %>% 
-  rename(Index = '#') %>%
   rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
   rename(Temp = 'Ch: 1 - Température   (°C)') %>%
   rename(Light = 'Ch: 2 - Lumière   (lux)')
 ```
 
 ## Manage date and hours
-
 ```{r}
-class(HOBOdata$Time) # the time is in character
+cat("Sensors time range:",as.character(range(HOBOdata$Time)))
+
+class(HOBOdata$Time) # the time is in "POSIXct" "POSIXt" 
 
 HOBOdata <- HOBOdata %>% 
-  separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
-  mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
+  mutate(Time = as_datetime(Time)) %>% 
+  mutate(Date = date(Time)) %>% 
+  mutate(Hour = hms::as_hms(Time)) %>% 
   mutate(Month = month(Date)) %>%
-  mutate(Hour = hms::as_hms(Hour)) %>% 
-  mutate(Time = mdy_hms(Time)) %>% # format Date-times: 2023-03-30 18:15:00
   # filtrer sur les dates d'étude (1 an):
   filter(Time >= mdy_hms("03/30/2023 18:00:00") & Time < mdy_hms("03/30/2024 18:00:00")) 
 
+```
 
-cat("Sensors time range:",range(HOBOdata$Time))
-cat("The collect date:",max(HOBOdata$Date)) # "2023-05-25" the collect date
-max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
+```{r}
+cat("Sensors time range:",as.character(range(HOBOdata$Time)))
+cat(max(HOBOdata$Date) - min(HOBOdata$Date), "days of collect") # 200 days of collect
+cat("Sensors number range:",range(HOBOdata$HoboID)) # 30 sensors
 ```
 
 ## NA ?
-
 ```{r}
 Na_tabble <- HOBOdata %>%
   filter(is.na(Light) | is.na(Temp))
@@ -205,8 +211,69 @@ Na_tabble <- HOBOdata %>%
 #   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
 ```
 
-# Relation between light and temperature
+# Plot data of each sensor
+une ligne d'une couleur pour chaque jour
+le temps en abscisse
+la lumière en ordonnée
+```{r}
+HOBOdata$Date[1]
 
+n <- length(unique(HOBOdata$HoboID))*length(unique(HOBOdata$Month))
+
+# Define nrow and ncol for the facet
+if(n<4) {i = 1}else{ i = 4}
+
+pdf("HOBO_Temperature.pdf", width = 15, height = 10)
+for(p in 1:(ceiling(n/16))){
+  print(
+    HOBOdata %>% 
+      # filter(Hour > hms("06:00:00") & Hour < hms("19:00:00")) %>%
+      # filter(HoboID == 1) %>%
+      # filter(Month == 4) %>%
+      # filter(Light < 1000) %>%
+      # filter(Date <= ymd("2023-04-15")) %>% # "2023-03-30"
+      ggplot(aes(x = Hour,y = Temp)) +
+      geom_line(aes(color = factor(Date)), show.legend = F) +
+      scale_x_time(breaks = scales::breaks_width("4 hour")) +
+      ggforce::facet_wrap_paginate(vars(HoboID, Month),
+                                   scales = "free_y",
+                                   ncol = min(n,4), nrow = i, page = p)
+    
+  )
+}
+dev.off() # Close the final graphics device
+```
+
+1) En mars il a 2 dates, dont la 1ere est celle de pose des capteurs à 18h
+2) il s'est passé qqchose le 2023-09-20 tous les capteurs ont une forte chute de T° l'après midi
+3) le mois d'octobre est peu variable en T° entre les jours
+4) capteurs 9, 10, 23, 24 joli pic à midi -> gap
+5) pic de température très forte qui serait du au réchauffement du capteur lui meme et non la température réelle de l'air
+
+conseil Sylvain : diff de chaque capteur à la moyenne 
+
+
+```{r}
+unique(HOBOdata[HOBOdata$HoboID%in% c(9, 10, 23, 24),]$LightHabitat) # "Gap border" "Gap"
+
+HOBOdata %>% 
+  filter(HoboID == 1) %>%
+  filter(Month == 3) %>% 
+  ggplot(aes(x = Hour,y = Temp)) +
+  geom_line(aes(color = factor(Date)), show.legend = F) +
+  scale_x_time(breaks = scales::breaks_width("4 hour")) 
+
+HOBOdata %>% 
+  filter(HoboID == 1) %>%
+  filter(Month == 9) %>% 
+  # filter(Date >= ymd("2023-09-17") & Date <= ymd("2023-09-21")) %>% 
+  ggplot(aes(x = Hour,y = Temp, group = Date)) +
+  geom_line() +
+  geom_line(aes(col = (Date==ymd("2023-09-20")))) +
+   scale_x_time(breaks = scales::breaks_width("4 hour")) 
+```
+
+# Relation between light and temperature
 ```{r}
 HOBOdata %>% 
   # filter(Light>10) %>% 
@@ -221,7 +288,7 @@ HOBOdata %>%
   ggplot() +
   aes(x = Light, y = Temp) +
   geom_point(size = 0.2) +
-geom_smooth(span = 0.75) +
+  geom_smooth(span = 0.75) +
   labs(x ="Light (lux)", y = "Temperature (°C)")
 
 cat("cor:",cor(HOBOdata$Light, HOBOdata$Temp)) # 0.44
