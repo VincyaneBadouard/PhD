@@ -39,7 +39,8 @@ ctg : catalog of laz files
 ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
+# LowFlight_alt4ha_buff100m_2023.laz
 
 crs(ST) # no crs
 ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
@@ -201,12 +202,12 @@ en calculant la réflectance apparente en ratio (albedo)
 Réflectance (ou Albedo) = énergie lumineuse réfléchie/énergie lumineuse incidente
 
 ```{r}
+PC <- ST
 anyNA(PC@data$Intensity) # 10748 62215
 names(PC@data)
 
 # Compute Intensity
 PC@data$initial_intensity <- PC@data$Intensity
-PC@data$initial_intensity <- NULL
 
 
 # Intensité = réflectance apparente en ratio (albedo)
@@ -217,6 +218,8 @@ PC_samp <- sample(1:dim(PC@data)[1], 2000) # just a sample to plot
 
 # initial_intensity vs Intensity
 plot(initial_intensity~Intensity, data = PC@data[PC_samp,])
+
+PC@data$initial_intensity <- NULL
 
 writeLAS(ST, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
@@ -341,6 +344,8 @@ write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 library(AMAPVox)
 
 # For the 1st time
+AMAPVox::run(jvm.option = "-Xms16g") # pour allouer 16Go de RAM # 
+
 AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4") # pour allouer 16Go de RAM # 
 
 # Get the configuration file
