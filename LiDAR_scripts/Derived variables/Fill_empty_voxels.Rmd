@@ -130,9 +130,11 @@ HLE <- function (
 
 # Read voxelSpace
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
 vxsp
 summary(vxsp@data)
+# Pour ALS2023 low altitude le nbsampling est faible "Il n'y a pas d'incohérence dans les données: si tu travailles avec le fichier alt500m tu ne peux guère espérer mieux! Il faut en effet réduire le seuil pour le post-traitement (nbre minimum de tirs)"
 ```
 
 # First get vegetation voxels only
@@ -168,7 +170,9 @@ un peu long
 ```{r}
 pulse.min = 25
 na <- nrow(fullcanopy@data[nbSampling < pulse.min])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
-write.csv(na, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion.csv")
+write.csv(na, )
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/EmptyVoxelsProportion2023LowAlt.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion2022.csv"
 
 HLE(fullcanopy, # voxel space (only vegetation)
     variable.name1 = "bsIntercepted",

@@ -41,6 +41,8 @@ ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las
 # Si 1 fichier
 ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
 # LowFlight_alt4ha_buff100m_2023.laz
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+
 
 crs(ST) # no crs
 ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
@@ -66,10 +68,9 @@ plot(PC@data, )
 plot(ROI, add=T)
 ```
 
-
-```{r, use ROI}
 # Clip the point cloud in region of interest
-PC <- clip_roi(las = ST, geometry = ROI) # très long
+```{r, crop laz}
+PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
 PC 
 plot(PC)
 
@@ -90,13 +91,24 @@ PC <- PC[[1]]
 table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
 PC@data <- PC@data[Classification != 7,]
 lidR::plot(PC) 
+```
 
 # Crop the DEM in region of interest
+```{r, crop DEM}
 # Modèle numérique de terrain
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc""
 mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc")
-plot(mnt)
-mntROI <- raster::crop(mnt,extent(ROI))
+ggplot() + 
+  geom_spatraster(data = mnt, aes(fill = dtm2023)) + # mnt_roi36ha_1m
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
+
+crs(mnt) <- crs(ROI) 
+mntROI <- raster::mask(mnt,ROI)
+mntROI <- raster::crop(mntROI,ROI)
+mntROI;ROI;ST
 plot(mntROI)
 ggplot() + 
   geom_spatraster(data = mntROI, aes(fill = dtm2023)) + # mnt_roi36ha_1m
@@ -105,8 +117,8 @@ ggplot() +
                        na.value="white") +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/dtm2023_4ha_buffer.asc", format="ascii", overwrite=T)
-#"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023_4ha_buffer.asc"
+writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023_4ha_buffer.asc", format="ascii", overwrite=T)
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/dtm2022_4ha_buffer.asc"
 ```
 
 # Read, bind and rewrite the trajectory files in the folder
@@ -362,8 +374,32 @@ fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuil
 pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
 
 ```{r}
-VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/AMAPvox/AMAVox_output_test")
-AMAPVox::plot(VX)
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+AMAPVox::plot(VX, variable.name = "nbSampling") 
+AMAPVox::plot(VX, variable.name = "ground_distance") # ground distance bizarre sur les cotes
+VX1 <- VX
+VX <- VX1
+VX@data <- VX@data[!is.na(distLaser)]
+AMAPVox::plot(VX, variable.name = "distLaser")
+
+# 2.5 est la densité max de feuillage qui ait un sens biologique 
+VX <- VX1
+VX@data <- VX@data[!is.na(attenuation_FPL_biasedMLE) & attenuation_FPL_biasedMLE<2.5]
+AMAPVox::plot(VX, variable.name = "attenuation_FPL_biasedMLE")  
+
+VX <- VX1
+VX@data <- VX@data[!is.na(attenuation_FPL_unbiasedMLE) & attenuation_FPL_unbiasedMLE<2.5 & attenuation_FPL_unbiasedMLE>0]
+AMAPVox::plot(VX, variable.name = "attenuation_FPL_unbiasedMLE")
+# FPL : une grande partie des valeurs aberrantes devrait disparaître après recalcul des zones faiblement échantillonnées à l'aide des voisins.
+
+VX <- VX1
+VX@data <- VX@data[!is.na(attenuation_PPL_MLE) & attenuation_PPL_MLE<2.5]
+AMAPVox::plot(VX, variable.name = "attenuation_PPL_MLE") # ça a l'air mieux il y a une plus forte atténuation proche du sol, mais ça n'a pas l'air très graduel
+# PPL : il faudrait préférablement  réduire les PPL de plus de 2.5 - qui correspondent à des valeurs aberrantes) à 2.5 - qui correspond à la densité max de feuillage qui ait un sens biologique et non 20 comme dans le cas présent 
+
+VX <- VX1
+VXdata <- VX@data
+
 VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
 
 writeVoxelSpace(VX, "//amap-data.cirad.fr/work/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
