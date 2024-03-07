@@ -76,7 +76,7 @@ FluxTowerData2023 <- FluxTowerData2023 %>%
   filter(Year >= 2023) %>% 
   # filter(Rg > 0) %>%
   # select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
-  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
+  mutate(Season = ifelse(Month  %in% c(3, 8:11), # juill-nov = dry season
                          "Dry", "Wet"))
 
 ggplot(FluxTowerData2023, aes(x = as.character(Month),y = Rain)) +

@@ -39,9 +39,10 @@ ctg : catalog of laz files
 ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz"
 # LowFlight_alt4ha_buff100m_2023.laz
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 
 
 crs(ST) # no crs
@@ -57,15 +58,15 @@ Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fi
 ROI : Region of Interest
 ```{r, create ROI}
 # Region of Interest (ROI)
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer.shp") # interest zone + 100m buffer
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp") # interest zone + 100m buffer
 plot(ROI)
 class(ROI) # SpatVector (terra)
 
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 
-plot(PC@data, )
-plot(ROI, add=T)
+# plot(PC@data, )
+# plot(ROI, add=T)
 ```
 
 # Clip the point cloud in region of interest
@@ -95,11 +96,16 @@ lidR::plot(PC)
 
 # Crop the DEM in region of interest
 ```{r, crop DEM}
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer101m.shp") # buffer plus grand pour éviter les effets de bords lors de la voxélisation
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # crs
+
 # Modèle numérique de terrain
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc""
-mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc")
+mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/PARACOU2023_DTM_1m.tif")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc"
 ggplot() + 
-  geom_spatraster(data = mnt, aes(fill = dtm2023)) + # mnt_roi36ha_1m
+  geom_spatraster(data = mnt, aes(fill = MNT_0.5m_IRD_500m_Paracou_284000_579500)) + # mnt_roi36ha_1m # dtm2023
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
@@ -111,13 +117,14 @@ mntROI <- raster::crop(mntROI,ROI)
 mntROI;ROI;ST
 plot(mntROI)
 ggplot() + 
-  geom_spatraster(data = mntROI, aes(fill = dtm2023)) + # mnt_roi36ha_1m
+  geom_spatraster(data = mntROI, aes(fill = MNT_0.5m_IRD_500m_Paracou_284000_579500)) + # mnt_roi36ha_1m # dtm2023
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023_4ha_buffer.asc", format="ascii", overwrite=T)
+writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc", format="ascii", overwrite=T)
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023_4ha_buffer.asc"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/dtm2022_4ha_buffer.asc"
 ```
 
@@ -129,13 +136,14 @@ df_list <- lapply(trajfilenames, fread) # read all the folder files
 traj <- bind_rows(df_list)
 
 # if one file :
-path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/trajectory.txt"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt"
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto1000m.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/trajectory.txt"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt"
 traj <- fread(path)
 traj
 plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
-range(traj$x) # 283770.8 285719.1
-range(traj$y) # 578263.8 586617.6
+range(traj$x) # 283900.7434999999823049 317113.9602999999769963
+range(traj$y) #  560039.9923999999882653 588274.3286999999545515
 
 traj <- traj %>% 
   select(V1,V2,V3,V4) %>% 
@@ -147,29 +155,31 @@ view(traj)
 
 # Crop trajectory
 options(digits=22)
-range(PC@data$gpstime) # 354557509.8303056955338 354559330.2065098285675
-traj <- traj[time<=max(PC@data$gpstime) & time>=min(PC@data$gpstime),]
+range(traj$t) # 382365103.0212569832802 382378020.8453729748726
+range(PC@data$gpstime) # 382366761.4412953257561 382376006.5801081061363
+traj <- traj[t<=max(PC@data$gpstime) & t>=min(PC@data$gpstime),]
 
-traj_sf <- st_as_sf(traj, coords = c("X","Y"))
-traj_sf <- st_set_crs(traj_sf, 2972)
-# Keep only points inside the polygon.
-traj_crop <- sf::st_intersection(traj_sf, ROI)
-XY <- st_coordinates(traj_crop)
-st_geometry(traj_crop) <- NULL # no more sf object
-traj_crop <- cbind(traj_crop, XY) # bind XY coord
-setDT(setcolorder(traj_crop, c("time","X", "Y", "Z"))) # order col places
-traj_crop <- traj_crop[, c(1:7), with = FALSE]
+# Keep only points inside the polygon (faut pas faire ça)
+# traj_sf <- st_as_sf(traj, coords = c("X","Y"))
+# traj_sf <- st_set_crs(traj_sf, 2972)
+# traj_crop <- sf::st_intersection(traj_sf, ROI)
+# XY <- st_coordinates(traj_crop)
+# st_geometry(traj_crop) <- NULL # no more sf object
+# traj_crop <- cbind(traj_crop, XY) # bind XY coord
+# setDT(setcolorder(traj_crop, c("time","X", "Y", "Z"))) # order col places
+# traj_crop <- traj_crop[, c(1:7), with = FALSE]
 
-fwrite(traj_crop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/traj_crop.txt")
+# fwrite(traj_crop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/traj_crop.txt")
 
-fwrite(traj, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/ALS_P16_2022_4ha_buffer_traj.txt")
+fwrite(traj, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ALS_P16_2023_4ha_HighAlt_buffer_traj.txt")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/ALS_P16_2022_4ha_buffer_traj.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/ALS_P16_2023_traj.txt"
 ```
 
 # Check points cloud data
 ```{r}
 
-table(PC@data$NumberOfReturns) # 14 echos
+table(PC@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt
 PC@data
 range(PC$Z) # min et max de l'altitude: 4.19 65.74 m
 
@@ -214,7 +224,6 @@ en calculant la réflectance apparente en ratio (albedo)
 Réflectance (ou Albedo) = énergie lumineuse réfléchie/énergie lumineuse incidente
 
 ```{r}
-PC <- ST
 anyNA(PC@data$Intensity) # 10748 62215
 names(PC@data)
 
@@ -233,7 +242,7 @@ plot(initial_intensity~Intensity, data = PC@data[PC_samp,])
 
 PC@data$initial_intensity <- NULL
 
-writeLAS(ST, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
 ```
@@ -374,8 +383,9 @@ fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuil
 pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
 
 ```{r}
-VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
-AMAPVox::plot(VX, variable.name = "nbSampling") 
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
+AMAPVox::plot(VX, variable.name = "nbSampling") # fermer la fenetre de plot entre 2 plots
 AMAPVox::plot(VX, variable.name = "ground_distance") # ground distance bizarre sur les cotes
 VX1 <- VX
 VX <- VX1
@@ -397,12 +407,12 @@ VX@data <- VX@data[!is.na(attenuation_PPL_MLE) & attenuation_PPL_MLE<2.5]
 AMAPVox::plot(VX, variable.name = "attenuation_PPL_MLE") # ça a l'air mieux il y a une plus forte atténuation proche du sol, mais ça n'a pas l'air très graduel
 # PPL : il faudrait préférablement  réduire les PPL de plus de 2.5 - qui correspondent à des valeurs aberrantes) à 2.5 - qui correspond à la densité max de feuillage qui ait un sens biologique et non 20 comme dans le cas présent 
 
-VX <- VX1
-VXdata <- VX@data
-
-VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
-
-writeVoxelSpace(VX, "//amap-data.cirad.fr/work/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
+# VX <- VX1
+# VXdata <- VX@data
+# 
+# VX@data$PadBVtotal <- VX@data$attenuation_FPL_biasedMLE # pas corrigé le sous-échantillonage (pour bosser sur les voxels vides)
+# 
+# writeVoxelSpace(VX, "//amap-data.cirad.fr/work/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
 
 ```
 

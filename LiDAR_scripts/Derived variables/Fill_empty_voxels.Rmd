@@ -25,7 +25,7 @@ Prendre en compte le voisinage en excluant les trouées
 2) Compute a reasonnable fallback value (the median of attenuation) if local re-estimation fails
 
 3) Re-estimation of poorly sampled voxels
-- subset of voxels below sampling threshold level
+- subset of voxels below sampling threshold level (=*nbsampling median* of the data)
 - but all voxels can contribute to local estimate
 - Get neighbors in immediate neighborhood (27 nearest voxels including target = 3 neighbors)
 - Recompute attenuation from local neighbourhood : sum(bsIntercepted)/sum(weightedFreepathLength)
@@ -150,6 +150,9 @@ veg <- vxsp@data[bcnp, list(i,j,k,ground_distance), # combine data.tables on i,j
                                      list(i,j,k)] # keep only i,j,k columns
 fullcanopy <- vxsp
 fullcanopy@data <- vxsp@data[veg,,on = list(i,j,k)] # only veg part
+
+summary(fullcanopy@data)
+
 ```
 
 # Compute a reasonnable fallback value if local re-estimation fails 
@@ -162,14 +165,16 @@ On utilise l'atténuation biaisée pcq la débiaisée ne peut pas être utilisé
 Biais d'échantillonage : quand peu échantilloné a tendence à renvoyer une grande densité
 
 ```{r}
-fbv <- median(fullcanopy@data[nbSampling>=25, attenuation_FPL_biasedMLE]) # 0.0257098
+hist(fullcanopy@data$nbSampling, breaks=100)
+pulse.min = median(fullcanopy@data$nbSampling)
+
+fbv <- median(fullcanopy@data[nbSampling>=pulse.min, na.omit(attenuation_FPL_biasedMLE)]) # 0.0257098
 ```
 
 # Re-estimation of poorly sampled voxels
 un peu long
 ```{r}
-pulse.min = 25
-na <- nrow(fullcanopy@data[nbSampling < pulse.min])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
+na <- nrow(fullcanopy@data[nbSampling < 4])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
 write.csv(na, )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/EmptyVoxelsProportion2023LowAlt.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion2022.csv"
@@ -179,26 +184,31 @@ HLE(fullcanopy, # voxel space (only vegetation)
     variable.name2 = "weightedFreepathLength",
     variable.min = -Inf, variable.max = Inf, 
     variable.fallback = fbv, radius = 2, pulse.min = pulse.min)
+
+"HLE" %in% names(fullcanopy@data)
+sum(is.na(fullcanopy@data$HLE)) # 1888
+sum(!is.na(fullcanopy@data$HLE)) # 4887658
 ```
 
 # Visualisation
 ```{r}
+VX <- fullcanopy
+VX@data <- fullcanopy@data[!is.na(HLE) & HLE<2.5]
+AMAPVox::plot(VX, variable.name = "HLE")
+
 plot(HLE~attenuation_FPL_biasedMLE, data=fullcanopy@data[1:1000])
 plot(HLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data[1:10000])
 plot(attenuation_FPL_biasedMLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data[1:1000])
 
 fullcanopy@data[HLE>40,]
 
-plot(fullcanopy, variable.name="HLE")
-plot(fullcanopy, variable.name="attenuation_FPL_unbiasedMLE")
-plot(fullcanopy, variable.name="attenuation_FPL_biasedMLE")
 hist(fullcanopy@data$attenuation_FPL_unbiasedMLE, breaks=1000)
 
 quantile(x=fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.5,0.9,0.95,0.99), na.rm = T)
 range(fullcanopy@data$attenuation_FPL_unbiasedMLE, na.rm = T)
 range(fullcanopy@data$HLE)
 
-#replace extreme low and high values
+# Replace extreme low and high values
 fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmax(fullcanopy@data$attenuation_FPL_unbiasedMLE,0)
 fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmin(fullcanopy@data$attenuation_FPL_unbiasedMLE, quantile(fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.99), na.rm = T))
 ```
@@ -221,12 +231,13 @@ vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i"
 # Fill-in above canopy and below ground voxels with 0 PadBVTotal value
 vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later LAI2200 computations using AMAPVox
 
-writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
+writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer__PadHLE.vox"
 ```
 
 # Plot vertical profile
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
 
 # Crop voxel to test
 # subvox <- crop(vxsp, -50, 50, -50, 50)
@@ -239,18 +250,13 @@ ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
 ```
 # Compute Transmittance from attenuation
 T = I/Io, where I = transmitted light (“output”) and Io = incident light (“input”)
-Transmission=1-Attenuation ?
+Transmission=exp^(-HLE) ?
 
 (l'attenuation n'est pas censé être >0, elle l'est dues aux statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est débiaisée)
 
 ```{r}
-# "attenuation_FPL_biasedMLE" "attenuation_FPL_biasCorrection" "attenuation_FPL_unbiasedMLE" "attenuation_PPL_MLE" 
-range(na.omit(vxsp@data$attenuation_FPL_unbiasedMLE)) ; range(na.omit(vxsp@data$attenuation_PPL_MLE))
-# -17.28929 1657.19849 ;  0 20
-
-vxsp@data[,Transmittance_FPL := 1-attenuation_FPL_unbiasedMLE] # -1656.19849 18.28929"
-vxsp@data[,Transmittance_PPL := 1-attenuation_PPL_MLE] # -19 1
-range(na.omit(vxsp@data$Transmittance_FPL)) ; range(na.omit(vxsp@data$Transmittance_PPL))
+vxsp@data[,transmittance := exp(-HLE)] 
+range(na.omit(vxsp@data$Transmittance))
 
 writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
 ```

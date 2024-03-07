@@ -78,12 +78,12 @@ library(RColorBrewer)
 ## Flux tower data
 "Year", "Month", "jour", "heure+min", "time", "J/N"
 
-- Pluie ou Rain : sum Rainfall (mm)
+- Pluie : Rainfall (mm)
 
-- Rg : sum Global radiation (incident)	(MJ m-2)
+- Rg : Global radiation (incident)	(MJ m-2)
 - CNR4_SW_up : Global radiation (incident) (W m-2) (autre capteur)
 
-- Temp(55) : Mean Air temperature at 55 m (°C)
+- Temp(55) : Air temperature at 55 m (°C)
 - TempC_Avg_55_CR3000 : Air temperature at 55 m (°C) (autre capteur)
 
 - Temp(2.5) : Air temperature at 2.5 m
@@ -94,23 +94,28 @@ FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv",
                                        escape_double = FALSE, trim_ws = TRUE)
 
 names(FluxTowerData2023)
+all(FluxTowerData2023$`Temp(55)`==FluxTowerData2023$TempC_55_CR3000)
+all(FluxTowerData2023$Rg==FluxTowerData2023$CNR4_SW_up)
+
 
 FluxTowerData2023 <- FluxTowerData2023 %>% 
   filter(Year >= 2023) %>% 
   mutate(Date = as.Date(jour, origin = "2022-12-31")) %>% # Julian Day to calendar date
-  select(Year, Month, jour, Date, 'heure+min', time, "J/N", # 365 days, 12 months
-         Pluie, Rg, CNR4_SW_up, 'Temp(55)', TempC_55_CR3000) %>% 
-  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
+  select(Year, Month, jour, Date, `heure+min`, time, `J/N`, # 365 days, 12 months
+         Pluie, Rg, CNR4_SW_up, `Temp(55)`) %>% 
+  mutate(Season = ifelse(Month  %in% c(3, 8:11), # mars, aout-nov = dry season
                          "Dry", "Wet")) %>% 
   mutate(Month = factor(Month)) %>% 
-  mutate(Pluie = as.numeric(Pluie))
+  mutate(Pluie = as.numeric(Pluie)) %>% 
+  group_by(jour) %>% 
+  mutate(Rain_day = sum(Pluie)) # il faut sommer la pluie par jour pour visualiser les saisons
+
 
 FluxTowerData2023 <- FluxTowerData2023 %>% 
   mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600)))
 
 FluxTowerData2023 %>% 
-  filter(Pluie > 0) %>%
-  ggplot(aes(x = Month,y = Pluie)) +
+  ggplot(aes(x = Month,y = Rain_day)) +
   geom_boxplot(aes(color = Season)) +
   labs(title="FluxTower 2023 - Rainfall over the seasons",
        x ="Month", y = "Rainfall (mm)")
@@ -124,7 +129,7 @@ FluxTowerData2023 %>%
 
 FluxTowerData2023 %>% 
   filter(Rg > 0) %>%
-  ggplot(aes(x = Month,y = Rg)) +
+  ggplot(aes(x = Month,y = CNR4_SW_up)) + # CNR4_SW_up
   geom_boxplot(aes(color = Season)) +
   labs(title="FluxTower 2023 - Global incident radiation (MJ m-2 day-1) over the seasons",
        x ="Month", y = "Global incident radiation (MJ m-2 day-1)")
