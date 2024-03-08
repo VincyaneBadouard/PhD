@@ -71,17 +71,17 @@ HLE <- function (
             length(variable.name2) == 1)
   stopifnot(is.numeric(variable.min), length(variable.min) == 
               1, is.numeric(variable.max), length(variable.max) == 
-              1)
+              1, !is.na(variable.min))
   
   if (!missing(variable.fallback)) 
-    stopifnot(is.numeric(variable.fallback), length(variable.fallback) == 
-                1)
+    stopifnot(is.numeric(variable.fallback), length(variable.fallback) == 1,
+              !is.na(variable.fallback))
   
   if (missing(radius)) 
     radius <- max(getVoxelSize(vxsp)) # if no radius take the max voxelsize
-  stopifnot(is.numeric(radius), length(radius) == 1)
+  stopifnot(is.numeric(radius), length(radius) == 1, !is.na(radius))
   
-  stopifnot(is.numeric(pulse.min), pulse.min >= 0)
+  stopifnot(is.numeric(pulse.min), pulse.min >= 0, !is.na(pulse.min))
   
   # fct
   vx <- vxsp@data
@@ -130,7 +130,8 @@ HLE <- function (
 
 # Read voxelSpace
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
 vxsp
 summary(vxsp@data)
@@ -166,17 +167,20 @@ Biais d'échantillonage : quand peu échantilloné a tendence à renvoyer une gr
 
 ```{r}
 hist(fullcanopy@data$nbSampling, breaks=100)
-pulse.min = median(fullcanopy@data$nbSampling)
+pulse.min <- median(fullcanopy@data$nbSampling)
+pulse.min
 
 fbv <- median(fullcanopy@data[nbSampling>=pulse.min, na.omit(attenuation_FPL_biasedMLE)]) # 0.0257098
+fbv
 ```
 
 # Re-estimation of poorly sampled voxels
 un peu long
 ```{r}
-na <- nrow(fullcanopy@data[nbSampling < 4])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
+na <- nrow(fullcanopy@data[nbSampling < 25])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
 write.csv(na, )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/EmptyVoxelsProportion2023LowAlt.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/EmptyVoxelsProportion2023HighAlt.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion2022.csv"
 
 HLE(fullcanopy, # voxel space (only vegetation)
@@ -186,8 +190,9 @@ HLE(fullcanopy, # voxel space (only vegetation)
     variable.fallback = fbv, radius = 2, pulse.min = pulse.min)
 
 "HLE" %in% names(fullcanopy@data)
-sum(is.na(fullcanopy@data$HLE)) # 1888
+sum(is.na(fullcanopy@data$HLE)) 
 sum(!is.na(fullcanopy@data$HLE)) # 4887658
+all(is.na(fullcanopy@data[is.na(HLE)]$bsIntercepted)|is.na(fullcanopy@data[is.na(HLE)]$weightedFreepathLength)|fullcanopy@data[is.na(HLE)]$bsIntercepted==0) # missing HLE is when bsIntercepted or weightedFreepathLength are missing or equal to 0
 ```
 
 # Visualisation
@@ -202,15 +207,15 @@ plot(attenuation_FPL_biasedMLE~attenuation_FPL_unbiasedMLE, data=fullcanopy@data
 
 fullcanopy@data[HLE>40,]
 
-hist(fullcanopy@data$attenuation_FPL_unbiasedMLE, breaks=1000)
+hist(fullcanopy@data$attenuation_FPL_unbiasedMLE)
 
 quantile(x=fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.5,0.9,0.95,0.99), na.rm = T)
 range(fullcanopy@data$attenuation_FPL_unbiasedMLE, na.rm = T)
-range(fullcanopy@data$HLE)
+range(na.omit(fullcanopy@data$HLE))
 
 # Replace extreme low and high values
-fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmax(fullcanopy@data$attenuation_FPL_unbiasedMLE,0)
-fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmin(fullcanopy@data$attenuation_FPL_unbiasedMLE, quantile(fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.99), na.rm = T))
+# fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmax(fullcanopy@data$attenuation_FPL_unbiasedMLE,0)
+# fullcanopy@data$attenuation_FPL_unbiasedMLE <- pmin(fullcanopy@data$attenuation_FPL_unbiasedMLE, quantile(fullcanopy@data$attenuation_FPL_unbiasedMLE, prob=c(0.99), na.rm = T))
 ```
 
 # Create PadBVTotal
@@ -223,21 +228,25 @@ Plant area density (PAD in m2·m−3)
 PadBVTotal = 2 * HLE
 
 ```{r}
+fullcanopy@data$HLE[which(is.na(fullcanopy@data$HLE))] <- fbv  # to allow later transmittance computations using AMAPVox
+
 fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$HLE # *2 car hp d'orientation sphérique des feuilles
 
 # Import updated fields
 vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i","j","k"), all.x=T) # veg and ground data
 
 # Fill-in above canopy and below ground voxels with 0 PadBVTotal value
-vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later LAI2200 computations using AMAPVox
+vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later transmittance computations using AMAPVox
 
-writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
+writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer__PadHLE.vox"
 ```
 
 # Plot vertical profile
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
 
 # Crop voxel to test
 # subvox <- crop(vxsp, -50, 50, -50, 50)
@@ -255,10 +264,13 @@ Transmission=exp^(-HLE) ?
 (l'attenuation n'est pas censé être >0, elle l'est dues aux statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est débiaisée)
 
 ```{r}
-vxsp@data[,transmittance := exp(-HLE)] 
+vxsp@data[,Transmittance := exp(-HLE)] 
 range(na.omit(vxsp@data$Transmittance))
 
-writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox")
+writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
+# 
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox"
 ```
 
 # Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
