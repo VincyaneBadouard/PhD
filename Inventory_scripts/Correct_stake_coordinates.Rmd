@@ -185,7 +185,7 @@ for(p in plots){ # for each plot
 
     Y <- c(0, rep(NA, 10))
     
-    Y_length <- rep(10, 10)
+    Y_length <- rep(10, 10) # 10 m
     
     for(i in 1:10){ # for each subplot
       Y[i+1] = Y[i] + Y_length[i]
@@ -207,7 +207,7 @@ for(p in plots){ # for each plot
   for (y in 0:10){ # for each Y
     X <- c(0, rep(NA, 10))
     
-    X_length <- rep(10, 10)
+    X_length <- rep(10, 10)  # 10 m
     
     for(i in 1:10){ # for each subplot
       X[i+1] = X[i] + X_length[i]

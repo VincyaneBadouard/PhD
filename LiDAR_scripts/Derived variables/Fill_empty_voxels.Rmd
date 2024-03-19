@@ -225,7 +225,11 @@ Computes Plant Area Density either from (transmittance or) attenuation coefficie
 PAD is defind as the plant area per unit volume (PAD plant area / voxel volume = m^2 / m^3).
 Plant area density (PAD in m2·m−3)
 
+PadBVTotal = 2* attenuation (soit 2*-log(transmittance) 
+
 PadBVTotal = 2 * HLE
+
+*AMAPVox::plantAreaDensity utilise une des variables disponibles "transmittance", "attenuation_FPL_unbiasedMLE" ou  "attenuation_PPL_MLE" et génère une variable du même nom précédé du préfixe "pad_"*
 
 ```{r}
 fullcanopy@data$HLE[which(is.na(fullcanopy@data$HLE))] <- fbv  # to allow later transmittance computations using AMAPVox

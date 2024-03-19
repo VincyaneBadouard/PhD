@@ -2,15 +2,15 @@ library(sf)
 library(terra)
 library(ggplot2)
 
-raster <- terra::rast("~/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
-points <- sf::read_sf("~/PhD/SIG_data/LiDAR_Targets/BigTargets.shp") %>% 
-  sf::st_transform(crs = crs(raster))
+raster <- terra::rast("~/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif") # MNT
+points <- sf::read_sf("~/PhD/SIG_data/LiDAR_Targets/BigTargets.shp") %>% # points
+  sf::st_transform(crs = crs(raster)) # only x, y
 
 plot(raster) ; plot(points, add = T)
 
-points <- extract(raster, points, xy = T)
+points <- extract(raster, points, xy = T) # extract z
 
-raster_df <- as.data.frame(raster, xy = TRUE)%>%
+raster_df <- as.data.frame(raster, xy = TRUE) %>% # as df to plot
   na.omit()
 
 ggplot() + 
