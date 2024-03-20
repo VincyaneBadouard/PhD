@@ -447,7 +447,7 @@ aov(lm(Transmittance ~ Id, data=Transmittance_data[Transmittance_data$Ring=="Rin
 hist(Transmittance_data$Transmittance[which(Transmittance_data$Ring=="Ring1")], breaks=50)
 ```
 
-# Moyenner les transmittances par location
+# Moyenner les transmittances par location, for each ring
 ```{r}
 mean <- Transmittance_data %>% 
   select(-c(Position, Sensor, Index)) %>% 
@@ -500,8 +500,6 @@ HOBO <- HOBO %>%
   mutate(Plot = "16") %>% 
   mutate(SubPlot = as.character(SubPlot))
 
-
-
 ggplot(HOBO, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
@@ -513,11 +511,13 @@ ggplot(HOBO, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) +
 LAI2200 <- bind_rows(LAY, HOBO) %>% select(-c("...1","...2" )) %>%  # 22 col, 765 rows
   select(c(Site, Plot, Transect, SubPlot, File_Id : LayonEdge)) # reorder columns
 
+write.csv(LAI2200, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv")
 ```
 
 # Spacialisation (A FAIRE)
 Attribute stakes coordinates to the sensors
 each 10 m
+Theorical_coordinates_P16.Rmd
 ```{r}
 # stakes coordinates data
 

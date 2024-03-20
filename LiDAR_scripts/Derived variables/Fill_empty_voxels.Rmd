@@ -130,7 +130,8 @@ HLE <- function (
 
 # Read voxelSpace
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
 vxsp
@@ -180,7 +181,7 @@ un peu long
 na <- nrow(fullcanopy@data[nbSampling < 25])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
 write.csv(na, )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/EmptyVoxelsProportion2023LowAlt.csv"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/EmptyVoxelsProportion2023HighAlt.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/EmptyVoxelsProportion2023HighAlt.csv" # 0.37
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion2022.csv"
 
 HLE(fullcanopy, # voxel space (only vegetation)
@@ -241,8 +242,18 @@ vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i"
 
 # Fill-in above canopy and below ground voxels with 0 PadBVTotal value
 vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later transmittance computations using AMAPVox
+```
+# Compute Transmittance from attenuation
+T = I/Io, where I = transmitted light (“output”) and Io = incident light (“input”)
+Transmission=exp^(-HLE) ?
 
-writeVoxelSpace(vxsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
+(l'attenuation n'est pas censé être >0, elle l'est dues aux statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est débiaisée)
+
+```{r}
+vxsp@data[,Transmittance := exp(-HLE)] 
+range(na.omit(vxsp@data$Transmittance))
+
+writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer__PadHLE.vox"
@@ -260,21 +271,16 @@ vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/A
 ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
   geom_path() + geom_point()
 
-```
-# Compute Transmittance from attenuation
-T = I/Io, where I = transmitted light (“output”) and Io = incident light (“input”)
-Transmission=exp^(-HLE) ?
-
-(l'attenuation n'est pas censé être >0, elle l'est dues aux statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est débiaisée)
-
-```{r}
-vxsp@data[,Transmittance := exp(-HLE)] 
-range(na.omit(vxsp@data$Transmittance))
-
-writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
-# 
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_PadHLE.vox"
+ggplot(df_att_selected, aes(x=ground_distance, y=pad/3600)) +
+  geom_point() + 
+  geom_line() +
+  #scale_color_viridis_d() +
+  xlim(0,30) +
+  ylim(0,0.7) + 
+  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - PAD profile") +
+  theme(plot.title = element_text(hjust=0.5)) + 
+  labs(y="PAD", x="Absolute Tree Height") +
+  coord_flip()
 ```
 
 # Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance

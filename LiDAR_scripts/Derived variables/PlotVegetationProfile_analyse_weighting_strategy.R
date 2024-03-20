@@ -284,7 +284,7 @@ ggplot(df_att_selected, aes(x=ground_distance, y=pad/3600)) +
   xlim(0,30) +
   ylim(0,0.5) + 
   #ggtitle("Clumping Effect") +
-  theme(plot.title = element_text(hjust=0.5 ,size=20), , legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
+  theme(plot.title = element_text(hjust=0.5 ,size=20), legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
   labs(y="LAD", x="Height Above Ground") +
   annotation_custom(grob1) +
   annotation_custom(grob2) +
@@ -333,7 +333,7 @@ ggplot(df_att_selected, aes(x=ground_distance, y=pad/3600)) +
   xlim(0,30) +
   ylim(0,0.5) + 
   #ggtitle("Clumping Effect") +
-  theme(plot.title = element_text(hjust=0.5 ,size=20), , legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
+  theme(plot.title = element_text(hjust=0.5 ,size=20), legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
   labs(y="LAD", x="Height Above Ground") +
   annotation_custom(grob1) +
   annotation_custom(grob2) +
@@ -374,7 +374,7 @@ ggplot(df_att_selected, aes(x=ground_distance, y=pad/3600)) +
   xlim(0,30) +
   ylim(0,0.5) + 
   #ggtitle("Clumping Effect") +
-  theme(plot.title = element_text(hjust=0.5 ,size=20), , legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
+  theme(plot.title = element_text(hjust=0.5 ,size=20), legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
   labs(y="LAD", x="Height Above Ground") +
   annotation_custom(grob1) +
   annotation_custom(grob2) +
@@ -419,7 +419,7 @@ ggplot(df_att_selected2m, aes(x=ground_distance, y=pad/3600)) +
   xlim(0,30) +
   ylim(0,0.5) + 
   #ggtitle("Clumping Effect") +
-  theme(plot.title = element_text(hjust=0.5 ,size=20), , legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
+  theme(plot.title = element_text(hjust=0.5 ,size=20), legend.text=element_text(size=10), legend.title =element_text(size=12)) + 
   labs(y="LAD", x="Height Above Ground") +
   annotation_custom(grob1) +
   annotation_custom(grob2) +

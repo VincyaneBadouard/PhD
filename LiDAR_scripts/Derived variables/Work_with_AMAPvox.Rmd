@@ -138,7 +138,7 @@ traj <- bind_rows(df_list)
 # if one file :
 path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto1000m.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/trajectory.txt"
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto500m.txt"
 traj <- fread(path)
 traj
 plot3d(traj[,2:4], aspect=F) # plot the trajectory (x,y,z)
@@ -186,7 +186,6 @@ range(PC$Z) # min et max de l'altitude: 4.19 65.74 m
 plot(PC) 
 ```
 
-
 # Classifier les points sol
 ```{r}
 # Normaliser la hauteur du sol
@@ -207,12 +206,12 @@ PC <- lidR::unnormalize_height(PC_norm)
 # Garder uniquement les points de végétation (pas nécessaire avant amapvox)
 On enlève tout le sol, on garde que les tirs qui atteignent la végétation
 ```{r}
-GP <- PC@data[(Classification==2 | Classification==7),] # Ground Points
-GS <- PC@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
-VP <- PC@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
-# question : pq enlever tous les tirs pris en meme temps que les tirs ayant touché le sol, et pas juste enlever les données sol ?
-rm(GP)
-rm(GS)
+# GP <- PC@data[(Classification==2 | Classification==7),] # Ground Points
+# GS <- PC@data[gpstime %in% GP$gpstime,] # temps gps des tirs dont l'echo est au sol
+# VP <- PC@data[!(gpstime %in% GP$gpstime),] # données aux temps gps uniquement des tirs qui n'ont pas touché le sol
+# # question : pq enlever tous les tirs pris en meme temps que les tirs ayant touché le sol, et pas juste enlever les données sol ?
+# rm(GP)
+# rm(GS)
 ```
 
 # Calculer la moyenne de réflectance (appelée intensité) par écho (pas fait pour 2023)
@@ -244,6 +243,24 @@ PC@data$initial_intensity <- NULL
 
 writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
+```
+
+# Rectifier les réflectances pour pouvoir prendre en compte les propriétés optiques des matériaux dans le calcul de la transmittance dans AMAPVox
+```{r}
+PC <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+
+means <- PC@data[NumberOfReturns == 1, .(mean=mean(Intensity)), by = Classification] # Reflectance mean by classification (veg, ground)
+
+ratio <- means[Classification==2,]$mean/means[Classification==3,]$mean # ratio sol/veg reflectance 
+
+PC@data <- PC@data %>% 
+  mutate(Intensity = ifelse(Classification==2, as.integer(as.numeric(Intensity)/ratio), Intensity)) %>%  # Ground reflectance corrected by the ratio
+  mutate(Classification = ifelse(Classification==2, 1L, Classification)) # for AMAPVox to give the soil without know it (?)
+
+writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+# //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
 ```
 
@@ -436,15 +453,15 @@ Plot rotation : pour prendre en compte la course du soleil : 17° à la louche m
 
 Latitude de Paracou : 5°
 Calendrier : sur une année et pour chaque saison de l’année d’acquisition des données LiDAR
- 
+
 Clearness index : voir section "Compute the clearness index from the tower data"
 
 ```{r}
-path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Dry.txt"
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Wet.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Dry.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Wet.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_Light_annual.txt"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_Light_annual.txt"
 
 Light <- fread(path, skip=10) # skip the 10 1st lines of header
@@ -493,8 +510,8 @@ ggplot() +
   scale_color_gradientn(name = "Light intensity (Transmittance)",
                         colors = terrain.colors(30, rev=T),
                         na.value="white") +
- geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer (to remove after)
- geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer (to remove after)
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - Light map 1m") +  
   coord_sf()
 
@@ -514,18 +531,20 @@ ggplot() +
   scale_color_gradientn(name = "Light intensity (Transmittance)",
                         colors = terrain.colors(30, rev=T),
                         na.value="white") +
- geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer (to remove after)
- geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer (to remove after)
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - ALS High Altitude - Dry season - Light map 1m") +  
   coord_sf()
 
-fwrite(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt", row.names = F, col.names = T)
+fwrite(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.txt", row.names = F, col.names = T)
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual_1m_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
 
-write.csv(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv")
+write.csv(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual_1m_UTM.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv"
 ```
 
 Amapvox peut générer des photos hémisphériques, des données LAI2200, et des cartes 3D de lumière.
@@ -536,8 +555,46 @@ Tester différentes hauteurs permettra aussi de tester la disponibilité en lumi
 où se trouve la couronne des arbres considérés.
 
 ```{r}
-# LAI2200 <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_spatialised.csv") # spatialised LAI2200 sensors
+LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
+  mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
+HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
+  mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
+HighWet <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv") %>% 
+  mutate(Transmittance_HighWet = rowMeans(select(., `Period.1`, `Period.2`, `Period.3`)))  %>% select(Xutm, Yutm, Z, Transmittance_HighWet)
+HighDry <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv") %>% 
+  mutate(Transmittance_HighDry = rowMeans(select(., `Period.1`, `Period.2`))) %>% select(Xutm, Yutm, Z, Transmittance_HighDry)
+# Periodes ok ? mean ok ? arrondir ok ?
 
+LiDAR <- LowAnnual %>% 
+  left_join(HighAnnual, by= c("Xutm","Yutm","Z")) %>% 
+  left_join(HighWet, by= c("Xutm","Yutm","Z")) %>% 
+  left_join(HighDry, by= c("Xutm","Yutm","Z")) %>%
+  rename(Zutm = Z) %>%
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+
+LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
+LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+
+names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
+names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
+
+LAI2200 <- LAI2200_coord %>% 
+  left_join(LAI2200_data, by= c("Transect", "Id"))
+
+LAI2200_Lidar <- LAI2200 %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm)) %>% 
+  left_join(LiDAR, by= c("Xutm","Yutm","Zutm"))
+
+# Correlation tests
+
+
+```
+
+```{r}
 
 ```
 

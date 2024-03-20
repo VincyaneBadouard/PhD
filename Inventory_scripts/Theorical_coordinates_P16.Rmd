@@ -43,6 +43,7 @@ ggplot() +
 LAI2200_HOBO <- data.frame(
   Sensor = "LAI2200",
   Transect = "HOBO",
+  Id = as.character(seq(1:20)), # S->N
   x = 390,
   y = seq(110,300, by= 10)
 )
@@ -51,6 +52,7 @@ nrow(LAI2200_HOBO)==20
 LAI2200_LAY <- data.frame(
   Sensor = "LAI2200",
   Transect = "LAY",
+  Id = as.character(rev(seq(1:26))), # E->O
   x = seq(350,400, by= 2),
   y = 200
 )
@@ -58,10 +60,13 @@ nrow(LAI2200_LAY)==26
 
 LAI2200 <- rbind(LAI2200_HOBO, LAI2200_LAY)
 
+library(ggrepel)
 ggplot() +
   geom_point(data=grid, aes(x = x, y = y)) + # il faut mettre l'argument data sinon ça ne marche pas
   geom_point(data=LAI2200_HOBO, aes(x = x, y = y), color = "red", size = 1)+
+  geom_text_repel(data = LAI2200_HOBO, aes(x = x, y = y, label = Id), color = "black", size = 2) +
   geom_point(data=LAI2200_LAY, aes(x = x, y = y), color = "green", size = 0.3)+
+  # geom_text_repel(data = LAI2200_LAY, aes(x = x, y = y, label = Id), color = "black", size = 2) +
   coord_fixed(ratio=1) # same axis size
 
 ```
@@ -103,9 +108,9 @@ ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
   geom_sf(data = gridUTMsf)
 ```
+
 # LAI2200 positions in UTM 
 ```{r}
-
 LAI2200UTM <- LAI2200 %>% 
   mutate(Xutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so x`+(x/limx)*(1-y/limy)*tab[P,]$`se x`+(y/limy)*(1-x/limx)*tab[P,]$`no x`+((x*y)/(limx*limy))*tab[P,]$`ne x`) %>% 
   mutate(Yutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so y`+(x/limx)*(1-y/limy)*tab[P,]$`se y`+(y/limy)*(1-x/limx)*tab[P,]$`no y`+((x*y)/(limx*limy))*tab[P,]$`ne y`)
@@ -125,18 +130,19 @@ ggplot() +
 
 # Extract Z coord MNT to Points
 ```{r}
-raster <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/PARACOU2023_DTM_1m.tif") # MNT
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc") # MNT
 
-plot(raster) ; plot(LAI2200UTMsf, add = T)
+plot(MNT) ; plot(LAI2200UTMsf, add = T)
 
-LAI2200UTMxyz <- extract(raster, LAI2200UTMsf, xy = T) %>% # extract z
-  rename(z= MNT_0.5m_IRD_500m_Paracou_284000_579500) %>% 
-  left_join(LAI2200UTM, by= c("x" = "Xutm", "y" = "Yutm"))  # arrétée là, c'est pas les memes coordonnées
-  # select(c(a, y, x, 1ercolnonmodified : dercol))
+alt <- extract(MNT, LAI2200UTMsf) %>% # extract z
+  rename(Zutm = dtm2023_4ha_HighAlt_buffer) %>% 
+  select(-ID) %>% 
+  mutate(Zutm = Zutm +1) # sensors at 1 m height
 
-LAI2200UTMxyz
+LAI2200UTMxyz <- LAI2200UTM %>% cbind(alt)
 
 
-write.csv(LAI2200UTMxyz, ".csv")
+
+write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv")
 ```
 
