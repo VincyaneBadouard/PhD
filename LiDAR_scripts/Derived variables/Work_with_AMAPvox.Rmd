@@ -30,6 +30,8 @@ library(raster)
 library(lidR)
 library(tidyterra)
 library(sf)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 # Load points cloud
@@ -457,7 +459,7 @@ Calendrier : sur une année et pour chaque saison de l’année d’acquisition 
 Clearness index : voir section "Compute the clearness index from the tower data"
 
 ```{r}
-path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Wet.txt"
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Dry.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Wet.txt"
@@ -536,12 +538,12 @@ ggplot() +
   ggtitle("Paracou P16 4ha - ALS High Altitude - Dry season - Light map 1m") +  
   coord_sf()
 
-fwrite(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.txt", row.names = F, col.names = T)
+fwrite(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt", row.names = F, col.names = T)
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
 
-write.csv(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv")
+write.csv(Lightcrop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv"
@@ -587,11 +589,38 @@ LAI2200_Lidar <- LAI2200 %>%
   mutate(Xutm = round(Xutm), 
          Yutm = round(Yutm),
          Zutm = round(Zutm)) %>% 
-  left_join(LiDAR, by= c("Xutm","Yutm","Zutm"))
+  left_join(LiDAR, by= c("Xutm","Yutm","Zutm")) # ttes les coordonnées ne matchent pas
+
+# Relations plots
+LAI2200_Lidar %>% 
+  filter(Ring=="Ring1") %>%
+  ggplot() +
+  aes(x = Transmittance_mean, y = Transmittance_HighDry) +
+  geom_point(aes(y = Transmittance_LowAnnual), color = "green") +
+  geom_point(aes(y = Transmittance_HighAnnual), color = "darkgreen") +
+  geom_point(aes(y = Transmittance_HighWet), color = "blue")  +
+  geom_point(aes(y = Transmittance_HighDry), color = "orange")+
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="LAI2200 transmittance", y = "LiDAR transmittance")
 
 # Correlation tests
+# Transmittance_mean, Transmittance_LowAnnual, Transmittance_HighAnnual,Transmittance_HighDry, Transmittance_HighWet
 
+DF_cor <- LAI2200_Lidar %>% 
+  filter(Ring=="Ring1") %>%
+  select(Transmittance_mean,Transmittance_LowAnnual,Transmittance_HighAnnual,Transmittance_HighDry,Transmittance_HighWet) # 
+# na.omit()
 
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.7, tl.srt=45)
+# dev.off()
 ```
 
 ```{r}

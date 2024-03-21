@@ -30,7 +30,7 @@ Prendre en compte le voisinage en excluant les trouées
 - Get neighbors in immediate neighborhood (27 nearest voxels including target = 3 neighbors)
 - Recompute attenuation from local neighbourhood : sum(bsIntercepted)/sum(weightedFreepathLength)
 - When no value was found, take the fallback value
- 
+
 4) Create PadBVTotal
 
 # Packages
@@ -41,7 +41,7 @@ library(lattice)
 library(data.table)
 library(MASS)
 library(ggplot2)
-
+library(tidyverse)
 rm(list=ls())
 ```
 
@@ -268,19 +268,28 @@ vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/A
 # AMAPVox::plot(subvox)
 # writeVoxelSpace(subvox,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/subvox.vox")
 
-ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
-  geom_path() + geom_point()
+data <- vxsp@data %>% 
+  mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
+  group_by(ground_distance_disc) %>% 
+  mutate(MeanPAD = mean(PadBVTotal)) %>% 
+  ungroup()
+# 
+# ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
+#   geom_path() + geom_point()
 
-ggplot(df_att_selected, aes(x=ground_distance, y=pad/3600)) +
+data %>% 
+  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+  ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
   geom_point() + 
   geom_line() +
   #scale_color_viridis_d() +
-  xlim(0,30) +
-  ylim(0,0.7) + 
+  # xlim(0,1) +
+  # ylim(0,60) +
   ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - PAD profile") +
-  theme(plot.title = element_text(hjust=0.5)) + 
+  # theme(plot.title = element_text(hjust=0.5)) + 
   labs(y="PAD", x="Absolute Tree Height") +
-  coord_flip()
+  coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
+  # options(repr.plot.width=8, repr.plot.height=15) # higher height
 ```
 
 # Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
