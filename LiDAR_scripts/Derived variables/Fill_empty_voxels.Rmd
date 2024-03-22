@@ -4,36 +4,47 @@ author: "Vincyane Badouard"
 date: '`r Sys.Date()`'
 output:
   html_document: default
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
 Source: Adapted to the script of Grégoire Vincent.
 
-Certains voxels (en bas de canopée) ne sont pas ou mal échantillonnés (seuil) du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 26 voisins les plus proches**.
+Certains voxels (en bas de canopée) ne sont pas ou mal échantillonnés
+(seuil) du fait de l’occlusion des tirs LiDAR. Ces données manquantes
+ont été comblées en appliquant la **moyenne des valeurs de transmittance
+des 26 voisins les plus proches**.
 
 Ce ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 
-Estimer selon le plus probable et selon les besoins
-Prendre en compte le voisinage en excluant les trouées
+Estimer selon le plus probable et selon les besoins Prendre en compte le
+voisinage en excluant les trouées
 
-3 possibilités si pas de voisins : 
-- une valeur fallback (fait actuellement)
-- augmenter le voisinage
-- tourner le script plusieurs de fois et faire donc du proche en proche
+3 possibilités si pas de voisins : - une valeur fallback (fait
+actuellement) - augmenter le voisinage - tourner le script plusieurs de
+fois et faire donc du proche en proche
 
-1) get the vegetation voxels only (z > 0.5 m)
+1)  get the vegetation voxels only (z \> 0.5 m)
 
-2) Compute a reasonnable fallback value (the median of attenuation) if local re-estimation fails
+2)  Compute a reasonnable fallback value (the median of attenuation) if
+    local re-estimation fails
 
-3) Re-estimation of poorly sampled voxels
-- subset of voxels below sampling threshold level (=*nbsampling median* of the data)
-- but all voxels can contribute to local estimate
-- Get neighbors in immediate neighborhood (27 nearest voxels including target = 3 neighbors)
-- Recompute attenuation from local neighbourhood : sum(bsIntercepted)/sum(weightedFreepathLength)
-- When no value was found, take the fallback value
+3)  Re-estimation of poorly sampled voxels
 
-4) Create PadBVTotal
+-   subset of voxels below sampling threshold level (=*nbsampling
+    median* of the data)
+-   but all voxels can contribute to local estimate
+-   Get neighbors in immediate neighborhood (27 nearest voxels including
+    target = 3 neighbors)
+-   Recompute attenuation from local neighbourhood :
+    sum(bsIntercepted)/sum(weightedFreepathLength)
+-   When no value was found, take the fallback value
+
+4)  Create PadBVTotal
 
 # Packages
+
 ```{r, include = F}
 library(AMAPVox)
 library(rgl)
@@ -46,6 +57,7 @@ rm(list=ls())
 ```
 
 # Function
+
 ```{r}
 ##### New function defined here #####
 ##### just a poor hack of fillNA #####
@@ -129,6 +141,7 @@ HLE <- function (
 ```
 
 # Read voxelSpace
+
 ```{r}
 vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox"
@@ -140,6 +153,7 @@ summary(vxsp@data)
 ```
 
 # First get vegetation voxels only
+
 ```{r}
 bcnp <- belowCanopy(vxsp) # enlève tous les voxels au dessus de la canopée
 summary(bcnp)
@@ -157,14 +171,17 @@ summary(fullcanopy@data)
 
 ```
 
-# Compute a reasonnable fallback value if local re-estimation fails 
+# Compute a reasonnable fallback value if local re-estimation fails
+
 fallback value = the median of attenuation
 
-nbSampling : nombre d'échantillonage. Prendre les plus fiables (>=25)
+nbSampling : nombre d'échantillonage. Prendre les plus fiables (\>=25)
 
-On utilise l'atténuation biaisée pcq la débiaisée ne peut pas être utilisée à multiple échelle.
+On utilise l'atténuation biaisée pcq la débiaisée ne peut pas être
+utilisée à multiple échelle.
 
-Biais d'échantillonage : quand peu échantilloné a tendence à renvoyer une grande densité
+Biais d'échantillonage : quand peu échantilloné a tendence à renvoyer
+une grande densité
 
 ```{r}
 hist(fullcanopy@data$nbSampling, breaks=100)
@@ -176,7 +193,9 @@ fbv
 ```
 
 # Re-estimation of poorly sampled voxels
+
 un peu long
+
 ```{r}
 na <- nrow(fullcanopy@data[nbSampling < 25])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
 write.csv(na, )
@@ -197,6 +216,7 @@ all(is.na(fullcanopy@data[is.na(HLE)]$bsIntercepted)|is.na(fullcanopy@data[is.na
 ```
 
 # Visualisation
+
 ```{r}
 VX <- fullcanopy
 VX@data <- fullcanopy@data[!is.na(HLE) & HLE<2.5]
@@ -220,17 +240,23 @@ range(na.omit(fullcanopy@data$HLE))
 ```
 
 # Create PadBVTotal
-ref : VINCENT, Gregoire; PIMONT, François; VERLEY, Philippe, 2021, "A note on PAD/LAD estimators implemented in AMAPVox 1.7", doi:10.23708/1AJNMP , DataSuds, V1
 
-Computes Plant Area Density either from (transmittance or) attenuation coefficient estimates.
-PAD is defind as the plant area per unit volume (PAD plant area / voxel volume = m^2 / m^3).
-Plant area density (PAD in m2·m−3)
+ref : VINCENT, Gregoire; PIMONT, François; VERLEY, Philippe, 2021, "A
+note on PAD/LAD estimators implemented in AMAPVox 1.7",
+<doi:10.23708/1AJNMP> , DataSuds, V1
 
-PadBVTotal = 2* attenuation (soit 2*-log(transmittance) 
+Computes Plant Area Density either from (transmittance or) attenuation
+coefficient estimates. PAD is defind as the plant area per unit volume
+(PAD plant area / voxel volume = m\^2 / m\^3). Plant area density (PAD
+in m2·m−3)
 
-PadBVTotal = 2 * HLE
+PadBVTotal = 2\* attenuation (soit 2\*-log(transmittance)
 
-*AMAPVox::plantAreaDensity utilise une des variables disponibles "transmittance", "attenuation_FPL_unbiasedMLE" ou  "attenuation_PPL_MLE" et génère une variable du même nom précédé du préfixe "pad_"*
+PadBVTotal = 2 \* HLE
+
+*AMAPVox::plantAreaDensity utilise une des variables disponibles
+"transmittance", "attenuation_FPL_unbiasedMLE" ou "attenuation_PPL_MLE"
+et génère une variable du même nom précédé du préfixe "pad\_"*
 
 ```{r}
 fullcanopy@data$HLE[which(is.na(fullcanopy@data$HLE))] <- fbv  # to allow later transmittance computations using AMAPVox
@@ -243,11 +269,15 @@ vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i"
 # Fill-in above canopy and below ground voxels with 0 PadBVTotal value
 vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later transmittance computations using AMAPVox
 ```
-# Compute Transmittance from attenuation
-T = I/Io, where I = transmitted light (“output”) and Io = incident light (“input”)
-Transmission=exp^(-HLE) ?
 
-(l'attenuation n'est pas censé être >0, elle l'est dues aux statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est débiaisée)
+# Compute Transmittance from attenuation
+
+T = I/Io, where I = transmitted light (“output”) and Io = incident light
+(“input”) Transmission=exp\^(-HLE) ?
+
+(l'attenuation n'est pas censé être \>0, elle l'est dues aux
+statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est
+débiaisée)
 
 ```{r}
 vxsp@data[,Transmittance := exp(-HLE)] 
@@ -260,6 +290,7 @@ writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/AL
 ```
 
 # Plot vertical profile
+
 ```{r}
 vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
 
@@ -297,4 +328,3 @@ data %>%
 fichier CheckEffectDecimation.R
 
 full - decim = écart systématique ou non selon le numbre de pulse
-
