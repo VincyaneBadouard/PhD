@@ -557,20 +557,26 @@ Tester différentes hauteurs permettra aussi de tester la disponibilité en lumi
 où se trouve la couronne des arbres considérés.
 
 ```{r}
-LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
-  mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
-HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
-  mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
-HighWet <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv") %>% 
-  mutate(Transmittance_HighWet = rowMeans(select(., `Period.1`, `Period.2`, `Period.3`)))  %>% select(Xutm, Yutm, Z, Transmittance_HighWet)
-HighDry <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv") %>% 
-  mutate(Transmittance_HighDry = rowMeans(select(., `Period.1`, `Period.2`))) %>% select(Xutm, Yutm, Z, Transmittance_HighDry)
-# Periodes ok ? mean ok ? arrondir ok ?
+# LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
+#   mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
+# HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
+#   mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
+
+HighAnnual_LAI_GAP <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_LAI2200sim") %>% 
+  mutate(LiDAR = "HighAlt")
+HighAnnual_trans <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_LAI2200sim_test.txt") %>% 
+  mutate(LiDAR = "HighAlt")
+LowAnnual_LAI_GAP <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_LAI2200sim") %>% 
+  mutate(LiDAR = "LowAlt")
+LowAnnual_trans <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_LAI2200sim_test.txt") %>% 
+  mutate(LiDAR = "LowAlt")
+
+names(HighAnnual_LAI_GAP) # "posX", "posY", "posZ", "LAI", "GAP[1]" "GAP[2]" "GAP[3]" "GAP[4]" "GAP[5]"
+names(HighAnnual_trans) # "position.x", "position.y", "position.z", "ring", "transmittance"
+# elevation normal que >1 ? autres variables ?
 
 LiDAR <- LowAnnual %>% 
   left_join(HighAnnual, by= c("Xutm","Yutm","Z")) %>% 
-  left_join(HighWet, by= c("Xutm","Yutm","Z")) %>% 
-  left_join(HighDry, by= c("Xutm","Yutm","Z")) %>%
   rename(Zutm = Z) %>%
   mutate(Xutm = round(Xutm), 
          Yutm = round(Yutm),
@@ -598,8 +604,6 @@ LAI2200_Lidar %>%
   aes(x = Transmittance_mean, y = Transmittance_HighDry) +
   geom_point(aes(y = Transmittance_LowAnnual), color = "green") +
   geom_point(aes(y = Transmittance_HighAnnual), color = "darkgreen") +
-  geom_point(aes(y = Transmittance_HighWet), color = "blue")  +
-  geom_point(aes(y = Transmittance_HighDry), color = "orange")+
   stat_smooth(method = "lm",
               formula = y ~ x) +
   labs(x ="LAI2200 transmittance", y = "LiDAR transmittance")
@@ -622,8 +626,60 @@ corrplot(CorMatrix, method="circle", type="lower",
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.7, tl.srt=45)
 # dev.off()
 ```
-
+# Compare to HOBO & Tomst
 ```{r}
+LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
+  mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
+HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
+  mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
+HighWet <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv") %>% 
+  rowwise() %>% 
+  mutate(Transmittance_HighWet = weighted.mean(c(`Period.1`, `Period.2`, `Period.3`), c(4, 2, 1)/7)) %>% # weighted mean by period size
+  ungroup() %>%
+  select(Xutm, Yutm, Z, Transmittance_HighWet)
+HighDry <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv") %>% 
+  rowwise() %>% 
+  mutate(Transmittance_HighDry = weighted.mean(c(`Period.1`, `Period.2`), c(1, 4)/5)) %>% # weighted mean by period size
+  ungroup() %>% 
+  select(Xutm, Yutm, Z, Transmittance_HighDry)
+
+
+LiDAR <- LowAnnual %>% 
+  left_join(HighAnnual, by= c("Xutm","Yutm","Z")) %>% 
+  left_join(HighWet, by= c("Xutm","Yutm","Z")) %>% 
+  left_join(HighDry, by= c("Xutm","Yutm","Z")) %>%
+  rename(Zutm = Z) %>%
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+
+HOBO_Lidar %>% 
+  ggplot() +
+  aes(x = Light, y = Transmittance_HighDry) +
+  geom_point(aes(y = Transmittance_LowAnnual), color = "green") +
+  geom_point(aes(y = Transmittance_HighAnnual), color = "darkgreen") +
+  geom_point(aes(y = Transmittance_HighWet), color = "blue")  +
+  geom_point(aes(y = Transmittance_HighDry), color = "orange")+
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="Light (lux)", y = "LiDAR transmittance")
+
+# Correlation tests
+# Light, Temperature, Transmittance_LowAnnual, Transmittance_HighAnnual,Transmittance_HighDry, Transmittance_HighWet
+
+DF_cor <- HOBOTomst_Lidar %>% 
+  select(Light, Temperature,Transmittance_LowAnnual,Transmittance_HighAnnual,Transmittance_HighDry,Transmittance_HighWet) # 
+# na.omit()
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.7, tl.srt=45)
+# dev.off()
 
 ```
 

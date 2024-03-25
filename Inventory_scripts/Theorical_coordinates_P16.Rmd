@@ -146,3 +146,17 @@ LAI2200UTMxyz <- LAI2200UTM %>% cbind(alt)
 write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv")
 ```
 
+# LAI2200 local positions (use VOP)
+```{r}
+LAI2200UTMxyz <- as.data.table(read.csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"))
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+matrix <- as.matrix(LAI2200UTMxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+LAI2200local <- matrix %*% t(VOP) # same dimensions
+
+LAI2200local <- cbind(LAI2200local,LAI2200UTMxyz[,Zutm])[, -c(3,4)] # add Zutm
+
+write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")
+```
+
