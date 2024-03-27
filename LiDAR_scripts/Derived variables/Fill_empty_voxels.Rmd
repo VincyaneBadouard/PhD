@@ -28,17 +28,17 @@ fois et faire donc du proche en proche
 1)  get the vegetation voxels only (z \> 0.5 m)
 
 2)  Compute a reasonnable fallback value (the median of attenuation) if
-    local re-estimation fails
+local re-estimation fails
 
 3)  Re-estimation of poorly sampled voxels
 
 -   subset of voxels below sampling threshold level (=*nbsampling
-    median* of the data)
+median* of the data)
 -   but all voxels can contribute to local estimate
 -   Get neighbors in immediate neighborhood (27 nearest voxels including
-    target = 3 neighbors)
+target = 3 neighbors)
 -   Recompute attenuation from local neighbourhood :
-    sum(bsIntercepted)/sum(weightedFreepathLength)
+sum(bsIntercepted)/sum(weightedFreepathLength)
 -   When no value was found, take the fallback value
 
 4)  Create PadBVTotal
@@ -57,7 +57,6 @@ rm(list=ls())
 ```
 
 # Function
-
 ```{r}
 ##### New function defined here #####
 ##### just a poor hack of fillNA #####
@@ -293,6 +292,8 @@ writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/AL
 
 ```{r}
 vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
 
 # Crop voxel to test
 # subvox <- crop(vxsp, -50, 50, -50, 50)
@@ -300,16 +301,22 @@ vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/A
 # writeVoxelSpace(subvox,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/subvox.vox")
 
 data <- vxsp@data %>% 
+  filter(nbSampling>0) %>%
   mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
   group_by(ground_distance_disc) %>% 
   mutate(MeanPAD = mean(PadBVTotal)) %>% 
+  mutate(MinPAD = min(PadBVTotal)) %>% 
+  mutate(MaxPAD = max(PadBVTotal)) %>%
+  mutate(MeanNbsampling = mean(nbSampling)) %>% 
+  mutate(SdNbsampling = sd(nbSampling)) %>% 
+  mutate(MinNbsampling = min(nbSampling)) %>% 
+  mutate(MaxNbsampling = max(nbSampling)) %>%
   ungroup()
-# 
-# ggplot(data = vxsp@data, aes(x=PadBVTotal, y=ground_distance)) +
-#   geom_path() + geom_point()
 
 data %>% 
+  select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD) %>% 
   filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+  unique() %>% 
   ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
   geom_point() + 
   geom_line() +
@@ -320,7 +327,43 @@ data %>%
   # theme(plot.title = element_text(hjust=0.5)) + 
   labs(y="PAD", x="Absolute Tree Height") +
   coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
-  # options(repr.plot.width=8, repr.plot.height=15) # higher height
+  # geom_errorbar(aes(ymin=MinPAD, ymax=MaxPAD), width=.2)#+ 
+# options(repr.plot.width=8, repr.plot.height=15) # higher height
+```
+
+# Plot extinction profiles
+```{r}
+data %>% 
+  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+  select(ground_distance_disc, MeanNbsampling, SdNbsampling) %>% 
+  unique() %>% 
+  ggplot(aes(x= ground_distance_disc, y= MeanNbsampling)) +
+  geom_point() + 
+  geom_line() +
+  #scale_color_viridis_d() +
+  # xlim(0,1) +
+  # ylim(0,60) +
+  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - extinction profile") +
+  # theme(plot.title = element_text(hjust=0.5)) + 
+  labs(y="Sampling", x="Absolute Tree Height") +
+  coord_flip() +
+  geom_errorbar(aes(ymin=MeanNbsampling-SdNbsampling, ymax=MeanNbsampling+SdNbsampling), width=.2)
+
+data %>% 
+  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+  select(ground_distance_disc, MeanNbsampling, MinNbsampling, MaxNbsampling) %>% 
+  unique() %>% 
+  ggplot(aes(x= ground_distance_disc, y= MeanNbsampling)) +
+  geom_point() + 
+  geom_line() +
+  #scale_color_viridis_d() +
+  # xlim(0,1) +
+  # ylim(0,60) +
+  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - extinction profile") +
+  # theme(plot.title = element_text(hjust=0.5)) + 
+  labs(y="Sampling", x="Absolute Tree Height") +
+  coord_flip() +
+  geom_errorbar(aes(ymin=MinNbsampling, ymax=MaxNbsampling), width=.2)
 ```
 
 # Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
