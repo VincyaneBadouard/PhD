@@ -154,15 +154,19 @@ dataxyz <- generate_new_rows(dataxyz)
 
 # LAI2200 local positions (use VOP)
 ```{r}
-LAI2200UTMxyz <- as.data.table(read.csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"))
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_UTMxyz.csv"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"
+
+dataxyz <- as.data.table(read.csv(path))
 VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
 
-matrix <- as.matrix(LAI2200UTMxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+matrix <- as.matrix(dataxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
 
-LAI2200local <- matrix %*% t(VOP) # same dimensions
+datalocal <- matrix %*% t(VOP) # same dimensions
 
-LAI2200local <- cbind(LAI2200local,LAI2200UTMxyz[,Zutm])[, -c(3,4)] # add Zutm
+datalocal <- cbind(datalocal,dataxyz[,Zutm])[, -c(3,4)] # add Zutm
 
-write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")
+write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_local.csv")
+# write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")
 ```
 
