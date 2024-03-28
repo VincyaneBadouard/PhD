@@ -1,0 +1,254 @@
+---
+title: "Compare LiDAR with field sensors data"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+# LAI2200
+
+## Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox
+
+Tester différentes hauteurs permettra aussi de tester la disponibilité en lumière à l'endroit
+où se trouve la couronne des arbres considérés.
+
+## Metadata
+* Ring : secteur angulaire, allant du zénith à l'horizon.
+* GAP[1-5] correspondent aux valeurs de *transmittances* directionnelles calculées par positions (posX, posY, posZ) et par secteur angulaire (1 à 5)
+* **GAP pour un ring donné correspond à la moyenne des transmittances pour ce même ring du fichier test ?**
+* pathLength => distance entre position et sortie de la canopée
+
+* isOut? => le rayon testé est-il arrivé en limite de l'espace voxel avant d'arriver en sortie de canopée ?
+
+* azimut, elevation => les coordonnées sphériques du rayon
+* cross_NA => le rayon a-til rencontré un voxel non échantilloné sur son trajet (voxel NA) ?
+
+```{r}
+library(tidyverse)
+library(data.table)
+library(sf)
+```
+
+## Load Lidar data
+```{r}
+# LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
+#   mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
+# HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
+#   mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
+
+HighAnnual_LAI_GAP <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_LAI2200sim") %>% 
+  # mutate(LiDAR = "HighAlt") %>% 
+  rename_with(.fn = ~paste0(., "_High"), .cols = c("LAI", "GAP[1]", "GAP[2]", "GAP[3]", "GAP[4]", "GAP[5]"))
+HighAnnual_trans <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_LAI2200sim_test.txt") %>% 
+  # mutate(LiDAR = "HighAlt") %>% 
+  rename(Transmittance_High = transmittance) %>% 
+  select(-c(position.ID, pathLength, isOut, elevation, cross_NA))
+LowAnnual_LAI_GAP <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_LAI2200sim") %>% 
+  # mutate(LiDAR = "LowAlt") %>% 
+  rename_with(.fn = ~paste0(., "_Low"), .cols = c("LAI", "GAP[1]", "GAP[2]", "GAP[3]", "GAP[4]", "GAP[5]"))
+LowAnnual_trans <- read_table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_LAI2200sim_test.txt") %>% 
+  # mutate(LiDAR = "LowAlt") %>% 
+  rename(Transmittance_Low = transmittance) %>% 
+  select(-c(position.ID, pathLength, isOut, elevation, cross_NA))
+
+names(HighAnnual_LAI_GAP) # "posX", "posY", "posZ", "LAI", "GAP[1]" "GAP[2]" "GAP[3]" "GAP[4]" "GAP[5]"
+names(HighAnnual_trans) # "position.x", "position.y", "position.z", "ring", "transmittance", azimut
+# elevation normal que >1 ? autres variables ?
+
+Trans <- unique(HighAnnual_trans %>% left_join(LowAnnual_trans, by= c("position.x", "position.y", "position.z", "ring", "azimut")))
+
+LAI_GAP <- unique(HighAnnual_LAI_GAP %>% left_join(LowAnnual_LAI_GAP, by= c("posX", "posY", "posZ")))
+
+Lidar <- setDT(unique(Trans %>% left_join(LAI_GAP, by= c("position.x"="posX", "position.y"="posY", "position.z"="posZ"))))
+```
+
+## Local to UTM coord
+```{r}
+# Lecture matrice de transformation
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+# Apply inverse of VOP matrix to convert back to UTM
+xyz <- tcrossprod(as.matrix(Lidar[, .(position.x, position.y, position.z, c=1)]), solve(VOP))
+Lidar[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
+Lidar <- setDF(Lidar) %>% rename(Ring= ring) %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+```
+
+## Plot Lidar data
+```{r}
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
+Lidarsf <- st_as_sf(Lidar, coords = c('Xutm','Yutm'))
+Lidarsf <- st_set_crs(Lidarsf, crs(zone))
+
+plot(Lidarsf$Transmittance_High)
+
+Lidarsf <- Lidarsf %>% filter(Ring==1) %>% filter(azimut==0)
+
+Lidarsf %>% 
+  select(geometry, Transmittance_High) %>% #  Transmittance_High,Transmittance_Low, `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low
+  ggplot() +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = Lidarsf, aes(color = Transmittance_High), size = 1.5) +
+  scale_colour_gradientn(colors = terrain.colors(30, rev=T),
+                         na.value="grey") +
+  ggtitle("Paracou P16 4ha - Lidar LAI2200 simulations")
+```
+
+## Load LAI2200 data
+```{r}
+LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
+LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+
+names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
+names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
+
+LAI2200 <- LAI2200_coord %>% 
+  left_join(LAI2200_data, by= c("Transect", "Id")) %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+```
+
+## Plot LAI2200 data
+```{r}
+LAI2200UTMsf <- st_as_sf(LAI2200, coords = c('Xutm','Yutm'))
+LAI2200UTMsf <- st_set_crs(LAI2200UTMsf, crs(zone))
+
+LAI2200UTMsf <- LAI2200UTMsf %>% filter(Ring=="Ring1")
+
+ggplot() +
+  # geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = LAI2200UTMsf, aes(color = Transmittance_mean), size = 1.5) +
+  scale_colour_gradientn(colors = terrain.colors(30, rev=T),
+                         na.value="grey") +
+  ggtitle("Paracou P16 4ha - LAI2200 Transmittances")
+```
+
+## Combine LiDAR and LAI2200 data
+```{r}
+LAI2200_Lidar <- LAI2200 %>% 
+  mutate(Ring = case_when(
+    Ring == "Ring1" ~ 1,
+    Ring == "Ring2" ~ 2,
+    Ring == "Ring3" ~ 3,
+    Ring == "Ring4" ~ 4,
+    Ring == "Ring5" ~ 5)) %>% 
+  left_join(Lidar, by= c("Xutm","Yutm","Zutm", "Ring")) # ttes les coordonnées ne matchent pas
+
+NA_table <- LAI2200_Lidar[rowSums(is.na(LAI2200_Lidar[, 34:47])) > 0,] # NA ?
+```
+
+# Relations plots
+```{r}
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  ggplot() +
+  aes(x = Transmittance_High, y = Transmittance_Low) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              formula = y ~ x) 
+
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  ggplot() +
+  aes(x = Transmittance_mean, y = Transmittance_High) +
+  geom_point(aes(y = Transmittance_Low), color = "green") +
+  geom_point(aes(y = Transmittance_High), color = "darkgreen") +
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="LAI2200 transmittance", y = "LiDAR transmittance")
+
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  ggplot() +
+  aes(x = Transmittance_mean, y = `GAP[1]_High`) +
+  geom_point(aes(y = `GAP[1]_Low`), color = "green") +
+  geom_point(aes(y = `GAP[1]_High`), color = "darkgreen") +
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="LAI2200 transmittance", y = "GAP[1]")
+```
+
+## Correlation tests
+```{r}
+# Transmittance_mean, Transmittance_Low, Transmittance_High
+
+DF_cor <- LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  select(Transmittance_mean,Transmittance_High,Transmittance_Low, `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low) 
+# na.omit()
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.9, tl.srt=45, p.mat = Pval_corr)
+# dev.off()
+
+```
+
+
+# HOBO & Tomst
+```{r}
+LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
+  mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
+HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
+  mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
+HighWet <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv") %>% 
+  rowwise() %>% 
+  mutate(Transmittance_HighWet = weighted.mean(c(`Period.1`, `Period.2`, `Period.3`), c(4, 2, 1)/7)) %>% # weighted mean by period size
+  ungroup() %>%
+  select(Xutm, Yutm, Z, Transmittance_HighWet)
+HighDry <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv") %>% 
+  rowwise() %>% 
+  mutate(Transmittance_HighDry = weighted.mean(c(`Period.1`, `Period.2`), c(1, 4)/5)) %>% # weighted mean by period size
+  ungroup() %>% 
+  select(Xutm, Yutm, Z, Transmittance_HighDry)
+
+
+LiDAR <- LowAnnual %>% 
+  left_join(HighAnnual, by= c("Xutm","Yutm","Z")) %>% 
+  left_join(HighWet, by= c("Xutm","Yutm","Z")) %>% 
+  left_join(HighDry, by= c("Xutm","Yutm","Z")) %>%
+  rename(Zutm = Z) %>%
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+
+HOBO_Lidar %>% 
+  ggplot() +
+  aes(x = Light, y = Transmittance_HighDry) +
+  geom_point(aes(y = Transmittance_LowAnnual), color = "green") +
+  geom_point(aes(y = Transmittance_HighAnnual), color = "darkgreen") +
+  geom_point(aes(y = Transmittance_HighWet), color = "blue")  +
+  geom_point(aes(y = Transmittance_HighDry), color = "orange")+
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="Light (lux)", y = "LiDAR transmittance")
+
+# Correlation tests
+# Light, Temperature, Transmittance_LowAnnual, Transmittance_HighAnnual,Transmittance_HighDry, Transmittance_HighWet
+
+DF_cor <- HOBOTomst_Lidar %>% 
+  select(Light, Temperature,Transmittance_LowAnnual,Transmittance_HighAnnual,Transmittance_HighDry,Transmittance_HighWet) # 
+# na.omit()
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower",
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.7, tl.srt=45)
+# dev.off()
+
+```
+

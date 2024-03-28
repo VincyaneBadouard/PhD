@@ -88,41 +88,27 @@ NE (285536;581821)
 SE (285680; 581343)
 SO (285201; 581199)
 
-# Subplots grid for 25 ha in UTM 
+# Coordinates in UTM 
 ```{r}
+data <- ALT # LAI2200 # grid
+
 tab <- read_delim("D:/Mes Donnees/PhD/R_codes/PhD/local2UTM/CoordCoinsP1_16.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
-P=16
+P=16 # Plot 16
 limx = 500 # à changer pour la parcelle concernée
 limy = 500 # à changer pour la parcelle concernée
 
-gridUTM <- grid %>% 
+dataUTM <- data %>% 
   mutate(Xutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so x`+(x/limx)*(1-y/limy)*tab[P,]$`se x`+(y/limy)*(1-x/limx)*tab[P,]$`no x`+((x*y)/(limx*limy))*tab[P,]$`ne x`) %>% 
   mutate(Yutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so y`+(x/limx)*(1-y/limy)*tab[P,]$`se y`+(y/limy)*(1-x/limx)*tab[P,]$`no y`+((x*y)/(limx*limy))*tab[P,]$`ne y`)
 
 P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
-gridUTMsf <- st_as_sf(gridUTM, coords = c('Xutm','Yutm'))
-gridUTMsf <- st_set_crs(gridUTMsf, crs(P16shp))
+dataUTMsf <- st_as_sf(dataUTM, coords = c('Xutm','Yutm'))
+dataUTMsf <- st_set_crs(dataUTMsf, crs(P16shp))
 
 ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
-  geom_sf(data = gridUTMsf)
-```
-
-# LAI2200 positions in UTM 
-```{r}
-LAI2200UTM <- LAI2200 %>% 
-  mutate(Xutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so x`+(x/limx)*(1-y/limy)*tab[P,]$`se x`+(y/limy)*(1-x/limx)*tab[P,]$`no x`+((x*y)/(limx*limy))*tab[P,]$`ne x`) %>% 
-  mutate(Yutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so y`+(x/limx)*(1-y/limy)*tab[P,]$`se y`+(y/limy)*(1-x/limx)*tab[P,]$`no y`+((x*y)/(limx*limy))*tab[P,]$`ne y`)
-
-P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
-LAI2200UTMsf <- st_as_sf(LAI2200UTM, coords = c('Xutm','Yutm'))
-LAI2200UTMsf <- st_set_crs(LAI2200UTMsf, crs(P16shp))
-
-ggplot() +
-  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
-  geom_sf(data = gridUTMsf) +
-  geom_sf(data = LAI2200UTMsf, col = "red", size = 0.3) +
+  geom_sf(data = dataUTMsf, col = "red", size = 0.3) +
   ggtitle("Paracou P16 - LAI2200 sensors positions")
 
 # write.csv(LAI2200UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
@@ -130,20 +116,40 @@ ggplot() +
 
 # Extract Z coord MNT to Points
 ```{r}
-MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc") # MNT
+MNT <- terra::rast("//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/rasters/PARACOU2023_DTM_1m.tif") # MNT
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc"
 
-plot(MNT) ; plot(LAI2200UTMsf, add = T)
+crs(MNT) <- crs(P16shp)
 
-alt <- extract(MNT, LAI2200UTMsf) %>% # extract z
-  rename(Zutm = dtm2023_4ha_HighAlt_buffer) %>% 
+plot(MNT) ; plot(dataUTMsf, add = T)
+
+alt <- extract(MNT, dataUTMsf) %>% # extract z
+  rename(Zutm = MNT_0.5m_IRD_500m_Paracou_284000_579500) %>% 
   select(-ID) %>% 
-  mutate(Zutm = Zutm +1) # sensors at 1 m height
+  mutate(Zutm = Zutm +1) # 1 m above the ground
 
-LAI2200UTMxyz <- LAI2200UTM %>% cbind(alt)
+dataxyz <- dataUTM %>% cbind(alt)
 
+# write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv")
 
+generate_new_rows <- function(df) {
+  new_rows <- data.frame()
+  for (i in 1:nrow(df)) {
+    new <- data.frame( # pour chaque x;y créer 59 incrémentations de Zutm
+      x = df[i, "x"],
+      y = df[i, "y"],
+      Xutm = df[i, "Xutm"],
+      Yutm = df[i, "Yutm"],
+      Zutm = df[i, "Zutm"]:(df[i, "Zutm"] + 59)
+    )
+    new_rows <- rbind(new_rows, new)
+  }
+  return(new_rows)
+}
 
-write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv")
+dataxyz <- generate_new_rows(dataxyz)
+
+# write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_UTMxyz.csv")
 ```
 
 # LAI2200 local positions (use VOP)

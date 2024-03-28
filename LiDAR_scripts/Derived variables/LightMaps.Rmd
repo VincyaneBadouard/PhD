@@ -1,0 +1,77 @@
+---
+title: "Light maps"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+# Packages
+```{r}
+library(data.table)
+# library(tidyverse)
+library(sf)
+library(terra)
+library(ggplot2)
+```
+
+# Load data
+```{r}
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
+
+Light_HighAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt")
+
+Light_LowAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt")
+```
+
+# Compute differences
+leftjoin by coordinates 
+difference between `Period.1` of the 2 datasets
+```{r}
+names(Light_HighAlt) # "X","Y","Z","Period.1","Zutm","SubPlotCon","Forest","Plot","SubPlot","Projet","Protocole","Xutm","Yutm"
+
+Light <- merge(Light_HighAlt, Light_LowAlt, by=c("Xutm","Yutm","Zutm", "X","Y","Z", "Forest","Plot","SubPlot","Projet","Protocole","SubPlotCon"), all=TRUE, suffixes = c("_HighAlt", "_LowAlt")) # merge datasets
+
+Light[,Lightdiff:=`Period.1_HighAlt`-`Period.1_LowAlt`] # compute differences
+```
+
+# Spatial objects
+```{r}
+buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")) # interest zone with buffer
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
+```
+
+# Maps
+```{r}
+ggplot() + 
+  geom_point(data = Light, size = 1.28,
+             aes(Xutm, Yutm, color = `Period.1_HighAlt`)) + 
+  scale_color_gradientn(name = "Light intensity (Transmittance)",
+                        colors = terrain.colors(30, rev=T),
+                        na.value="white") +
+  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - ALS High Altitude - Light map 1m") +  
+  coord_sf()
+```
+
+## Light differences
+```{r}
+ggplot() + 
+  geom_point(data = Light, size = 1.28,
+             aes(Xutm, Yutm, color = Lightdiff)) + 
+  # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
+  #                       colors = terrain.colors(30, rev=T),
+  #                       na.value="white") +
+   # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
+   #                      colors = heat.colors(30))+
+  scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
+  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
+  coord_sf()
+```
+
