@@ -121,7 +121,7 @@ LAI2200UTMsf <- st_set_crs(LAI2200UTMsf, crs(zone))
 LAI2200UTMsf <- LAI2200UTMsf %>% filter(Ring=="Ring1")
 
 ggplot() +
-  # geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   geom_sf(data = LAI2200UTMsf, aes(color = Transmittance_mean), size = 1.5) +
   scale_colour_gradientn(colors = terrain.colors(30, rev=T),
                          na.value="grey") +

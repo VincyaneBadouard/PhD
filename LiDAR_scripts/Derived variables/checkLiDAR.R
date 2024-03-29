@@ -6,6 +6,7 @@ ST
 summary(ST@data)
 lidR::las_check(ST)
 
+table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt
 
 crs(ST)
 range(ST@data$gpstime) # 354557511 354559330

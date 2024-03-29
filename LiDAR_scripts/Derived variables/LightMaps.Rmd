@@ -217,3 +217,9 @@ data %>%
 # geom_errorbar(aes(ymin=MeanTransmittance-SdTransmittance, ymax=MeanTransmittance+SdTransmittance), width=.2)
 ```
 
+# Spatial autoccorelation of the light
+```{r}
+
+```
+
+
