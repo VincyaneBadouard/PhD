@@ -5,17 +5,131 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
-
 # Packages
 ```{r}
 library(data.table)
-# library(tidyverse)
+library(tidyverse)
 library(sf)
 library(terra)
-library(ggplot2)
 ```
 
-# Load data
+# Spatial objects
+```{r}
+buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")) # interest zone with buffer
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
+```
+
+# Load raw data from AMAPVox
+```{r}
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Dry.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_Wet.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_Light_annual.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer_Light_annual.txt"
+
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ.txt"
+```
+
+```{r}
+Light <- fread(path, skip=10) # skip the 10 1st lines of header
+Light <- Light[Y != "MEAN"] # enlever les 2 lignes mean
+Light <- Light[, !c("V5"), with = FALSE] # remove empty column
+Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))] # all as numeric
+Light <- Light[!is.na(X)] 
+```
+# Plot
+```{r}
+# Remove edges
+# Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
+
+
+# Plot
+lattice::levelplot(`Period 1` ~ X*Y, data = Light) # Transmittance
+lattice::levelplot(Z~X*Y, data = Light) # Z = Altitude
+
+ggplot() + 
+  geom_raster(data = Light, aes(X, Y, fill = `Period 1`)) + 
+  scale_fill_gradientn(name = "Light intensity (Transmittance)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  ggtitle("Paracou P16 4ha - Light map 1m") +  
+  coord_sf()
+```
+
+# Transformation des coordonnées relatives en UTM
+On peut retrouver les cooordonnées UTM avec la VOP
+```{r}
+# Lecture matrice de transformation
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"
+
+VOP <- as.matrix(read.table(path))
+
+# Apply inverse of VOP matrix to convert back to UTM
+xyz <- tcrossprod(as.matrix(Light[, .(X, Y, Z, c=1)]), solve(VOP))
+Light[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
+
+Light <- unique(Light)
+
+ggplot() + 
+  geom_point(data = Light, size = 1.28,
+             aes(Xutm, Yutm, color = `Period 1`)) + 
+  scale_color_gradientn(name = "Light intensity (Transmittance)",
+                        colors = terrain.colors(30, rev=T),
+                        na.value="white") +
+  geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer (to remove after)
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - Light map 1m") +  
+  coord_sf()
+```
+
+# Crop on the interst zone
+```{r}
+Lightsf <- st_as_sf(Light, coords = c('Xutm','Yutm'))
+Lightsf <- st_set_crs(Lightsf, crs(zone))
+Lightcrop <- st_intersection(Lightsf, zone)
+XY <- st_coordinates(Lightcrop) # stock coordinates
+colnames(XY) <- c("Xutm", "Yutm") 
+st_geometry(Lightcrop) <- NULL # no more sf object
+Lightcrop <- cbind(Lightcrop, XY) # bind XY coord
+
+
+ggplot() + 
+  geom_point(data = Lightcrop, size = 1.28,
+             aes(Xutm, Yutm, color = `Period.1`)) + 
+  scale_color_gradientn(name = "Light intensity (Transmittance)",
+                        colors = terrain.colors(30, rev=T),
+                        na.value="white") +
+  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - ALS High Altitude - Dry season - Light map 1m") +  
+  coord_sf()
+```
+
+# Write data cropped and in UTM
+```{r}
+fwrite(Light, , row.names = F, col.names = T)
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
+
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_UTM.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_UTM.txt"
+
+
+write.csv(Light, )
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv"
+
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_UTM.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_UTM.csv"
+
+```
+
+# Load data pré-processed
 ```{r}
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
@@ -24,24 +138,6 @@ library(ggplot2)
 Light_HighAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt")
 
 Light_LowAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt")
-```
-
-# Compute differences
-leftjoin by coordinates 
-difference between `Period.1` of the 2 datasets
-```{r}
-names(Light_HighAlt) # "X","Y","Z","Period.1","Zutm","SubPlotCon","Forest","Plot","SubPlot","Projet","Protocole","Xutm","Yutm"
-
-Light <- merge(Light_HighAlt, Light_LowAlt, by=c("Xutm","Yutm","Zutm", "X","Y","Z", "Forest","Plot","SubPlot","Projet","Protocole","SubPlotCon"), all=TRUE, suffixes = c("_HighAlt", "_LowAlt")) # merge datasets
-
-Light[,Lightdiff:=`Period.1_HighAlt`-`Period.1_LowAlt`] # compute differences
-```
-
-# Spatial objects
-```{r}
-buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")) # interest zone with buffer
-zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
-
 ```
 
 # Maps
@@ -57,8 +153,18 @@ ggplot() +
   ggtitle("Paracou P16 4ha - ALS High Altitude - Light map 1m") +  
   coord_sf()
 ```
+#  Light differences
+leftjoin by coordinates 
+difference between `Period.1` of the 2 datasets
+```{r}
+names(Light_HighAlt) # "X","Y","Z","Period.1","Zutm","SubPlotCon","Forest","Plot","SubPlot","Projet","Protocole","Xutm","Yutm"
 
-## Light differences
+Light <- merge(Light_HighAlt, Light_LowAlt, by=c("Xutm","Yutm","Zutm", "X","Y","Z", "Forest","Plot","SubPlot","Projet","Protocole","SubPlotCon"), all=TRUE, suffixes = c("_HighAlt", "_LowAlt")) # merge datasets
+
+Light[,Lightdiff:=`Period.1_HighAlt`-`Period.1_LowAlt`] # compute differences
+```
+
+## Maps
 ```{r}
 ggplot() + 
   geom_point(data = Light, size = 1.28,
@@ -66,12 +172,48 @@ ggplot() +
   # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
   #                       colors = terrain.colors(30, rev=T),
   #                       na.value="white") +
-   # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
-   #                      colors = heat.colors(30))+
+  # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
+  #                      colors = heat.colors(30))+
   scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
   # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
   coord_sf()
+```
+
+# Light profiles
+```{r}
+Lightgrid_HighAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_UTM.txt")
+
+Lightgrid_LowAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_UTM.txt")
+
+```
+
+## Plot
+```{r}
+names(Lightgrid_HighAlt) # "X","Y","Z",  "Period 1",  "Xutm","Yutm","Zutm"    
+
+data <- Lightgrid_LowAlt %>% 
+  mutate(Zutm_disc = as.integer(Zutm)) %>% 
+  group_by(Zutm_disc) %>% 
+  mutate(MeanTransmittance = mean(`Period 1`)) %>% 
+  mutate(MinTransmittance = min(`Period 1`)) %>% 
+  mutate(MaxTransmittance = max(`Period 1`)) %>%
+  mutate(SdTransmittance = sd(`Period 1`)) %>% 
+  ungroup()
+
+data %>% 
+  select(Zutm_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% 
+  # filter(Zutm_disc>=0 & Zutm_disc<=60) %>% 
+  unique() %>% 
+  ggplot(aes(x= Zutm_disc, y= MeanTransmittance )) +
+  geom_point() + 
+  geom_line() +
+  ggtitle("P16 - 2023 - 4ha - LowAlt - Light profile (Grid 10x10m, each 1m in Z)") +
+  labs(y="Transmittance", x="Altitude") +
+  xlim(0,70) +
+  coord_flip() + # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
+  geom_errorbar(aes(ymin=MinTransmittance, ymax=MaxTransmittance), width=.2)
+# geom_errorbar(aes(ymin=MeanTransmittance-SdTransmittance, ymax=MeanTransmittance+SdTransmittance), width=.2)
 ```
 

@@ -11,6 +11,7 @@ Coordonnées SO de la P16: (0;0)
 library(tidyverse)
 library(sf)
 library(terra)
+library(data.table)
 ```
 
 # Subplots grid for 25 ha
@@ -24,17 +25,32 @@ ggplot() +
   geom_point(data=grid, aes(x = x, y = y)) + # il faut mettre l'argument data sinon ça ne marche pas
   coord_fixed(ratio=1) # same axis size
 ```
-# ALT stakes grid
+# ALT (9ha) stakes grid
 ```{r}
 ALT <- data.frame(expand.grid(
-  x = seq(0,500, by= 10),
-  y = seq(0,500, by= 10)
+  x = seq(200,500, by= 10),
+  y = seq(0,300, by= 10)
 )
 )
 ggplot() +
   geom_point(data=ALT, aes(x = x, y = y)) + # il faut mettre l'argument data sinon ça ne marche pas
+  geom_point(data=grid, aes(x = x, y = y), col="red") +
   coord_fixed(ratio=1) # same axis size
 ```
+
+# Understory (4ha) stakes grid
+```{r}
+Und <- data.frame(expand.grid(
+  x = seq(300,500, by= 10),
+  y = seq(100,300, by= 10)
+)
+)
+ggplot() +
+  geom_point(data=Und, aes(x = x, y = y)) + # il faut mettre l'argument data sinon ça ne marche pas
+  geom_point(data=grid, aes(x = x, y = y), col="red") +
+  coord_fixed(ratio=1) # same axis size
+```
+
 
 # LAI200 sensors theorical coordinates
 - transect HOBO : 20 points espacés de *10m* : start =(390;110)  ; end = (390;300)
@@ -81,16 +97,15 @@ ggplot() +
 ```
 
 
-# To UTM
+# Coordinates in UTM 
 P16 (x;y) :
 NO	(285056;581678)
 NE (285536;581821)
 SE (285680; 581343)
 SO (285201; 581199)
 
-# Coordinates in UTM 
 ```{r}
-data <- ALT # LAI2200 # grid
+data <- Und # LAI2200 # grid
 
 tab <- read_delim("D:/Mes Donnees/PhD/R_codes/PhD/local2UTM/CoordCoinsP1_16.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
@@ -121,8 +136,6 @@ MNT <- terra::rast("//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/rasters/PAR
 
 crs(MNT) <- crs(P16shp)
 
-plot(MNT) ; plot(dataUTMsf, add = T)
-
 alt <- extract(MNT, dataUTMsf) %>% # extract z
   rename(Zutm = MNT_0.5m_IRD_500m_Paracou_284000_579500) %>% 
   select(-ID) %>% 
@@ -149,15 +162,17 @@ generate_new_rows <- function(df) {
 
 dataxyz <- generate_new_rows(dataxyz)
 
+# write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_UTMxyz.csv")
 # write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_UTMxyz.csv")
 ```
 
-# LAI2200 local positions (use VOP)
+# Coordinates in local positions (use VOP)
 ```{r}
-path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_UTMxyz.csv"
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"
+# path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_UTMxyz.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"
 
-dataxyz <- as.data.table(read.csv(path))
+dataxyz <- as.data.table(dataxyz)
+# dataxyz <- as.data.table(read.csv(path))
 VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
 
 matrix <- as.matrix(dataxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
@@ -166,7 +181,10 @@ datalocal <- matrix %*% t(VOP) # same dimensions
 
 datalocal <- cbind(datalocal,dataxyz[,Zutm])[, -c(3,4)] # add Zutm
 
-write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_local.csv")
+ggplot() +
+  geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.3) 
+
+# write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_local.csv")
 # write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")
 ```
 
