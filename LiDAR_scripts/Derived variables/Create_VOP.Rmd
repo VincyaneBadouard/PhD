@@ -20,7 +20,7 @@ La convention est de prendre le coin SUD-EST de la parcelle pour origine.
 Par défaut on n'inclut pas les buffer dans la VOP.
 
 # Chargement des packages
-```{r}
+```{r, include = F}
 library(sp)
 library(sf)
 # library(maptools)

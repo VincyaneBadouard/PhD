@@ -40,7 +40,7 @@ moyenne, sd, coefficient de variation, min, max :\
 
 # *Packages*
 
-```{r echo = T,results = 'hide', message=FALSE}
+```{r, include = F echo = T,results = 'hide', message=FALSE}
 library(readr)
 library(tidyverse)
 library(stringr)

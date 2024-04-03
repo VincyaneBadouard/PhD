@@ -24,7 +24,7 @@ où se trouve la couronne des arbres considérés.
 * azimut, elevation => les coordonnées sphériques du rayon
 * cross_NA => le rayon a-til rencontré un voxel non échantilloné sur son trajet (voxel NA) ?
 
-```{r}
+```{r, include = F}
 library(tidyverse)
 library(data.table)
 library(sf)

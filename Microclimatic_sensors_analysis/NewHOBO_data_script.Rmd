@@ -63,7 +63,7 @@ Variables à calculer : moyenne, sd, coefficient de variation, min, max :
 \- saison des pluies
 
 # Packages
-```{r}
+```{r, include = F}
 library(readr)
 library(tidyverse)
 library(stringr)
@@ -82,6 +82,7 @@ library(RColorBrewer)
 
 - Rg : Global radiation (incident)	(MJ m-2)
 - CNR4_SW_up : Global radiation (incident) (W m-2) (autre capteur)
+- Rn : Net radiation (W m-2)
 
 - Temp(55) : Air temperature at 55 m (°C)
 - TempC_Avg_55_CR3000 : Air temperature at 55 m (°C) (autre capteur)
@@ -102,7 +103,7 @@ FluxTowerData2023 <- FluxTowerData2023 %>%
   filter(Year >= 2023) %>% 
   mutate(Date = as.Date(jour, origin = "2022-12-31")) %>% # Julian Day to calendar date
   select(Year, Month, jour, Date, `heure+min`, time, `J/N`, # 365 days, 12 months
-         Pluie, Rg, CNR4_SW_up, `Temp(55)`) %>% 
+         Pluie, Rg, CNR4_SW_up, Rn, `Temp(55)`) %>% 
   mutate(Season = ifelse(Month  %in% c(3, 8:11), # mars, aout-nov = dry season
                          "Dry", "Wet")) %>% 
   mutate(Month = factor(Month)) %>% 
@@ -134,6 +135,12 @@ FluxTowerData2023 %>%
   labs(title="FluxTower 2023 - Global incident radiation (MJ m-2 day-1) over the seasons",
        x ="Month", y = "Global incident radiation (MJ m-2 day-1)")
 
+FluxTowerData2023 %>% 
+  filter(Rn > 0) %>%
+  ggplot(aes(x = Month,y = Rn)) + # Net radiation (W m-2)
+  geom_boxplot(aes(color = Season)) +
+  labs(title="FluxTower 2023 - Net radiation (W m-2) over the seasons",
+       x ="Month", y = "Net radiation (W m-2)")
 # Plots enregistrés à width = 900
 ```
 
@@ -208,6 +215,7 @@ HOBOdata <- HOBOdata %>%
   mutate(Date = date(Time)) %>% 
   mutate(Hour = hms::as_hms(Time)) %>% 
   mutate(Month = month(Date)) %>%
+  mutate(Month = factor(Month)) %>% 
   # filtrer sur les dates d'étude (1 an):
   filter(Time >= mdy_hms("03/31/2023 00:00:00") & Time < mdy_hms("03/30/2024 24:00:00")) 
 
@@ -223,6 +231,7 @@ cat("Sensors number range:",range(HOBOdata$HoboID), '\n') # 30 sensors
 ```{r}
 Na_tabble <- HOBOdata %>%
   filter(is.na(Light) | is.na(Temp))
+nrow(Na_tabble)
 # 
 # NA1 <- HOBOdata %>% 
 #   filter(Date == "2023-04-04")
@@ -239,13 +248,18 @@ Na_tabble <- HOBOdata %>%
 - Sensors data < flux tower data
 - Sensors data follow flux tower data
 ```{r}
-# Maximum values of light and T° of each day are at midday (fail)
+# Maximum values of light and T° of each day are at midday (!fail!)
 test <- HOBOdata %>% 
   group_by(Date, HoboID) %>% 
-  mutate(MaxDailyTemp = max(Temp)) %>% 
+  mutate(MaxDailyTemp = max(Temp)) %>%
+  mutate(MaxDailyLight = max(Light)) %>%
   ungroup()
 
 range(as.character(test[test$Temp == test$MaxDailyTemp,]$Hour))
+median(as.character(test[test$Temp == test$MaxDailyTemp,]$Hour))
+range(as.character(test[test$Light == test$MaxDailyLight,]$Hour))
+median(as.character(test[test$Light == test$MaxDailyLight,]$Hour))
+
 
 # No light at night (OK)
 test <- HOBOdata %>%
@@ -273,43 +287,75 @@ test[test$Light == test$MaxDailyLight & test$LightHabitat == "Understory",] # ! 
 # Rg : sum Global radiation (incident)	(MJ m-2 day-1)
 # Temp(55) : Mean Air temperature at 55 m (°C)
 test0 <- HOBOdata %>%
-  mutate(Day = day(Date)) %>% # for 2022 tower data
-  mutate(Month = factor(Month)) %>% # for 2022 tower data
+  # mutate(Day = day(Date)) %>% # for 2022 tower data
+  mutate(Month = factor(Month)) %>% 
   group_by(Date) %>% 
-  mutate(MeanDailyTemp = mean(Temp)) %>% 
-  mutate(MeanDailyLight = mean(Light)) %>% 
+  # mutate(MeanDailyTemp = mean(Temp)) %>% 
+  # mutate(MeanDailyLight = mean(Light)) %>% 
   ungroup() %>% 
-  left_join(FluxTowerData2023, by= c("Month","Day")) %>% # for 2022 tower data
-  # left_join(FluxTowerData2023, by="Date") %>% # when I have 2023-2024 tower data
-  select(Month, Day, `Temp(55)`, MeanDailyTemp, Rg, MeanDailyLight) %>% 
+  select(Date, Month, Hour, LightHabitat,Temp, Light) %>% 
+  # left_join(FluxTowerData2023, by= c("Month","Day")) %>% # for 2022 tower data
+  left_join(FluxTowerData2023, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
+  select(Date, Month, Hour, LightHabitat, `Temp(55)`, Temp, Rg, CNR4_SW_up, Rn, Light) %>% 
+  mutate(Tempdiff = `Temp(55)` - Temp) %>% 
   unique()
 test <- filter(test0, `Temp(55)` > 0)
 
-plot(MeanDailyTemp~`Temp(55)` , data=test)
-abline(lm(MeanDailyTemp~`Temp(55)`, data=test))
-cor(test$MeanDailyTemp, test$`Temp(55)`) # 0.45
-test[!(test$MeanDailyTemp < test$`Temp(55)`),] # which sensor T° are higher than tower T°
+plot(Temp~`Temp(55)` , data=test)
+abline(lm(Temp~`Temp(55)`, data=test), col = "red") # ok, données aberrantes dans les fortes valeurs
+cor(test$Temp, test$`Temp(55)`) # 0.88
+min(test$Tempdiff) # écart à la T° de la tour: 21°C de plus que la tour !!
+test1 <- test[test$Tempdiff<(-1),] # which sensor T° are higher than tower T°
+test1[order(test1$Tempdiff),]
+
+# Sensors data follow flux tower data 
+test %>% 
+  # unite(Day, Month, col = "Date", sep = "-", remove = F) %>% 
+  # mutate(Date = as.Date(Date,"%d-%m", origin = "2023-03-31")) %>% 
+  filter(`Temp(55)` > Temp) %>%
+  ggplot(aes(x = Month)) +
+  geom_boxplot(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m")) +
+  geom_boxplot(aes(y = Temp, colour = LightHabitat)) + # colour = "HOBO: at 1 m"
+  # scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
+  #                                "HOBO: at 1 m" = "forestgreen")) + 
+  labs(title="HOBO vs Flux Tower data", y = "Air temperature (°C)") +
+  labs(color = "Data")
+
+# pour 1 jour
+test %>% 
+  filter(Date=="2023-03-31") %>% # pour 1 jour
+  # filter(`Temp(55)` > Temp) %>%
+  ggplot(aes(x = Hour)) +
+  geom_line(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m"))+
+  geom_point(aes(y = Temp, colour = LightHabitat)) + # colour = "HOBO: at 1 m"
+  # scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
+  #                                "HOBO: at 1 m" = "forestgreen")) +
+  labs(title="HOBO vs Flux Tower data", y = "Air temperature (°C)") +
+  labs(color = "Data") +
+  scale_x_time(breaks = scales::breaks_width("1 hour"))
+
 
 ## Light (radiation vs light in lux)
 
-test <- test0 %>% filter(Rg > 0)
+test <- test0 %>% filter(Rg > 0) %>% filter(Light > 0) %>% filter(LightHabitat=="Gap")
 
-plot(MeanDailyLight~Rg , data=test)
-abline(lm(MeanDailyLight~Rg, data=test)) # not linked
-cor(test$MeanDailyLight, test$Rg) # -0.02
+plot(Light~Rg , data=test)
+abline(lm(Light~Rg, data=test), col = "red") # not linked
+cor(test$Light, test$Rg) # 0.19 ; 0.27 if only gaps
 
-# Sensors data follow flux tower data (à faire pour 2023-24)
-test %>% 
-  unite(Day, Month, col = "Date", sep = "-", remove = F) %>% 
-  mutate(Date = as.Date(Date,"%d-%m", origin = "2023-03-31")) %>% 
-  ggplot(aes(x = Date)) +
-  geom_line(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m"))+
-  geom_line(aes(y = MeanDailyTemp, colour = "HOBO: at 1 m")) +
-  scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
-                                 "HOBO: at 1 m" = "forestgreen")) + 
-  labs(title="HOBO vs Flux Tower data", y = "Air temperature (°C)")
-labs(color = "Data") +
-  scale_x_date(breaks = scales::breaks_width("1 month"), date_labels = "%d-%m") 
+test <- test0 %>% filter(CNR4_SW_up > 0) %>% filter(Light > 0) %>% filter(LightHabitat=="Gap")
+
+plot(Light~CNR4_SW_up , data=test)
+abline(lm(Light~CNR4_SW_up, data=test), col = "red") # not linked
+cor(test$Light, test$CNR4_SW_up) # 0.19 ; 0.27 if only gaps
+
+test <- test0 %>% filter(Rn > 0) %>% filter(Light > 0) %>% filter(LightHabitat=="Gap")
+
+plot(Light~Rn , data=test)
+abline(lm(Light~Rn, data=test), col = "red") # not linked
+cor(test$Light, test$Rn) # 0.18 ; 0.26 if only gaps
+
+
 ```
 
 # Plot data of each sensor

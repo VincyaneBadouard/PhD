@@ -27,7 +27,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r}
+```{r, include = F}
 library(readr)
 library(data.table)
 library(tidyverse)

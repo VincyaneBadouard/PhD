@@ -11,7 +11,7 @@ Returns not coded by increasing distance!!
 gpstime are not unique
 
 
-```{r, packages}
+```{r, include = F, packages}
 library(lidR)
 library(data.table)
 library(parallel)

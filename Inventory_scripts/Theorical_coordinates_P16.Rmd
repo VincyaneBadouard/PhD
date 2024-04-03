@@ -7,7 +7,7 @@ output: html_document
 P16 : 25 ha
 Coordonnées SO de la P16: (0;0)
 
-```{r}
+```{r, include = F}
 library(tidyverse)
 library(sf)
 library(terra)
@@ -87,13 +87,37 @@ ggplot() +
 
 ```
 # HOBO sensors theorical coordinates
-- transect Jérome :
-- transect BF :
-- transect gap :
+- transect Jérome : 20 (22 Tomst) capteurs espacés de *10m* : start =(390;110)  ; end = (390;300)
+- transect BF : 5 capteurs espacés de *10m* : x = seq(450,500, by= 10) ; y = ?
+- transect gap : 5 capteurs espacés de *10m* : y = 0 pour le 1er, 10 pour les autres ; x = ?
 ```{r}
-# HOBO_jerome <-
-# HOBO_BF <-
-# HOBO_gap <-
+HOBO_jerome <- data.frame(
+  Sensor = "HOBO",
+  Transect = "Jerome",
+  Id = as.character(seq(1:20)), # S->N
+  x = 390,
+  y = seq(110,300, by= 10)
+)
+nrow(LAI2200_HOBO)==20
+
+HOBO_BF <- data.frame(
+  Sensor = "HOBO",
+  Transect = "BF",
+  Id = as.character(seq(21:25)), 
+  x = c(450, seq(450,500, by= 10)),
+  y = seq(,, by= 10)
+)
+nrow(LAI2200_HOBO)==20
+
+HOBO_gap <- data.frame(
+  Sensor = "HOBO",
+  Transect = "Gap",
+  Id = as.character(seq(26:30)), 
+  y = c(0, 10, 10, 10, 10),
+  x = seq(,, by= 10)
+)
+nrow(LAI2200_HOBO)==20
+
 ```
 
 
