@@ -188,7 +188,7 @@ Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
 # png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
-corrplot(CorMatrix, method="circle", type="lower",
+corrplot(CorMatrix, method="circle", type="lower", diag = F, 
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.9, tl.srt=45, p.mat = Pval_corr)
 # dev.off()
 

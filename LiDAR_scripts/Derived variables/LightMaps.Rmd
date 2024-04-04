@@ -141,18 +141,7 @@ Light_LowAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/AL
 ```
 
 # Maps
-```{r}
-ggplot() + 
-  geom_point(data = Light, size = 1.28,
-             aes(Xutm, Yutm, color = `Period.1_HighAlt`)) + 
-  scale_color_gradientn(name = "Light intensity (Transmittance)",
-                        colors = terrain.colors(30, rev=T),
-                        na.value="white") +
-  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer
-  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
-  ggtitle("Paracou P16 4ha - ALS High Altitude - Light map 1m") +  
-  coord_sf()
-```
+
 #  Light differences
 leftjoin by coordinates 
 difference between `Period.1` of the 2 datasets
@@ -168,13 +157,44 @@ Light[,Lightdiff:=`Period.1_HighAlt`-`Period.1_LowAlt`] # compute differences
 ```{r}
 ggplot() + 
   geom_point(data = Light, size = 1.28,
+             aes(Xutm, Yutm, color = `Period.1_HighAlt`)) + 
+  scale_color_gradientn(name = "Light intensity (Transmittance)",
+                        colors = terrain.colors(30, rev=T),
+                        na.value="white") +
+  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - ALS High Altitude - Light map 1m") +  
+  coord_sf()
+```
+
+```{r}
+hist(Light$Lightdiff, breaks = 15)
+Min <- min(Light$Lightdiff)
+Max <- max(Light$Lightdiff)
+
+ggplot() + 
+  geom_point(data = Light, size = 1.28,
              aes(Xutm, Yutm, color = Lightdiff)) + 
-  # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
-  #                       colors = terrain.colors(30, rev=T),
-  #                       na.value="white") +
-  # scale_color_gradientn(name = "Light intensity (Transmittance) difference",
-  #                      colors = heat.colors(30))+
-  scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
+  # scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
+  scale_colour_steps2(name = "Light intensity (Transmittance) difference",
+                      low="#000066", high="red", mid = "white", midpoint = 0.00,
+                      limits = c(Min, Max),
+                      breaks = c(Min, -0.06, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, Max), # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
+                      labels = as.character(round(c(Min, -0.06, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, Max), digits = 2))) +
+  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
+  coord_sf()
+
+ggplot() + 
+  geom_point(data = Light, size = 1.28,
+             aes(Xutm, Yutm, color = Lightdiff)) + 
+  # scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
+  scale_colour_steps2(name = "Light intensity (Transmittance) difference",
+                      low="#000066", high="red", mid = "white", midpoint = 0.00,
+                      limits = c(Min, Max),
+                      breaks = seq(-0.1, 0.1, by = 0.025) # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
+                      ) +
   # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
