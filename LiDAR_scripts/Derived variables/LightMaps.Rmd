@@ -150,7 +150,7 @@ names(Light_HighAlt) # "X","Y","Z","Period.1","Zutm","SubPlotCon","Forest","Plot
 
 Light <- merge(Light_HighAlt, Light_LowAlt, by=c("Xutm","Yutm","Zutm", "X","Y","Z", "Forest","Plot","SubPlot","Projet","Protocole","SubPlotCon"), all=TRUE, suffixes = c("_HighAlt", "_LowAlt")) # merge datasets
 
-Light[,Lightdiff:=`Period.1_HighAlt`-`Period.1_LowAlt`] # compute differences
+Light[,Lightdiff:=`Period.1_LowAlt`-`Period.1_HighAlt`] # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
 ```
 
 ## Maps

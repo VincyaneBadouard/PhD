@@ -28,9 +28,14 @@ où se trouve la couronne des arbres considérés.
 library(tidyverse)
 library(data.table)
 library(sf)
+library(terra)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 ## Load Lidar data
+LAI_GAP : "posX", "posY", "posZ", "LAI", "GAP[1]" "GAP[2]" "GAP[3]" "GAP[4]" "GAP[5]"
+trans : "position.x", "position.y", "position.z", "ring", "transmittance", azimut
 ```{r}
 # LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
 #   mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
@@ -141,36 +146,159 @@ LAI2200_Lidar <- LAI2200 %>%
 
 NA_table <- LAI2200_Lidar[rowSums(is.na(LAI2200_Lidar[, 34:47])) > 0,] # NA ?
 ```
+# Difference plots
+```{r}
+LAI2200_Lidar <- LAI2200_Lidar %>% 
+  select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,Transmittance_mean,Transmittance_High,Transmittance_Low, `GAP[1]_High`, `GAP[1]_Low`) %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>% 
+  unique() %>% 
+  # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
+  mutate(Transmittance_LowvsHigh =  Transmittance_Low - Transmittance_High) %>% 
+  mutate(Transmittance_HighvsLAI2200 = Transmittance_High -Transmittance_mean) %>% 
+  mutate(Transmittance_LowvsLAI2200 = Transmittance_Low - Transmittance_mean)
+
+
+LAI2200_Lidarsf <- st_as_sf(LAI2200_Lidar, coords = c('Xutm','Yutm'))
+LAI2200_Lidarsf <- st_set_crs(LAI2200_Lidarsf, crs(zone))
+
+# LAI2200_Lidarsf <- LAI2200_Lidarsf %>% filter(Ring==1) %>% filter(azimut==0)
+
+# Transmittance_LowvsHigh ; Transmittance_HighvsLAI2200 ; Transmittance_LowvsLAI2200
+
+for(v in c("Transmittance_LowvsHigh", "Transmittance_HighvsLAI2200", "Transmittance_LowvsLAI2200")){
+  print(
+    ggplot() +
+      geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+      geom_sf(data = LAI2200_Lidarsf, aes(color = get(v)), size = 0.9) + 
+      # scale_colour_gradientn(colors = terrain.colors(30, rev=T),
+      #                        na.value="grey") +
+      scale_color_gradient2(name = v,
+                            low="blue", high="#FC4E07", mid = "white", midpoint = 0) +
+      ggtitle("Paracou P16 4ha - Transmittances differences") +
+      labs(color = v)
+  )
+}
+```
+
+```{r}
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  ggplot() +
+  ggtitle("Paracou P16 4ha - Transmittances differences") +
+  aes(x = Transmittance_High, y = Transmittance_LowvsHigh) +
+  geom_point() +
+  geom_hline(yintercept=0) +
+  geom_segment(aes(yend=0)) +
+  coord_fixed(ratio=1) +
+  labs(x ="High altitude transmittance", y = "Low - High altitude transmittances")
+
+for(v in c("Transmittance_HighvsLAI2200", "Transmittance_LowvsLAI2200")){
+  print(
+    LAI2200_Lidar %>% 
+      filter(Ring==1) %>% filter(azimut==0) %>%
+      ggplot() +
+      ggtitle("Paracou P16 4ha - Transmittances differences") +
+      aes(x = Transmittance_mean, y = get(v)) +
+      geom_point() +
+      geom_hline(yintercept=0) +
+      geom_segment(aes(yend=0)) +
+      coord_fixed(ratio=1) +# same axis size
+      labs(x ="LAI2200 transmittance", y = v)
+  ) 
+}
+```
 
 # Relations plots
 ```{r}
 LAI2200_Lidar %>% 
   filter(Ring==1) %>% filter(azimut==0) %>%
   ggplot() +
+  ggtitle("Paracou P16 4ha - Lidar transmittance High vs Low altitude") +
   aes(x = Transmittance_High, y = Transmittance_Low) +
   geom_point() +
   stat_smooth(method = "lm",
-              formula = y ~ x) 
+              formula = y ~ x) +
+  geom_abline() +
+  # xlim(0,1) +
+  # ylim(0,1) +
+  coord_fixed(ratio=1) # same axis size
+
 
 LAI2200_Lidar %>% 
   filter(Ring==1) %>% filter(azimut==0) %>%
   ggplot() +
-  aes(x = Transmittance_mean, y = Transmittance_High) +
-  geom_point(aes(y = Transmittance_Low), color = "green") +
-  geom_point(aes(y = Transmittance_High), color = "darkgreen") +
+  ggtitle("Paracou P16 4ha - High and Low altitude Lidar vs LAI2200 transmittances") +
+  aes(x = Transmittance_mean, y = Transmittance_Low) +
+  geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
+  geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
+  scale_colour_manual(values = c("Low altitude" = "green", 
+                                 "High altitude" = "darkgreen")) +
   stat_smooth(method = "lm",
               formula = y ~ x) +
-  labs(x ="LAI2200 transmittance", y = "LiDAR transmittance")
+  geom_abline() +
+  coord_fixed(ratio=1) + # same axis size
+  labs(x ="LAI2200 transmittance", y = "LiDAR transmittance", color = "LiDAR acquisition")
 
 LAI2200_Lidar %>% 
   filter(Ring==1) %>% filter(azimut==0) %>%
   ggplot() +
-  aes(x = Transmittance_mean, y = `GAP[1]_High`) +
-  geom_point(aes(y = `GAP[1]_Low`), color = "green") +
-  geom_point(aes(y = `GAP[1]_High`), color = "darkgreen") +
+  ggtitle("Paracou P16 4ha - GAP of High and Low altitude Lidar vs LAI2200 transmittances") +
+  aes(x = Transmittance_mean, y = `GAP[1]_Low`) +
+  geom_point(aes(y = `GAP[1]_Low`, colour = "Low altitude")) +
+  geom_point(aes(y = `GAP[1]_High`, colour = "High altitude")) +
+  scale_colour_manual(values = c("Low altitude" = "green", 
+                                 "High altitude" = "darkgreen")) +
   stat_smooth(method = "lm",
               formula = y ~ x) +
-  labs(x ="LAI2200 transmittance", y = "GAP[1]")
+  labs(x ="LAI2200 transmittance", y = "GAP[1]", color = "LiDAR acquisition")
+```
+## Zoom
+```{r}
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  filter(Transmittance_High<0.3) %>% 
+  ggplot() +
+  ggtitle("Paracou P16 4ha - Lidar transmittance High vs Low altitude (< 0.3)") +
+  aes(x = Transmittance_High, y = Transmittance_Low) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  geom_abline() +
+  xlim(0,0.3) +
+  ylim(0,0.3) +
+  coord_fixed(ratio=1) # same axis size
+
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  filter(Transmittance_mean<0.1) %>% 
+  ggplot() +
+  ggtitle("Paracou P16 4ha - High and Low altitude Lidar vs LAI2200 transmittances (< 0.1)") +
+  aes(x = Transmittance_mean, y = Transmittance_Low) +
+  geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
+  geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
+  scale_colour_manual(values = c("Low altitude" = "green", 
+                                 "High altitude" = "darkgreen")) +
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  geom_abline() +
+  xlim(0,0.1) +
+  ylim(0,0.1) +
+  coord_fixed(ratio=1) + # same axis size
+  labs(x ="LAI2200 transmittance", y = "LiDAR transmittance", color = "LiDAR acquisition")
+
+LAI2200_Lidar %>% 
+  filter(Ring==1) %>% filter(azimut==0) %>%
+  filter(Transmittance_mean<0.1) %>% 
+  ggplot() +
+  ggtitle("Paracou P16 4ha - GAP of High and Low altitude Lidar vs LAI2200 transmittances (< 0.1)") +
+  aes(x = Transmittance_mean, y = `GAP[1]_Low`) +
+  geom_point(aes(y = `GAP[1]_Low`, colour = "Low altitude")) +
+  geom_point(aes(y = `GAP[1]_High`, colour = "High altitude")) +
+  scale_colour_manual(values = c("Low altitude" = "green", 
+                                 "High altitude" = "darkgreen")) +
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="LAI2200 transmittance", y = "GAP[1]", color = "LiDAR acquisition")
 ```
 
 ## Correlation tests
@@ -246,7 +374,7 @@ Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
 # png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
-corrplot(CorMatrix, method="circle", type="lower",
+corrplot(CorMatrix, method="circle", type="lower", diag = F,
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.7, tl.srt=45)
 # dev.off()
 
