@@ -12,6 +12,8 @@ library(tidyverse)
 library(sf)
 library(terra)
 library(data.table)
+library(tidyterra)
+
 ```
 
 # Subplots grid for 25 ha
@@ -129,7 +131,7 @@ SE (285680; 581343)
 SO (285201; 581199)
 
 ```{r}
-data <- Und # LAI2200 # grid
+data <-  ALT # LAI2200 # grid # Und
 
 tab <- read_delim("D:/Mes Donnees/PhD/R_codes/PhD/local2UTM/CoordCoinsP1_16.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
@@ -150,7 +152,25 @@ ggplot() +
   geom_sf(data = dataUTMsf, col = "red", size = 0.3) +
   ggtitle("Paracou P16 - LAI2200 sensors positions")
 
+# write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/ALT_stakes_theoretical_UTM.csv")
+# write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/Understory_stakes_theoretical_UTM.csv")
 # write.csv(LAI2200UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
+```
+
+```{r}
+MNT_ALT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+ALT_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory/ALT_stakes_theoretical_UTM.csv")
+
+ggplot() + 
+  geom_spatraster(data = MNT_ALT, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
+  geom_point(data = ALT_stakes, size = 0.5,
+             aes(Xutm, Yutm)) +
+  ggtitle("Paracou P16 4ha - ALS Low Altitude - Light map 1m") +  
+  coord_sf()
 ```
 
 # Extract Z coord MNT to Points

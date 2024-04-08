@@ -261,6 +261,63 @@ min(HOBOdata$Temp) # 21 °C
 max(HOBOdata$Temp) # 31 °C
 
 ```
+# Variables à calculer
+```{r}
+annual_stats <- HOBOdata %>%
+  group_by(HoboID) %>%
+  summarise(across(c("Temp", "Light"),
+                   list(annual_mean = ~mean(.),
+                        annual_sd = ~sd(.),
+                        annual_varcoef = ~(sd(.) / mean(.)) * 100,
+                        annual_max = ~max(.),
+                        annual_min = ~min(.)),
+                   .names = "{.col}_{.fn}"))
+
+phase_stats <- HOBOdata %>%
+  group_by(HoboID,Phase) %>%
+  summarise(across(c("Temp", "Light"),
+                   list(mean = ~mean(.),
+                        sd = ~sd(.),
+                        varcoef = ~(sd(.) / mean(.)) * 100,
+                        max = ~max(.),
+                        min = ~min(.)),
+                   .names = "{.col}_{.fn}")) %>% 
+  # "Phase" variable as an index for the computed variables
+  pivot_wider(names_from = Phase,
+              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min","Light_mean", "Light_sd", "Light_varcoef", "Light_max", "Light_min"),
+              names_glue = "{.value}_{Phase}")
+
+
+season_stats <- HOBOdata %>%
+  group_by(HoboID,Season) %>%
+  summarise(across(c("Temp", "Light"),
+                   list(mean = ~mean(.),
+                        sd = ~sd(.),
+                        varcoef = ~(sd(.) / mean(.)) * 100,
+                        max = ~max(.),
+                        min = ~min(.)),
+                   .names = "{.col}_{.fn}")) %>% 
+  
+  # "Season" variable as an index for the computed variables
+  pivot_wider(names_from = Season,
+              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min","Light_mean", "Light_sd", "Light_varcoef", "Light_max", "Light_min"),
+              names_glue = "{.value}_{Season}")
+
+```
+
+# Stats dataset
+
+```{r}
+stats <- annual_stats %>% 
+  left_join(season_stats, by="HoboID") %>%
+  left_join(phase_stats, by="HoboID")
+
+stats[is.na(stats)] <- 0
+stats <- stats[,colSums(stats)>0] # remove column with only 0 (min light)
+
+
+stats <- left_join(stats, env, by="HoboID")
+```
 
 ## Corrélations
 ```{r}

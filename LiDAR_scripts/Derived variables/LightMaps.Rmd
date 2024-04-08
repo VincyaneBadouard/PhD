@@ -17,6 +17,8 @@ library(terra)
 ```{r}
 buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")) # interest zone with buffer
 zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+Understory_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory/Understory_stakes_theoretical_UTM.csv")
+
 
 ```
 
@@ -157,13 +159,15 @@ Light[,Lightdiff:=`Period.1_LowAlt`-`Period.1_HighAlt`] # compute differences (4
 ```{r}
 ggplot() + 
   geom_point(data = Light, size = 1.28,
-             aes(Xutm, Yutm, color = `Period.1_HighAlt`)) + 
+             aes(Xutm, Yutm, color = `Period.1_LowAlt`)) + 
   scale_color_gradientn(name = "Light intensity (Transmittance)",
                         colors = terrain.colors(30, rev=T),
                         na.value="white") +
   # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
-  ggtitle("Paracou P16 4ha - ALS High Altitude - Light map 1m") +  
+  geom_point(data = Understory_stakes, size = 0.5,
+             aes(Xutm, Yutm)) +
+  ggtitle("Paracou P16 4ha - ALS Low Altitude - Light map 1m") +  
   coord_sf()
 ```
 
@@ -194,7 +198,7 @@ ggplot() +
                       low="#000066", high="red", mid = "white", midpoint = 0.00,
                       limits = c(Min, Max),
                       breaks = seq(-0.1, 0.1, by = 0.025) # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
-                      ) +
+  ) +
   # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
