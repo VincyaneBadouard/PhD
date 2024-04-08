@@ -196,7 +196,8 @@ HOBOdata <- bind_rows(df_list, .id = "HoboID") # df number -> HoboID column
 HOBOdata <- HOBOdata %>% 
   mutate(HoboID = as.numeric(HoboID)) %>%
   left_join(HOBO_Paracou_env, by = "HoboID") %>%
-  select(-c(`#`,`...1`, Tomst_Material_info_30_03_23, Operator))
+  select(-c(`#`,`...1`, Tomst_Material_info_30_03_23, Operator)) %>% 
+  mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory"))
 ```
 
 # Understand the HOBO file
