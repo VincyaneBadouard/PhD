@@ -10,13 +10,14 @@ output: pdf_document
 
 ## Positionner capteurs LAI2200 sur la carte de lumière dans AMAPvox
 
-Tester différentes hauteurs permettra aussi de tester la disponibilité en lumière à l'endroit
-où se trouve la couronne des arbres considérés.
+A cette étape la transmittance est calculée à des **angles déterminés** à **lumière diffuse du soleil** (+ sensible à l'erreur d'échantillonage du LiDAR).
 
 ## Metadata
 * Ring : secteur angulaire, allant du zénith à l'horizon.
-* GAP[1-5] correspondent aux valeurs de *transmittances* directionnelles calculées par positions (posX, posY, posZ) et par secteur angulaire (1 à 5)
-* **GAP pour un ring donné correspond à la moyenne des transmittances pour ce même ring du fichier test ?**
+* transmittance
+* GAP[1-5] : Gap fraction based on average of the log of the individual transmittances directionnelles calculées par positions (posX, posY, posZ) et par secteur angulaire (1 à 5) (pas intéressant pour nous)
+* LAI (pas fiable)
+
 * pathLength => distance entre position et sortie de la canopée
 
 * isOut? => le rayon testé est-il arrivé en limite de l'espace voxel avant d'arriver en sortie de canopée ?
@@ -29,6 +30,7 @@ library(tidyverse)
 library(data.table)
 library(sf)
 library(terra)
+library(tidyverse)
 library(corrplot)
 library(RColorBrewer)
 ```
@@ -36,7 +38,7 @@ library(RColorBrewer)
 ## Load Lidar data
 LAI_GAP : "posX", "posY", "posZ", "LAI", "GAP[1]" "GAP[2]" "GAP[3]" "GAP[4]" "GAP[5]"
 trans : "position.x", "position.y", "position.z", "ring", "transmittance", azimut
-```{r}
+```{r, include = F}
 # LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
 #   mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
 # HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
@@ -142,23 +144,24 @@ LAI2200_Lidar <- LAI2200 %>%
     Ring == "Ring3" ~ 3,
     Ring == "Ring4" ~ 4,
     Ring == "Ring5" ~ 5)) %>% 
-  left_join(Lidar, by= c("Xutm","Yutm","Zutm", "Ring")) # ttes les coordonnées ne matchent pas
+  left_join(Lidar, by= c("Xutm","Yutm","Zutm", "Ring")) %>% 
+  rename(Transmittance_LAI2200 = Transmittance_mean)
 
 NA_table <- LAI2200_Lidar[rowSums(is.na(LAI2200_Lidar[, 34:47])) > 0,] # NA ?
 ```
 # Difference plots
 ```{r}
 LAI2200_Lidar <- LAI2200_Lidar %>% 
-  select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,Transmittance_mean,Transmittance_High,Transmittance_Low, `GAP[1]_High`, `GAP[1]_Low`) %>% 
-  filter(Ring==1) %>% filter(azimut==0) %>% 
+  select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,Transmittance_LAI2200,Transmittance_High,Transmittance_Low, `GAP[1]_High`, `GAP[1]_Low`) %>% 
   unique() %>% 
   # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
   mutate(Transmittance_LowvsHigh =  Transmittance_Low - Transmittance_High) %>% 
-  mutate(Transmittance_HighvsLAI2200 = Transmittance_High -Transmittance_mean) %>% 
-  mutate(Transmittance_LowvsLAI2200 = Transmittance_Low - Transmittance_mean)
+  mutate(Transmittance_HighvsLAI2200 = Transmittance_High -Transmittance_LAI2200) %>% 
+  mutate(Transmittance_LowvsLAI2200 = Transmittance_Low - Transmittance_LAI2200)
 
+LAI2200_Lidar1 <- LAI2200_Lidar %>% filter(Ring==1) %>% filter(azimut==0) 
 
-LAI2200_Lidarsf <- st_as_sf(LAI2200_Lidar, coords = c('Xutm','Yutm'))
+LAI2200_Lidarsf <- st_as_sf(LAI2200_Lidar1, coords = c('Xutm','Yutm'))
 LAI2200_Lidarsf <- st_set_crs(LAI2200_Lidarsf, crs(zone))
 
 # LAI2200_Lidarsf <- LAI2200_Lidarsf %>% filter(Ring==1) %>% filter(azimut==0)
@@ -198,7 +201,7 @@ for(v in c("Transmittance_HighvsLAI2200", "Transmittance_LowvsLAI2200")){
       filter(Ring==1) %>% filter(azimut==0) %>%
       ggplot() +
       ggtitle("Paracou P16 4ha - Transmittances differences") +
-      aes(x = Transmittance_mean, y = get(v)) +
+      aes(x = Transmittance_LAI2200, y = get(v)) +
       geom_point() +
       geom_hline(yintercept=0) +
       geom_segment(aes(yend=0)) +
@@ -206,6 +209,33 @@ for(v in c("Transmittance_HighvsLAI2200", "Transmittance_LowvsLAI2200")){
       labs(x ="LAI2200 transmittance", y = v)
   ) 
 }
+```
+# Profils en long (Transmittances le long du transect)
+Transmittances le long du transect pour les différentes acquisitions LiDAR et le LAI2200
+pour chaque ring
+```{r}
+# Transmittance_LAI2200, Transmittance_Low, Transmittance_High
+
+LAI2200_Lidar %>% 
+  filter(Transect=="HOBO") %>% # LAY # HOBO
+  filter(Ring==2) %>% filter(azimut==0) %>%
+  ggplot(aes(x = Id)) +
+  geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
+  geom_line(aes(y = Transmittance_High, colour = "High altitude")) +
+  
+  geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
+  geom_line(aes(y = Transmittance_Low, colour = "Low altitude")) +
+  
+  geom_point(aes(y = Transmittance_LAI2200, colour = "LAI2200")) +
+  geom_line(aes(y = Transmittance_LAI2200, colour = "LAI2200"), linewidth = 1.5) +
+  
+  scale_colour_manual(values = c("High altitude" = "darkgreen",
+                                 "Low altitude" = "#00CC66",
+                                 "LAI2200" = "red"),
+                      breaks=c("LAI2200", "High altitude", "Low altitude")) +
+  labs(title = "HOBO tansect - Ring2", y="Transmittance", x="ID", color = "Acquisition") +
+  scale_x_continuous(breaks = seq(1:20)) # 26 # 20
+
 ```
 
 # Relations plots
@@ -228,7 +258,7 @@ LAI2200_Lidar %>%
   filter(Ring==1) %>% filter(azimut==0) %>%
   ggplot() +
   ggtitle("Paracou P16 4ha - High and Low altitude Lidar vs LAI2200 transmittances") +
-  aes(x = Transmittance_mean, y = Transmittance_Low) +
+  aes(x = Transmittance_LAI2200, y = Transmittance_Low) +
   geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
   geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
   scale_colour_manual(values = c("Low altitude" = "green", 
@@ -243,7 +273,7 @@ LAI2200_Lidar %>%
   filter(Ring==1) %>% filter(azimut==0) %>%
   ggplot() +
   ggtitle("Paracou P16 4ha - GAP of High and Low altitude Lidar vs LAI2200 transmittances") +
-  aes(x = Transmittance_mean, y = `GAP[1]_Low`) +
+  aes(x = Transmittance_LAI2200, y = `GAP[1]_Low`) +
   geom_point(aes(y = `GAP[1]_Low`, colour = "Low altitude")) +
   geom_point(aes(y = `GAP[1]_High`, colour = "High altitude")) +
   scale_colour_manual(values = c("Low altitude" = "green", 
@@ -270,10 +300,10 @@ LAI2200_Lidar %>%
 
 LAI2200_Lidar %>% 
   filter(Ring==1) %>% filter(azimut==0) %>%
-  filter(Transmittance_mean<0.1) %>% 
+  filter(Transmittance_LAI2200<0.1) %>% 
   ggplot() +
   ggtitle("Paracou P16 4ha - High and Low altitude Lidar vs LAI2200 transmittances (< 0.1)") +
-  aes(x = Transmittance_mean, y = Transmittance_Low) +
+  aes(x = Transmittance_LAI2200, y = Transmittance_Low) +
   geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
   geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
   scale_colour_manual(values = c("Low altitude" = "green", 
@@ -288,10 +318,10 @@ LAI2200_Lidar %>%
 
 LAI2200_Lidar %>% 
   filter(Ring==1) %>% filter(azimut==0) %>%
-  filter(Transmittance_mean<0.1) %>% 
+  filter(Transmittance_LAI2200<0.1) %>% 
   ggplot() +
   ggtitle("Paracou P16 4ha - GAP of High and Low altitude Lidar vs LAI2200 transmittances (< 0.1)") +
-  aes(x = Transmittance_mean, y = `GAP[1]_Low`) +
+  aes(x = Transmittance_LAI2200, y = `GAP[1]_Low`) +
   geom_point(aes(y = `GAP[1]_Low`, colour = "Low altitude")) +
   geom_point(aes(y = `GAP[1]_High`, colour = "High altitude")) +
   scale_colour_manual(values = c("Low altitude" = "green", 
@@ -303,11 +333,11 @@ LAI2200_Lidar %>%
 
 ## Correlation tests
 ```{r}
-# Transmittance_mean, Transmittance_Low, Transmittance_High
+# Transmittance_LAI2200, Transmittance_Low, Transmittance_High
 
 DF_cor <- LAI2200_Lidar %>% 
   filter(Ring==1) %>% filter(azimut==0) %>%
-  select(Transmittance_mean,Transmittance_High,Transmittance_Low, `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low) 
+  select(Transmittance_LAI2200,Transmittance_High,Transmittance_Low, `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low) 
 # na.omit()
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))

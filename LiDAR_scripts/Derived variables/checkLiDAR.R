@@ -1,17 +1,47 @@
 library(lidR)
 
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
+#"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
 
 ST
 summary(ST@data)
-lidR::las_check(ST)
+lidR::las_check(ST) # lidR checks
 
-table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt
-
+# crs
 crs(ST)
+
+# Density
+mean(grid_density(ST, res=1)[])
+ST <- retrieve_pulses(ST)
+d <- rasterize_density(ST) # Creates a map of the point and pulses density
+dim(ST@data[NumberOfReturns==ReturnNumber,])
+plot(d)
+pts=d[[1]] # points/m2
+pls=d[[2]] # pulses/m2
+mean(pts[][which(pts[]>0)]) # points/m2
+mean(pls[][which(pls[]>0)]) # pulses/m2
+
+# Footprint size
+divergence <- 0.25 # mRAD divergence du lazer
+h <- 500 # fly heignt in m
+tan(divergence*10^-3)*h # Footprint size in m
+
+
+# gpstime
 range(ST@data$gpstime) # 354557511 354559330
+
+# Z
 range(ST@data$Z)
+
+# Classification
 table(ST@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
+
+# Echoes
+table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt
+# + d’écho veut dire que le signal a été intercepté plsrs fois sans s’éteindre car plus puissant.
+
 
 all(ST@data[,ReturnNumber] != 0)
 all(ST@data[,NumberOfReturns] != 0)

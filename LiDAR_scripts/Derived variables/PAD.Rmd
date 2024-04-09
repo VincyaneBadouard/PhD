@@ -1,0 +1,208 @@
+---
+title: "PAD"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Create PadBVTotal
+
+ref : VINCENT, Gregoire; PIMONT, François; VERLEY, Philippe, 2021, "A
+note on PAD/LAD estimators implemented in AMAPVox 1.7",
+<doi:10.23708/1AJNMP> , DataSuds, V1
+
+Computes Plant Area Density either from (transmittance or) attenuation
+coefficient estimates. PAD is defind as the plant area per unit volume
+(PAD plant area / voxel volume = m\^2 / m\^3). Plant area density (PAD
+in m2·m−3)
+
+PadBVTotal = 2\* attenuation (soit 2\*-log(transmittance)
+
+PadBVTotal = 2 \* HLE
+
+*AMAPVox::plantAreaDensity utilise une des variables disponibles
+"transmittance", "attenuation_FPL_unbiasedMLE" ou "attenuation_PPL_MLE"
+et génère une variable du même nom précédé du préfixe "pad\_"*
+
+# Packages
+
+```{r, include = F}
+library(AMAPVox)
+library(rgl)
+library(lattice)
+library(data.table)
+library(MASS)
+library(tidyverse)
+# rm(list=ls())
+```
+
+# Read voxelSpace
+```{r}
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
+
+# vxsp
+# summary(vxsp@data)
+# Pour ALS2023 low altitude le nbsampling est faible "Il n'y a pas d'incohérence dans les données: si tu travailles avec le fichier alt500m tu ne peux guère espérer mieux! Il faut en effet réduire le seuil pour le post-traitement (nbre minimum de tirs)"
+```
+
+# First get vegetation voxels only
+```{r}
+bcnp <- belowCanopy(vxsp) # enlève tous les voxels au dessus de la canopée
+# summary(bcnp)
+
+dz = getVoxelSize(vxsp)["z"] # Gets the elemental size of a voxel (dx, dy, dz) in meter.
+
+# Considérer tout ce qui est à + de 0.5 m du z=0 comme de la végétation
+veg <- vxsp@data[bcnp, list(i,j,k,ground_distance), # combine data.tables on i,j,k columns
+                 on = list(i, j, k)][ground_distance >= (0.5 * dz),
+                                     list(i,j,k)] # keep only i,j,k columns
+fullcanopy <- vxsp
+fullcanopy@data <- vxsp@data[veg,,on = list(i,j,k)] # only veg part
+
+# summary(fullcanopy@data)
+
+rm(bcnp, dz, veg)
+```
+
+# Compute PAD
+(HLE ou attenuation_FPL_biasedMLE)
+```{r}
+# fullcanopy@data$attenuation_FPL_biasedMLE[which(is.na(fullcanopy@data$attenuation_FPL_biasedMLE))] <- fbv  # to allow later transmittance computations using AMAPVox
+
+fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$attenuation_FPL_biasedMLE # *2 car hp d'orientation sphérique des feuilles
+
+# Import updated fields
+vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,attenuation_FPL_biasedMLE,PadBVTotal)], by=c("i","j","k"), all.x=T) # veg and ground data
+
+# Fill-in above canopy and below ground voxels with 0 PadBVTotal value
+vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later transmittance computations using AMAPVox
+
+rm(fullcanopy)
+```
+
+# Compute MeanPAD
+```{r}
+data <- vxsp@data %>% 
+  filter(nbSampling>0) %>%
+  mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
+  group_by(ground_distance_disc) %>% 
+  mutate(MeanPAD = mean(PadBVTotal)) %>% # mean
+  mutate(MinPAD = min(PadBVTotal)) %>% 
+  mutate(MaxPAD = max(PadBVTotal)) %>%
+  ungroup() %>% 
+  select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD) %>% 
+  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+  unique() 
+
+
+rm(vxsp)
+```
+
+```{r}
+# faire des fonctions la prochaine fois ...
+# dataHigh <- data
+dataLow <- data
+
+rm(data)
+```
+
+
+# Plot PAD vertical profile before estimation
+```{r}
+dataLow %>% 
+  ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
+  geom_point(data = dataHigh, aes(x = ground_distance_disc, y = MeanPAD, colour = "High altitude")) +
+  geom_line(data = dataHigh, aes(x = ground_distance_disc, y = MeanPAD, colour = "High altitude")) +
+  
+  geom_point(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
+  geom_line(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
+  scale_colour_manual(values = c("High altitude" = "darkgreen",
+                                 "Low altitude" = "green")) +
+  
+  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - PAD profile before estimation") +
+  labs(y="PAD", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
+# geom_errorbar(aes(ymin=MinPAD, ymax=MaxPAD), width=.2)#+ 
+# options(repr.plot.width=8, repr.plot.height=15) # higher height
+```
+
+```{r}
+rm(dataLow, dataHigh)
+```
+
+# Plot PAD vertical profile after estimation
+```{r}
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
+
+```
+
+```{r}
+data <- vxsp@data %>% 
+  filter(nbSampling>0) %>%
+  mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
+  group_by(ground_distance_disc) %>% 
+  mutate(MeanPAD = mean(PadBVTotal)) %>% 
+  mutate(MinPAD = min(PadBVTotal)) %>% 
+  mutate(MaxPAD = max(PadBVTotal)) %>%
+  mutate(MeanNbsampling = mean(nbSampling)) %>% 
+  mutate(SdNbsampling = sd(nbSampling)) %>% 
+  mutate(MinNbsampling = min(nbSampling)) %>% 
+  mutate(MaxNbsampling = max(nbSampling)) %>%
+  ungroup() %>% 
+  select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD, MeanNbsampling, SdNbsampling) %>% 
+  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+  unique()
+
+rm(vxsp)
+```
+
+```{r}
+# dataHigh <- data
+dataLow <- data
+
+rm(data)
+```
+
+```{r}
+dataLow %>% 
+  ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
+  geom_point(data = dataHigh, aes(x = ground_distance_disc, y = MeanPAD, colour = "High altitude")) +
+  geom_line(data = dataHigh, aes(x = ground_distance_disc, y = MeanPAD, colour = "High altitude")) +
+  
+  geom_point(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
+  geom_line(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
+  scale_colour_manual(values = c("High altitude" = "darkgreen",
+                                 "Low altitude" = "green")) +
+  
+  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - PAD profile after estimation") +
+  labs(y="PAD", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
+# geom_errorbar(aes(ymin=MinPAD, ymax=MaxPAD), width=.2)#+ 
+# options(repr.plot.width=8, repr.plot.height=15) # higher height
+```
+
+# Plot extinction profiles
+nbr de pulses qui traversent (1- ce qui est revenu)
+```{r}
+dataLow %>% 
+  ggplot(aes(x= ground_distance_disc, y= MeanNbsampling)) +
+  xlim(0,55) +
+  geom_point(data = dataHigh, aes(x = ground_distance_disc, y = MeanNbsampling, colour = "High altitude")) +
+  geom_line(data = dataHigh, aes(x = ground_distance_disc, y = MeanNbsampling, colour = "High altitude")) +
+  
+  geom_point(data = dataLow, aes(x = ground_distance_disc, y = MeanNbsampling, colour = "Low altitude")) +
+  geom_line(data = dataLow, aes(x = ground_distance_disc, y = MeanNbsampling, colour = "Low altitude")) +
+  scale_colour_manual(values = c("High altitude" = "darkgreen",
+                                 "Low altitude" = "green")) +
+  
+  ggtitle("P16 - 2023 - 4ha + buffer - extinction profile after estimation") +
+  labs(y="Sampling", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  coord_flip() #+
+# geom_errorbar(aes(ymin=MeanNbsampling-SdNbsampling, ymax=MeanNbsampling+SdNbsampling), width=.2)
+#   geom_errorbar(aes(ymin=MinNbsampling, ymax=MaxNbsampling), width=.2)
+```

@@ -444,6 +444,8 @@ Certains voxels (en bas de canopée) ne sont pas échantillonnés du fait de l�
 
 On simule ensuite à l’aide d’AMAPVox des cartes de transmittance à différentes altitudes au-dessus du sol à l’aide du module transmittance light maps. 
 
+A cette étape la **transmittance est hémisphérique** et intégrée dans le temps de la course du soleil.
+
 Lisa :
 script de traitement : lightMap_1m.xml
 input : test1m_PadHLE.vox

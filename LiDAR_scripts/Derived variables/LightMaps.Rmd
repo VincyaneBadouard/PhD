@@ -22,7 +22,7 @@ Understory_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory/Understory
 
 ```
 
-# Load raw data from AMAPVox
+# Process raw data from AMAPVox
 ```{r}
 path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual.txt"
@@ -42,7 +42,7 @@ Light <- Light[, !c("V5"), with = FALSE] # remove empty column
 Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))] # all as numeric
 Light <- Light[!is.na(X)] 
 ```
-# Plot
+## Plot
 ```{r}
 # Remove edges
 # Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
@@ -61,7 +61,7 @@ ggplot() +
   coord_sf()
 ```
 
-# Transformation des coordonnées relatives en UTM
+## Transformation des coordonnées relatives en UTM
 On peut retrouver les cooordonnées UTM avec la VOP
 ```{r}
 # Lecture matrice de transformation
@@ -87,7 +87,7 @@ ggplot() +
   coord_sf()
 ```
 
-# Crop on the interst zone
+## Crop on the interst zone
 ```{r}
 Lightsf <- st_as_sf(Light, coords = c('Xutm','Yutm'))
 Lightsf <- st_set_crs(Lightsf, crs(zone))
@@ -110,7 +110,7 @@ ggplot() +
   coord_sf()
 ```
 
-# Write data cropped and in UTM
+## Write data cropped and in UTM
 ```{r}
 fwrite(Light, , row.names = F, col.names = T)
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
@@ -163,7 +163,6 @@ ggplot() +
   scale_color_gradientn(name = "Light intensity (Transmittance)",
                         colors = terrain.colors(30, rev=T),
                         na.value="white") +
-  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   geom_point(data = Understory_stakes, size = 0.5,
              aes(Xutm, Yutm)) +
@@ -217,28 +216,48 @@ Lightgrid_LowAlt <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 ```{r}
 names(Lightgrid_HighAlt) # "X","Y","Z",  "Period 1",  "Xutm","Yutm","Zutm"    
 
-data <- Lightgrid_LowAlt %>% 
+dataHigh <- Lightgrid_HighAlt %>% 
   mutate(Zutm_disc = as.integer(Zutm)) %>% 
   group_by(Zutm_disc) %>% 
   mutate(MeanTransmittance = mean(`Period 1`)) %>% 
   mutate(MinTransmittance = min(`Period 1`)) %>% 
   mutate(MaxTransmittance = max(`Period 1`)) %>%
   mutate(SdTransmittance = sd(`Period 1`)) %>% 
-  ungroup()
+  ungroup() %>% 
+  select(Zutm_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% unique()
 
-data %>% 
-  select(Zutm_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% 
+dataLow <- Lightgrid_LowAlt %>% 
+  mutate(Zutm_disc = as.integer(Zutm)) %>% 
+  group_by(Zutm_disc) %>% 
+  mutate(MeanTransmittance = mean(`Period 1`)) %>% 
+  mutate(MinTransmittance = min(`Period 1`)) %>% 
+  mutate(MaxTransmittance = max(`Period 1`)) %>%
+  mutate(SdTransmittance = sd(`Period 1`)) %>% 
+  ungroup() %>% 
+  select(Zutm_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% unique() 
+
+
+dataLow %>% 
   # filter(Zutm_disc>=0 & Zutm_disc<=60) %>% 
-  unique() %>% 
-  ggplot(aes(x= Zutm_disc, y= MeanTransmittance )) +
-  geom_point() + 
-  geom_line() +
-  ggtitle("P16 - 2023 - 4ha - LowAlt - Light profile (Grid 10x10m, each 1m in Z)") +
-  labs(y="Transmittance", x="Altitude") +
+  ggplot(aes(x= Zutm_disc, y= MeanTransmittance)) +
+  
+  geom_point(data = dataHigh, aes(x = Zutm_disc, y = MeanTransmittance, colour = "High altitude")) +
+  geom_line(data = dataHigh, aes(x = Zutm_disc, y = MeanTransmittance, colour = "High altitude")) +
+  
+  geom_point(data = dataLow, aes(x = Zutm_disc, y = MeanTransmittance, colour = "Low altitude")) +
+  geom_line(data = dataLow, aes(x = Zutm_disc, y = MeanTransmittance, colour = "Low altitude")) +
+  
+  # geom_errorbar(data = dataHigh, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "darkgreen", width=.2) +
+  # geom_errorbar(data = dataLow, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "green", width=.2) +
+  # geom_errorbar(aes(ymin=MeanTransmittance-SdTransmittance, ymax=MeanTransmittance+SdTransmittance), width=.2)
+  
+  scale_colour_manual(values = c("High altitude" = "darkgreen",
+                                 "Low altitude" = "green")) +
+  
+  ggtitle("P16 - 2023 - 4ha - Light profile (Grid 10x10m, each 1m in Z)") +
+  labs(y="Transmittance", x="Altitude", color = "LiDAR acquisition") +
   xlim(0,70) +
-  coord_flip() + # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
-  geom_errorbar(aes(ymin=MinTransmittance, ymax=MaxTransmittance), width=.2)
-# geom_errorbar(aes(ymin=MeanTransmittance-SdTransmittance, ymax=MeanTransmittance+SdTransmittance), width=.2)
+  coord_flip() # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
 ```
 
 # Spatial autoccorelation of the light
