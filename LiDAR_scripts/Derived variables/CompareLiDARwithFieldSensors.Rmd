@@ -215,27 +215,35 @@ Transmittances le long du transect pour les différentes acquisitions LiDAR et l
 pour chaque ring
 ```{r}
 # Transmittance_LAI2200, Transmittance_Low, Transmittance_High
-
-LAI2200_Lidar %>% 
-  filter(Transect=="HOBO") %>% # LAY # HOBO
-  filter(Ring==2) %>% filter(azimut==0) %>%
-  ggplot(aes(x = Id)) +
-  geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
-  geom_line(aes(y = Transmittance_High, colour = "High altitude")) +
-  
-  geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
-  geom_line(aes(y = Transmittance_Low, colour = "Low altitude")) +
-  
-  geom_point(aes(y = Transmittance_LAI2200, colour = "LAI2200")) +
-  geom_line(aes(y = Transmittance_LAI2200, colour = "LAI2200"), linewidth = 1.5) +
-  
-  scale_colour_manual(values = c("High altitude" = "darkgreen",
-                                 "Low altitude" = "#00CC66",
-                                 "LAI2200" = "red"),
-                      breaks=c("LAI2200", "High altitude", "Low altitude")) +
-  labs(title = "HOBO tansect - Ring2", y="Transmittance", x="ID", color = "Acquisition") +
-  scale_x_continuous(breaks = seq(1:20)) # 26 # 20
-
+for(t in c("HOBO", "LAY")){
+  for(R in 1:5){
+    
+    idmax = max(LAI2200_Lidar[LAI2200_Lidar$Transect==t,]$Id) # last sensor Id
+    
+    print(
+      LAI2200_Lidar %>% 
+        filter(Transect==t) %>% # LAY # HOBO
+        filter(Ring==R) %>% filter(azimut==0) %>%
+        ggplot(aes(x = Id)) +
+        geom_point(aes(y = Transmittance_High, colour = "High altitude")) +
+        geom_line(aes(y = Transmittance_High, colour = "High altitude")) +
+        
+        geom_point(aes(y = Transmittance_Low, colour = "Low altitude")) +
+        geom_line(aes(y = Transmittance_Low, colour = "Low altitude")) +
+        
+        geom_point(aes(y = Transmittance_LAI2200, colour = "LAI2200")) +
+        geom_line(aes(y = Transmittance_LAI2200, colour = "LAI2200"), linewidth = 1.5) +
+        
+        scale_colour_manual(values = c("High altitude" = "darkgreen",
+                                       "Low altitude" = "#00CC66",
+                                       "LAI2200" = "red"),
+                            breaks=c("LAI2200", "High altitude", "Low altitude")) +
+        labs(title = paste(t," transect - Ring ",R), y="Transmittance", x="ID", color = "Acquisition") +
+        scale_x_continuous(breaks = seq(1:idmax)) #+ # 26 # 20
+      # facet_wrap(vars(ScientificName, N), scales = "free")
+    )
+  }
+}
 ```
 
 # Relations plots
@@ -332,13 +340,22 @@ LAI2200_Lidar %>%
 ```
 
 ## Correlation tests
+a colum for each transmittance for each ring
 ```{r}
 # Transmittance_LAI2200, Transmittance_Low, Transmittance_High
 
 DF_cor <- LAI2200_Lidar %>% 
-  filter(Ring==1) %>% filter(azimut==0) %>%
-  select(Transmittance_LAI2200,Transmittance_High,Transmittance_Low, `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low) 
+  # filter(Ring==1) %>%
+  filter(azimut==0) %>%
+  select(Ring, Transmittance_LAI2200,Transmittance_High,Transmittance_Low) %>% # `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low 
+  unique() %>% 
+  pivot_wider(names_from = Ring,
+              values_from = c(Transmittance_LAI2200,Transmittance_High,Transmittance_Low),
+              values_fn = list,
+              names_glue = "{.value}_Ring{Ring}") %>% 
+  unnest() # pcq les colonnes sont en listes
 # na.omit()
+
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
 CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
@@ -347,7 +364,7 @@ Pval_corr <- CorMatrixS$P # p-values
 # Plot de la matrice de corrélation :
 # png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
 corrplot(CorMatrix, method="circle", type="lower", diag = F, 
-         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.9, tl.srt=45, p.mat = Pval_corr)
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 1, tl.srt=45)
 # dev.off()
 
 ```

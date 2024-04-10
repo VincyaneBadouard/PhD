@@ -135,52 +135,91 @@ rm(dataLow, dataHigh)
 
 # Plot PAD vertical profile after estimation
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
+vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
+
+vxsp_low_pulseMin4 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox")
+vxsp_low_pulseMin12 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin12.vox")
+vxsp_low_pulseMin20 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin20.vox")
+vxsp_low_pulseMin28 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin28.vox")
+vxsp_low_pulseMin44 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin44.vox")
 
 ```
 
 ```{r}
-data <- vxsp@data %>% 
-  filter(nbSampling>0) %>%
-  mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
-  group_by(ground_distance_disc) %>% 
-  mutate(MeanPAD = mean(PadBVTotal)) %>% 
-  mutate(MinPAD = min(PadBVTotal)) %>% 
-  mutate(MaxPAD = max(PadBVTotal)) %>%
-  mutate(MeanNbsampling = mean(nbSampling)) %>% 
-  mutate(SdNbsampling = sd(nbSampling)) %>% 
-  mutate(MinNbsampling = min(nbSampling)) %>% 
-  mutate(MaxNbsampling = max(nbSampling)) %>%
-  ungroup() %>% 
-  select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD, MeanNbsampling, SdNbsampling) %>% 
-  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
-  unique()
+Compute_PAD_nbSampling_mean <- function(vxsp){
+  data <- vxsp@data %>% 
+    filter(nbSampling>0) %>%
+    mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
+    group_by(ground_distance_disc) %>% 
+    mutate(MeanPAD = mean(PadBVTotal)) %>% 
+    mutate(MinPAD = min(PadBVTotal)) %>% 
+    mutate(MaxPAD = max(PadBVTotal)) %>%
+    mutate(MeanNbsampling = mean(nbSampling)) %>% 
+    mutate(SdNbsampling = sd(nbSampling)) %>% 
+    mutate(MinNbsampling = min(nbSampling)) %>% 
+    mutate(MaxNbsampling = max(nbSampling)) %>%
+    ungroup() %>% 
+    select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD, MeanNbsampling, SdNbsampling) %>% 
+    filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+    unique()
+  return(data)
+}
 
-rm(vxsp)
+dataHigh <- Compute_PAD_nbSampling_mean(vxsp_High)
+rm(vxsp_High)
+
+dataLow_pulseMin4 <- Compute_PAD_nbSampling_mean(vxsp_low_pulseMin4)
+rm(vxsp_low_pulseMin4)
+
+dataLow_pulseMin12 <- Compute_PAD_nbSampling_mean(vxsp_low_pulseMin12)
+rm(vxsp_low_pulseMin12)
+
+dataLow_pulseMin20 <- Compute_PAD_nbSampling_mean(vxsp_low_pulseMin20)
+rm(vxsp_low_pulseMin20)
+
+dataLow_pulseMin28 <- Compute_PAD_nbSampling_mean(vxsp_low_pulseMin28)
+rm(vxsp_low_pulseMin28)
+
+dataLow_pulseMin44 <- Compute_PAD_nbSampling_mean(vxsp_low_pulseMin44)
+rm(vxsp_low_pulseMin44)
 ```
 
-```{r}
-# dataHigh <- data
-dataLow <- data
-
-rm(data)
-```
 
 ```{r}
-dataLow %>% 
+dataLow_pulseMin4 %>% 
   ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
-  geom_point(data = dataHigh, aes(x = ground_distance_disc, y = MeanPAD, colour = "High altitude")) +
-  geom_line(data = dataHigh, aes(x = ground_distance_disc, y = MeanPAD, colour = "High altitude")) +
+  geom_point(data = dataHigh, aes(y = MeanPAD, colour = "High altitude (pulse min=44)")) +
+  geom_line(data = dataHigh, aes(y = MeanPAD, colour = "High altitude (pulse min=44)")) +
   
-  geom_point(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
-  geom_line(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
-  scale_colour_manual(values = c("High altitude" = "darkgreen",
-                                 "Low altitude" = "green")) +
+  geom_point(data = dataLow_pulseMin4, aes(y = MeanPAD, colour = "Low altitude (pulse min=4)")) +
+  geom_line(data = dataLow_pulseMin4, aes(y = MeanPAD, colour = "Low altitude (pulse min=4)")) +
   
-  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - PAD profile after estimation") +
-  labs(y="PAD", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  geom_point(data = dataLow_pulseMin12, aes(y = MeanPAD, colour = "Low altitude (pulse min=12)")) +
+  geom_line(data = dataLow_pulseMin12, aes(y = MeanPAD, colour = "Low altitude (pulse min=12)")) +
+
+  geom_point(data = dataLow_pulseMin20, aes(y = MeanPAD, colour = "Low altitude (pulse min=20)")) +
+  geom_line(data = dataLow_pulseMin20, aes(y = MeanPAD, colour = "Low altitude (pulse min=20)")) +
+
+  geom_point(data = dataLow_pulseMin28, aes(y = MeanPAD, colour = "Low altitude (pulse min=28)")) +
+  geom_line(data = dataLow_pulseMin28, aes(y = MeanPAD, colour = "Low altitude (pulse min=28)")) +
+  
+  geom_point(data = dataLow_pulseMin44, aes(y = MeanPAD, colour = "Low altitude (pulse min=44)")) +
+  geom_line(data = dataLow_pulseMin44, aes(y = MeanPAD, colour = "Low altitude (pulse min=44)")) +
+  
+  scale_colour_manual(values = c("High altitude (pulse min=44)" = "darkgreen",
+                                 "Low altitude (pulse min=4)" = "green",
+                                 "Low altitude (pulse min=12)" = "yellow",
+                                 "Low altitude (pulse min=20)" = "orange",
+                                 "Low altitude (pulse min=28)" = "darkred",
+                      "Low altitude (pulse min=44)" = "black"),
+                      breaks=c("High altitude (pulse min=44)",
+                               "Low altitude (pulse min=4)",
+                               "Low altitude (pulse min=12)",
+                               "Low altitude (pulse min=20)",
+                               "Low altitude (pulse min=28)",
+                               "Low altitude (pulse min=44)")) +
+  ggtitle("P16 - 2023 - 4ha + buffer - PAD profile after estimation") +
+  labs(y="Average PAD", x="Absolute Tree Height", color = "LiDAR acquisition") +
   coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
 # geom_errorbar(aes(ymin=MinPAD, ymax=MaxPAD), width=.2)#+ 
 # options(repr.plot.width=8, repr.plot.height=15) # higher height
