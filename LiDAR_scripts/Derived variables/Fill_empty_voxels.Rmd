@@ -27,7 +27,12 @@ fois et faire donc du proche en proche
 
 1)  get the vegetation voxels only (z \> 0.5 m)
 
-2)  Compute a reasonnable fallback value (the median of attenuation) if
+2)  Choose a threshold (pulse.min) to consider an poorly sampled voxel:
+- before : nbSampling <25
+- now : median(fullcanopy@data$nbSampling)
+- test for low altitude lidar : 4,12,20,28,44
+
+Compute a reasonnable fallback value (the median of attenuation) if
 local re-estimation fails
 
 3)  Re-estimation of poorly sampled voxels
@@ -142,21 +147,31 @@ HLE <- function (
 # Read voxelSpace
 
 ```{r}
-vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
-vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_equalecho2m.vox")
+vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer_equalecho2m.vox")
+# vxsp_LowI <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
+
+median(vxsp_Low@data$nbSampling)
+median(vxsp_LowI@data$nbSampling)
+
+hist(vxsp_Low@data$nbSampling, breaks=100)
+hist(vxsp_LowI@data$nbSampling, breaks=100)
+
+sum(vxsp_Low@data$nbSampling)
+sum(vxsp_LowI@data$nbSampling)
+
 vxsp
 summary(vxsp@data)
 # Pour ALS2023 low altitude le nbsampling est faible "Il n'y a pas d'incohérence dans les données: si tu travailles avec le fichier alt500m tu ne peux guère espérer mieux! Il faut en effet réduire le seuil pour le post-traitement (nbre minimum de tirs)"
 ```
 
 # First get vegetation voxels only
-
 ```{r}
 OnlyVegetation <- function(vxsp){
   bcnp <- belowCanopy(vxsp) # enlève tous les voxels au dessus de la canopée
-  summary(bcnp)
+  # summary(bcnp)
   
   dz = getVoxelSize(vxsp)["z"] # Gets the elemental size of a voxel (dx, dy, dz) in meter.
   
@@ -173,8 +188,21 @@ OnlyVegetation <- function(vxsp){
 
 fullcanopy_High <- OnlyVegetation(vxsp_High)
 fullcanopy_Low <- OnlyVegetation(vxsp_Low)
+# fullcanopy_LowI <- OnlyVegetation(vxsp_LowI)
 
-summary(fullcanopy@data)
+# summary(fullcanopy@data)
+
+median(fullcanopy_Low@data$nbSampling)
+
+median(fullcanopy_LowI@data$nbSampling)
+hist(fullcanopy_Low@data$nbSampling, breaks=50)
+
+hist(fullcanopy_LowI@data$nbSampling, breaks=50)
+
+summary(fullcanopy_Low)
+sum(fullcanopy_Low@data$nbSampling)
+sum(fullcanopy_LowI@data$nbSampling)
+
 
 ```
 
@@ -191,14 +219,24 @@ Biais d'échantillonage : quand peu échantilloné a tendence à renvoyer
 une grande densité
 
 ```{r}
-hist(fullcanopy@data$nbSampling, breaks=100)
-pulse.min <- median(fullcanopy@data$nbSampling) # Low : 4 ; High : 44
-pulse.min
+# hist(fullcanopy@data$nbSampling, breaks=100)
 
-pulse.min = 44 # seq(4,28, by=8) =  4 12 20 28 44
+pulsemin_fbv <- function(fullcanopy){
+  # pulse.min <- median(fullcanopy@data$nbSampling) # Low : 4 ; High : 44
+  # pulse.min
+  pulse.min = 20 # seq(4,28, by=8) =  4 12 20 28 44
+  fbv <- median(fullcanopy@data[nbSampling>=pulse.min, na.omit(attenuation_FPL_biasedMLE)]) # 0.0257098
+  # fbv
+  return(list(pulse.min = pulse.min, fbv=fbv))
+}
 
-fbv <- median(fullcanopy@data[nbSampling>=pulse.min, na.omit(attenuation_FPL_biasedMLE)]) # 0.0257098
-fbv
+pulsemin_fbv_High <- pulsemin_fbv(fullcanopy_High)
+pulsemin_High <- pulsemin_fbv_High$pulse.min
+fbv_High <-  pulsemin_fbv_High$fbv
+pulsemin_fbv_Low <- pulsemin_fbv(fullcanopy_Low)
+pulsemin_Low <- pulsemin_fbv_Low$pulse.min
+fbv_Low <- pulsemin_fbv_Low$fbv
+
 # High : pulse min 44 ->
 # Low :
 # pulse min 4 -> 0
@@ -207,7 +245,6 @@ fbv
 # pulse min 28 ->  0.1011642
 # pulse min 28 ->  0.0258637
 ```
-
 # Poorly sampled voxels
 ```{r}
 na <- nrow(fullcanopy@data[nbSampling<25])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
@@ -217,45 +254,60 @@ write.csv(na, )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion2022.csv"
 ```
 
-## Poorly sampled voxels per altitude
+## Empty voxels per altitude
 ```{r}
-Poorly_sampled_voxels_per_altitude <- function(fullcanopy){
-  data <- fullcanopy@data 
+Empty_voxels_per_altitude <- function(fullcanopy){
+  data <- setDF(fullcanopy@data) 
   data <- data %>% 
     mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
     group_by(ground_distance_disc) %>% 
-    mutate(Poor = ifelse(nbSampling<25, 1, 0)) %>%
-    summarize(N_poorly_sampled_voxels = sum(Poor)) %>% 
-    filter(ground_distance_disc>=0 & ground_distance_disc<=50)
+    mutate(Poor = ifelse(nbSampling==0, 1, 0)) %>%
+    mutate(N_empty_voxels = sum(Poor)) %>% # nbr
+    group_by(ground_distance_disc,Poor) %>% 
+    mutate(`%_empty_voxels` = n()/nrow(.)*100) %>% # %
+    mutate(`%_empty_voxels` = ifelse(Poor==0, NA, `%_empty_voxels`)) %>% 
+    ungroup() %>% 
+    dplyr::select(c(ground_distance_disc, N_empty_voxels,`%_empty_voxels`)) %>% 
+    filter(ground_distance_disc>=0 & ground_distance_disc<=45)
 }
 
-dataHigh <- Poorly_sampled_voxels_per_altitude(fullcanopy_High)
-dataLow <- Poorly_sampled_voxels_per_altitude(fullcanopy_Low)
+dataHigh <- Empty_voxels_per_altitude(fullcanopy_High)
+dataLow <- Empty_voxels_per_altitude(fullcanopy_Low)
 
-ggplot(dataLow, aes(x= ground_distance_disc, y= N_poorly_sampled_voxels)) +
+ggplot(dataLow, aes(x= ground_distance_disc, y= `%_empty_voxels`)) +
   geom_point(data = dataHigh, aes(colour = "High altitude")) +
   geom_line(data = dataHigh, aes(colour = "High altitude")) +
   geom_point(data = dataLow, aes(colour = "Low altitude")) +
   geom_line(data = dataLow, aes(colour = "Low altitude")) +
   scale_colour_manual(values = c("High altitude" = "darkgreen",
                                  "Low altitude" = "green")) +
-  ggtitle("P16 - 2023 - 4ha + buffer - Poorly sampled voxels per altitude") +
-  labs(y="Number of poorly sampled voxels", x="Ground distance", color = "LiDAR acquisition") +
+  ggtitle("P16 - 2023 - 4ha + buffer - Proportion of empty voxels per altitude") +
+  labs(y="% of empty voxels", x="Ground distance", color = "LiDAR acquisition") +
   coord_flip() +
-  scale_y_continuous(breaks = seq(0,160615, by= 25000))
+  xlim(0,45)
+# scale_x_continuous(breaks = seq(0,160615, by= 25000))
 ```
 
 # Re-estimation of poorly sampled voxels
 un peu long
 
 ```{r}
-HLE(fullcanopy, # voxel space (only vegetation)
+gc()
+HLE(fullcanopy_High, # voxel space (only vegetation)
     variable.name1 = "bsIntercepted",
     variable.name2 = "weightedFreepathLength",
     variable.min = -Inf, variable.max = Inf, 
-    variable.fallback = fbv, radius = 2, pulse.min = pulse.min)
+    variable.fallback = fbv_High, radius = 2, pulse.min = pulsemin_High)
 
-"HLE" %in% names(fullcanopy@data)
+HLE(fullcanopy_Low, # voxel space (only vegetation)
+    variable.name1 = "bsIntercepted",
+    variable.name2 = "weightedFreepathLength",
+    variable.min = -Inf, variable.max = Inf, 
+    variable.fallback = fbv_Low, radius = 2, pulse.min = pulsemin_Low)
+
+gc()
+
+"HLE" %in% names(fullcanopy_Low@data)
 sum(is.na(fullcanopy@data$HLE)) 
 sum(!is.na(fullcanopy@data$HLE)) # 4887658
 all(is.na(fullcanopy@data[is.na(HLE)]$bsIntercepted)|is.na(fullcanopy@data[is.na(HLE)]$weightedFreepathLength)|fullcanopy@data[is.na(HLE)]$bsIntercepted==0) # missing HLE is when bsIntercepted or weightedFreepathLength are missing or equal to 0
@@ -306,15 +358,24 @@ PadBVTotal = 2 \* HLE
 et génère une variable du même nom précédé du préfixe "pad\_"*
 
 ```{r}
-fullcanopy@data$HLE[which(is.na(fullcanopy@data$HLE))] <- fbv  # to allow later transmittance computations using AMAPVox
+Compute_PAD <- function(fullcanopy, vxsp, fbv){
+  fullcanopy@data$HLE[which(is.na(fullcanopy@data$HLE))] <- fbv  # to allow later transmittance computations using AMAPVox
+  
+  fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$HLE # *2 car hp d'orientation sphérique des feuilles
+  
+  # Import updated fields
+  vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i","j","k"), all.x=T) # veg and ground data
+  
+  # Fill-in above canopy and below ground voxels with 0 PadBVTotal value
+  vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later transmittance computations using AMAPVox
+  
+  return(vxsp)
+}
 
-fullcanopy@data$PadBVTotal <- 2*fullcanopy@data$HLE # *2 car hp d'orientation sphérique des feuilles
+vxsp_High <- Compute_PAD(fullcanopy_High, vxsp_High, fbv_High)
+vxsp_Low <- Compute_PAD(fullcanopy_Low, vxsp_Low, fbv_Low)
 
-# Import updated fields
-vxsp@data <- merge(vxsp@data,fullcanopy@data[,.(i,j,k,HLE,PadBVTotal)], by=c("i","j","k"), all.x=T) # veg and ground data
-
-# Fill-in above canopy and below ground voxels with 0 PadBVTotal value
-vxsp@data$PadBVTotal[which(is.na(vxsp@data$PadBVTotal))] <- 0  # to allow later transmittance computations using AMAPVox
+gc()
 ```
 
 # Compute Transmittance from attenuation
@@ -327,10 +388,19 @@ statistiques, mais on ne l'ajuste pas à 0 car en moyenne elle est
 débiaisée)
 
 ```{r}
-vxsp@data[,Transmittance := exp(-HLE)] 
-range(na.omit(vxsp@data$Transmittance))
+Compute_Transmittance <- function(vxsp){
+  vxsp@data[,Transmittance := exp(-HLE)] 
+  # range(na.omit(vxsp@data$Transmittance))
+  return(vxsp)
+}
+vxsp_High <- Compute_Transmittance(vxsp_High)
+vxsp_Low <- Compute_Transmittance(vxsp_Low)
 
-writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin44.vox")
+
+# writeVoxelSpace(vxsp, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin44.vox")
+writeVoxelSpace(vxsp_High, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE_equalecho2m.vox")
+writeVoxelSpace(vxsp_Low, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_equalecho2m.vox")
+
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer__PadHLE.vox"
