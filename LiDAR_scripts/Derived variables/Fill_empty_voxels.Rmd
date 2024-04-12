@@ -153,14 +153,14 @@ vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lid
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
 
-median(vxsp_Low@data$nbSampling)
-median(vxsp_LowI@data$nbSampling)
-
-hist(vxsp_Low@data$nbSampling, breaks=100)
-hist(vxsp_LowI@data$nbSampling, breaks=100)
-
-sum(vxsp_Low@data$nbSampling)
-sum(vxsp_LowI@data$nbSampling)
+# median(vxsp_Low@data$nbSampling)
+# median(vxsp_LowI@data$nbSampling)
+# 
+# hist(vxsp_Low@data$nbSampling, breaks=100)
+# hist(vxsp_LowI@data$nbSampling, breaks=100)
+# 
+# sum(vxsp_Low@data$nbSampling)
+# sum(vxsp_LowI@data$nbSampling)
 
 vxsp
 summary(vxsp@data)
@@ -192,18 +192,12 @@ fullcanopy_Low <- OnlyVegetation(vxsp_Low)
 
 # summary(fullcanopy@data)
 
-median(fullcanopy_Low@data$nbSampling)
-
-median(fullcanopy_LowI@data$nbSampling)
-hist(fullcanopy_Low@data$nbSampling, breaks=50)
-
-hist(fullcanopy_LowI@data$nbSampling, breaks=50)
-
-summary(fullcanopy_Low)
-sum(fullcanopy_Low@data$nbSampling)
-sum(fullcanopy_LowI@data$nbSampling)
-
-
+# median(fullcanopy_Low@data$nbSampling)
+# median(fullcanopy_LowI@data$nbSampling)
+# hist(fullcanopy_Low@data$nbSampling, breaks=50)
+# hist(fullcanopy_LowI@data$nbSampling, breaks=50)
+# sum(fullcanopy_Low@data$nbSampling)
+# sum(fullcanopy_LowI@data$nbSampling)
 ```
 
 # Compute a reasonnable fallback value if local re-estimation fails
@@ -449,44 +443,5 @@ data %>%
 # options(repr.plot.width=8, repr.plot.height=15) # higher height
 ```
 
-# Plot extinction profiles
-nbr de pulses qui traversent (1- ce qui est revenu)
-```{r}
-data %>% 
-  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
-  select(ground_distance_disc, MeanNbsampling, SdNbsampling) %>% 
-  unique() %>% 
-  ggplot(aes(x= ground_distance_disc, y= MeanNbsampling)) +
-  geom_point() + 
-  geom_line() +
-  #scale_color_viridis_d() +
-  # xlim(0,1) +
-  # ylim(0,60) +
-  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - extinction profile") +
-  # theme(plot.title = element_text(hjust=0.5)) + 
-  labs(y="Sampling", x="Absolute Tree Height") +
-  coord_flip() +
-  geom_errorbar(aes(ymin=MeanNbsampling-SdNbsampling, ymax=MeanNbsampling+SdNbsampling), width=.2)
 
-data %>% 
-  filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
-  select(ground_distance_disc, MeanNbsampling, MinNbsampling, MaxNbsampling) %>% 
-  unique() %>% 
-  ggplot(aes(x= ground_distance_disc, y= MeanNbsampling)) +
-  geom_point() + 
-  geom_line() +
-  #scale_color_viridis_d() +
-  # xlim(0,1) +
-  # ylim(0,60) +
-  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - extinction profile") +
-  # theme(plot.title = element_text(hjust=0.5)) + 
-  labs(y="Sampling", x="Absolute Tree Height") +
-  coord_flip() +
-  geom_errorbar(aes(ymin=MinNbsampling, ymax=MaxNbsampling), width=.2)
-```
 
-# Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
-
-fichier CheckEffectDecimation.R
-
-full - decim = écart systématique ou non selon le numbre de pulse

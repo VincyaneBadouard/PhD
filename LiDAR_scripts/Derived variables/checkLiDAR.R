@@ -1,4 +1,5 @@
 library(lidR)
+library(data.table)
 
 ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
 #"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz"
@@ -28,6 +29,9 @@ divergence <- 0.25 # mRAD divergence du lazer
 h <- 500 # fly heignt in m
 tan(divergence*10^-3)*h # Footprint size in m
 
+# Penetration (proportion de points sol dans le dernier écho)
+table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt
+table(ST@data[ReturnNumber==11 & NumberOfReturns==11, Classification]) # 2 = sol
 
 # gpstime
 range(ST@data$gpstime) # 354557511 354559330

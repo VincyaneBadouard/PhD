@@ -468,3 +468,8 @@ Amapvox peut générer des photos hémisphériques, des données LAI2200, et des
 Voir CompareLiDARwithFieldSensors.Rmd
 
 
+# Test decim dans amapvox (80%) pour savoir à combien de pulse on fait confiance
+
+fichier CheckEffectDecimation.R
+
+full - decim = écart systématique ou non selon le numbre de pulse
