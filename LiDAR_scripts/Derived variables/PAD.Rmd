@@ -95,7 +95,7 @@ gc()
 
 # Filter at >4, 12 nbSampling for both
 ```{r}
-Filter_nbSampling <- function(vxsp_High, vxsp_Low, nbSampling_threshold =4){
+Filter_nbSampling <- function(vxsp_High, vxsp_Low, nbSampling_threshold =20){
   # data1 <- vxsp_High@data %>%
   #   mutate(ground_distance_disc = as.integer(ground_distance)) %>%
   #   select(ground_distance_disc, nbSampling, PadBVTotal)
@@ -127,7 +127,7 @@ Filter_nbSampling <- function(vxsp_High, vxsp_Low, nbSampling_threshold =4){
   return(data)
 }
 
-data <- Filter_nbSampling(vxsp_High, vxsp_Low, 4)
+data <- Filter_nbSampling(vxsp_High, vxsp_Low, 20)
 
 ```
 
@@ -144,6 +144,7 @@ Compute_PAD_mean <- function(vxsp, nbSampling_threshold=0){
     ungroup() %>% 
     select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD) %>% 
     filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+    filter(ground_distance_disc %% 2 == F) %>% # de 2 en 2 m d'altitude if res = 2m
     unique() 
   return(data)
 }
@@ -195,7 +196,7 @@ vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lid
 
 ```{r}
 Compute_PAD_nbSampling_mean <- function(vxsp){
-  data <- vxsp@data %>% 
+  data <- setDF(vxsp@data) %>% 
     filter(nbSampling>0) %>%
     mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
     group_by(ground_distance_disc) %>% 
@@ -207,8 +208,9 @@ Compute_PAD_nbSampling_mean <- function(vxsp){
     mutate(MinNbsampling = min(nbSampling)) %>% 
     mutate(MaxNbsampling = max(nbSampling)) %>%
     ungroup() %>% 
-    select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD, MeanNbsampling, SdNbsampling) %>% 
+    dplyr::select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD, MeanNbsampling, SdNbsampling) %>% 
     filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
+    filter(ground_distance_disc %% 2 == F) %>% # de 2 en 2 m d'altitude if res = 2m
     unique()
   return(data)
 }
@@ -267,8 +269,8 @@ scale_colour_manual(values = c("High altitude (pulse min=20)" = "darkgreen",
                                # "Low altitude (pulse min=28)" = "darkred",
                                # "Low altitude (pulse min=44)" = "black"
 ),
-breaks=c("High altitude (pulse min=44)",
-         "Low altitude (pulse min=8)"
+breaks=c("High altitude (pulse min=20)",
+         "Low altitude (pulse min=20)"
          # "Low altitude (pulse min=4)",
          # "Low altitude (pulse min=12)",
          # "Low altitude (pulse min=20)",
@@ -296,8 +298,9 @@ dataLow %>%
   scale_colour_manual(values = c("High altitude" = "darkgreen",
                                  "Low altitude" = "green")) +
   
-  ggtitle("P16 - 2023 - 4ha + buffer - extinction profile after estimation") +
-  labs(y="Sampling", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  ggtitle("P16 - 2023 - 4ha + buffer - extinction profile") +
+  labs(y="Number of through pulses", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  scale_y_continuous(breaks = seq(0, max(dataHigh$MeanNbsampling), by=100))+
   coord_flip() #+
 # geom_errorbar(aes(ymin=MeanNbsampling-SdNbsampling, ymax=MeanNbsampling+SdNbsampling), width=.2)
 #   geom_errorbar(aes(ymin=MinNbsampling, ymax=MaxNbsampling), width=.2)

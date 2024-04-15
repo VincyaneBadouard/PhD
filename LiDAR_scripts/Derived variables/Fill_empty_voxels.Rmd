@@ -162,8 +162,8 @@ vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lid
 # sum(vxsp_Low@data$nbSampling)
 # sum(vxsp_LowI@data$nbSampling)
 
-vxsp
-summary(vxsp@data)
+# vxsp
+# summary(vxsp@data)
 # Pour ALS2023 low altitude le nbsampling est faible "Il n'y a pas d'incohérence dans les données: si tu travailles avec le fichier alt500m tu ne peux guère espérer mieux! Il faut en effet réduire le seuil pour le post-traitement (nbre minimum de tirs)"
 ```
 
@@ -241,32 +241,37 @@ fbv_Low <- pulsemin_fbv_Low$fbv
 ```
 # Poorly sampled voxels
 ```{r}
-na <- nrow(fullcanopy@data[nbSampling<25])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
+na <- nrow(fullcanopy@data[nbSampling<20])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
 write.csv(na, )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/EmptyVoxelsProportion2023LowAlt.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/EmptyVoxelsProportion2023HighAlt.csv" # 0.37
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/EmptyVoxelsProportion2022.csv"
 ```
 
-## Empty voxels per altitude
+## Poorly sampled voxels per altitude
 ```{r}
-Empty_voxels_per_altitude <- function(fullcanopy){
+Poorly_sampled_voxels_per_altitude <- function(fullcanopy, nbSampling_threshold=20){
   data <- setDF(fullcanopy@data) 
   data <- data %>% 
     mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
     group_by(ground_distance_disc) %>% 
-    mutate(Poor = ifelse(nbSampling==0, 1, 0)) %>%
+    mutate(Poor = ifelse(nbSampling < nbSampling_threshold, 1, 0)) %>%
     mutate(N_empty_voxels = sum(Poor)) %>% # nbr
     group_by(ground_distance_disc,Poor) %>% 
     mutate(`%_empty_voxels` = n()/nrow(.)*100) %>% # %
-    mutate(`%_empty_voxels` = ifelse(Poor==0, NA, `%_empty_voxels`)) %>% 
     ungroup() %>% 
+    filter(Poor==1) %>% 
+    # mutate(`%_empty_voxels` = ifelse(Poor==0, 0, `%_empty_voxels`)) %>% 
     dplyr::select(c(ground_distance_disc, N_empty_voxels,`%_empty_voxels`)) %>% 
-    filter(ground_distance_disc>=0 & ground_distance_disc<=45)
+    filter(ground_distance_disc>=0 & ground_distance_disc<=45) %>% 
+    filter(ground_distance_disc %% 2 == F) %>% # de 2 en 2 m d'altitude if res = 2m
+    unique()
+
 }
 
-dataHigh <- Empty_voxels_per_altitude(fullcanopy_High)
-dataLow <- Empty_voxels_per_altitude(fullcanopy_Low)
+dataHigh <- Poorly_sampled_voxels_per_altitude(fullcanopy_High)
+dataLow <- Poorly_sampled_voxels_per_altitude(fullcanopy_Low)
+gc()
 
 ggplot(dataLow, aes(x= ground_distance_disc, y= `%_empty_voxels`)) +
   geom_point(data = dataHigh, aes(colour = "High altitude")) +
@@ -275,8 +280,8 @@ ggplot(dataLow, aes(x= ground_distance_disc, y= `%_empty_voxels`)) +
   geom_line(data = dataLow, aes(colour = "Low altitude")) +
   scale_colour_manual(values = c("High altitude" = "darkgreen",
                                  "Low altitude" = "green")) +
-  ggtitle("P16 - 2023 - 4ha + buffer - Proportion of empty voxels per altitude") +
-  labs(y="% of empty voxels", x="Ground distance", color = "LiDAR acquisition") +
+  ggtitle("P16-2023-4ha+buffer - Proportion of poorly sampled voxels per altitude - res 2m") +
+  labs(y="% of poorly sampled voxels (<20 pulses)", x="Ground distance", color = "LiDAR acquisition") +
   coord_flip() +
   xlim(0,45)
 # scale_x_continuous(breaks = seq(0,160615, by= 25000))
