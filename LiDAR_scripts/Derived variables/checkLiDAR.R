@@ -1,7 +1,8 @@
+# ça serait bien d'en faire des fonctions
 library(lidR)
 library(data.table)
 
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
 #"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
@@ -32,9 +33,15 @@ tan(divergence*10^-3)*h # Footprint size in m
 # Penetration (proportion de points sol dans le dernier écho)
 table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt
 min(ST@data$Z) # High : -2.34 ; Low : 4.06
-(nrow(ST@data[ReturnNumber==NumberOfReturns & Classification==2,])/nrow(ST@data))*100 # 2 = sol # High: 0.8% ; Low:2.7% of ground points in the last echo
+(nrow(ST@data[ReturnNumber==NumberOfReturns & Classification==2,])/nrow(ST@data[ReturnNumber==NumberOfReturns,]))*100 # 2 = sol # High: 1.75% ; Low: 8.70 % of ground points in the last echo
 alt = 1000 # 1000 ; 500
 alt-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==2,Z]) # High: 987 ; Low: 487 m distance
+
+# Si l'intensité n'est pas déjà la réflectance apparente :
+# ST@data$initial_intensity <- ST@data$Intensity
+# ST@data[, Intensity := as.integer((10^(Reflectance/10))*100)] # Réflectance initialement en decibel (et selon une référence connue)
+
+hist(ST@data[,Intensity])
 range(ST@data[,Intensity]) # High: [1;625] ; Low: [0;29] of intensity
 mean(ST@data[ReturnNumber==NumberOfReturns & Classification==2,Intensity]) # High: 8.49 ; Low:1.3 of intensity in average at the ground
 mean(ST@data[Classification==2,Intensity]) # High: 8.6 ; Low: 1.3 of intensity in average at the ground
@@ -77,3 +84,5 @@ summary(traj)
 range(traj$time)  # 354555656 354559914
 
 rm(traj)
+
+

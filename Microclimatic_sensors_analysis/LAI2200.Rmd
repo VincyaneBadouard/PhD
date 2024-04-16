@@ -452,7 +452,8 @@ hist(Transmittance_data$Transmittance[which(Transmittance_data$Ring=="Ring1")], 
 mean <- Transmittance_data %>% 
   select(-c(Position, Sensor, Index)) %>% 
   group_by(Id, Ring) %>% 
-  mutate(Transmittance_mean = mean(Transmittance))
+  mutate(Transmittance_mean = mean(Transmittance)) %>% 
+  mutate(Transmittance_sd = sd(Transmittance))
 
 # Mean transmittance by ring for each location 
 ggplot(mean, aes(x = Id, y = Transmittance_mean, col = File_Id)) + 
@@ -475,6 +476,10 @@ write.csv(mean, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv
 # For LAY
 LAY <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16LAY_mean.csv")
 
+# LAY <- LAY %>% 
+#   group_by(Id, Ring) %>% 
+#   mutate(Transmittance_sd = sd(Transmittance))
+
 LAYenv <- read_csv("~/PhD/Light/LAI-2200/LAI2200_environment.csv")
 
 LAY <- LAY %>% 
@@ -488,6 +493,10 @@ ggplot(LAY, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) +
 
 # For HOBO
 HOBO <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
+
+# HOBO <- HOBO %>% 
+#   group_by(Id, Ring) %>% 
+#   mutate(Transmittance_sd = sd(Transmittance))
 
 HOBOenv <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
   select(Site, Plot, SubPlot, HoboID, LightHabitat, TopoHabitat, LayonEdge) %>% 

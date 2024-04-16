@@ -1,0 +1,249 @@
+#
+# There is insufficient memory for the Java Runtime Environment to continue.
+# Native memory allocation (mmap) failed to map 268435456 bytes for G1 virtual space
+# Possible reasons:
+#   The system is out of physical RAM or swap space
+#   The process is running with CompressedOops enabled, and the Java Heap may be blocking the growth of the native heap
+# Possible solutions:
+#   Reduce memory load on the system
+#   Increase physical memory or swap space
+#   Check if swap backing store is full
+#   Decrease Java heap size (-Xmx/-Xms)
+#   Decrease number of Java threads
+#   Decrease Java thread stack sizes (-Xss)
+#   Set larger code cache with -XX:ReservedCodeCacheSize=
+#   JVM is running with Zero Based Compressed Oops mode in which the Java heap is
+#     placed in the first 32GB address space. The Java Heap base address is the
+#     maximum limit for the native heap growth. Please use -XX:HeapBaseMinAddress
+#     to set the Java Heap base and to place the Java Heap above 32GB virtual address.
+# This output file may be truncated or incomplete.
+#
+#  Out of Memory Error (os_windows.cpp:3600), pid=10576, tid=8836
+#
+# JRE version:  (21.0.1+12) (build )
+# Java VM: OpenJDK 64-Bit Server VM (21.0.1+12-LTS, mixed mode, sharing, tiered, compressed oops, compressed class ptrs, g1 gc, windows-amd64)
+# No core dump will be written. Minidumps are not enabled by default on client versions of Windows
+#
+
+---------------  S U M M A R Y ------------
+
+Command Line: -Xms16g --add-opens=javafx.graphics/javafx.scene=ALL-UNNAMED C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVox-2.2.1-windows\app\AMAPVox-2.2.1.jar
+
+Host: 11th Gen Intel(R) Core(TM) i7-1165G7 @ 2.80GHz, 8 cores, 31G,  Windows 11 , 64 bit Build 22621 (10.0.22621.3374)
+Time: Tue Apr 16 13:49:34 2024 Paris, Madrid (heure duild 22621 (10.0.22621.3374) elapsed time: 0.048732 seconds (0d 0h 0m 0s)
+
+---------------  T H R E A D  ---------------
+
+Current thread (0x000001ff989ff190):  JavaThread "Unknown thread" [_thread_in_vm, id=8836, stack(0x00000072ea600000,0x00000072ea700000) (1024K)]
+
+Stack: [0x00000072ea600000,0x00000072ea700000]
+Native frames: (J=compiled Java code, j=interpreted, Vv=VM code, C=native code)
+V  [jvm.dll+0x6cecf9]
+V  [jvm.dll+0x8aa0d1]
+V  [jvm.dll+0x8ac3ae]
+V  [jvm.dll+0x8aca93]
+V  [jvm.dll+0x2840a6]
+V  [jvm.dll+0x6cb3e5]
+V  [jvm.dll+0x6bfdda]
+V  [jvm.dll+0x35944a]
+V  [jvm.dll+0x361026]
+V  [jvm.dll+0x3b1e23]
+V  [jvm.dll+0x3b20b8]
+V  [jvm.dll+0x32cdec]
+V  [jvm.dll+0x32d97b]
+V  [jvm.dll+0x8724c9]
+V  [jvm.dll+0x3bf141]
+V  [jvm.dll+0x85ad48]
+V  [jvm.dll+0x452f9e]
+V  [jvm.dll+0x454a71]
+C  [jli.dll+0x52a3]
+C  [ucrtbase.dll+0x29333]
+C  [KERNEL32.DLL+0x1257d]
+C  [ntdll.dll+0x5aa48]
+
+
+---------------  P R O C E S S  ---------------
+
+Threads class SMR info:
+_java_thread_list=0x00007ff95fbc7b70, length=0, elements={
+}
+
+Java Threads: ( => current thread )
+Total: 0
+
+Other Threads:
+  0x000001ff98aa2ab0 WorkerThread "GC Thread#0"                     [id=16364, stack(0x00000072ea700000,0x00000072ea800000) (1024K)]
+  0x000001ffbfd80970 ConcurrentGCThread "G1 Main Marker"            [id=5084, stack(0x00000072ea800000,0x00000072ea900000) (1024K)]
+  0x000001ffbfd81620 WorkerThread "G1 Conc#0"                       [id=2108, stack(0x00000072ea900000,0x00000072eaa00000) (1024K)]
+
+[error occurred during error reporting (printing all threads), id 0xc0000005, EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x00007ff95f2bff27]
+VM state: not at safepoint (not fully initialized)
+
+VM Mutex/Monitor currently owned by a thread:  ([mutex/lock_event])
+[0x00007ff95fc3cb78] Heap_lock - owner thread: 0x000001ff989ff190
+
+Heap address: 0x0000000400000000, size: 16384 MB, Compressed Oops mode: Zero based, Oop shift amount: 3
+
+CDS archive(s) mapped at: [0x0000000000000000-0x0000000000000000-0x0000000000000000), size 0, SharedBaseAddress: 0x0000000800000000, ArchiveRelocationMode: 1.
+Narrow klass base: 0x0000000000000000, Narrow klass shift: 0, Narrow klass range: 0x0
+
+GC Precious Log:
+ CardTable entry size: 512
+ Card Set container configuration: InlinePtr #cards 4 size 8 Array Of Cards #cards 64 size 144 Howl #buckets 8 coarsen threshold 14745 Howl Bitmap #cards 2048 size 272 coarsen threshold 1843 Card regions per heap region 1 cards per card region 16384
+
+Heap:
+ garbage-first heap   total 0K, used 0K [0x0000000400000000, 0x0000000800000000)
+  region size 8192K, 0 young (0K), 0 survivors (0K)
+
+[error occurred during error reporting (printing heap information), id 0xc0000005, EXCEPTION_ACCESS_VIOLATION (0xc0000005) at pc=0x00007ff95f6a79f9]
+GC Heap History (0 events):
+No events
+
+Dll operation events (1 events):
+Event: 0.024 Loaded shared library C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\java.dll
+
+Deoptimization events (0 events):
+No events
+
+Classes loaded (0 events):
+No events
+
+Classes unloaded (0 events):
+No events
+
+Classes redefined (0 events):
+No events
+
+Internal exceptions (0 events):
+No events
+
+ZGC Phase Switch (0 events):
+No events
+
+VM Operations (0 events):
+No events
+
+Events (0 events):
+No events
+
+
+Dynamic libraries:
+0x00007ff7f5060000 - 0x00007ff7f506e000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\java.exe
+0x00007ffa29e90000 - 0x00007ffa2a0a6000 	C:\windows\SYSTEM32\ntdll.dll
+0x00007ffa28ed0000 - 0x00007ffa28f94000 	C:\windows\System32\KERNEL32.DLL
+0x00007ffa274e0000 - 0x00007ffa27887000 	C:\windows\System32\KERNELBASE.dll
+0x00007ffa273c0000 - 0x00007ffa274d1000 	C:\windows\System32\ucrtbase.dll
+0x00007ff9e87d0000 - 0x00007ff9e87eb000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\VCRUNTIME140.dll
+0x00007ff9e87b0000 - 0x00007ff9e87c8000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\jli.dll
+0x00007ffa29180000 - 0x00007ffa2932e000 	C:\windows\System32\USER32.dll
+0x00007ffa27390000 - 0x00007ffa273b6000 	C:\windows\System32\win32u.dll
+0x00007ffa29150000 - 0x00007ffa29179000 	C:\windows\System32\GDI32.dll
+0x00007ffa27a70000 - 0x00007ffa27b89000 	C:\windows\System32\gdi32full.dll
+0x00007ffa27890000 - 0x00007ffa2792a000 	C:\windows\System32\msvcp_win.dll
+0x00007ffa09070000 - 0x00007ffa09303000 	C:\windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.22621.3235_none_270f74e173860f98\COMCTL32.dll
+0x00007ffa28cb0000 - 0x00007ffa28d57000 	C:\windows\System32\msvcrt.dll
+0x00007ffa29cb0000 - 0x00007ffa29ce1000 	C:\windows\System32\IMM32.DLL
+0x00007ff9f54d0000 - 0x00007ff9f54dc000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\vcruntime140_1.dll
+0x00007ff9e6b80000 - 0x00007ff9e6c0e000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\msvcp140.dll
+0x00007ff95ef80000 - 0x00007ff95fd1d000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\server\jvm.dll
+0x00007ffa29620000 - 0x00007ffa296d2000 	C:\windows\System32\ADVAPI32.dll
+0x00007ffa28e20000 - 0x00007ffa28ec8000 	C:\windows\System32\sechost.dll
+0x00007ffa27b90000 - 0x00007ffa27bb8000 	C:\windows\System32\bcrypt.dll
+0x00007ffa293c0000 - 0x00007ffa294d5000 	C:\windows\System32\RPCRT4.dll
+0x00007ffa28650000 - 0x00007ffa286c1000 	C:\windows\System32\WS2_32.dll
+0x00007ffa1c4e0000 - 0x00007ffa1c514000 	C:\windows\SYSTEM32\WINMM.dll
+0x00007ffa26010000 - 0x00007ffa2605d000 	C:\windows\SYSTEM32\POWRPROF.dll
+0x00007ffa1c320000 - 0x00007ffa1c32a000 	C:\windows\SYSTEM32\VERSION.dll
+0x00007ffa25ff0000 - 0x00007ffa26003000 	C:\windows\SYSTEM32\UMPDC.dll
+0x00007ffa262a0000 - 0x00007ffa262b8000 	C:\windows\SYSTEM32\kernel.appcore.dll
+0x00007ff9f5400000 - 0x00007ff9f540a000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\jimage.dll
+0x00007ffa24650000 - 0x00007ffa24883000 	C:\windows\SYSTEM32\DBGHELP.DLL
+0x00007ffa296e0000 - 0x00007ffa29a68000 	C:\windows\System32\combase.dll
+0x00007ffa29d70000 - 0x00007ffa29e47000 	C:\windows\System32\OLEAUT32.dll
+0x00007ff9ff620000 - 0x00007ff9ff652000 	C:\windows\SYSTEM32\dbgcore.DLL
+0x00007ffa27930000 - 0x00007ffa279a9000 	C:\windows\System32\bcryptPrimitives.dll
+0x00007ff9e8730000 - 0x00007ff9e874f000 	C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\java.dll
+
+dbghelp: loaded successfully - version: 4.0.5 - missing functions: none
+symbol engine: initialized successfully - sym options: 0x614 - pdb path: .;C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin;C:\windows\SYSTEM32;C:\windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.22621.3235_none_270f74e173860f98;C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVO~1.1-W\runtime\bin\server
+
+VM Arguments:
+jvm_args: -Xms16g --add-opens=javafx.graphics/javafx.scene=ALL-UNNAMED 
+java_command: C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVox-2.2.1-windows\app\AMAPVox-2.2.1.jar
+java_class_path (initial): C:\Users\badouard\AppData\Local\AMAPVox\AMAPVox\bin\AMAPVox-2.2.1-windows\app\AMAPVox-2.2.1.jar
+Launcher Type: SUN_STANDARD
+
+[Global flags]
+     intx CICompilerCount                          = 4                                         {product} {ergonomic}
+     uint ConcGCThreads                            = 2                                         {product} {ergonomic}
+     uint G1ConcRefinementThreads                  = 8                                         {product} {ergonomic}
+   size_t G1HeapRegionSize                         = 8388608                                   {product} {ergonomic}
+    uintx GCDrainStackTargetSize                   = 64                                        {product} {ergonomic}
+   size_t InitialHeapSize                          = 17179869184                               {product} {command line}
+   size_t MarkStackSize                            = 4194304                                   {product} {ergonomic}
+   size_t MaxHeapSize                              = 17179869184                               {product} {ergonomic}
+   size_t MinHeapDeltaBytes                        = 8388608                                   {product} {ergonomic}
+   size_t MinHeapSize                              = 17179869184                               {product} {command line}
+    uintx NonNMethodCodeHeapSize                   = 5839372                                {pd product} {ergonomic}
+    uintx NonProfiledCodeHeapSize                  = 122909434                              {pd product} {ergonomic}
+    uintx ProfiledCodeHeapSize                     = 122909434                              {pd product} {ergonomic}
+    uintx ReservedCodeCacheSize                    = 251658240                              {pd product} {ergonomic}
+     bool SegmentedCodeCache                       = true                                      {product} {ergonomic}
+   size_t SoftMaxHeapSize                          = 17179869184                            {manageable} {ergonomic}
+     bool UseCompressedOops                        = true                           {product lp64_product} {ergonomic}
+     bool UseG1GC                                  = true                                      {product} {ergonomic}
+     bool UseLargePagesIndividualAllocation        = false                                  {pd product} {ergonomic}
+
+Logging:
+Log output configuration:
+ #0: stdout all=warning uptime,level,tags foldmultilines=false
+ #1: stderr all=off uptime,level,tags foldmultilines=false
+
+Environment Variables:
+PATH=C:\rtools43\x86_64-w64-mingw32.static.posix\bin;C:\rtools43\usr\bin;\usr\bin;\usr\bin;C:\Program Files\R\R-4.3.2\bin\x64;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;C:\windows\system32;C:\windows;C:\windows\System32\Wbem;C:\windows\System32\WindowsPowerShell\v1.0\;C:\windows\System32\OpenSSH\;C:\windows\system32;C:\Program Files\Git\cmd;C:\Users\badouard\AppData\Local\Microsoft\WindowsApps;C:\Program Files\RStudio\resources\app\bin\quarto\bin;C:\Program Files\RStudio\resources\app\bin\postback
+USERNAME=badouard
+DISPLAY=:0
+TERM=xterm-256color
+OS=Windows_NT
+PROCESSOR_IDENTIFIER=Intel64 Family 6 Model 140 Stepping 1, GenuineIntel
+TMP=C:\Users\badouard\AppData\Local\Temp
+TEMP=C:\Users\badouard\AppData\Local\Temp
+
+
+
+
+Periodic native trim disabled
+
+---------------  S Y S T E M  ---------------
+
+OS:
+ Windows 11 , 64 bit Build 22621 (10.0.22621.3374)
+OS uptime: 0 days 5:26 hours
+Hyper-V role detected
+
+CPU: total 8 (initial active 8) (4 cores per cpu, 2 threads per core) family 6 model 140 stepping 1 microcode 0xae, cx8, cmov, fxsr, ht, mmx, 3dnowpref, sse, sse2, sse3, ssse3, sse4.1, sse4.2, popcnt, lzcnt, tsc, tscinvbit, avx, avx2, aes, erms, clmul, bmi1, bmi2, adx, avx512f, avx512dq, avx512cd, avx512bw, avx512vl, sha, fma, vzeroupper, avx512_vpopcntdq, avx512_vpclmulqdq, avx512_vaes, avx512_vnni, clflush, clflushopt, clwb, avx512_vbmi2, avx512_vbmi, hv, rdtscp, rdpid, fsrm, gfni, avx512_bitalg, f16c, cet_ibt, cet_ss, avx512_ifma
+Processor Information for processor 0
+  Max Mhz: 2803, Current Mhz: 1201, Mhz Limit: 2803
+Processor Information for processor 1
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+Processor Information for processor 2
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+Processor Information for processor 3
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+Processor Information for processor 4
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+Processor Information for processor 5
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+Processor Information for processor 6
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+Processor Information for processor 7
+  Max Mhz: 2803, Current Mhz: 2803, Mhz Limit: 2803
+
+Memory: 4k page, system-wide physical 32448M (10561M free)
+TotalPageFile size 42843M (AvailPageFile size 107M)
+current process WorkingSet (physical memory assigned to process): 12M, peak: 12M
+current process commit charge ("private bytes"): 16476M, peak: 16732M
+
+vm_info: OpenJDK 64-Bit Server VM (21.0.1+12-LTS) for windows-amd64 JRE (21.0.1+12-LTS), built on 2023-10-16T14:08:45Z by "hudson" with MS VC++ 17.1 (VS2022)
+
+END.

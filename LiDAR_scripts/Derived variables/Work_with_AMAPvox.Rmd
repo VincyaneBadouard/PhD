@@ -401,8 +401,10 @@ fct d'atténuation selon un modèle sphérique (orientation aléatoire des feuil
 pad calculé dans le script de remplissage des voxels vides donc pas besoin de celui-ci
 
 ```{r}
-VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_equalecho2m.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
+VXdf <- as.data.frame(VX@data) %>% mutate(i=as.numeric(i)) %>% mutate(j=as.numeric(j)) %>% mutate(k=as.numeric(k))
+VoxR::plot_voxels(VXdf)
 AMAPVox::plot(VX, variable.name = "nbSampling") # fermer la fenetre de plot entre 2 plots
 AMAPVox::plot(VX, variable.name = "ground_distance") # ground distance bizarre sur les cotes
 VX1 <- VX

@@ -100,8 +100,8 @@ foreach::foreach(
   # Get ReturnNumber ------------------------------------------------------------
   # Returns coded by increasing distance
   lasf@data$ReturnNumber <- NULL # remove the initial column
-  lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
-  # lasf@data[order(Range), ReturnNumber := 1:.N, by = .(gpstime, Ring)]
+  # lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
+  lasf@data[order(Range), ReturnNumber := 1:.N, by = .(gpstime, Ring)]
   # View(lasf@data)
   
   # Write the modified dataset

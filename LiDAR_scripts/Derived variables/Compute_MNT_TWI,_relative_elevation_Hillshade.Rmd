@@ -27,6 +27,35 @@ knitr::opts_chunk$set(echo = TRUE)
 
 [code example](https://github.com/sylvainschmitt/PhD/blob/master/documents/preliminary/environment/TopoDerivate.sh)
 
+# Load LAS data
+```{r}
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
+```
+
+# CHM from LAS
+```{r}
+ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) 
+ST <- lidR::clip_roi(las = ST, geometry = ROI)
+ST
+ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
+
+CHM <- rasterize_canopy(ST, res = 1, algorithm = p2r()) 
+#p2r() : for each pixel of the output raster the function attributes the height of the highest point found
+plot(CHM, col = height.colors(25))
+
+ggplot() + 
+  geom_spatraster(data = CHM, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Canopy height (m)",
+                       colors = height.colors(25), na.value="white") + 
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+  ggtitle("Paracou P16 4ha - CHM ALS 2023 - 1m res") + 
+  theme_classic() +
+  coord_sf()
+```
+
+
 # DEM from LAS
 
 1. LAZ > MNT on-by-one
