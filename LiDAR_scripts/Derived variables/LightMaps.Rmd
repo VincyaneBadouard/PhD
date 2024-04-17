@@ -11,6 +11,8 @@ library(data.table)
 library(tidyverse)
 library(sf)
 library(terra)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 # Spatial objects
@@ -177,9 +179,9 @@ Writedata_txt_csv(Light_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouar
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
 
-Light_HighUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_equalecho2m_UTM")
+Light_HighUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_equalecho2m_UTM.txt")
 
-Light_LowUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_equalecho2m_UTM")
+Light_LowUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_equalecho2m_UTM.txt")
 ```
 
 # Maps
@@ -312,4 +314,91 @@ dataLow %>%
 
 ```
 
+
+# HOBO
+## Load HOBO data
+```{r, include = F}
+HOBO_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv") %>% filter(Transect=="HOBO") # HOBO sensors coordinates
+HOBO_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/HOBO/HOBO_Light_stats.csv") %>%  # HOBO sensors data
+  rename(Id = HoboID)
+
+names(HOBO_data) # "HoboID" "HOBO_Light_annual_sum" "HOBO_Light_sum_Dry" "HOBO_Light_sum_Wet" "HOBO_Light_october_sum"
+
+HOBO <- HOBO_coord %>% 
+  left_join(HOBO_data, by= "Id") %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm)) %>% 
+  select(-c(Sensor,Transect))
+```
+
+## Plot HOBO data
+```{r}
+HOBOUTMsf <- st_as_sf(HOBO, coords = c('Xutm','Yutm'))
+HOBOUTMsf <- st_set_crs(HOBOUTMsf, crs(zone))
+
+ggplot() +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = HOBOUTMsf, aes(color = HOBO_Light_october_sum), size = 1.5) +
+  scale_colour_gradientn(name =,
+                         colors = terrain.colors(30, rev=T),
+                         na.value="grey", labels = scales::comma) + 
+  ggtitle("Paracou P16 4ha - HOBO Light (lux)")
+```
+
+## Combine LiDAR and HOBO data
+```{r}
+HOBO_LiDAR <- Light %>% 
+  mutate(Xutm = round(Xutm),
+         Yutm = round(Yutm),
+         Zutm = round(Zutm)) %>%
+  left_join(HOBO, by= c("Xutm","Yutm","Zutm")) # coord pas les memes
+
+names(HOBO_LiDAR) # "Period.1_HighAlt" "Period.1_LowAlt" HOBO_Light_annual_sum" "HOBO_Light_sum_Dry"     "HOBO_Light_sum_Wet" "HOBO_Light_october_sum"
+```
+
+## Correlations
+```{r}
+# Transmittance_LAI2200, Transmittance_Low, Transmittance_High, HOBO_Light_october_sum, HOBO_Light_annual_sum
+
+DF_cor <- HOBO_LiDAR %>% 
+  select(Period.1_HighAlt, Period.1_LowAlt, HOBO_Light_annual_sum, HOBO_Light_sum_Dry, HOBO_Light_sum_Wet, HOBO_Light_october_sum) %>% 
+  unique() %>% 
+  na.omit()
+
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlation_plot_HOBOLAI2200vsLiDAR_High_and_Low_altitude_byRing_equalecho2m_test.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower", diag = F, addCoef.col = 'white', 
+         number.cex = 1, col=brewer.pal(n=8, name="PuOr"),
+         tl.col="black", tl.cex = 1, tl.srt=45, p.mat = Pval_corr)
+# dev.off()
+
+
+```
+
+## Regresion
+```{r}
+options(scipen = 999)
+for(acq in c("Period.1_HighAlt", "Period.1_LowAlt")){
+  print(
+    HOBO_LiDAR %>% 
+      na.omit() %>% 
+      ggplot() +
+      ggtitle("Paracou P16 4ha - LiDAR transmittances vs HOBO light (lux)") +
+      aes(x = get(acq), y = HOBO_Light_annual_sum) +
+      geom_point() +
+      stat_smooth(method = "lm",
+                  formula = y ~ x) +
+      ggpubr::stat_cor(label.x = 0.01, label.y = 40000000) +
+      ggpubr::stat_regline_equation(label.x = 0.01, label.y = 37000000) +
+      scale_y_continuous(labels = scales::comma) +
+      labs(x = acq, y = "HOBO light (lux)", color = "LiDAR acquisition") 
+  )
+}
+```
 

@@ -162,7 +162,7 @@ ggplot() +
   ggtitle("Paracou P16 4ha - LAI2200 Transmittances")
 ```
 
-## Combine LiDAR and LAI2200 data
+## Combine LiDAR and HOBO data
 ```{r}
 LAI2200_LiDAR <- LAI2200 %>% 
   mutate(Ring = case_when(
@@ -281,6 +281,7 @@ for(t in c("HOBO", "LAY")){
 # c("black", "#000000","#999999", "skyBlue","bluishGreen","blue", "#0072B2","#56B4E9",
 #   "#009E73","#D55E00", "#CC79A7","vermillion", "reddishPurple","#E69F00","orange","#F0E442", "yellow")
 ```
+
 # Profils en long (moyennes des Transmittances par acquisition, par ring)
 ```{r}
 LAI2200_LiDAR <- LAI2200_LiDAR %>% 
@@ -485,24 +486,83 @@ corrplot(CorMatrix, method="circle", type="lower", diag = F, addCoef.col = 'whit
 ```
 
 
-# HOBO & Tomst
+# HOBO
+## Load HOBO data
+```{r, include = F}
+HOBO_coord <- filter(LAI2200_coord, Transect=="HOBO") # HOBO sensors coordinates
+HOBO_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/HOBO/HOBO_Light_stats.csv") %>%  # HOBO sensors data
+  rename(Id = HoboID)
+
+names(HOBO_data) # "HoboID" "HOBO_Light_annual_sum" "HOBO_Light_sum_Dry" "HOBO_Light_sum_Wet" "HOBO_Light_october_sum"
+
+HOBO <- HOBO_coord %>% 
+  left_join(HOBO_data, by= "Id") %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm)) %>% 
+  select(-c(Sensor,Transect))
+```
+
+## Plot HOBO data
 ```{r}
-LowAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.csv") %>% 
-  mutate(Transmittance_LowAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_LowAnnual)
-HighAnnual <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.csv") %>% 
-  mutate(Transmittance_HighAnnual = `Period.1`) %>% select(Xutm, Yutm, Z, Transmittance_HighAnnual)
-HighWet <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Wet_1m_UTM.csv") %>% 
-  rowwise() %>% 
-  mutate(Transmittance_HighWet = weighted.mean(c(`Period.1`, `Period.2`, `Period.3`), c(4, 2, 1)/7)) %>% # weighted mean by period size
-  ungroup() %>%
-  select(Xutm, Yutm, Z, Transmittance_HighWet)
-HighDry <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.csv") %>% 
-  rowwise() %>% 
-  mutate(Transmittance_HighDry = weighted.mean(c(`Period.1`, `Period.2`), c(1, 4)/5)) %>% # weighted mean by period size
-  ungroup() %>% 
-  select(Xutm, Yutm, Z, Transmittance_HighDry)
+HOBOUTMsf <- st_as_sf(HOBO, coords = c('Xutm','Yutm'))
+HOBOUTMsf <- st_set_crs(HOBOUTMsf, crs(zone))
+
+options(scipen = 999)
+ggplot() +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  geom_sf(data = HOBOUTMsf, aes(color = HOBO_Light_october_sum), size = 1.5) +
+  scale_colour_gradientn(name =,
+                         colors = terrain.colors(30, rev=T),
+                         na.value="grey", labels = scales::comma) + 
+  ggtitle("Paracou P16 4ha - HOBO Light (lux)")
+```
+
+## Combine LiDAR and LAI2200 data
+```{r}
+HOBO_LAI2200_LiDAR <- LAI2200_LiDAR %>% 
+  select(-c("...1.x","...1.y","Sensor")) %>% 
+  left_join(HOBO, by= c("Id","Xutm","Yutm","Zutm","x","y")) %>% 
+  select(-c("...1.x","...1.y")) 
+
+names(HOBO_LAI2200_LiDAR)
+```
+
+```{r}
+# Transmittance_LAI2200, Transmittance_Low, Transmittance_High, HOBO_Light_october_sum, HOBO_Light_annual_sum
+
+DF_cor <- HOBO_LAI2200_LiDAR %>% 
+  # filter(Ring==1) %>%
+  filter(azimut==0) %>%
+  select(Ring, Transmittance_High,Transmittance_Low, Transmittance_LAI2200,HOBO_Light_october_sum, HOBO_Light_annual_sum) %>% 
+  unique() %>% 
+  pivot_wider(names_from = Ring,
+              values_from = c(Transmittance_High,Transmittance_Low,Transmittance_LAI2200),
+              values_fn = list,
+              names_glue = "{.value}_Ring{Ring}") %>% 
+  unnest() # pcq les colonnes sont en listes
+# na.omit()
 
 
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlation_plot_HOBOLAI2200vsLiDAR_High_and_Low_altitude_byRing_equalecho2m_test.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower", diag = F, addCoef.col = 'white', 
+         number.cex = 0.6, col=brewer.pal(n=8, name="PuOr"),
+         tl.col="black", tl.cex = 1, tl.srt=45, p.mat = Pval_corr)
+# dev.off()
+
+
+```
+The HOBO are more correlated with the LAI2200 than with the LiDAR.
+The HOBO are correlated only with the 1st and 2nd LiDAR Rings.
+The annual HOBO are more correlated with the LiDAR than the October HOBO.
+The HOBO are more correlated with the Low altitude than with the High altitude LiDAR.
+
+```{r}
 LiDAR <- LowAnnual %>% 
   left_join(HighAnnual, by= c("Xutm","Yutm","Z")) %>% 
   left_join(HighWet, by= c("Xutm","Yutm","Z")) %>% 

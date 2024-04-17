@@ -579,24 +579,31 @@ Lumière : somme
 annual_stats <- HOBOdata %>%
   group_by(HoboID) %>%
   summarise(across("Light",
-                   list(annual_sum = ~sum(.)),
-                   .names = "{.col}_{.fn}"))
+                   list(annual_sum = ~sum(.)), # annual
+                   .names = "HOBO_{.col}_{.fn}"))
+
+October_stats <- HOBOdata %>%
+  filter(Month==10) %>% 
+  group_by(HoboID) %>%
+  summarise(across("Light",
+                   list(october_sum = ~sum(.)), # annual
+                   .names = "HOBO_{.col}_{.fn}"))
 
 season_stats <- HOBOdata %>%
-  group_by(HoboID,Season) %>%
+  group_by(HoboID,Season) %>% # Season
   summarise(across("Light",
                    list(sum = ~sum(.)),
-                   .names = "{.col}_{.fn}")) %>% 
+                   .names = "HOBO_{.col}_{.fn}")) %>% 
   # "Season" variable as an index for the computed variables
   pivot_wider(names_from = Season,
-              values_from = "Light_sum",
+              values_from = "HOBO_Light_sum",
               names_glue = "{.value}_{Season}")
 
 Light_stats <- annual_stats %>% 
-  left_join(season_stats, by="HoboID")
-names(Light_stats) # "Light_annual_sum" "Light_sum_Dry" "Light_sum_Wet" 
+  left_join(season_stats, by="HoboID") %>% left_join(October_stats, by="HoboID")
+names(Light_stats) # "Light_annual_sum" "Light_sum_Dry" "Light_sum_Wet" "Light_october_sum"
 
-# write.csv(Light_stats, "~/PhD/Microclimate/HOBO/HOBO_Light_stats.csv")
+write.csv(Light_stats, "~/PhD/Microclimate/HOBO/HOBO_Light_stats.csv")
 
 stats <- left_join(Light_stats, env, by="HoboID")
 
@@ -629,6 +636,13 @@ stats %>%
   labs(x ="Light Habitat", y = "Sum wet season light (lux)") +
   theme_minimal()
 
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_october_sum) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Sum October light (lux)") +
+  theme_minimal()
 ```
 
 ## Temperature stats

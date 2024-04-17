@@ -272,6 +272,7 @@ Après avoir reprojeté les piquets selon ces bornes, on obtient les coordonnée
 Subsistera l’erreur de mesure des distances.  
 
 ## Reprojection des piquets selon les coins du carré
+"warping"
 ```{r}
 
 ```
