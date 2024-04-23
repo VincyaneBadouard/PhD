@@ -53,25 +53,39 @@ library(RColorBrewer)
 # *Read*
 
 ## Flux tower data
-- Rain : sum Rainfall (mm)
+**2023-204** :
+Date Year Month Code Day heure+min Time TimeB
 
-- RH(55) : Mean Air humidity at 55 m (%)
-- RH_Avg_55_CR3000: Air humidity at 55 m  (%) (autre capteur)
+- Pluie : Rainfall (mm)
 
-- Temp(55) : Mean Air temperature at 55 m (°C)
-- TempC_Avg_55_CR3000 : Air temperature at 55 m (°C) (autre capteur)
+- Rg : Global radiation (W m-2)
+- Rnet_2 : Net radiation (from Rg sensor) (W m-2)      
+- CNR4_SW_up_Avg : Global radiation from CNR4 sensor (W m-2)
+- CNR4_Rn_Avg : Net radiation (from CNR4 sensor) (W m-2)
 
-- Temp(2.5) : Air temperature at 2.5 m
-- RH(2.5) : Air humidity at 2.5 m
-- Tsoil : mean Soil temperature  (°C)
-- SWC : mean Soil water content (m3 m-3) ()
-- VWC : mean Soil water content (m3 m-3) (autre capteur)
+- Temp(55) : Air Temp at 55m high (°C)
+- Hr(55) : Air humidity at 55 m high (%)
+
+- Temp(2,0) : Air Temp at 2m high (°C)
+- Hr(2,0) : Air humidity at 2 m high (%)  
+
+- Tsoil : mean Soil temperature  (°C) à différentes profondeurs, issues du capteur CS650.
+          "T_AVG_10cm"     "T_AVG_20cm"     "T_AVG_80cm"     "T_AVG_140cm"   "T_AVG_190cm"     
+- VWC : mean Soil water content (m3 m-3) (Les données VWC sont des données de SWC issues d’une fosse récente, avec des capteurs CS650) (La fosse est à proximité de la Tour, sous couvert)
+        "VWC_AVG_10cm"   "VWC_AVG_20cm"   "VWC_AVG_80cm"   "VWC_AVG_140cm"  "VWC_AVG_190cm"
 
 ```{r}
 # Données capteurs de mars 2023 à mars 2024
 FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
                                        delim = ";", locale = locale(decimal_mark = ","),
                                                                       escape_double = FALSE, trim_ws = TRUE)
+
+TourAFlux_2023_2024 <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
+    sheet = "Gx meteo_2023-2024")
+View(TourAFlux_2023_2024)
+
+names(FluxTowerData2023)
+
 FluxTowerData2023 <- FluxTowerData2023 %>% 
   filter(Year >= 2023) %>% 
   # filter(Rg > 0) %>%

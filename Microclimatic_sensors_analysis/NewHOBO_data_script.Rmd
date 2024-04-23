@@ -78,7 +78,7 @@ library(RColorBrewer)
 
 ## Flux tower data
 
-"Year", "Month", "jour", "heure+min", "time", "J/N"
+Year, Month, jour, heure+min, time, J/N
 
 -   Pluie : Rainfall (mm)
 
@@ -88,62 +88,81 @@ library(RColorBrewer)
 
 -   Rn : Net radiation (W m-2)
 
--   Temp(55) : Air temperature at 55 m (°C)
+-   TempC_Avg_55_CR3000 : Air temperature at 55 m (°C)
 
--   TempC_Avg_55_CR3000 : Air temperature at 55 m (°C) (autre capteur)
+-   Temp(2.5) : Air temperature at 2.5 m (capteur HMP155 situé sur la tour, à 2 m de hauteur environ)
 
--   Temp(2.5) : Air temperature at 2.5 m
+**2023-204** :
+Date Year Month Code Day heure+min Time TimeB
+
+- Pluie : Rainfall (mm)
+
+- Rg : Global radiation (W m-2)
+- Rnet_2 : Net radiation (from Rg sensor) (W m-2)      
+- CNR4_SW_up_Avg : Global radiation from CNR4 sensor (W m-2)
+- CNR4_Rn_Avg : Net radiation (from CNR4 sensor) (W m-2)
+
+- Temp(55) : Air Temp at 55m high (°C)
+- Temp(2,0) : Air Temp at 2m high (°C)
 
 ```{r}
 # Données capteurs de mars 2023 à mars 2024
-FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
-                                       delim = ";", locale = locale(decimal_mark = ","),
-                                       escape_double = FALSE, trim_ws = TRUE)
+# FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
+#                                        delim = ";", locale = locale(decimal_mark = ","),
+#                                        escape_double = FALSE, trim_ws = TRUE)
 
-names(FluxTowerData2023)
-all(FluxTowerData2023$`Temp(55)`==FluxTowerData2023$TempC_55_CR3000)
-all(FluxTowerData2023$Rg==FluxTowerData2023$CNR4_SW_up)
+TourAFlux_2023_2024 <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
+                                          sheet = "Gx meteo_2023-2024")
+View(TourAFlux_2023_2024)
 
+names(TourAFlux_2023_2024)
 
-FluxTowerData2023 <- FluxTowerData2023 %>% 
-  filter(Year >= 2023) %>% 
-  mutate(Date = as.Date(jour, origin = "2022-12-31")) %>% # Julian Day to calendar date
-  select(Year, Month, jour, Date, `heure+min`, time, `J/N`, # 365 days, 12 months
-         Pluie, Rg, CNR4_SW_up, Rn, `Temp(55)`) %>% 
-  mutate(Season = ifelse(Month  %in% c(3, 8:11), # mars, aout-nov = dry season
+TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>% 
+  filter(Date >= mdy_hms("04/01/2023 00:00:00") & Date < mdy_hms("03/31/2024 24:00:00")) %>% 
+  rename(Date_Time = Date) %>% 
+  mutate(Date = date(Date_Time)) %>%
+  # mutate(Date = as.Date(Day, origin = "2022-12-31")) %>% # Julian Day to calendar date (pour 2023 data)
+  mutate(Hour =  format(Date_Time, format = "%H:%M:%S")) %>% 
+# mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600))) # (pour 2023 data)
+  select(Date_Time, Year, Month, Day, Date, Hour, `heure+min`, Time, # 365 days, 12 months
+         Pluie, Rg, CNR4_SW_up_Avg, Rnet_2, CNR4_Rn_Avg, `Temp(55)`, `Temp(2,0)`) %>% 
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
                          "Dry", "Wet")) %>% 
   mutate(Month = factor(Month)) %>% 
   mutate(Pluie = as.numeric(Pluie)) %>% 
-  group_by(jour) %>% 
-  mutate(Rain_day = sum(Pluie)) # il faut sommer la pluie par jour pour visualiser les saisons
+  group_by(Day) %>% 
+  mutate(Rain_day = sum(Pluie)) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
+  ungroup()
 
 
-FluxTowerData2023 <- FluxTowerData2023 %>% 
-  mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600)))
+for(Y in c(2023,2024)){
+  print(
+    TourAFlux_2023_2024 %>% 
+      # filter(Year==Y) %>% 
+      ggplot(aes(x = Month,y = Rain_day)) +
+      geom_boxplot(aes(color = Season)) +
+      labs(title= paste("FluxTower ", Y," - Daily rainfall over the seasons"),
+           x ="Month", y = "Daily rainfall (mm)")
+  )
+}
 
-FluxTowerData2023 %>% 
-  ggplot(aes(x = Month,y = Rain_day)) +
-  geom_boxplot(aes(color = Season)) +
-  labs(title="FluxTower 2023 - Rainfall over the seasons",
-       x ="Month", y = "Rainfall (mm)")
-
-FluxTowerData2023 %>% 
+TourAFlux_2023_2024 %>% 
   filter(`Temp(55)` > 0) %>%
   ggplot(aes(x = Month,y = `Temp(55)`)) +
   geom_boxplot(aes(color = Season)) +
   labs(title="FluxTower 2023 - Mean air temperature (°C) over the seasons",
        x ="Month", y = "Mean air temperature at 55 m (°C)")
 
-FluxTowerData2023 %>% 
+TourAFlux_2023_2024 %>% 
   filter(Rg > 0) %>%
-  ggplot(aes(x = Month,y = CNR4_SW_up)) + # CNR4_SW_up
+  ggplot(aes(x = Month,y = CNR4_SW_up_Avg)) + # CNR4_SW_up_Avg
   geom_boxplot(aes(color = Season)) +
   labs(title="FluxTower 2023 - Global incident radiation (MJ m-2 day-1) over the seasons",
        x ="Month", y = "Global incident radiation (MJ m-2 day-1)")
 
-FluxTowerData2023 %>% 
-  filter(Rn > 0) %>%
-  ggplot(aes(x = Month,y = Rn)) + # Net radiation (W m-2)
+TourAFlux_2023_2024 %>% 
+  filter(Rnet_2 > 0) %>%
+  ggplot(aes(x = Month,y = Rnet_2)) + # Net radiation (W m-2)
   geom_boxplot(aes(color = Season)) +
   labs(title="FluxTower 2023 - Net radiation (W m-2) over the seasons",
        x ="Month", y = "Net radiation (W m-2)")
@@ -231,7 +250,7 @@ HOBOdata <- HOBOdata %>%
   mutate(Month = month(Date)) %>%
   mutate(Month = factor(Month)) %>% 
   # filtrer sur les dates d'étude (1 an):
-  filter(Time >= mdy_hms("03/31/2023 00:00:00") & Time < mdy_hms("03/30/2024 24:00:00")) 
+  filter(Time >= mdy_hms("04/01/2023 00:00:00") & Time < mdy_hms("03/31/2024 24:00:00")) 
 
 ```
 
@@ -302,7 +321,7 @@ test[test$Light == test$MaxDailyLight & test$LightHabitat == "Understory",] # ! 
 
 # Sensors data < flux tower data (le faire avec données tour 2023-2024)
 # Rg : sum Global radiation (incident)	(MJ m-2 day-1)
-# Temp(55) : Mean Air temperature at 55 m (°C)
+# `Temp(55)` : Mean Air temperature at 55 m (°C)
 test0 <- HOBOdata %>%
   # mutate(Day = day(Date)) %>% # for 2022 tower data
   mutate(Month = factor(Month)) %>% 
@@ -311,8 +330,8 @@ test0 <- HOBOdata %>%
   # mutate(MeanDailyLight = mean(Light)) %>% 
   ungroup() %>% 
   select(Date, Month, Hour, LightHabitat,Temp, Light) %>% 
-  # left_join(FluxTowerData2023, by= c("Month","Day")) %>% # for 2022 tower data
-  left_join(FluxTowerData2023, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
+  # left_join(TourAFlux_2023_2024, by= c("Month","Day")) %>% # for 2022 tower data
+  left_join(TourAFlux_2023_2024, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
   select(Date, Month, Hour, LightHabitat, `Temp(55)`, Temp, Rg, CNR4_SW_up, Rn, Light) %>% 
   mutate(Tempdiff = `Temp(55)` - Temp) %>% 
   unique()
@@ -410,13 +429,13 @@ dev.off() # Close the final graphics device
 ```
 
 1)  En mars il a 2 dates, dont la 1ere est celle de pose des capteurs à
-    18h
+18h
 2)  il s'est passé qqchose le 2023-09-20 tous les capteurs ont une forte
-    chute de T° l'après midi
+chute de T° l'après midi
 3)  le mois d'octobre est peu variable en T° entre les jours
 4)  capteurs 9, 10, 23, 24 joli pic à midi -\> gap
 5)  pic de température très forte qui serait du au réchauffement du
-    capteur lui meme et non la température réelle de l'air
+capteur lui meme et non la température réelle de l'air
 
 conseil Sylvain : diff de chaque capteur à la moyenne
 
@@ -471,15 +490,15 @@ est à des heures évidentes
 
 ```{r}
 # For the Flux Tower
-range(as.character(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Hour)) # "06:30:00" "19:00:00"
-min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Rg) # 5.02
-range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$Rg) # -4.10  4.99
-min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Rn) # -96.08
-range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$Rn) # -100.09    7.80
-min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$CNR4_SW_up, na.rm = T) # 4
-range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$CNR4_SW_up, na.rm = T) # -6.17 83.65
+# range(as.character(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Hour)) # "06:30:00" "19:00:00"
+# min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Rg) # 5.02
+# range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$Rg) # -4.10  4.99
+# min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Rn) # -96.08
+# range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$Rn) # -100.09    7.80
+# min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$CNR4_SW_up, na.rm = T) # 4
+# range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$CNR4_SW_up, na.rm = T) # -6.17 83.65
 
-ggplot(FluxTowerData2023, aes(x = Hour,y = Rg)) +
+ggplot(TourAFlux_2023_2024, aes(x = Hour,y = Rg)) +
   geom_line() +
   labs(title="Light over a day",
        x ="Hour", y = "Global incident radiation (MJ m-2 day-1)")
@@ -550,23 +569,23 @@ ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +
 
 -   Lumière : somme
 
-    -   de l'année
+-   de l'année
 
-    -   saison sèche
+-   saison sèche
 
-    -   saison des pluies
+-   saison des pluies
 
 -   T° : moyenne, max, min
 
-    -   de l'année
+-   de l'année
 
-    -   diurne
+-   diurne
 
-    -   nocturne
+-   nocturne
 
-    -   saison sèche
+-   saison sèche
 
-    -   saison des pluies
+-   saison des pluies
 
 \- coefficient variation à ces échelles
 

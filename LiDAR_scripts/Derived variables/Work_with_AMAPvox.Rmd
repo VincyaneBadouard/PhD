@@ -329,22 +329,41 @@ Method: https://www.fao.org/3/x0490e/x0490e07.htm#solar%20radiation
 ```{r}
 # Load tower data
 # Rg in MJ m^-2 day^-1 (megajoules per square metre and per day)
-FluxTowerData2022 <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
-                                       delim = ";", escape_double = FALSE, trim_ws = TRUE)
+# FluxTowerData <- readr::read_delim("~/PhD/Lidar/GX-METEO+EDDY-2004-2022E - JOUR - NEW2023 - GV.csv", 
+#                                        delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
-FluxTowerData2022[FluxTowerData2022$Rg < (-999),]
+FluxTowerData <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
+                                    sheet = "Gx meteo_2023-2024")
+View(FluxTowerData)
 
-FluxTowerData2022 <- FluxTowerData2022 %>% 
-  filter(Year == 2022) %>% 
+names(FluxTowerData) 
+# "Year", "Day", "Time"
+# Pluie
+# - Rg : Global radiation (W m-2)
+# - CNR4_SW_up_Avg : Global radiation from CNR4 sensor (W m-2)
+
+# FluxTowerData[FluxTowerData$Rg < (-999),]
+
+FluxTowerData <- FluxTowerData %>% 
+  filter(Date >= mdy_hms("04/01/2023 00:00:00") & Date < mdy_hms("03/31/2024 24:00:00")) %>% 
+  rename(Rain = Pluie) %>% 
+  rename(Rg_W = Rg) %>% 
+  group_by(Day) %>%
+  mutate(Rg = sum(Rg_W *1800 * 10^(-6))) %>% # Rg (MJ m-2 day-1) = Somme de Rg (W m-2) *1800 * 10^(-6)
+  ungroup() %>%
   filter(Rg > 0) %>%
-  select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
-  mutate(Season = ifelse(Month  %in% c(7:11), # juill-nov = dry season
-                         "Dry", "Wet"))
+  group_by(Day) %>% 
+  mutate(Rain = sum(as.numeric(Rain))) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
+  ungroup() %>%
+  select(Year, Day, Month, Rain, Rg) %>% # 365 days, 12 months
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+                         "Dry", "Wet")) %>% 
+  unique()
 
-ggplot(FluxTowerData2022, aes(x = as.character(Month),y = Rain)) +
+ggplot(FluxTowerData, aes(x = as.character(Month),y = Rain)) +
   geom_boxplot(aes(color = Season)) +
-  labs(title="Rainfall over the seasons",
-       x ="Month", y = "Rainfall (mm)")
+  labs(title="Daily rainfall over the seasons",
+       x ="Month", y = "Daily rainfall (mm)")
 
 
 # Compute extraterrestrial radiation per day (because unit it's per day)
@@ -353,28 +372,36 @@ phi <- 5*(pi/180) # latitude (rad) 5° à Paracou
 # J <- # Julian day
 
 
-FluxTowerData2022 <- FluxTowerData2022 %>%
-  mutate(d = 1+0.033*cos(((2*pi)/365)*`Julian Day`),#inverse relative distance Earth-Sun
-         delta = 0.409*sin(((2*pi)/365)*`Julian Day`-1.39),  # solar decimation (rad)
+FluxTowerData <- FluxTowerData %>%
+  mutate(d = 1+0.033*cos(((2*pi)/365)*Day),#inverse relative distance Earth-Sun
+         delta = 0.409*sin(((2*pi)/365)*Day-1.39),  # solar decimation (rad)
          omega = acos(-tan(phi)*tan(delta)),         # sunset hour angle (rad) 1.527) 
          Re = ((24*60)/pi)*G*d*(omega*sin(phi)*sin(delta)+cos(phi)*cos(delta)*sin(omega))) # in MJ m^-2 day^-1
 
 # Compute clearness for each day (because unit it's per day)
-FluxTowerData2022 <- FluxTowerData2022 %>% 
-  mutate(Clearness = Rg/Re)
+ClearnessIndex <- FluxTowerData %>% 
+  mutate(Clearness_daily = Rg/Re) %>% # daily
+  group_by(Month) %>% 
+  mutate(Clearness_monthly = mean(Clearness_daily)) %>% # monthly
+  ungroup() %>% 
+  group_by(Season) %>% 
+  mutate(Clearness_seasonly = mean(Clearness_daily)) %>% # seasonly
+  ungroup() %>% 
+  mutate(Clearness_annual = mean(Clearness_daily)) %>% # annual
+  select(Year, Day, Month, Season, Clearness_daily, Clearness_monthly, Clearness_seasonly, Clearness_annual)
 
-# Compute clearness index for 1 year (2022)
-Clearness_2022 <- mean(FluxTowerData2022$Clearness) # 0.46
+# Compute clearness index for 1 year
+# mean(FluxTowerData$Clearness) # 2022: 0.46 ; 2023-2024: 0.52
+# 
+# # Compute clearness index for wet and dry season
+# mean(FluxTowerData[FluxTowerData$Season=="Wet",]$Clearness) # 2022: 0.39 ; 2023-2024: 0.47
+# mean(FluxTowerData[FluxTowerData$Season=="Dry",]$Clearness) # 2022: 0.55 ; 2023-2024: 0.56
+# 
+# ClearnessIndex <- data.frame(Clearness_annual = Clearness_annual,
+#                              ClearnessWet = ClearnessWet,
+#                              ClearnessDry = ClearnessDry)
 
-# Compute clearness index for wet and dry season (2022)
-ClearnessWet <- mean(FluxTowerData2022[FluxTowerData2022$Season=="Wet",]$Clearness) # 0.39
-ClearnessDry <- mean(FluxTowerData2022[FluxTowerData2022$Season=="Dry",]$Clearness) # 0.55
-
-ClearnessIndex <- data.frame(Clearness_2022 = Clearness_2022,
-                             ClearnessWet = ClearnessWet,
-                             ClearnessDry = ClearnessDry)
-
-write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/ClearnessIndex.csv")
+write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/ClearnessIndex_2023_2024.csv")
 ```
 
 
