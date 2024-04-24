@@ -122,8 +122,8 @@ TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>%
   rename(Date_Time = Date) %>% 
   mutate(Date = date(Date_Time)) %>%
   # mutate(Date = as.Date(Day, origin = "2022-12-31")) %>% # Julian Day to calendar date (pour 2023 data)
-  mutate(Hour =  format(Date_Time, format = "%H:%M:%S")) %>% 
-# mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600))) # (pour 2023 data)
+  mutate(Hour =  hms::as_hms(format(Date_Time, format = "%H:%M:%S"))) %>% 
+  # mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600))) # (pour 2023 data)
   select(Date_Time, Year, Month, Day, Date, Hour, `heure+min`, Time, # 365 days, 12 months
          Pluie, Rg, CNR4_SW_up_Avg, Rnet_2, CNR4_Rn_Avg, `Temp(55)`, `Temp(2,0)`) %>% 
   mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
@@ -333,7 +333,7 @@ test0 <- HOBOdata %>%
   # left_join(TourAFlux_2023_2024, by= c("Month","Day")) %>% # for 2022 tower data
   left_join(TourAFlux_2023_2024, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
   select(Date, Month, Hour, LightHabitat, `Temp(55)`, Temp, Rg, CNR4_SW_up, Rn, Light) %>% 
-  mutate(Tempdiff = `Temp(55)` - Temp) %>% 
+  mutate(Tempdiff = Temp - `Temp(55)`) %>% 
   unique()
 test <- filter(test0, `Temp(55)` > 0)
 
@@ -341,7 +341,7 @@ plot(Temp~`Temp(55)` , data=test)
 abline(lm(Temp~`Temp(55)`, data=test), col = "red") # ok, données aberrantes dans les fortes valeurs
 cor(test$Temp, test$`Temp(55)`) # 0.88
 min(test$Tempdiff) # écart à la T° de la tour: 21°C de plus que la tour !!
-test1 <- test[test$Tempdiff<(-1),] # which sensor T° are higher than tower T°
+test1 <- test[test$Tempdiff>1,] # which sensor T° are higher than tower T°
 test1[order(test1$Tempdiff),]
 
 # Sensors data follow flux tower data 
@@ -400,6 +400,10 @@ une ligne d'une couleur pour chaque jour le temps en abscisse la lumière
 en ordonnée
 
 ```{r}
+HOBOdata <- test %>% 
+  group_by(Month, Hour) %>% 
+  mutate(Temp_55_mean = mean(`Temp(55)`)) %>%  ungroup()
+
 HOBOdata$Date[1]
 
 n <- length(unique(HOBOdata$HoboID))*length(unique(HOBOdata$Month))
@@ -418,6 +422,7 @@ for(p in 1:(ceiling(n/16))){
       # filter(Date <= ymd("2023-04-15")) %>% # "2023-03-30"
       ggplot(aes(x = Hour,y = Temp)) +
       geom_line(aes(color = factor(Date)), show.legend = F) +
+      geom_line(aes(y = Temp_55_mean), color = "black", linewidth = 1, show.legend = F) +
       scale_x_time(breaks = scales::breaks_width("4 hour")) +
       ggforce::facet_wrap_paginate(vars(HoboID, Month),
                                    scales = "free_y",

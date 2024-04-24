@@ -32,7 +32,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 ```
 
-# CHM from LAS
+# CHM & DSM from LAS
 ```{r}
 ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 ROI <- st_as_sf(ROI) # as sf object
@@ -44,6 +44,9 @@ ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
 CHM <- rasterize_canopy(ST, res = 1, algorithm = p2r()) 
 #p2r() : for each pixel of the output raster the function attributes the height of the highest point found
 plot(CHM, col = height.colors(25))
+
+DSM <- rasterize_canopy(ST, res = 0.5, algorithm = dsmtin())
+# dsmtin() : algorithm for digital surface model computation using a Delaunay triangulation of first returns with a linear interpolation within each triangle.
 
 ggplot() + 
   geom_spatraster(data = CHM, aes(fill = Z)) +

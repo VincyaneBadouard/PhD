@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 
 *2 sites :\
 - Paracou (pour comparaison aux données Lidar)\
-- Nouragues **(?)***
+- Nouragues : car hydrologie potentiellement différente
 
 *Objectives:\
 - open the Tomst data\
@@ -40,7 +40,7 @@ moyenne, sd, coefficient de variation, min, max :\
 
 # *Packages*
 
-```{r, include = F echo = T,results = 'hide', message=FALSE}
+```{r, include = F, echo = T,results = 'hide', message=FALSE}
 library(readr)
 library(tidyverse)
 library(stringr)
@@ -58,11 +58,6 @@ Date Year Month Code Day heure+min Time TimeB
 
 - Pluie : Rainfall (mm)
 
-- Rg : Global radiation (W m-2)
-- Rnet_2 : Net radiation (from Rg sensor) (W m-2)      
-- CNR4_SW_up_Avg : Global radiation from CNR4 sensor (W m-2)
-- CNR4_Rn_Avg : Net radiation (from CNR4 sensor) (W m-2)
-
 - Temp(55) : Air Temp at 55m high (°C)
 - Hr(55) : Air humidity at 55 m high (%)
 
@@ -70,33 +65,64 @@ Date Year Month Code Day heure+min Time TimeB
 - Hr(2,0) : Air humidity at 2 m high (%)  
 
 - Tsoil : mean Soil temperature  (°C) à différentes profondeurs, issues du capteur CS650.
-          "T_AVG_10cm"     "T_AVG_20cm"     "T_AVG_80cm"     "T_AVG_140cm"   "T_AVG_190cm"     
+"T_AVG_10cm"     "T_AVG_20cm"     "T_AVG_80cm"     "T_AVG_140cm"   "T_AVG_190cm"     
 - VWC : mean Soil water content (m3 m-3) (Les données VWC sont des données de SWC issues d’une fosse récente, avec des capteurs CS650) (La fosse est à proximité de la Tour, sous couvert)
-        "VWC_AVG_10cm"   "VWC_AVG_20cm"   "VWC_AVG_80cm"   "VWC_AVG_140cm"  "VWC_AVG_190cm"
+"VWC_AVG_10cm"   "VWC_AVG_20cm"   "VWC_AVG_80cm"   "VWC_AVG_140cm"  "VWC_AVG_190cm"
 
 ```{r}
 # Données capteurs de mars 2023 à mars 2024
-FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
-                                       delim = ";", locale = locale(decimal_mark = ","),
-                                                                      escape_double = FALSE, trim_ws = TRUE)
+# FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
+#                                        delim = ";", locale = locale(decimal_mark = ","),
+#                                                                       escape_double = FALSE, trim_ws = TRUE)
 
 TourAFlux_2023_2024 <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
-    sheet = "Gx meteo_2023-2024")
-View(TourAFlux_2023_2024)
+                                          sheet = "Gx meteo_2023-2024", col_types = c("date", "numeric", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric", "numeric", "numeric", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric", "numeric", "numeric","numeric","numeric","numeric","numeric","numeric"))
 
-names(FluxTowerData2023)
+names(TourAFlux_2023_2024)
 
-FluxTowerData2023 <- FluxTowerData2023 %>% 
-  filter(Year >= 2023) %>% 
-  # filter(Rg > 0) %>%
-  # select(Year, 'Julian Day', Month, Rain, Rg) %>% # 365 days, 12 months
-  mutate(Season = ifelse(Month  %in% c(3, 8:11), # juill-nov = dry season
-                         "Dry", "Wet"))
+TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>% 
+  filter(Date >= mdy_hms("04/01/2023 00:00:00") & Date < mdy_hms("03/31/2024 24:00:00")) %>% 
+  rename(Date_Time = Date) %>% 
+  mutate(Date = date(Date_Time)) %>%
+  # mutate(Date = as.Date(Day, origin = "2022-12-31")) %>% # Julian Day to calendar date (pour 2023 data)
+  mutate(Hour =  hms::as_hms(format(Date_Time, format = "%H:%M:%S"))) %>% 
+  # mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600))) # (pour 2023 data)
+  select(Date_Time, Year, Month, Day, Date, Hour, `heure+min`, Time, # 365 days, 12 months
+         Pluie, `Temp(55)`, `Temp(2,0)`, `Hr(55)`, `Hr(2,0)`, T_AVG_10cm, VWC_AVG_10cm) %>% 
+  
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+                         "Dry", "Wet")) %>% 
+  mutate(Month = factor(Month)) %>% 
+  mutate(Pluie = as.numeric(Pluie)) %>% 
+  group_by(Day) %>% 
+  mutate(Rain_day = sum(Pluie)) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
+  ungroup()
 
-ggplot(FluxTowerData2023, aes(x = as.character(Month),y = Rain)) +
-  geom_boxplot(aes(color = Season)) +
-  labs(title="Rainfall over the seasons",
-       x ="Month", y = "Rainfall (mm)")
+
+for(Y in c(2023,2024)){
+  print(
+    TourAFlux_2023_2024 %>% 
+      # filter(Year==Y) %>% 
+      ggplot(aes(x = Month,y = Rain_day)) +
+      geom_boxplot(aes(color = Season)) +
+      labs(title= paste("FluxTower ", Y," - Daily rainfall over the seasons"),
+           x ="Month", y = "Daily rainfall (mm)")
+  )
+}
+
+for(V in c("Temp(55)", "Temp(2,0)", "Hr(55)", "Hr(2,0)")){
+  print(
+    TourAFlux_2023_2024 %>% 
+      filter(get(V) > 0) %>%
+      ggplot(aes(x = Month, y = get(V))) +
+      geom_boxplot(aes(color = Season)) +
+      labs(title= paste("FluxTower 2023 - ",V," over the seasons"),
+           x ="Month", y = V)
+  )
+}
+
+
+# Plots enregistrés à width = 900
 ```
 
 ## *Sensor environnment data*
@@ -142,8 +168,8 @@ format_tms <- function(
   data <- read.csv2(data_path, header = F); # row 1 is not the headers
   
   # The Time in UTC
-  Time_UTC <- ymd_hm(data$V2)
-  Time <- ymd_hm(data$V2, tz = "America/Cayenne")
+  Time_UTC <- ymd_hm(data$V2, tz = "UTC")
+  # Time <- ymd_hm(data$V2, tz = "America/Cayenne") # UTC-3
   # strptime(data$V2,"%Y.%m.%d %H:%M"))
   
   TimeZone <- data$V3 # semblent dire n'importe quoi
@@ -158,7 +184,6 @@ format_tms <- function(
   
   # Bind columns
   data2 <- cbind(as.data.frame(Time_UTC),
-                 as.data.frame(Time),
                  as.data.frame(TimeZone),
                  as.data.frame(SoilTemp), # soil T°
                  as.data.frame(SurfaceTemp), # surface T°
@@ -177,15 +202,17 @@ format_tms <- function(
 ### *Format all the files*
 
 ```{r}
-path <- "D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2023_05_25_1311"
-files <- list.files(path, pattern = "data", full.names = T)# [1:20] # 20 files
+path <- "D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2024_03_25"
+files <- list.files(path, pattern = "data", full.names = T)# [1:32] # 32 files
 
 data <- lapply(files, format_tms)
 
 # Just keep the TomstSensorNum
 files <- str_remove(files, path)
-files <- str_remove(files, "_2023_05_25_0.csv")
+files <- str_remove(files, "_2024_03_25_0.csv")
+# files <- str_remove(files, "_2024_03_26_0.csv")
 files <- str_remove(files, "/data_")
+length(files) # 32
 
 names(data) <- files
 
@@ -202,12 +229,12 @@ summary(Tomstdata)
 
 ```{r, echo = F, include = F}
 unique(Tomstdata[Tomstdata$SoilTemp<0,]$TomstSensorNum) # que ceux de Jérome
-unique(Tomstdata[Tomstdata$SoilTemp<0,]$Time_UTC)
+unique(Tomstdata[Tomstdata$SoilTemp<0,]$Time_UTC) # only 2022
 ```
 
 # *Combine data and environnment*
 
-```{r}
+```{r, include = F}
 Tomstdata <- Tomstdata %>% 
   mutate(TomstSensorNum = as.numeric(TomstSensorNum)) %>%
   left_join(Tomst_Paracou_env, by = "TomstSensorNum")
@@ -224,13 +251,14 @@ Na_tabble <- Tomstdata %>%
 
 ```{r}
 Tomstdata <- Tomstdata %>% 
+  mutate(Time = Time_UTC-(3 * 60 * 60)) %>%  # UTC-3
   mutate(Date = date(Time)) %>% 
   mutate(Month = month(Date)) %>%
   mutate(Hour = hms::as_hms(Time)) %>% # format Date-times: 2023-03-30 18:15:00
   # filtrer sur les dates d'étude (1 an) (même dates que les HOBO):
-  filter(Time >= mdy_hms("03/30/2023 18:00:00", tz = "America/Cayenne") & Time < mdy_hms("03/30/2024 18:00:00", tz = "America/Cayenne"))
+  filter(Time >= mdy_hms("04/01/2023 00:00:00") & Time < mdy_hms("03/31/2024 24:00:00"))
 
-Tomstdata$Time[1] >= mdy_hms("03/30/2023 18:00:00")
+Tomstdata$Time[1] >= mdy_hms("04/01/2023 00:00:00")
 ```
 
 # *From raw TDT signal to volumetric moisture content, calibrated from granulometry (a faire)*
@@ -241,11 +269,136 @@ Voir annexe A du papier des Tomst pour la transformation du signal en % volumiqu
 
 Si la granulo match pas avec mes données, il y a la possibilité d'utiliser leur excel pour faire du sur mesure (pas accès à la formule)
 
+%clay, silt, sand, bulk density (g/cm3)
 ```{r}
 CalibParam <- read_delim("~/PhD/Microclimate/Tomst - data and scripts/Tomst_humidity_granulo_parameters.csv", 
-    delim = ";", escape_double = FALSE, trim_ws = TRUE) # from A appendix of the Tomst article
+                         delim = ";", escape_double = FALSE, trim_ws = TRUE) # from A appendix of the Tomst article
+
+mutate(VolumetricMoisture = a*Moisture^2 + b*Moisture + c)
+```
+
+# Data checks
+
+-   Maximum values of T° of each day are at midday
+-   Higher values of T° of each day are for sensors in gaps
+-   Sensors data \< flux tower data
+-   Sensors data follow flux tower data
+
+```{r}
+names(Tomstdata) # "SoilTemp", "SurfaceTemp", "AirTemp", "Moisture"
+
+# Maximum values of T° of each day are at midday (!fail!)
+test <- Tomstdata %>% 
+  group_by(Date, TomstID) %>% 
+  mutate(MaxDailyAirTemp = max(AirTemp)) %>%
+  mutate(MaxDailySurfaceTemp = max(SurfaceTemp)) %>%
+  mutate(MaxDailySoilTemp = max(SoilTemp)) %>%
+  ungroup()
+
+range(as.character(test[test$AirTemp == test$MaxDailyAirTemp,]$Hour))
+median(as.character(test[test$AirTemp == test$MaxDailyAirTemp,]$Hour))
 
 
+# Higher values of each day are for sensors in gaps (not in understory) (! artefacts !)
+test <- Tomstdata %>%
+  group_by(Date) %>% 
+  mutate(MaxDailyAirTemp = max(AirTemp)) %>%
+  mutate(MaxDailySurfaceTemp = max(SurfaceTemp)) %>%
+  mutate(MaxDailySoilTemp = max(SoilTemp)) %>%
+  ungroup()
+
+test[test$AirTemp == test$MaxDailyAirTemp,]$LightHabitat
+test[test$AirTemp == test$MaxDailyAirTemp & test$LightHabitat == "Understory",] # ! artefact !
+
+
+# Sensors data < flux tower data (le faire avec données tour 2023-2024)
+# `Temp(55)` : Mean Air temperature at 55 m (°C)
+test <- Tomstdata %>%
+  # mutate(Day = day(Date)) %>% # for 2022 tower data
+  mutate(Month = factor(Month)) %>% 
+  group_by(Date) %>% 
+  # mutate(MeanDailyTemp = mean(Temp)) %>% 
+  ungroup() %>% 
+  select(TomstID, Date, Month, Hour, LightHabitat, TopoHabitat, SoilTemp, SurfaceTemp, AirTemp, Moisture) %>% 
+  # left_join(TourAFlux_2023_2024, by= c("Month","Day")) %>% # for 2022 tower data
+  left_join(TourAFlux_2023_2024, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
+  # select(Date, Month, Hour, LightHabitat, TopoHabitat, SoilTemp, SurfaceTemp, AirTemp, Moisture, `Temp(55)`) %>% 
+  mutate(Tempdiff = AirTemp - `Temp(55)`) %>% 
+  unique()
+
+plot(AirTemp~`Temp(55)` , data=test)
+abline(lm(AirTemp~`Temp(55)`, data=test), col = "red") # ok
+cor(test$AirTemp, test$`Temp(55)`) # 0.89
+range(test$Tempdiff) # écart à la T° de la tour: -5°C; 10°C
+test1 <- test[test$Tempdiff>5,] # which sensor T° are higher than tower T°
+test1[order(test1$Tempdiff),] # autour de midi en gap
+
+# Sensors data follow flux tower data 
+test %>% 
+  # unite(Day, Month, col = "Date", sep = "-", remove = F) %>% 
+  # mutate(Date = as.Date(Date,"%d-%m", origin = "2023-03-31")) %>% 
+  # filter(`Temp(55)` > AirTemp) %>%
+  ggplot(aes(x = Month)) +
+  geom_boxplot(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m")) +
+  geom_boxplot(aes(y = AirTemp, colour = LightHabitat)) + # colour = "Tomst: at 1 m"
+  # scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
+  #                                "Tomst: at 1 m" = "forestgreen")) + 
+  labs(title="Tomst vs Flux Tower data", y = "Air temperature (°C)") +
+  labs(color = "Data")
+
+# pour 1 jour
+test %>% 
+  filter(Date=="2023-04-01") %>% # pour 1 jour
+  # filter(`Temp(55)` > AirTemp) %>%
+  ggplot(aes(x = Hour)) +
+  geom_line(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m"))+
+  geom_point(aes(y = AirTemp, colour = LightHabitat)) + # colour = "Tomst: at 1 m"
+  # scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
+  #                                "Tomst: at 1 m" = "forestgreen")) +
+  labs(title="Tomst vs Flux Tower data", y = "Air temperature (°C)") +
+  labs(color = "Data") +
+  scale_x_time(breaks = scales::breaks_width("1 hour"))
+
+```
+# Plot data of each sensor
+
+une ligne d'une couleur pour chaque jour le temps en abscisse la lumière
+en ordonnée
+
+```{r}
+Tomstdata <- test %>% 
+  group_by(Month, Hour) %>% 
+  mutate(Temp_55_mean = mean(`Temp(55)`)) %>%  ungroup()
+
+Tomstdata$Date[1]
+
+n <- length(unique(Tomstdata$TomstID))*length(unique(Tomstdata$Month))
+
+# Define nrow and ncol for the facet
+if(n<4) {i = 1}else{ i = 4}
+
+pdf("Tomst_Temperature.pdf", width = 15, height = 10)
+for(p in 1:(ceiling(n/16))){
+  print(
+    Tomstdata %>% 
+      # filter(Hour > hms("06:00:00") & Hour < hms("19:00:00")) %>%
+      # filter(TomstID == 1) %>%
+      # filter(Month == 4) %>%
+      # filter(Light < 1000) %>%
+      # filter(Date <= ymd("2023-04-15")) %>% # "2023-03-30"
+      ggplot(aes(x = Hour)) +
+      geom_line(aes(y = AirTemp, color = factor(Date)), show.legend = F) +
+      geom_line(aes(y = Temp_55_mean),  color = "black", linewidth = 1, show.legend = F) +
+      scale_x_time(breaks = scales::breaks_width("4 hour")) +
+      ggforce::facet_wrap_paginate(vars(TomstID, Month, LightHabitat),
+                                   scales = "free_y",
+                                   ncol = min(n,4), nrow = i, page = p)
+    
+  )
+}
+dev.off() # Close the final graphics device
+
+# faire le meme graph pour chaque hauteur de T° moyennéee à l'heure pour chaque mois
 ```
 
 # *Relation between moisture and temperatures*
