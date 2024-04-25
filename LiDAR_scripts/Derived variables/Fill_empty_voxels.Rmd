@@ -147,7 +147,7 @@ HLE <- function (
 # Read voxelSpace
 
 ```{r}
-vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_equalecho2m.vox")
+vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_equalecho.vox")
 vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer_equalecho2m.vox")
 vxsp_HighI <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
