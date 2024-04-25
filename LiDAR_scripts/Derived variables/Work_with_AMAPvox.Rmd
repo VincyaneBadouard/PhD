@@ -41,9 +41,9 @@ ctg : catalog of laz files
 ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
-#"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz"
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
 # LowFlight_alt4ha_buff100m_2023.laz
 ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 
@@ -74,7 +74,7 @@ ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 # Clip the point cloud in region of interest
 ```{r, crop laz}
 PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
-PC 
+ST;PC 
 plot(PC)
 
 ## For 1 file
@@ -192,7 +192,7 @@ plot(PC)
 ```{r}
 # Normaliser la hauteur du sol
 PC_norm <- lidR::normalize_height(PC, mntROI) # applati le relief
-plot(PC_norm) # sol plat
+# plot(PC_norm) # sol plat
 hist(PC_norm@data$Z)
 
 # Classifier les points sol
@@ -243,14 +243,14 @@ plot(initial_intensity~Intensity, data = PC@data[PC_samp,])
 
 PC@data$initial_intensity <- NULL
 
-writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
+# writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
 ```
 
 # Rectifier les réflectances pour pouvoir prendre en compte les propriétés optiques des matériaux dans le calcul de la transmittance dans AMAPVox
 ```{r}
-PC <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+# PC <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 
 means <- PC@data[NumberOfReturns == 1, .(mean=mean(Intensity)), by = Classification] # Reflectance mean by classification (veg, ground)
 
@@ -260,7 +260,7 @@ PC@data <- PC@data %>%
   mutate(Intensity = ifelse(Classification==2, as.integer(as.numeric(Intensity)/ratio), Intensity)) %>%  # Ground reflectance corrected by the ratio
   mutate(Classification = ifelse(Classification==2, 1L, Classification)) # for AMAPVox to give the soil without know it (?)
 
-writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz")
+writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"

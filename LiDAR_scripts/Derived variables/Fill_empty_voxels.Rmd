@@ -149,18 +149,18 @@ HLE <- function (
 ```{r}
 vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_equalecho2m.vox")
 vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer_equalecho2m.vox")
-# vxsp_LowI <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox")
+vxsp_HighI <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
 
-# median(vxsp_Low@data$nbSampling)
-# median(vxsp_LowI@data$nbSampling)
-# 
-# hist(vxsp_Low@data$nbSampling, breaks=100)
-# hist(vxsp_LowI@data$nbSampling, breaks=100)
-# 
-# sum(vxsp_Low@data$nbSampling)
-# sum(vxsp_LowI@data$nbSampling)
+median(vxsp_High@data$nbSampling)
+median(vxsp_HighI@data$nbSampling)
+
+hist(vxsp_High@data$nbSampling, breaks=100)
+hist(vxsp_HighI@data$nbSampling, breaks=100)
+
+sum(vxsp_High@data$nbSampling)
+sum(vxsp_HighI@data$nbSampling)
 
 # vxsp
 # summary(vxsp@data)
