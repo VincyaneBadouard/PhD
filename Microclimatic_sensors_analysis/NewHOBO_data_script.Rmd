@@ -105,6 +105,7 @@ Date Year Month Code Day heure+min Time TimeB
 - Temp(55) : Air Temp at 55m high (°C)
 - Temp(2,0) : Air Temp at 2m high (°C)
 
+Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
 ```{r}
 # Données capteurs de mars 2023 à mars 2024
 # FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
@@ -126,8 +127,12 @@ TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>%
   # mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600))) # (pour 2023 data)
   select(Date_Time, Year, Month, Day, Date, Hour, `heure+min`, Time, # 365 days, 12 months
          Pluie, Rg, CNR4_SW_up_Avg, Rnet_2, CNR4_Rn_Avg, `Temp(55)`, `Temp(2,0)`) %>% 
-  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
-                         "Dry", "Wet")) %>% 
+  # mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+  #                        "Dry", "Wet")) %>% 
+  group_by(Month) %>%
+  mutate(Rain_sum_Month = sum(Rain,na.rm = T)) %>% 
+  ungroup() %>%
+  mutate(Season = ifelse(Rain_sum_Month < 100,"Dry", "Wet")) %>% # Dry season: < 100 mm precipitation per month (Bonal et al. 2008)
   mutate(Month = factor(Month)) %>% 
   mutate(Pluie = as.numeric(Pluie)) %>% 
   group_by(Day) %>% 
@@ -556,10 +561,10 @@ test <- HOBOdata[HOBOdata$Phase == "Night" & HOBOdata$Light >0,] # 1651 obs
 # Seasons (a refaire avec 2024)
 
 2023 : 04-12 2024 : 01-03
-
+Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
 ```{r}
 HOBOdata <- HOBOdata %>%
-  mutate(Season = ifelse(Month  %in% c(3, 8:11), # mars, aout-nov = dry season
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
                          "Dry", "Wet"))
 
 ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +

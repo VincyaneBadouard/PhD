@@ -41,11 +41,10 @@ ctg : catalog of laz files
 ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz")
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
-# LowFlight_alt4ha_buff100m_2023.laz
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 
 crs(ST) # no crs
 ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
@@ -89,8 +88,9 @@ PCall <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
 # or if only the first is not empty
 PC <- PC[[1]]
 # lidR::plot(PC) 
-
+```
 # Enlever le bruit (sous sol et au dessus canopée)
+```{r}
 table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5
 PC@data <- PC@data[Classification != 7,]
 lidR::plot(PC) 
@@ -104,7 +104,7 @@ ROI <- st_set_crs(ROI, 2972) # crs
 
 # Modèle numérique de terrain
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc""
-mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/PARACOU2023_DTM_1m.tif")
+mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc"
 ggplot() + 
   geom_spatraster(data = mnt, aes(fill = MNT_0.5m_IRD_500m_Paracou_284000_579500)) + # mnt_roi36ha_1m # dtm2023
@@ -125,7 +125,7 @@ ggplot() +
                        na.value="white") +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc", format="ascii", overwrite=T)
+writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc", format="ascii", overwrite=T)
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023_4ha_buffer.asc"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/dtm2022_4ha_buffer.asc"
 ```
@@ -216,7 +216,7 @@ On enlève tout le sol, on garde que les tirs qui atteignent la végétation
 # rm(GS)
 ```
 
-# Calculer la moyenne de réflectance (appelée intensité) par écho (pas fait pour 2023)
+# Calculer la moyenne de réflectance (appelée intensité) par écho (Greg l'a déjà mis dans les laz bruts)
 
 On utilise la réflectance pour calculer l'intensité
 en calculant la réflectance apparente en ratio (albedo)
@@ -260,9 +260,9 @@ PC@data <- PC@data %>%
   mutate(Intensity = ifelse(Classification==2, as.integer(as.numeric(Intensity)/ratio), Intensity)) %>%  # Ground reflectance corrected by the ratio
   mutate(Classification = ifelse(Classification==2, 1L, Classification)) # for AMAPVox to give the soil without know it (?)
 
-writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
-# //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer.laz
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz"
+writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz")
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
 ```
 
@@ -326,6 +326,8 @@ Clearness index = global solar irradiance (données de la tour)/top of atmospher
 all on the same periode, and in the same unit
 
 Method: https://www.fao.org/3/x0490e/x0490e07.htm#solar%20radiation
+
+Définition saison sèche au mois : < 100 mm precipitation par mois (Bonal et al. 2008)
 ```{r}
 # Load tower data
 # Rg in MJ m^-2 day^-1 (megajoules per square metre and per day)
@@ -353,18 +355,36 @@ FluxTowerData <- FluxTowerData %>%
   ungroup() %>%
   filter(Rg > 0) %>%
   group_by(Day) %>% 
-  mutate(Rain = sum(as.numeric(Rain))) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
+  mutate(Rain_day = sum(as.numeric(Rain))) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
   ungroup() %>%
-  select(Year, Day, Month, Rain, Rg) %>% # 365 days, 12 months
-  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
-                         "Dry", "Wet")) %>% 
+  select(Date, Year, Day, Month, Rain, Rain_day, Rg) %>% # 365 days, 12 months
+  # mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+  #                        "Dry", "Wet")) %>%
+  group_by(Month) %>%
+  mutate(Rain_sum_Month = sum(Rain,na.rm = T)) %>% 
+  ungroup() %>%
+  mutate(Season = ifelse(Rain_sum_Month < 100,"Dry", "Wet")) %>% # Dry season: < 100 mm precipitation per month (Bonal et al. 2008)
   unique()
 
-ggplot(FluxTowerData, aes(x = as.character(Month),y = Rain)) +
+ggplot(FluxTowerData, aes(x = as.factor(Month),y = Rain_day)) +
   geom_boxplot(aes(color = Season)) +
+  theme_minimal() +
   labs(title="Daily rainfall over the seasons",
        x ="Month", y = "Daily rainfall (mm)")
 
+ggsave("FluxTower_2023_2024_Rainfall_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(FluxTowerData, aes(x = as.factor(Month),y = Rain)) +
+  geom_bar(aes(x = as.factor(Month),y = Rain, fill = Season), stat="identity") +
+  theme_minimal() +
+  labs(title="Monthly rainfall over the seasons",
+       x ="Month", y = "Sum monthly rainfall (mm)")
+
+ggsave("FluxTower_2023_2024_Monthly_Rainfall_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 # Compute extraterrestrial radiation per day (because unit it's per day)
 G <- 0.0820 # solar constant (MJ m-2 min-1)

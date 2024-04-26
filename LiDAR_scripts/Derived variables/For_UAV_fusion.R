@@ -13,6 +13,10 @@ UAV_C19C20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/Ho
 # Message d'avis :
 # Invalid data: 28460622 points with a return number equal to 0 found
 
+table(UAV_C14C15$Classification) # pas de classif
+range(UAV_C14C15$Z) # -29.57759  91.38171
+range(UAV_C14C15$Intensity) # 1 255
+
 
 # Crop the ALS
 library(sf)

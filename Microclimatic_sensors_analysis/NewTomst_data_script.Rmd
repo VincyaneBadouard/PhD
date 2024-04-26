@@ -69,6 +69,7 @@ Date Year Month Code Day heure+min Time TimeB
 - VWC : mean Soil water content (m3 m-3) (Les données VWC sont des données de SWC issues d’une fosse récente, avec des capteurs CS650) (La fosse est à proximité de la Tour, sous couvert)
 "VWC_AVG_10cm"   "VWC_AVG_20cm"   "VWC_AVG_80cm"   "VWC_AVG_140cm"  "VWC_AVG_190cm"
 
+Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
 ```{r}
 # Données capteurs de mars 2023 à mars 2024
 # FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
@@ -90,8 +91,12 @@ TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>%
   select(Date_Time, Year, Month, Day, Date, Hour, `heure+min`, Time, # 365 days, 12 months
          Pluie, `Temp(55)`, `Temp(2,0)`, `Hr(55)`, `Hr(2,0)`, T_AVG_10cm, VWC_AVG_10cm) %>% 
   
-  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
-                         "Dry", "Wet")) %>% 
+  # mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+  #                        "Dry", "Wet")) %>% 
+  group_by(Month) %>%
+  mutate(Rain_sum_Month = sum(Rain,na.rm = T)) %>% 
+  ungroup() %>%
+  mutate(Season = ifelse(Rain_sum_Month < 100,"Dry", "Wet")) %>% # Dry season: < 100 mm precipitation per month (Bonal et al. 2008)
   mutate(Month = factor(Month)) %>% 
   mutate(Pluie = as.numeric(Pluie)) %>% 
   group_by(Day) %>% 
@@ -510,10 +515,10 @@ Peut-être que les données ne sont pas au bon fuseau horaire, pourtant elles é
 Et peut-être qu'il faut corriger les données d'humidité...
 
 # *Seasons*
-
+Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
 ```{r}
 Tomstdata <- Tomstdata %>%
-  mutate(Season = ifelse(Month  %in% c(7:11,3), # juill-nov et mars
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # juill-nov et mars
                          "Dry", "Wet"))
 ```
 
