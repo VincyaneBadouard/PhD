@@ -38,8 +38,8 @@ library(tidyverse)
 
 # Read voxelSpace
 ```{r}
-vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_equalecho2m.vox")
-vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_LowAlt_4ha_buffer_equalecho2m.vox")
+vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_intensity2m.vox")
+vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_intensity2m.vox")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.vox"
 
 # vxsp
@@ -165,14 +165,18 @@ dataLow %>%
   
   geom_point(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
   geom_line(data = dataLow, aes(x = ground_distance_disc, y = MeanPAD, colour = "Low altitude")) +
-  scale_colour_manual(values = c("High altitude" = "darkgreen",
-                                 "Low altitude" = "green")) +
-  
-  ggtitle("P16-2023-4ha+buffer - HighAlt - PAD profile before estimation (equal echo)- res 2m") +
+  scale_colour_manual(values = c("High altitude" = "blue",
+                                 "Low altitude" = "#56B4E9")) +
+  theme_minimal() +
+  ggtitle("P16-2023-4ha+buffer - PAD profile before estimation (intensity)- res 2m") +
   labs(y="PAD", x="Absolute Tree Height", color = "LiDAR acquisition") +
   coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
 # geom_errorbar(aes(ymin=MinPAD, ymax=MaxPAD), width=.2)#+ 
 # options(repr.plot.width=8, repr.plot.height=15) # higher height
+
+ggsave("ALS2023_P16_4ha_HighvsLow_PAD_before_fillEmptyVxl_intensity_2m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Voxélisation/PAD_profil/Intensity_2m",
+       width = 18, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
@@ -189,8 +193,8 @@ rm(dataLow, dataHigh)
 # vxsp_low_pulseMin28 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin28.vox")
 # vxsp_low_pulseMin44 <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin44.vox")
 
-vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE_equalecho2m.vox")
-vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_equalecho2m.vox")
+vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity2m.vox")
+vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_LowAlt_PadHLE_intensity2m.vox")
 
 ```
 
@@ -261,8 +265,8 @@ dataHigh %>%
 # geom_point(data = dataLow_pulseMin44, aes(y = MeanPAD, colour = "Low altitude (pulse min=44)")) +
 # geom_line(data = dataLow_pulseMin44, aes(y = MeanPAD, colour = "Low altitude (pulse min=44)")) +
 
-scale_colour_manual(values = c("High altitude (pulse min=20)" = "darkgreen",
-                               "Low altitude (pulse min=20)" = "green"
+scale_colour_manual(values = c("High altitude (pulse min=20)" = "blue",
+                               "Low altitude (pulse min=20)" = "#56B4E9"
                                # "Low altitude (pulse min=4)" = "green",
                                # "Low altitude (pulse min=12)" = "yellow",
                                # "Low altitude (pulse min=20)" = "orange",
@@ -300,13 +304,17 @@ dataLow %>%
   
   geom_point(data = dataLow, aes(x = ground_distance_disc, y = MeanNbsampling, colour = "Low altitude")) +
   geom_line(data = dataLow, aes(x = ground_distance_disc, y = MeanNbsampling, colour = "Low altitude")) +
-  scale_colour_manual(values = c("High altitude" = "darkgreen",
-                                 "Low altitude" = "green")) +
-  
-  ggtitle("P16 - 2023 - 4ha + buffer - extinction profile") +
+  scale_colour_manual(values = c("High altitude" = "blue",
+                                 "Low altitude" = "#56B4E9")) +
+  theme_minimal() +
+  ggtitle("P16 - 2023 - 4ha + buffer - extinction profile (intensity) res 2m") +
   labs(y="Number of through pulses", x="Absolute Tree Height", color = "LiDAR acquisition") +
   scale_y_continuous(breaks = seq(0, max(dataHigh$MeanNbsampling), by=100))+
   coord_flip() #+
 # geom_errorbar(aes(ymin=MeanNbsampling-SdNbsampling, ymax=MeanNbsampling+SdNbsampling), width=.2)
 #   geom_errorbar(aes(ymin=MinNbsampling, ymax=MaxNbsampling), width=.2)
+
+ggsave("ALS2023_P16_4ha_HighvsLow_nbSampling_mean_intensity_2m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Voxélisation/nbSampling_profil/Intensity_2m",
+       width = 18, height = 20, units = "cm", dpi=800, bg="white")
 ```

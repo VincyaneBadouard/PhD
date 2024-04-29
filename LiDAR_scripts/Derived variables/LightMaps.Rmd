@@ -26,9 +26,26 @@ Understory_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory/Understory
 
 # Process raw data from AMAPVox
 ```{r}
+# Echo weight by intensity :  
+path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_annual_intensity2m.txt"
+path_Low <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_annual_intensity2m.txt"
+
+path_High_Dry <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Dry_intensity2m.txt"
+path_High_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Wet_intensity2m.txt"
+path_Low_Dry <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Dry_intensity2m.txt"
+path_Low_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Wet_intensity2m.txt"
+
+path_High_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_intensity2m.txt"
+path_Low_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_intensity2m.txt"
+
+path_High_Dry_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
+path_High_Wet_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
+path_Low_Dry_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
+path_Low_Wet_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
+
 # Equal echo weight :
-path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual_equalecho2m.txt"
-path_Low <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_Light_annual_equalecho2m.txt"
+# path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual_equalecho2m.txt"
+# path_Low <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_Light_annual_equalecho2m.txt"
 
 # Echo weight by intensity :  
 # path_Low_lightgrid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ.txt"
@@ -41,10 +58,11 @@ path_Low <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowA
 ```
 
 ```{r}
-ReadLightFile <- function(path){
-  Light <- fread(path, skip=10) # skip the 10 1st lines of header
+ReadLightFile <- function(path, skiplines=10){
+  Light <- fread(path, skip=skiplines) # skip the 10 1st lines of header
   Light <- Light[Y != "MEAN"] # enlever les 2 lignes mean
-  Light <- Light[, !c("V5"), with = FALSE] # remove empty column
+  Light <- janitor::remove_empty(Light,"cols")
+  
   Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))] # all as numeric
   Light <- Light[!is.na(X)] 
   return(Light)
@@ -56,7 +74,8 @@ Light_Low <- ReadLightFile(path_Low)
 Light_Low
 
 ```
-## Plot
+
+## Plot with buffer
 ```{r}
 Plot_Light <- function(Light, acq){
   # Remove edges
@@ -113,7 +132,7 @@ Plot_LightUTM(Light_HighUTM, zone, buffer)
 Plot_LightUTM(Light_LowUTM, zone, buffer)
 ```
 
-## Crop on the interst zone
+## Crop on the interest zone
 ```{r}
 Crop <- function(data, zone){
   datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
@@ -204,7 +223,7 @@ Light <- ComputeLightDiff(Light_HighUTM, Light_LowUTM)
 Light
 ```
 
-## Maps
+## Light differences maps
 ```{r}
 hist(Light$Lightdiff, breaks = 15)
 Min <- min(Light$Lightdiff)
@@ -241,72 +260,123 @@ ggplot() +
 
 # Light profiles
 ```{r}
-Pathgrid_HighAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_equalecho2m.txt"
+# Pathgrid_HighAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_equalecho2m.txt"
+# Pathgrid_LowAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_equalecho2m.txt"
 
-Pathgrid_LowAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_equalecho2m.txt"
+Pathgrid_HighAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_intensity2m.txt"
+Pathgrid_LowAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_intensity2m.txt"
+
+Pathgrid_High_Dry <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
+Pathgrid_High_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
+Pathgrid_Low_Dry <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
+Pathgrid_Low_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
 
 Lightgrid_HighAlt <- ReadLightFile(Pathgrid_HighAlt)
 Lightgrid_LowAlt <- ReadLightFile(Pathgrid_LowAlt)
 
-Lightgrid_HighUTM <- Relativ2UTM(Lightgrid_HighAlt, VOP)
-Lightgrid_LowUTM <- Relativ2UTM(Lightgrid_LowAlt, VOP)
+Lightgrid_High_Dry <- ReadLightFile(Pathgrid_High_Dry, skiplines=14)
+Lightgrid_High_Wet <- ReadLightFile(Pathgrid_High_Wet, skiplines=14)
 
-Lightgrid_HighUTM <- Crop(Lightgrid_HighUTM, zone)
-Lightgrid_LowUTM <- Crop(Lightgrid_LowUTM, zone)
+Lightgrid_Low_Dry <- ReadLightFile(Pathgrid_Low_Dry, skiplines=14)
+Lightgrid_Low_Wet <- ReadLightFile(Pathgrid_Low_Wet, skiplines=14)
 
-Lightgrid_HighUTM ; Lightgrid_LowUTM
+# Lightgrid_HighUTM <- Relativ2UTM(Lightgrid_HighAlt, VOP)
+# Lightgrid_LowUTM <- Relativ2UTM(Lightgrid_LowAlt, VOP)
+# 
+# Lightgrid_HighUTM <- Crop(Lightgrid_HighUTM, zone)
+# Lightgrid_LowUTM <- Crop(Lightgrid_LowUTM, zone)
 
-Writedata_txt_csv(Lightgrid_HighUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_equalecho2m_UTM")
-Writedata_txt_csv(Lightgrid_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_equalecho2m_UTM")
+# Lightgrid_HighUTM ; Lightgrid_LowUTM
+
+# Writedata_txt_csv(Lightgrid_HighUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_equalecho2m_UTM")
+# Writedata_txt_csv(Lightgrid_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_equalecho2m_UTM")
+
+names(Lightgrid_High_Dry)
+```
+
+```{r}
+average_Periods <- function(data){
+  data <- data[, Transmittance := rowMeans(.SD), .SDcols = c("Period 1", "Period 2", "Period 3", "Period 4", "Period 5", "Period 6")]
+}
+
+Lightgrid_High_Dry <- average_Periods(Lightgrid_High_Dry)
+Lightgrid_High_Wet <- average_Periods(Lightgrid_High_Wet)
+
+Lightgrid_Low_Dry <- average_Periods(Lightgrid_Low_Dry)
+Lightgrid_Low_Wet <- average_Periods(Lightgrid_Low_Wet)
+
+setnames(Lightgrid_HighAlt, "Period 1", "Transmittance")
+setnames(Lightgrid_LowAlt, "Period 1", "Transmittance")
+```
+
+## Compute Transmitance by altitude
+```{r}
+names(Lightgrid_HighAlt) # "X","Y","Z",  "Period 1",  "Xutm","Yutm","Zutm"    
+
+compute_Transmitance_byAlt <- function(data){
+  data <- setDF(data) %>% 
+    mutate(Z_disc = as.integer(Z)) %>% 
+    group_by(Z_disc) %>% 
+    mutate(MeanTransmittance = mean(Transmittance)) %>% 
+    mutate(MinTransmittance = min(Transmittance)) %>% 
+    mutate(MaxTransmittance = max(Transmittance)) %>%
+    mutate(SdTransmittance = sd(Transmittance)) %>% 
+    ungroup() %>% 
+    select(Z_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% unique()
+}
+
+Lightgrid_HighAlt <- compute_Transmitance_byAlt(Lightgrid_HighAlt)
+Lightgrid_LowAlt <- compute_Transmitance_byAlt(Lightgrid_LowAlt)
+
+Lightgrid_High_Dry <- compute_Transmitance_byAlt(Lightgrid_High_Dry)
+Lightgrid_High_Wet <- compute_Transmitance_byAlt(Lightgrid_High_Wet)
+
+Lightgrid_Low_Dry <- compute_Transmitance_byAlt(Lightgrid_Low_Dry)
+Lightgrid_Low_Wet <- compute_Transmitance_byAlt(Lightgrid_Low_Wet)
 
 ```
 
-## Plot
+## Light profiles plot
 ```{r}
-names(Lightgrid_HighUTM) # "X","Y","Z",  "Period 1",  "Xutm","Yutm","Zutm"    
+# data1=Lightgrid_HighAlt ; data2=Lightgrid_LowAlt; Leg1="High altitude"; Leg2="Low altitude"; Title="High vs Low"
+# LegCol= c("High altitude" = "blue","Low altitude" = "#56B4E9")
 
-dataHigh <- setDF(Lightgrid_HighUTM) %>% 
-  mutate(Zutm_disc = as.integer(Zutm)) %>% 
-  group_by(Zutm_disc) %>% 
-  mutate(MeanTransmittance = mean(`Period.1`)) %>% 
-  mutate(MinTransmittance = min(`Period.1`)) %>% 
-  mutate(MaxTransmittance = max(`Period.1`)) %>%
-  mutate(SdTransmittance = sd(`Period.1`)) %>% 
-  ungroup() %>% 
-  select(Zutm_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% unique()
+plotLightProfiles <- function(data1, data2, LegCol, Title){ # Leg1, Leg2,
+  data1 %>% 
+    # filter(Z_disc>=0 & Z_disc<=60) %>% 
+    ggplot(aes(x= Z_disc, y= MeanTransmittance)) +
+    
+    geom_point(data = data1, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[1])) +
+    geom_line(data = data1, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[1])) +
+    
+    geom_point(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])) +
+    geom_line(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])) +
+    
+    # geom_errorbar(data = data2, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "darkgreen", width=.2) +
+    # geom_errorbar(data = data1, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "green", width=.2) +
+    # geom_errorbar(aes(ymin=MeanTransmittance-SdTransmittance, ymax=MeanTransmittance+SdTransmittance), width=.2)
+    
+    scale_colour_manual(values = LegCol) +
+    theme_minimal() +
+    ggtitle(paste("P16 - 2023 - 4ha - ", Title, "Light profile (Grid 10x10m, each 1m in Z)")) +
+    labs(y="Transmittance", x="Altitude", color = "LiDAR acquisition") +
+    xlim(0,70) +
+    coord_flip() # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
+  
+  ggsave(paste("ALS2023_P16_4ha_",Title,"_Light_profile_(Grid_10x10m_each_1m_in_Z)_intensity_2m.png"),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Light_profil/Intensity_2m",
+         width = 18, height = 20, units = "cm", dpi=800, bg="white")
+}
 
-dataLow <- setDF(Lightgrid_LowUTM) %>% 
-  mutate(Zutm_disc = as.integer(Zutm)) %>% 
-  group_by(Zutm_disc) %>% 
-  mutate(MeanTransmittance = mean(`Period.1`)) %>% 
-  mutate(MinTransmittance = min(`Period.1`)) %>% 
-  mutate(MaxTransmittance = max(`Period.1`)) %>%
-  mutate(SdTransmittance = sd(`Period.1`)) %>% 
-  ungroup() %>% 
-  select(Zutm_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% unique() 
-
-
-dataLow %>% 
-  # filter(Zutm_disc>=0 & Zutm_disc<=60) %>% 
-  ggplot(aes(x= Zutm_disc, y= MeanTransmittance)) +
-  
-  geom_point(data = dataHigh, aes(x = Zutm_disc, y = MeanTransmittance, colour = "High altitude")) +
-  geom_line(data = dataHigh, aes(x = Zutm_disc, y = MeanTransmittance, colour = "High altitude")) +
-  
-  geom_point(data = dataLow, aes(x = Zutm_disc, y = MeanTransmittance, colour = "Low altitude")) +
-  geom_line(data = dataLow, aes(x = Zutm_disc, y = MeanTransmittance, colour = "Low altitude")) +
-  
-  # geom_errorbar(data = dataHigh, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "darkgreen", width=.2) +
-  # geom_errorbar(data = dataLow, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "green", width=.2) +
-  # geom_errorbar(aes(ymin=MeanTransmittance-SdTransmittance, ymax=MeanTransmittance+SdTransmittance), width=.2)
-  
-  scale_colour_manual(values = c("High altitude" = "darkgreen",
-                                 "Low altitude" = "green")) +
-  
-  ggtitle("P16 - 2023 - 4ha - Light profile (Grid 10x10m, each 1m in Z)") +
-  labs(y="Transmittance", x="Altitude", color = "LiDAR acquisition") +
-  xlim(0,70) +
-  coord_flip() # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
+plotLightProfiles(Lightgrid_HighAlt, Lightgrid_LowAlt,
+                  c("High altitude" = "blue","Low altitude" = "#56B4E9"),
+                  "High vs Low")
+plotLightProfiles(Lightgrid_High_Dry, Lightgrid_High_Wet,
+                  c("Dry season" = "#D55E00","Wet season" = "#56B4E9"),
+                  "High alt Dry vs Wet")
+plotLightProfiles(Lightgrid_Low_Dry, Lightgrid_Low_Wet,
+                  c("Dry season" = "#D55E00","Wet season" = "#56B4E9"),
+                  "Low alt Dry vs Wet")
 ```
 
 # Spatial autoccorelation of the light

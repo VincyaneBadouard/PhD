@@ -114,7 +114,6 @@ Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
 
 TourAFlux_2023_2024 <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
                                           sheet = "Gx meteo_2023-2024")
-View(TourAFlux_2023_2024)
 
 names(TourAFlux_2023_2024)
 
@@ -130,22 +129,28 @@ TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>%
   # mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
   #                        "Dry", "Wet")) %>% 
   group_by(Month) %>%
-  mutate(Rain_sum_Month = sum(Rain,na.rm = T)) %>% 
+  mutate(Rain_sum_Month = sum(Pluie,na.rm = T)) %>% 
   ungroup() %>%
   mutate(Season = ifelse(Rain_sum_Month < 100,"Dry", "Wet")) %>% # Dry season: < 100 mm precipitation per month (Bonal et al. 2008)
   mutate(Month = factor(Month)) %>% 
   mutate(Pluie = as.numeric(Pluie)) %>% 
   group_by(Day) %>% 
   mutate(Rain_day = sum(Pluie)) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
+  ungroup() %>% 
+  rename(Rg_W = Rg) %>%   rename(Rnet_2_W = Rnet_2) %>% 
+  group_by(Day) %>%
+  mutate(Rg = sum(Rg_W *1800 * 10^(-6))) %>% # Rg (MJ m-2 day-1) = Somme de Rg (W m-2) *1800 * 10^(-6)
+  mutate(Rnet_2 = sum(Rnet_2_W *1800 * 10^(-6))) %>% # Rg (MJ m-2 day-1) = Somme de Rg (W m-2) *1800 * 10^(-6)
   ungroup()
 
 
 for(Y in c(2023,2024)){
   print(
     TourAFlux_2023_2024 %>% 
-      # filter(Year==Y) %>% 
+      # filter(Year==Y) %>%
       ggplot(aes(x = Month,y = Rain_day)) +
       geom_boxplot(aes(color = Season)) +
+      theme_minimal() +
       labs(title= paste("FluxTower ", Y," - Daily rainfall over the seasons"),
            x ="Month", y = "Daily rainfall (mm)")
   )
@@ -155,23 +160,37 @@ TourAFlux_2023_2024 %>%
   filter(`Temp(55)` > 0) %>%
   ggplot(aes(x = Month,y = `Temp(55)`)) +
   geom_boxplot(aes(color = Season)) +
-  labs(title="FluxTower 2023 - Mean air temperature (°C) over the seasons",
-       x ="Month", y = "Mean air temperature at 55 m (°C)")
+  theme_minimal() +
+  labs(title="FluxTower 2023-2024 - Air temperature (°C) over the seasons",
+       x ="Month", y = "Air temperature at 55 m (°C)")
+
+ggsave("FluxTower_2023_2024_Air_temperature_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 TourAFlux_2023_2024 %>% 
   filter(Rg > 0) %>%
-  ggplot(aes(x = Month,y = CNR4_SW_up_Avg)) + # CNR4_SW_up_Avg
+  ggplot(aes(x = Month,y = Rg)) + # CNR4_SW_up_Avg
   geom_boxplot(aes(color = Season)) +
-  labs(title="FluxTower 2023 - Global incident radiation (MJ m-2 day-1) over the seasons",
+  theme_minimal() +
+  labs(title="FluxTower 2023-2024 - Global incident radiation (MJ m-2 day-1) over the seasons",
        x ="Month", y = "Global incident radiation (MJ m-2 day-1)")
+
+ggsave("FluxTower_2023_2024_Global_incident_radiation_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 TourAFlux_2023_2024 %>% 
   filter(Rnet_2 > 0) %>%
   ggplot(aes(x = Month,y = Rnet_2)) + # Net radiation (W m-2)
   geom_boxplot(aes(color = Season)) +
-  labs(title="FluxTower 2023 - Net radiation (W m-2) over the seasons",
-       x ="Month", y = "Net radiation (W m-2)")
-# Plots enregistrés à width = 900
+  theme_minimal() +
+  labs(title="FluxTower 2023-2024 - Net radiation (MJ m-2 day-1) over the seasons",
+       x ="Month", y = "Net radiation (MJ m-2 day-1)")
+
+ggsave("FluxTower_2023_2024_Net_radiation_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Sensor environnment data
@@ -508,19 +527,32 @@ est à des heures évidentes
 # min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$CNR4_SW_up, na.rm = T) # 4
 # range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$CNR4_SW_up, na.rm = T) # -6.17 83.65
 
-ggplot(TourAFlux_2023_2024, aes(x = Hour,y = Rg)) +
+TourAFlux_2023_2024 %>% 
+  group_by(Hour) %>%
+  mutate(Rg_W_max = max(Rg_W)) %>% ungroup() %>%
+  select(Hour, Rg_W_max) %>% 
+  unique() %>% 
+  ggplot(aes(x = Hour,y = Rg_W_max)) +
   geom_line() +
-  labs(title="Light over a day",
-       x ="Hour", y = "Global incident radiation (MJ m-2 day-1)")
+  # geom_col(aes(x = Hour,y = Rg_W_max)) +
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
+  theme_minimal() +
+  labs(title="Maximum global incident radiation (W m-2) over the hours",
+       x ="Hour", y = "Maximum lobal incident radiation (W m-2)")
 
-ggplot(FluxTowerData2023, aes(x = `J/N`,y = Rg)) + # Rg, Rn, CNR4_SW_up
-  geom_boxplot(aes(color = `J/N`)) +
-  labs(title="Light over a day",
-       y = "Global incident radiation (MJ m-2 day-1)")
+ggsave("FluxTower_2023_2024_Maximum_global_incident_radiation_over_the_hours.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+# ggplot(FluxTowerData2023, aes(x = `J/N`,y = Rg)) + # Rg, Rn, CNR4_SW_up
+#   geom_boxplot(aes(color = `J/N`)) +
+#   labs(title="Light over a day",
+#        y = "Global incident radiation (MJ m-2 day-1)")
 
 # For the HOBOs
 ggplot(HOBOdata, aes(x = Hour,y = Light)) +
   geom_line() +
+  theme_minimal() +
   labs(title="Light over a day",
        x ="Hour", y = "Light (lux)")
 
@@ -535,19 +567,26 @@ HOBOdata <- HOBOdata %>%
                            Hour >= hms::as_hms("00:00:00") & Hour < hms::as_hms("06:00:00")),
                         "Night", Phase)) # heures évidentes de nuit
 
-
 ggplot(HOBOdata, aes(x = Hour,y = Light)) +
   geom_point(aes(color = Phase)) +
+  theme_minimal() +
   labs(title="Light over a day",
        x ="Hour", y = "Light (lux)") # dès que les points dépassent le 0 -> jour
 
+ggsave("HOBO_Light_DayNight.png",
+       path = "D:/Mes Donnees/PhD/Figures/HOBO",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+
 ggplot(HOBOdata[HOBOdata$Phase=="Night",], aes(x = Hour,y = Light)) +
   geom_point() +
+  theme_minimal() +
   labs(title="Night over a day",
        x ="Hour", y = "Light (lux)")
 
 ggplot(HOBOdata, aes(x = Phase,y = Light)) + 
   geom_boxplot(aes(color = Phase)) +
+  theme_minimal() +
   labs(title="Light over a day",
        y = "Light (lux)")
 
@@ -567,10 +606,22 @@ HOBOdata <- HOBOdata %>%
   mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
                          "Dry", "Wet"))
 
+# A replotter avec données complètes
 ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +
   geom_boxplot(aes(color = Season)) +
-  labs(title="Temperature over the seasons",
-       x ="Month", y = "Temp (°C)")
+  labs(title= "Temperature (°C) over the seasons",
+       x ="Month", y = "Temperature (°C)")
+
+HOBOdata %>% 
+  filter(Light>0) %>%
+  # filter(LightHabitat=="Gap") %>% 
+  group_by(Month, LightHabitat) %>%  mutate(Sum_Light = sum(Light)) %>% ungroup() %>% 
+  select(Month, Season, LightHabitat, Sum_Light) %>% unique() %>% 
+  ggplot(aes(x = as.factor(Month),y = Sum_Light)) +
+  geom_point(aes(colour = Season, shape = LightHabitat)) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title= "Light (lux) over the seasons",
+       x ="Month", y = "Light (lux)")
 ```
 
 # Variables à calculer
@@ -615,7 +666,7 @@ October_stats <- HOBOdata %>%
   filter(Month==10) %>% 
   group_by(HoboID) %>%
   summarise(across("Light",
-                   list(october_sum = ~sum(.)), # annual
+                   list(october_sum = ~sum(.)), # october
                    .names = "HOBO_{.col}_{.fn}"))
 
 season_stats <- HOBOdata %>%

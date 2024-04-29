@@ -94,7 +94,7 @@ TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>%
   # mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
   #                        "Dry", "Wet")) %>% 
   group_by(Month) %>%
-  mutate(Rain_sum_Month = sum(Rain,na.rm = T)) %>% 
+  mutate(Rain_sum_Month = sum(Pluie,na.rm = T)) %>% 
   ungroup() %>%
   mutate(Season = ifelse(Rain_sum_Month < 100,"Dry", "Wet")) %>% # Dry season: < 100 mm precipitation per month (Bonal et al. 2008)
   mutate(Month = factor(Month)) %>% 
@@ -110,6 +110,7 @@ for(Y in c(2023,2024)){
       # filter(Year==Y) %>% 
       ggplot(aes(x = Month,y = Rain_day)) +
       geom_boxplot(aes(color = Season)) +
+      theme_minimal() +
       labs(title= paste("FluxTower ", Y," - Daily rainfall over the seasons"),
            x ="Month", y = "Daily rainfall (mm)")
   )
@@ -121,13 +122,15 @@ for(V in c("Temp(55)", "Temp(2,0)", "Hr(55)", "Hr(2,0)")){
       filter(get(V) > 0) %>%
       ggplot(aes(x = Month, y = get(V))) +
       geom_boxplot(aes(color = Season)) +
+      theme_minimal() +
       labs(title= paste("FluxTower 2023 - ",V," over the seasons"),
            x ="Month", y = V)
   )
+  ggsave(paste("FluxTower_2023_2024_",V,"_over_the_seasons.png"),
+         path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+         width = 25, height = 15, units = "cm", dpi=800, bg="white")
 }
 
-
-# Plots enregistrés à width = 900
 ```
 
 ## *Sensor environnment data*
@@ -243,6 +246,8 @@ unique(Tomstdata[Tomstdata$SoilTemp<0,]$Time_UTC) # only 2022
 Tomstdata <- Tomstdata %>% 
   mutate(TomstSensorNum = as.numeric(TomstSensorNum)) %>%
   left_join(Tomst_Paracou_env, by = "TomstSensorNum")
+
+# regarder si le Tomst 9 est complet sinon prendre le data le plus complet (ou le virer)
 ```
 
 ## *NA ?*
@@ -490,29 +495,55 @@ Jour : de 06:15 à 18:45
 ```{r, echo = F}
 ggplot(Tomstdata, aes(x = Hour,y = AirTemp)) +
   geom_point(aes(color = Phase)) +
+  theme_minimal() +
   labs(title="Air temperature over the day",
        x ="Hour", y = "Air temperature (°C)")
 
+ggsave("FluxTower_2023_2024_AirTemperature_over_the_day.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
 ggplot(Tomstdata, aes(x = Phase,y = AirTemp)) +
   geom_boxplot(aes(color = Phase)) +
+  theme_minimal() +
   labs(title="Air temperature (°C) over the day",
        x ="Phase", y = "Air temperature (°C)")
 
+ggsave("FluxTower_2023_2024_AirTemperature_over_the_day_boxplot.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(Tomstdata, aes(x = Hour,y = SurfaceTemp)) +
+  geom_point(aes(color = Phase)) +
+  theme_minimal() +
+  labs(title="Surface temperature over the day",
+       x ="Hour", y = "Surface temperature (°C)")
+
+ggsave("FluxTower_2023_2024_SurfaceTemperature_over_the_day.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
 ggplot(Tomstdata, aes(x = Hour,y = SoilTemp)) +
   geom_point(aes(color = Phase)) +
+  theme_minimal() +
   labs(title="Soil temperature over the day",
        x ="Hour", y = "Soil temperature (°C)")
 
+ggsave("FluxTower_2023_2024_SoilTemperature_over_the_day.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
 ggplot(Tomstdata, aes(x = Phase,y = Moisture)) +
   geom_boxplot(aes(color = Phase)) +
-  labs(title="Moisture over the day",
-       x ="Phase", y = "Moisture")
+  theme_minimal() +
+  labs(title="Soil moisture over the day",
+       x ="Phase", y = "Soil moisture (%)")
+
+ggsave("FluxTower_2023_2024_SoilMoisture_over_the_day.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
-
-Peut-être que les données ne sont pas au bon fuseau horaire, pourtant elles étaient en UTC et je les ais mises en "America/Cayenne".
-
-Et peut-être qu'il faut corriger les données d'humidité...
 
 # *Seasons*
 Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
@@ -523,15 +554,23 @@ Tomstdata <- Tomstdata %>%
 ```
 
 ```{r, echo = F}
-ggplot(Tomstdata, aes(x = as.character(Month),y = AirTemp)) +
+ggplot(Tomstdata, aes(x = as.factor(Month),y = AirTemp)) +
   geom_boxplot(aes(color = Season)) +
   labs(title="Air temperature over the seasons",
        x ="Month", y = "Air temperature (°C)")
 
-ggplot(Tomstdata, aes(x = as.character(Month),y = Moisture)) +
+ggsave("FluxTower_2023_2024_AirTemperature_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(Tomstdata, aes(x = as.factor(Month),y = Moisture)) +
   geom_boxplot(aes(color = Season)) +
-  labs(title="Moisture over the seasons",
-       x ="Month", y = "Moisture")
+  labs(title="Soil moisture over the seasons",
+       x ="Month", y = "Soil moisture (%)")
+
+ggsave("FluxTower_2023_2024_SoilMoisture_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Tomst",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 A travers les saisons l'humidité n'est pas incohérente.
@@ -559,22 +598,33 @@ annual_stats <- Tomstdata %>%
                         annual_varcoef = ~(sd(.) / mean(.)) * 100,
                         annual_max = ~max(.),
                         annual_min = ~min(.)),
-                   .names = "{.col}_{.fn}"))
+                   .names = "Tomst_{.col}_{.fn}"))
 
-phase_stats <- Tomstdata %>%
-  group_by(TomstID,Phase) %>%
+October_stats <- Tomstdata %>%
+  filter(Month==10) %>% 
+  group_by(TomstID) %>%
   summarise(across(c("Moisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
-                   list(mean = ~mean(.),
-                        sd = ~sd(.),
-                        varcoef = ~(sd(.) / mean(.)) * 100,
-                        max = ~max(.),
-                        min = ~min(.)),
-                   .names = "{.col}_{.fn}"))
+                   list(october_mean = ~mean(.), # october
+                        october_sd = ~sd(.),
+                        october_varcoef = ~(sd(.) / mean(.)) * 100,
+                        october_max = ~max(.),
+                        october_min = ~min(.)), 
+                   .names = "Tomst_{.col}_{.fn}"))
 
-# "Phase" variable as an index for the computed variables
-phase_stats <- pivot_wider(phase_stats, names_from = Phase,
-                           values_from = names(phase_stats)[-c(1:2)],
-                           names_glue = "{.value}_{Phase}")
+# phase_stats <- Tomstdata %>%
+#   group_by(TomstID,Phase) %>%
+#   summarise(across(c("Moisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
+#                    list(mean = ~mean(.),
+#                         sd = ~sd(.),
+#                         varcoef = ~(sd(.) / mean(.)) * 100,
+#                         max = ~max(.),
+#                         min = ~min(.)),
+#                    .names = "Tomst_{.col}_{.fn}"))
+# 
+# # "Phase" variable as an index for the computed variables
+# phase_stats <- pivot_wider(phase_stats, names_from = Phase,
+#                            values_from = names(phase_stats)[-c(1:2)],
+#                            names_glue = "{.value}_{Phase}")
 
 
 season_stats <- Tomstdata %>%
@@ -585,7 +635,7 @@ season_stats <- Tomstdata %>%
                         varcoef = ~(sd(.) / mean(.)) * 100,
                         max = ~max(.),
                         min = ~min(.)),
-                   .names = "{.col}_{.fn}")) 
+                   .names = "Tomst_{.col}_{.fn}")) 
 
 # "Season" variable as an index for the computed variables
 season_stats <- pivot_wider(season_stats, names_from = Season,
@@ -599,7 +649,10 @@ season_stats <- pivot_wider(season_stats, names_from = Season,
 ```{r}
 stats <- annual_stats %>% 
   left_join(season_stats, by="TomstID") %>%
-  left_join(phase_stats, by="TomstID")
+  # left_join(phase_stats, by="TomstID") %>% 
+  left_join(October_stats, by="TomstID")
+
+write.csv(stats, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_stats.csv")
 
 stats <- left_join(stats, env_Par, by="TomstID")
 ```
