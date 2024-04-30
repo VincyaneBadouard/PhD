@@ -279,3 +279,67 @@ Topography corrélations négatives avec :
 sables fins et grossiers, Mn, pH, Ca, K
 
 Les P assimilables Olsen et Bray I n'ont pas été détectés dans les échantillons des Nouragues.
+
+# Table de granulo et densité apprente pour les calibrer les Tomst
+%clay, silt, sand, bulk density (g/cm3)
+```{r}
+# CalibParam <- read_delim("~/PhD/Microclimate/Tomst - data and scripts/Tomst_humidity_granulo_parameters.csv",
+#                          delim = ";", escape_double = FALSE, trim_ws = TRUE) # from A appendix of the Tomst article
+
+Granulo_data <- read_csv("~/PhD/Pédologie/Data/Labo_data_binded.csv") ; names(Granulo_data)
+Bulk_density <- read_csv("~/PhD/Pédologie/Data/Raw/Bulk_density.csv") ; names(Bulk_density)
+# "Site", "Sample ID", "Topography type", "Bulk density"    
+
+Granulo_data <- Granulo_data %>% 
+  select(Site, Topography, `Sample ID`,
+         `Argiles %`, `Limons fins %`,`Limons grossiers %`,
+         `Sables fins %`, `Sables grossiers %`) %>% 
+  filter(Site=="Paracou") %>% 
+  rename(SampleID = `Sample ID`) %>% 
+  rename(Argiles = `Argiles %`) %>% 
+  rowwise() %>% 
+  mutate(Limons = `Limons fins %`+`Limons grossiers %`) %>% 
+  mutate(Sables = `Sables fins %`+`Sables grossiers %`) %>% 
+  ungroup() %>% 
+  mutate(ID = data.table::tstrsplit(SampleID, split = "-")[[4]]) %>% 
+  select(Site, Topography, SampleID, ID, Argiles, Limons, Sables)
+
+Granulo_data <- Granulo_data %>% filter(grepl(pattern = 'CH', Granulo_data$SampleID)) 
+
+Pedo_data <- Bulk_density %>%
+  filter(Site=="Paracou") %>% 
+  select(Site, `Sample ID`, `Topography type`, `Bulk density`) %>% 
+  rename(SampleID = `Sample ID`) %>% 
+  rename(Topography = `Topography type`) %>% 
+  rename(BulkDensity = `Bulk density`) %>% 
+  mutate(ID = data.table::tstrsplit(SampleID, split = "-")[[4]]) %>% 
+  left_join(Granulo_data, by= c("Site", "ID", "Topography"))
+
+Pedo_data <- Pedo_data %>% 
+  group_by(Topography) %>% 
+  summarise(Argiles = mean(Argiles),
+            Limons = mean(Limons),
+            Sables = mean(Sables),
+            BulkDensity = mean(BulkDensity)) %>% 
+  ungroup()
+
+# Standardise pour sommer à 100%
+Pedo_data <- Pedo_data %>%
+  rowwise() %>% 
+  mutate(Sum = Argiles + Limons + Sables) %>% 
+  mutate(Argiles_st = round((Argiles/sum(Sum))*100, digits = 1)) %>% 
+  mutate(Limons_st = round((Limons/sum(Sum))*100, digits = 1)) %>% 
+  mutate(Sables_st = round((Sables/sum(Sum))*100, digits = 1)) %>% 
+  mutate(Sum_st = Argiles_st + Limons_st + Sables_st) %>% 
+  # 2ème tour
+  mutate(Argiles_st = round((Argiles_st/sum(Sum_st))*100, digits = 1)) %>% 
+  mutate(Limons_st = round((Limons_st/sum(Sum_st))*100, digits = 1)) %>% 
+  mutate(Sables_st = round((Sables_st/sum(Sum_st))*100, digits = 1)) %>% 
+  mutate(Sum_st = Argiles_st + Limons_st + Sables_st) %>% 
+  select(Topography, Argiles_st, Limons_st, Sables_st, Sum_st, BulkDensity) %>% 
+  rename(Argiles = Argiles_st) %>% 
+  rename(Limons = Limons_st) %>% 
+  rename(Sables = Sables_st) 
+
+write.csv(Pedo_data, "~/PhD/Microclimate/Tomst - data and scripts/Paracou_Tomst_humidity_granulo_parameters.csv")
+```

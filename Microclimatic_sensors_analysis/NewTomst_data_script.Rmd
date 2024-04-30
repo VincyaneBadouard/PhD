@@ -281,10 +281,44 @@ Si la granulo match pas avec mes données, il y a la possibilité d'utiliser leu
 
 %clay, silt, sand, bulk density (g/cm3)
 ```{r}
-CalibParam <- read_delim("~/PhD/Microclimate/Tomst - data and scripts/Tomst_humidity_granulo_parameters.csv", 
-                         delim = ";", escape_double = FALSE, trim_ws = TRUE) # from A appendix of the Tomst article
+CalibParam <- read_csv("~/PhD/Microclimate/Tomst - data and scripts/Paracou_Tomst_humidity_granulo_parameters.csv") # generate in Pedology_analysis.Rmd + Tomst calibration table
 
-mutate(VolumetricMoisture = a*Moisture^2 + b*Moisture + c)
+Tomstdata <- Tomstdata %>% 
+  left_join(CalibParam, by= c("TopoHabitat"="Topography")) %>% 
+  rename(ElectricMoisture = Moisture) %>% 
+  rowwise() %>% 
+  mutate(VolumetricMoisture = a*ElectricMoisture^2 + b*ElectricMoisture + c) %>% 
+  ungroup()
+
+nrow(Tomstdata) #  1 076 426
+
+# Checks
+test2 <- test %>% 
+  select(TopoHabitat, a,b,c) %>% unique()
+
+names(test)
+
+test3 <- test %>% 
+  filter(VolumetricMoisture<0) %>% # nrow(test3) #  39 641
+  select(TomstID, Month,
+         Tomst_Material_info_30_03_23, Tomst_Material_info_16_10_23,Tomst_Material_info_25_03_24) %>% 
+  unique()
+nrow(test3) # 19
+
+test3$TomstID # 24 (2 mois),26 (3 mois),27 (4 mois),28 (10 mois)
+test3$Tomst_Material_info_16_10_23
+# "sorti de terre, trou mouillé car sol trop dure, puis replacé"
+# "sorti de terre, trou mouillé car sol trop dure, puis déplacé"
+# "pas de chapeau (pas trouvé)"                                 
+# "semble pas mesurer d’humidité"
+
+unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_30_03_23),]$Tomst_Material_info_30_03_23)
+unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_16_10_23),]$Tomst_Material_info_16_10_23)
+unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_25_03_24),]$Tomst_Material_info_25_03_24)
+
+
+Tomstdata <- Tomstdata %>%
+  mutate(VolumetricMoisture = ifelse(VolumetricMoisture<0, NA, VolumetricMoisture))
 ```
 
 # Data checks
@@ -295,7 +329,7 @@ mutate(VolumetricMoisture = a*Moisture^2 + b*Moisture + c)
 -   Sensors data follow flux tower data
 
 ```{r}
-names(Tomstdata) # "SoilTemp", "SurfaceTemp", "AirTemp", "Moisture"
+names(Tomstdata) # "SoilTemp", "SurfaceTemp", "AirTemp", "VolumetricMoisture"
 
 # Maximum values of T° of each day are at midday (!fail!)
 test <- Tomstdata %>% 
@@ -309,7 +343,7 @@ range(as.character(test[test$AirTemp == test$MaxDailyAirTemp,]$Hour))
 median(as.character(test[test$AirTemp == test$MaxDailyAirTemp,]$Hour))
 
 
-# Higher values of each day are for sensors in gaps (not in understory) (! artefacts !)
+# Higher values of temperature of each day are for sensors in gaps (not in understory) (! artefacts !)
 test <- Tomstdata %>%
   group_by(Date) %>% 
   mutate(MaxDailyAirTemp = max(AirTemp)) %>%
@@ -329,16 +363,29 @@ test <- Tomstdata %>%
   group_by(Date) %>% 
   # mutate(MeanDailyTemp = mean(Temp)) %>% 
   ungroup() %>% 
-  select(TomstID, Date, Month, Hour, LightHabitat, TopoHabitat, SoilTemp, SurfaceTemp, AirTemp, Moisture) %>% 
+  select(TomstID, Date, Month, Hour, LightHabitat, TopoHabitat, SoilTemp, SurfaceTemp, AirTemp, ElectricMoisture, VolumetricMoisture, Tomst_Material_info_30_03_23, Tomst_Material_info_16_10_23,Tomst_Material_info_25_03_24) %>% 
   # left_join(TourAFlux_2023_2024, by= c("Month","Day")) %>% # for 2022 tower data
   left_join(TourAFlux_2023_2024, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
-  # select(Date, Month, Hour, LightHabitat, TopoHabitat, SoilTemp, SurfaceTemp, AirTemp, Moisture, `Temp(55)`) %>% 
+  # select(Date, Month, Hour, LightHabitat, TopoHabitat, SoilTemp, SurfaceTemp, AirTemp, VolumetricMoisture, `Temp(55)`) %>% 
+  mutate(VolumetricMoisture = VolumetricMoisture*100) %>%
   mutate(Tempdiff = AirTemp - `Temp(55)`) %>% 
+  mutate(Moistdiff = VolumetricMoisture - `Hr(55)`) %>% 
   unique()
+
 
 plot(AirTemp~`Temp(55)` , data=test)
 abline(lm(AirTemp~`Temp(55)`, data=test), col = "red") # ok
 cor(test$AirTemp, test$`Temp(55)`) # 0.89
+
+testP <- test %>% 
+  group_by(Month) %>% summarise(Pluie = sum(Pluie,na.rm=T), VolumetricMoisture = mean(VolumetricMoisture,na.rm=T)) %>% ungroup()
+
+plot(VolumetricMoisture~`Hr(55)` , data=test)
+plot(VolumetricMoisture~Pluie , data=testP)
+
+testM <- test %>%  select(VolumetricMoisture, `Hr(55)`) %>% na.omit()
+cor(testM$VolumetricMoisture, testM$`Hr(55)`) # 0.19
+
 range(test$Tempdiff) # écart à la T° de la tour: -5°C; 10°C
 test1 <- test[test$Tempdiff>5,] # which sensor T° are higher than tower T°
 test1[order(test1$Tempdiff),] # autour de midi en gap
@@ -411,7 +458,7 @@ dev.off() # Close the final graphics device
 # faire le meme graph pour chaque hauteur de T° moyennéee à l'heure pour chaque mois
 ```
 
-# *Relation between moisture and temperatures*
+# *Relation between VolumetricMoisture and temperatures*
 
 ```{r, echo = F}
 ggplot(Tomstdata) +
@@ -440,30 +487,31 @@ ggplot(Tomstdata) +
               geom = "smooth")
 cat("cor:",cor(Tomstdata$SurfaceTemp, Tomstdata$SoilTemp)) # 0.69
 
-ggplot(Tomstdata) +
-  aes(x = Moisture, y = SoilTemp) +
+Tomstdata %>%  select(VolumetricMoisture, ElectricMoisture, SoilTemp) %>% 
+  ggplot() +
+  aes(x = VolumetricMoisture, y = SoilTemp) +
   geom_point(size = 0.2) +
   stat_smooth(method = "lm",
               formula = y ~ x,
               geom = "smooth")
-cat("cor:",cor(Tomstdata$Moisture, Tomstdata$SoilTemp)) # -0.02
+cat("cor:",cor(Tomstdata$VolumetricMoisture, Tomstdata$SoilTemp)) # -0.02
 
 
 ggplot(Tomstdata) +
-  aes(x = Moisture, y = AirTemp) +
+  aes(x = VolumetricMoisture, y = AirTemp) +
   geom_point(size = 0.2) +
   stat_smooth(method = "lm",
               formula = y ~ x,
               geom = "smooth")
-cat("cor:",cor(Tomstdata$Moisture, Tomstdata$AirTemp)) # -0.005
+cat("cor:",cor(Tomstdata$VolumetricMoisture, Tomstdata$AirTemp)) # -0.005
 
 ggplot(Tomstdata) +
-  aes(x = Moisture, y = SurfaceTemp) +
+  aes(x = VolumetricMoisture, y = SurfaceTemp) +
   geom_point(size = 0.2) +
   stat_smooth(method = "lm",
               formula = y ~ x,
               geom = "smooth")
-cat("cor:",cor(Tomstdata$Moisture, Tomstdata$SurfaceTemp)) # 0.02
+cat("cor:",cor(Tomstdata$VolumetricMoisture, Tomstdata$SurfaceTemp)) # 0.02
 
 ```
 
@@ -473,7 +521,7 @@ cat("cor:",cor(Tomstdata$Moisture, Tomstdata$SurfaceTemp)) # 0.02
 
 *Air et soil temp corrèlent encore moins bien. -\> la température du sol est tamponnée*
 
-*Pas corrélé du tout : humidité du sol et les différentes température même pas celle du sol (**pas normal**).*
+*Pas corrélé du tout : humidité du sol ni electrique ni volumétrique, et les différentes température même pas celle du sol (**pas normal**).*
 
 # *Day/night*
 
@@ -533,11 +581,11 @@ ggsave("FluxTower_2023_2024_SoilTemperature_over_the_day.png",
        path = "D:/Mes Donnees/PhD/Figures/Tomst",
        width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-ggplot(Tomstdata, aes(x = Phase,y = Moisture)) +
+ggplot(Tomstdata, aes(x = Phase,y = VolumetricMoisture)) +
   geom_boxplot(aes(color = Phase)) +
   theme_minimal() +
   labs(title="Soil moisture over the day",
-       x ="Phase", y = "Soil moisture (%)")
+       x ="Phase", y = "Soil volumetric moisture")
 
 ggsave("FluxTower_2023_2024_SoilMoisture_over_the_day.png",
        path = "D:/Mes Donnees/PhD/Figures/Tomst",
@@ -556,6 +604,7 @@ Tomstdata <- Tomstdata %>%
 ```{r, echo = F}
 ggplot(Tomstdata, aes(x = as.factor(Month),y = AirTemp)) +
   geom_boxplot(aes(color = Season)) +
+  theme_minimal() +
   labs(title="Air temperature over the seasons",
        x ="Month", y = "Air temperature (°C)")
 
@@ -563,10 +612,11 @@ ggsave("FluxTower_2023_2024_AirTemperature_over_the_seasons.png",
        path = "D:/Mes Donnees/PhD/Figures/Tomst",
        width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-ggplot(Tomstdata, aes(x = as.factor(Month),y = Moisture)) +
+ggplot(Tomstdata, aes(x = as.factor(Month),y = VolumetricMoisture)) +
   geom_boxplot(aes(color = Season)) +
+  theme_minimal() +
   labs(title="Soil moisture over the seasons",
-       x ="Month", y = "Soil moisture (%)")
+       x ="Month", y = "Soil volumetric moisture")
 
 ggsave("FluxTower_2023_2024_SoilMoisture_over_the_seasons.png",
        path = "D:/Mes Donnees/PhD/Figures/Tomst",
@@ -592,7 +642,7 @@ A travers les saisons l'humidité n'est pas incohérente.
 ```{r}
 annual_stats <- Tomstdata %>%
   group_by(TomstID) %>%
-  summarise(across(c("Moisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
+  summarise(across(c("VolumetricMoisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
                    list(annual_mean = ~mean(.),
                         annual_sd = ~sd(.),
                         annual_varcoef = ~(sd(.) / mean(.)) * 100,
@@ -603,7 +653,7 @@ annual_stats <- Tomstdata %>%
 October_stats <- Tomstdata %>%
   filter(Month==10) %>% 
   group_by(TomstID) %>%
-  summarise(across(c("Moisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
+  summarise(across(c("VolumetricMoisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
                    list(october_mean = ~mean(.), # october
                         october_sd = ~sd(.),
                         october_varcoef = ~(sd(.) / mean(.)) * 100,
@@ -613,7 +663,7 @@ October_stats <- Tomstdata %>%
 
 # phase_stats <- Tomstdata %>%
 #   group_by(TomstID,Phase) %>%
-#   summarise(across(c("Moisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
+#   summarise(across(c("VolumetricMoisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
 #                    list(mean = ~mean(.),
 #                         sd = ~sd(.),
 #                         varcoef = ~(sd(.) / mean(.)) * 100,
@@ -629,7 +679,7 @@ October_stats <- Tomstdata %>%
 
 season_stats <- Tomstdata %>%
   group_by(TomstID,Season) %>%
-  summarise(across(c("Moisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
+  summarise(across(c("VolumetricMoisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
                    list(mean = ~mean(.),
                         sd = ~sd(.),
                         varcoef = ~(sd(.) / mean(.)) * 100,
@@ -663,7 +713,7 @@ stats <- left_join(stats, env_Par, by="TomstID")
 stats %>%
   filter(!is.na(TopoHabitat)) %>%
   ggplot() +
-  aes(x = TopoHabitat, y = Moisture_max_Wet) +
+  aes(x = TopoHabitat, y = Tomst_VolumetricMoisture_max_Wet) +
   geom_boxplot(fill = "#4698B4") +
   labs(x ="Topographic Habitat", y = "Maximum wet season moisture") +
   theme_minimal()
@@ -673,7 +723,7 @@ cat("Bizarre. Ya un souci avec l'humidité")
 stats %>%
   filter(!is.na(TopoHabitat)) %>%
   ggplot() +
-  aes(x = TopoHabitat, y = Moisture_mean_Wet) +
+  aes(x = TopoHabitat, y = Tomst_VolumetricMoisture_mean_Wet) +
   geom_boxplot(fill = "#4698B4") +
   labs(x ="Topographic Habitat", y = "Average wet season moisture") +
   theme_minimal()
@@ -753,7 +803,7 @@ DF_cor <- stats %>%
   na.omit()
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
-CorMatrixS <- CorMatrixS$r[-c(103:104),103:104]
+CorMatrixS <- CorMatrixS$r #[-c(103:104),103:104]
 
 CorMatrix <- round(CorMatrixS, digits = 2)  # matrice de corrélation
 # Pval_corr <- CorMatrixS$P # p-values
