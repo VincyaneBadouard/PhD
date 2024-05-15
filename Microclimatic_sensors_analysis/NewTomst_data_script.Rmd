@@ -11,7 +11,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-**FAIRE CALIBRATION HUMIDITE !!**
+**Intercalibration !!**:
+- intercalibration de la T° sur la période dans le bureau (application de la différence)
+- intercalibration moisture même méthode avec données nouragues tous au même endroit)
+
 
 - Tomst mauvais horaires : confronter température de tomst et hobo pour recaller les horaires, vérifier que j’ai bien fait -3h
 
@@ -271,11 +274,11 @@ Tomstdata <- Tomstdata %>%
 Tomstdata$Time[1] >= mdy_hms("04/01/2023 00:00:00")
 ```
 
-# *From raw TDT signal to volumetric moisture content, calibrated from granulometry (a faire)*
+# From raw TDT signal to volumetric moisture content, calibrated from granulometry
 
 Voir annexe A du papier des Tomst pour la transformation du signal en % volumique d'humidité et une calibration à partir de la granulométrie
 
-*theta=ax\^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
+*theta=ax^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
 
 Si la granulo match pas avec mes données, il y a la possibilité d'utiliser leur excel pour faire du sur mesure (pas accès à la formule)
 
@@ -320,6 +323,10 @@ unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_25_03_24),]$Tomst_Material
 Tomstdata <- Tomstdata %>%
   mutate(VolumetricMoisture = ifelse(VolumetricMoisture<0, NA, VolumetricMoisture))
 ```
+# **Intercalibration !!** (a faire)
+- intercalibration de la T° sur la période dans le bureau (application de la différence)
+- intercalibration moisture même méthode avec données nouragues tous au même endroit)
+
 
 # Data checks
 

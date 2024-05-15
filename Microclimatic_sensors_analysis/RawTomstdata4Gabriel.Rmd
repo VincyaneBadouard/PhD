@@ -1,0 +1,163 @@
+---
+title: "Raw Tomst data for Gabriel"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, echo = FALSE, fig.width = 6
+)
+```
+
+# *Packages*
+
+```{r, include = F, echo = T,results = 'hide', message=FALSE}
+library(readr)
+library(tidyverse)
+library(stringr)
+# library(lubridate) # for dates and time
+# library(chron) # for dates and time
+```
+
+# *Read*
+## *Sensor environnment data*
+
+```{r include = F}
+Tomst_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")[1:32,] %>% 
+  select(-`...1`, -Operator, -FieldDate) %>% 
+  mutate(TopoHabitat = factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))
+
+Tomst_Nouragues_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst sensors - Nouragues - Data.csv") %>% 
+  select(-Operator, -FieldDate) %>%  # -Tomst_Material_info_30_03_23
+  mutate(TopoHabitat = factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))
+
+env_Par <- Tomst_Paracou_env %>% 
+  select(TomstID,Transect,LightHabitat,TopoHabitat)
+
+env_Nour <- Tomst_Nouragues_env %>% 
+  select(TomstID,Transect,LightHabitat,TopoHabitat)
+```
+
+## *Sensor data*
+
+### *Data formatting function*
+
+*Columns :\
+- index number of the measure,\
+- date and time in UTC,\
+- time zone = 4 (French Guiana is UTC-3)\
+- T1, T2, T3,\
+- soil moisture count,\
+- shake = 0\
+- errFlag (if =1 the device couldn't convert time from PCF chip) = NA*
+
+```{r}
+format_tms <- function(
+    data_path # path of the data (character) with ".csv"
+){
+  
+  # Data name
+  file_name <- data_path 
+  
+  # Subset data
+  data <- read.csv2(data_path, header = F); # row 1 is not the headers
+  
+  # The Time in UTC
+  Time_UTC <- ymd_hm(data$V2, tz = "UTC")
+  # Time <- ymd_hm(data$V2, tz = "America/Cayenne") # UTC-3
+  # strptime(data$V2,"%Y.%m.%d %H:%M"))
+  
+  TimeZone <- data$V3 # semblent dire n'importe quoi
+  
+  # Temperature data
+  SoilTemp <- data$V4
+  SurfaceTemp <- data$V5
+  AirTemp <- data$V6
+  
+  # Moisture data
+  Moisture <- data$V7
+  
+  # Bind columns
+  data2 <- cbind(as.data.frame(Time_UTC),
+                 as.data.frame(TimeZone),
+                 as.data.frame(SoilTemp), # soil T°
+                 as.data.frame(SurfaceTemp), # surface T°
+                 as.data.frame(AirTemp), # air T°
+                 as.data.frame(Moisture))
+  
+  Output <- list("data" = data2 #,# dataset
+                 # "file_name" = file_name, 
+                 # "length" = length(SoilTemp)
+  ) # length of eah dataset
+  
+  return(Output)
+}
+```
+
+### *Format all the files*
+Nouragues test : 2023_02_22
+
+```{r}
+FormatTomstfiles <- function(path, date){
+  files <- list.files(path, pattern = "data", full.names = T)# [1:32] # 32 files
+  
+  data <- lapply(files, format_tms)
+  
+  # Just keep the TomstSensorNum
+  files <- str_remove(files, path)
+  files <- str_remove(files, paste("_",date,"_0.csv",sep=""))
+  # files <- str_remove(files, "_2024_03_26_0.csv")
+  files <- str_remove(files, "/data_")
+  length(files) # 32
+  
+  names(data) <- files
+  
+  Tomstdata <- bind_rows(data, .id = "TomstSensorNum") %>% # df number -> TomstSensorNum column
+    unnest(cols = c(data)) #%>% 
+  # mutate(TomstSensorNum = gsub(paste0(path, "/"), "", TomstSensorNum)) 
+  
+  return(Tomstdata)
+}
+
+Paracou_Tomstdata <- FormatTomstfiles("D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2024_05_06",
+                 date = "2024_05_06")
+
+Nouragues_Tomstdata <- FormatTomstfiles("D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Nouragues/Petit Plateau/Nouragues_2023_09_25",
+                 date = "2023_09_25") # dernière : 2024_02_22_0
+```
+
+# *Combine data and environnment*
+
+```{r, include = F}
+Paracou_Tomstdata <- Paracou_Tomstdata %>% 
+  mutate(TomstSensorNum = as.numeric(TomstSensorNum)) %>%
+  left_join(Tomst_Paracou_env, by = "TomstSensorNum")
+
+# regarder si le Tomst 9 est complet sinon prendre le data le plus complet (ou le virer)
+
+Nouragues_Tomstdata <- Nouragues_Tomstdata %>% 
+  mutate(TomstSensorNum = as.numeric(TomstSensorNum)) %>%
+  left_join(Tomst_Nouragues_env, by = "TomstSensorNum")
+```
+
+# Soil data
+```{r}
+CalibParam_Paracou <- read_csv("~/PhD/Microclimate/Tomst - data and scripts/Paracou_Tomst_humidity_granulo_parameters.csv") # generate in Pedology_analysis.Rmd + Tomst calibration table
+CalibParam_Nouragues <- read_csv("~/PhD/Microclimate/Tomst - data and scripts/Nouragues_Tomst_humidity_granulo_parameters.csv") # generate in Pedology_analysis.Rmd + Tomst calibration table
+
+Paracou_Tomstdata <- Paracou_Tomstdata %>% 
+  left_join(CalibParam, by= c("TopoHabitat"="Topography"))
+
+Nouragues_Tomstdata <- Nouragues_Tomstdata %>% 
+  left_join(CalibParam, by= c("TopoHabitat"="Topography"))
+```
+
+# Write raw data
+```{r}
+write.csv(Paracou_Tomstdata, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_Paracou_raw_data.csv")
+
+write.csv(Nouragues_Tomstdata, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_Nouragues_raw_data.csv")
+```
+
