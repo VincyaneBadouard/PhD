@@ -11,7 +11,10 @@ knitr::opts_chunk$set(
 )
 ```
 
-**FAIRE CALIBRATION HUMIDITE !!**
+**Intercalibration !!**:
+- intercalibration de la T° sur la période dans le bureau (application de la différence)
+- intercalibration moisture même méthode avec données nouragues tous au même endroit)
+
 
 - Tomst mauvais horaires : confronter température de tomst et hobo pour recaller les horaires, vérifier que j’ai bien fait -3h
 
@@ -210,27 +213,31 @@ format_tms <- function(
 ### *Format all the files*
 
 ```{r}
-path <- "D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2024_03_25"
-files <- list.files(path, pattern = "data", full.names = T)# [1:32] # 32 files
+FormatTomstfiles <- function(path, date){
+  files <- list.files(path, pattern = "data", full.names = T)# [1:32] # 32 files
+  
+  data <- lapply(files, format_tms)
+  
+  # Just keep the TomstSensorNum
+  files <- str_remove(files, path)
+  files <- str_remove(files, paste("_",date,"_0.csv",sep=""))
+  files <- str_remove(files, paste("_",date,"_1.csv",sep="")) # dublicated sensor files
+  # files <- str_remove(files, "_2024_03_26_0.csv")
+  files <- str_remove(files, "/data_")
+  length(files) # 32
+  
+  names(data) <- files
+  
+  Tomstdata <- bind_rows(data, .id = "TomstSensorNum") %>% # df number -> TomstSensorNum column
+    unnest(cols = c(data)) %>% 
+    unique() # to remove duplicates
+  # mutate(TomstSensorNum = gsub(paste0(path, "/"), "", TomstSensorNum)) 
+  
+  return(Tomstdata)
+}
 
-data <- lapply(files, format_tms)
-
-# Just keep the TomstSensorNum
-files <- str_remove(files, path)
-files <- str_remove(files, "_2024_03_25_0.csv")
-# files <- str_remove(files, "_2024_03_26_0.csv")
-files <- str_remove(files, "/data_")
-length(files) # 32
-
-names(data) <- files
-
-Tomstdata <- bind_rows(data, .id = "TomstSensorNum") %>% # df number -> TomstSensorNum column
-  unnest(cols = c(data)) #%>% 
-# mutate(TomstSensorNum = gsub(paste0(path, "/"), "", TomstSensorNum)) # %>% 
-# select(Time, SoilTemp, SurfaceTemp, AirTemp, Moisture) %>% 
-# reshape2::melt("Time") # c'était pour le facet_wrap
-
-# filtrer à partir de la date d'installation sur le site
+Tomstdata <- FormatTomstfiles("D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2024_05_06",
+                 date = "2024_05_06")
 
 summary(Tomstdata)
 ```
@@ -271,11 +278,11 @@ Tomstdata <- Tomstdata %>%
 Tomstdata$Time[1] >= mdy_hms("04/01/2023 00:00:00")
 ```
 
-# *From raw TDT signal to volumetric moisture content, calibrated from granulometry (a faire)*
+# From raw TDT signal to volumetric moisture content, calibrated from granulometry
 
 Voir annexe A du papier des Tomst pour la transformation du signal en % volumique d'humidité et une calibration à partir de la granulométrie
 
-*theta=ax\^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
+*theta=ax^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
 
 Si la granulo match pas avec mes données, il y a la possibilité d'utiliser leur excel pour faire du sur mesure (pas accès à la formule)
 
@@ -320,6 +327,10 @@ unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_25_03_24),]$Tomst_Material
 Tomstdata <- Tomstdata %>%
   mutate(VolumetricMoisture = ifelse(VolumetricMoisture<0, NA, VolumetricMoisture))
 ```
+# **Intercalibration !!** (a faire)
+- intercalibration de la T° sur la période dans le bureau (application de la différence)
+- intercalibration moisture même méthode avec données nouragues tous au même endroit)
+
 
 # Data checks
 
