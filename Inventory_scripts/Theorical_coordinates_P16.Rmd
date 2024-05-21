@@ -1,5 +1,5 @@
 ---
-title: "Theorical_coordinates_P16"
+title: "Theoretical_coordinates_P16"
 author: "Vincyane"
 date: "`r Sys.Date()`"
 output: html_document
@@ -61,7 +61,7 @@ ggplot() +
 LAI2200_HOBO <- data.frame(
   Sensor = "LAI2200",
   Transect = "HOBO",
-  Id = as.character(seq(1:20)), # S->N
+  Id = as.character(seq(1,20)), # S->N
   x = 390,
   y = seq(110,300, by= 10)
 )
@@ -70,7 +70,7 @@ nrow(LAI2200_HOBO)==20
 LAI2200_LAY <- data.frame(
   Sensor = "LAI2200",
   Transect = "LAY",
-  Id = as.character(rev(seq(1:26))), # E->O
+  Id = as.character(rev(seq(1,26))), # E->O
   x = seq(350,400, by= 2),
   y = 200
 )
@@ -85,42 +85,68 @@ ggplot() +
   geom_text_repel(data = LAI2200_HOBO, aes(x = x, y = y, label = Id), color = "black", size = 2) +
   geom_point(data=LAI2200_LAY, aes(x = x, y = y), color = "green", size = 0.3)+
   # geom_text_repel(data = LAI2200_LAY, aes(x = x, y = y, label = Id), color = "black", size = 2) +
-  coord_fixed(ratio=1) # same axis size
+  coord_fixed(ratio=1) + # same axis size
+  ggtitle("LAI2200 sensor theoretical coordinates")
 
+ggsave("Paracou_P16_LAI2200_sensor_theoretical_positions.png",
+         path = "D:/Mes Donnees/PhD/Figures/Sensors",
+         width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
-# HOBO sensors theorical coordinates
-- transect Jérome : 20 (22 Tomst) capteurs espacés de *10m* : start =(390;110)  ; end = (390;300)
-- transect BF : 5 capteurs espacés de *10m* : x = seq(450,500, by= 10) ; y = ?
-- transect gap : 5 capteurs espacés de *10m* : y = 0 pour le 1er, 10 pour les autres ; x = ?
+# Tomst sensors theorical coordinates
+- transect Jérome : 22 (20 HOBO) capteurs espacés de *10m* : start =(390;110)  ; end = (390;300)
+- transect BF : 5 capteurs espacés de *10m* : x = seq(440,470, by= 10) ; y = 260 pour le 1er, y = 270 pour les autres
+- transect gap : 5 capteurs espacés de *10m* : y = 0 pour le 1er, 10 pour les autres ; x =  seq(240,270, by= 10)
 
 ```{r}
-HOBO_jerome <- data.frame(
-  Sensor = "HOBO",
+Tomst_jerome <- data.frame(
+  Sensor = "Tomst",
   Transect = "Jerome",
-  Id = as.character(seq(1:20)), # S->N
+  Id = as.character(rev(seq(1,22))), # S->N
   x = 390,
-  y = seq(110,300, by= 10)
+  y = seq(90,300, by= 10) # HOBO : seq(110,300, by= 10)
 )
-nrow(LAI2200_HOBO)==20
+nrow(Tomst_jerome)==22
 
-HOBO_BF <- data.frame(
-  Sensor = "HOBO",
+Tomst_BF <- data.frame(
+  Sensor = "Tomst",
   Transect = "BF",
-  Id = as.character(seq(21:25)), 
-  x = c(450, seq(450,500, by= 10)),
-  y = seq(,, by= 10)
+  Id = as.character(seq(23,27)), # entrée Sud, virage à l'Est
+  x = c(440, seq(440,470, by= 10)),
+  y = c(260, rep(270, 4))
 )
-nrow(LAI2200_HOBO)==20
+nrow(Tomst_BF)==5
 
-HOBO_gap <- data.frame(
-  Sensor = "HOBO",
+Tomst_gap <- data.frame(
+  Sensor = "Tomst",
   Transect = "Gap",
-  Id = as.character(seq(26:30)), 
-  y = c(0, 10, 10, 10, 10),
-  x = seq(,, by= 10)
+  Id = as.character(seq(28,32)), # entrée Sud, virage à l'Ouest
+  y = c(0, rep(10, 4)),
+  x = c(270, rev(seq(240,270, by= 10)))
 )
-nrow(LAI2200_HOBO)==20
+nrow(Tomst_gap)==5
 
+Tomst <- rbind(Tomst_jerome, Tomst_BF, Tomst_gap) ; nrow(Tomst)==32
+
+library(ggrepel)
+ggplot() +
+  geom_point(data=ALT, aes(x = x, y = y), color = "darkgrey",  size = 0.3) +
+  geom_point(data=grid, aes(x = x, y = y)) + # il faut mettre l'argument data sinon ça ne marche pas
+  
+  geom_point(data=Tomst_jerome, aes(x = x, y = y), color = "red", size = 1)+
+  geom_text_repel(data = Tomst_jerome, aes(x = x, y = y, label = Id), color = "black", size = 2.5) +
+  
+  geom_point(data=Tomst_BF, aes(x = x, y = y), color = "blue", size = 1)+
+  geom_text_repel(data = Tomst_BF, aes(x = x, y = y, label = Id), color = "black", size = 2.5) +
+  
+  geom_point(data=Tomst_gap, aes(x = x, y = y), color = "orange", size = 1)+
+  geom_text_repel(data = Tomst_gap, aes(x = x, y = y, label = Id), color = "black", size = 2.5) +
+  
+  coord_fixed(ratio=1) + # same axis size
+  ggtitle("Tomst sensors theoretical coordinates")
+
+ggsave("Paracou_P16_Tomst_sensors_theoretical_positions.png",
+         path = "D:/Mes Donnees/PhD/Figures/Sensors",
+         width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 
@@ -132,7 +158,7 @@ SE (285680; 581343)
 SO (285201; 581199)
 
 ```{r}
-data <-  ALT # LAI2200 # grid # Und
+data <-  Tomst # Tomst # LAI2200 # grid # ALT # Und
 
 tab <- read_delim("D:/Mes Donnees/PhD/R_codes/PhD/local2UTM/CoordCoinsP1_16.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
@@ -150,12 +176,17 @@ dataUTMsf <- st_set_crs(dataUTMsf, crs(P16shp))
 
 ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
-  geom_sf(data = dataUTMsf, col = "red", size = 0.3) +
-  ggtitle("Paracou P16 - LAI2200 sensors positions")
+  geom_sf(data = dataUTMsf, col = "red", size = 0.4) +
+  ggtitle("Paracou P16 - Tomst sensors positions")
+
+ggsave("Paracou_P16_Tomst_sensors_theoretical_UTM_positions.png",
+         path = "D:/Mes Donnees/PhD/Figures/Sensors",
+         width = 15, height = 15, units = "cm", dpi=800, bg="white")
 
 # write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/ALT_stakes_theoretical_UTM.csv")
 # write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/Understory_stakes_theoretical_UTM.csv")
 # write.csv(LAI2200UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
+# write.csv(dataUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_UTM.csv")
 ```
 
 ```{r}
@@ -189,6 +220,8 @@ alt <- extract(MNT, dataUTMsf) %>% # extract z
 dataxyz <- dataUTM %>% cbind(alt)
 
 # write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv")
+# write.csv(alt, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_UTMxyz.csv")
+
 
 generate_new_rows <- function(df) {
   new_rows <- data.frame()
@@ -204,7 +237,6 @@ generate_new_rows <- function(df) {
   }
   return(new_rows)
 }
-
 dataxyz <- generate_new_rows(dataxyz)
 
 # write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_UTMxyz.csv")
@@ -231,5 +263,7 @@ ggplot() +
 
 # write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_local.csv")
 # write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")
+# write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_local.csv")
+
 ```
 
