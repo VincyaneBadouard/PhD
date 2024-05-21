@@ -92,6 +92,7 @@ ggplot() +
 - transect Jérome : 20 (22 Tomst) capteurs espacés de *10m* : start =(390;110)  ; end = (390;300)
 - transect BF : 5 capteurs espacés de *10m* : x = seq(450,500, by= 10) ; y = ?
 - transect gap : 5 capteurs espacés de *10m* : y = 0 pour le 1er, 10 pour les autres ; x = ?
+
 ```{r}
 HOBO_jerome <- data.frame(
   Sensor = "HOBO",
