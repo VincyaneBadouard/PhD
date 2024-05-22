@@ -87,7 +87,7 @@ rm(UAV_C19C20_crop); gc()
 library(raster)
 
 terra::writeRaster(raster(DSM_ALS_C14C15),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc",
-            format="ascii",  varname= "Z", overwrite=T)
+                   format="ascii",  varname= "Z", overwrite=T)
 writeRaster(raster(DSM_ALS_C19C20),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc",
             format="ascii", overwrite=T)
 
@@ -134,3 +134,90 @@ for(D in c("DSM_UAV_C14C15", "DSM_UAV_C19C20")){
 DSM_ALS_C14C15$Z
 DSM_UAV_C14C15$Z
 DSM_UAV_C19C20$DSM_P16_2023_UAV_C19C20
+
+# After translation on cloudcompare
+## Check the trajectory translation
+library(data.table)
+library(ggplot2)
+library(sf)
+library(terra)
+
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
+traj_14_15 <- st_set_crs(st_as_sf(unique(
+  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz"
+  )[,list(X,Y,Z)]), coords = c('X','Y')), crs(zone))
+traj_19_20 <- st_set_crs(st_as_sf(unique(
+  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz"
+  )[,list(X,Y,Z)]), coords = c('X','Y')), crs(zone))
+
+### Plot P16 with traj
+ggplot() + 
+  geom_sf(data = traj_14_15, col = "#009E73", size = 0.4) + 
+  geom_sf(data = traj_19_20, col = "#D55E00", size = 0.4) +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - UAV trajectories 2023") +  
+  coord_sf()
+ggsave("Paracou_P16_4ha_UAV_trajectories_2023.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/UAV",
+       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+
+## Check the laz translation (cloudcompare)
+laz_14_15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las")
+laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las")
+
+# Filter < 2m range
+library(lidR)
+# readLAS(filter = "-help")
+# Filter angles < 45°
+
+laz_14_15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las",
+                     filter = "-drop_abs_scan_angle_above 45 -drop_z_above 60 (max_z)")
+laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
+                     filter = "-drop_abs_scan_angle_above 45 -drop_z_above 60 (max_z)")
+
+# Remove outliers
+# Pour enlever le bruit (à faire avant la recherche de points sol) utiliser un algo dédié (c'est à peu près les mêmes dans lastools et LidR)
+# Procéder comme suit :
+# * normaliser par rapport à un dtm existant et enlever tous les points nettement sous le sol (e.g. z<-0.5)
+mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+plot(mnt)
+
+RemoveOutliers <- function(laz, mnt){
+  laz_norm <- lidR::normalize_height(laz, mntROI) # Normaliser la hauteur du sol # applati le relief
+  laz_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # Classifier les points sol
+  laz_norm@data[Z<(-0.2), Classification := 7] # Classifier les points bruits en dessous du sol
+  laz_norm@data[Z>60, Classification := 7] # Classifier les points bruits au dessous de la canopée
+  laz_norm@data[is.na(Classification), Classification := 3] # Classifier les points bruits au dessous de la canopée
+  
+  table(laz_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
+  # plot(laz_norm, color = "Classification") # trop long
+  
+  # * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
+  laz_norm <- laz_norm@data[(Classification==2 | Classification==3),]
+  
+  # * dénormaliser
+  laz <- lidR::unnormalize_height(laz_norm) # Dénormaliser la hauteur du sol
+}
+laz_14_15 <- RemoveOutliers(laz_14_15, mnt)
+laz_19_20 <- RemoveOutliers(laz_19_20, mnt)
+
+# Fusion
+# Buffer d’ALS
+# Générer le MNT sur lastools
+# Define the path for lastools executables
+LAStoolsDir =  "D:/Program/LAStools/bin/" # "C:/Users/SPARE-N219/Desktop/PhD/"
+
+# Define the R function that calls lastools executables
+LAStool <- function(tool, inputFile, ...){
+  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...)
+  cat(cmd)
+  system(cmd)
+  return(cmd)
+}
+
+# appliquer lasground sur lastools et créer le modèle sol (mnt)
+
+
+
+
