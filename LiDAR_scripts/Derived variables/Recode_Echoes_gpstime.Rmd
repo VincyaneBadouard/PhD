@@ -35,7 +35,7 @@ LAStool <- function(tool, inputFile, ...){
   return(cmd)
 }
 
-# Define the directory for the ALS project
+# Define the directory
 cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
 
 # Define las/laz files to be processed
@@ -49,12 +49,12 @@ dir.create(outDir) # , showWarnings = F (pas le droit de le faire dans le serveu
 # Call the lastools function
 cores <- detectCores()
 
-LASrun <- LAStool('lassplit64', inFiles,
+LASrun <- LAStool('lassplit64', inFiles, # input
                   '-cores', cores,
-                  '-by_gps_time_interval 60',
-                  '-odir', outDir,
+                  '-by_gps_time_interval 60', # parameter
+                  '-odir', outDir, # output folder
                   '-odix _split',
-                  '-o', outFile
+                  '-o', outFile # output
 )
 
 lof <- dir(outDir, full.names=T) # list files in the named directory

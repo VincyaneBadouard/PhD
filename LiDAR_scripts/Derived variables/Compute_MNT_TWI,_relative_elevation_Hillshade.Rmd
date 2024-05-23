@@ -37,12 +37,14 @@ ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Hi
 ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) 
+mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
 ST <- lidR::clip_roi(las = ST, geometry = ROI)
 ST
 ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
 
-CHM <- rasterize_canopy(ST, res = 1, algorithm = p2r()) 
+CHM <- rasterize_canopy(normalize_height(ST, mnt), res = 1, algorithm = p2r())
 #p2r() : for each pixel of the output raster the function attributes the height of the highest point found
+CHM_mean <- mean(CHM[], na.rm = T) # average CHM
 plot(CHM, col = height.colors(25))
 
 DSM <- rasterize_canopy(ST, res = 0.5, algorithm = dsmtin())
