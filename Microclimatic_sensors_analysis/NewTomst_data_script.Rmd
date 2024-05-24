@@ -5,41 +5,47 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+Script to process the T° and moisture data of the Tomst sensors network deployed at Paracou and Nouragues research station.
+
+Problematic: Are air temperature and soil moisture linked to canopy openness and topography?
+
+[2 sites]{.underline} :\
+- Paracou: to compare with LiDAR data\
+- Nouragues: because the hydrology is potentially differentis potentially different
+
+[Localisation des capteurs]{.underline} : transects couvrant les gradients : - topographiques (Paracou : 22, Nouragues : 10) - et d’ouverture de la canopée forestière (10 sur chaque site)
+
+[Distance entre les capteurs]{.underline} : 10 m Distance au capteur HOBO : minimum 1 m (pour ne pas subir la perturbation du sol qu’engendre les piquets des HOBO)
+
+[Study duration]{.underline} : from 04/01/2023 00:00:00 to 03/31/2024 24:00:00 (1 year)
+
+[Sensor info]{.underline}:
+
+Site internet : <https://tomst.com/web/en/systems/tms/tms-4/>\
+Nom : Tomst TMS-4\
+3 capteurs de température :
+
+-   8 cm sous le sol
+
+-   en surface
+
+-   15 cm au-dessus du sol (air)
+
+1 capteur d’humidité (14 cm sous le sol) -\> indirect electrical measurement of the soil moisture (scaled TDT signal)
+
+[Résolution temporelle des mesures]{.underline} : de 15 mn Protection contre la lumière directe et la pluie intégrée (shield)
+
+"When exposed to solar radiation, the temperature of an unshielded thermometer will be influenced by these radiative fluxes" (Maclean et al., 2021; Bramer et al., 2018).
+
+"TMS4 dataloggers systematically overestimated temperatures in sunny conditions, though errors were larger for unshielded dataloggers" (Maclean et al., 2021).
+
+Study evaluating the ability of the Tomst TMS4 to measure air T°: Maclean et al., 2021
+
 ```{r, include=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, echo = FALSE, fig.width = 6
 )
 ```
-
-**Intercalibration !!**:
-- intercalibration de la T° sur la période dans le bureau (application de la différence)
-- intercalibration moisture même méthode avec données nouragues tous au même endroit)
-
-
-- Tomst mauvais horaires : confronter température de tomst et hobo pour recaller les horaires, vérifier que j’ai bien fait -3h
-
-*2 sites :\
-- Paracou (pour comparaison aux données Lidar)\
-- Nouragues : car hydrologie potentiellement différente
-
-*Objectives:\
-- open the Tomst data\
-- create a script to open Tomst data in several folders\
-- prepare Tomst data for analysis\
-- spatialiser tous les capteurs en x,y (trilateration) (A FAIRE)\
-- descriptive analysis*
-
-*Problematics:\
-- A quelle échelle la variabilité est la plus forte (saison, mois, jour, jour/nuit, 15min) ?\
-- La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?*
-
-*Variables à calculer :\
-moyenne, sd, coefficient de variation, min, max :\
-- de l'année\
-- diurne\
-- nocturne\
-- saison sèche\
-- saison des pluies*
 
 # *Packages*
 
@@ -56,29 +62,28 @@ library(RColorBrewer)
 # *Read*
 
 ## Flux tower data
-**2023-204** :
-Date Year Month Code Day heure+min Time TimeB
 
-- Pluie : Rainfall (mm)
+**2023-204 metadata**:
 
-- Temp(55) : Air Temp at 55m high (°C)
-- Hr(55) : Air humidity at 55 m high (%)
+-   Date, Year, Month, Code Day, heure+min, Time, TimeB
 
-- Temp(2,0) : Air Temp at 2m high (°C)
-- Hr(2,0) : Air humidity at 2 m high (%)  
+-   Pluie : Rainfall (mm)
 
-- Tsoil : mean Soil temperature  (°C) à différentes profondeurs, issues du capteur CS650.
-"T_AVG_10cm"     "T_AVG_20cm"     "T_AVG_80cm"     "T_AVG_140cm"   "T_AVG_190cm"     
-- VWC : mean Soil water content (m3 m-3) (Les données VWC sont des données de SWC issues d’une fosse récente, avec des capteurs CS650) (La fosse est à proximité de la Tour, sous couvert)
-"VWC_AVG_10cm"   "VWC_AVG_20cm"   "VWC_AVG_80cm"   "VWC_AVG_140cm"  "VWC_AVG_190cm"
+-   Temp(55) : Air Temp at 55m high (°C)
 
-Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
+-   Hr(55) : Air humidity at 55 m high (%)
+
+-   Temp(2,0) : Air Temp at 2m high (°C)
+
+-   Hr(2,0) : Air humidity at 2 m high (%)
+
+-   Tsoil : mean Soil temperature (°C) à différentes profondeurs, issues du capteur CS650. "T_AVG_10cm" "T_AVG_20cm" "T_AVG_80cm" "T_AVG_140cm" "T_AVG_190cm"
+
+-   VWC : mean Soil water content (m3 m-3) (Les données VWC sont des données de SWC issues d’une fosse récente, avec des capteurs CS650) (La fosse est à proximité de la Tour, sous couvert) "VWC_AVG_10cm" "VWC_AVG_20cm" "VWC_AVG_80cm" "VWC_AVG_140cm" "VWC_AVG_190cm"
+
+Definition of dry season per month: \< 100 mm per month (Bonal et al. 2008)
+
 ```{r}
-# Données capteurs de mars 2023 à mars 2024
-# FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
-#                                        delim = ";", locale = locale(decimal_mark = ","),
-#                                                                       escape_double = FALSE, trim_ws = TRUE)
-
 TourAFlux_2023_2024 <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
                                           sheet = "Gx meteo_2023-2024", col_types = c("date", "numeric", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric", "numeric", "numeric", "numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric","numeric", "numeric", "numeric","numeric","numeric","numeric","numeric","numeric"))
 
@@ -106,7 +111,11 @@ TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>%
   mutate(Rain_day = sum(Pluie)) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
   ungroup()
 
+```
 
+### Plots
+
+```{r}
 for(Y in c(2023,2024)){
   print(
     TourAFlux_2023_2024 %>% 
@@ -133,10 +142,9 @@ for(V in c("Temp(55)", "Temp(2,0)", "Hr(55)", "Hr(2,0)")){
          path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
          width = 25, height = 15, units = "cm", dpi=800, bg="white")
 }
-
 ```
 
-## *Sensor environnment data*
+## *Sensor environment data*
 
 ```{r include = F}
 Tomst_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
@@ -157,6 +165,8 @@ env_Nour <- Tomst_Nouragues_env %>%
 ## *Sensor data*
 
 ### *Data formatting function*
+
+Source: Jérome Chave
 
 *Columns :\
 - index number of the measure,\
@@ -180,7 +190,7 @@ format_tms <- function(
   
   # The Time in UTC
   Time_UTC <- ymd_hm(data$V2, tz = "UTC")
-  # Time <- ymd_hm(data$V2, tz = "America/Cayenne") # UTC-3
+  # Time <- ymd_hm(data$V2, tz = "America/Cayenne") # UTC-3 # ça ça marche pas
   # strptime(data$V2,"%Y.%m.%d %H:%M"))
   
   TimeZone <- data$V3 # semblent dire n'importe quoi
@@ -235,19 +245,13 @@ FormatTomstfiles <- function(path, date){
   
   return(Tomstdata)
 }
-
 Tomstdata <- FormatTomstfiles("D:/Mes Donnees/PhD/Microclimate/Tomst - data and scripts/LollyData/Paracou/Paracou_2024_05_06",
-                 date = "2024_05_06")
+                              date = "2024_05_06")
 
 summary(Tomstdata)
 ```
 
-```{r, echo = F, include = F}
-unique(Tomstdata[Tomstdata$SoilTemp<0,]$TomstSensorNum) # que ceux de Jérome
-unique(Tomstdata[Tomstdata$SoilTemp<0,]$Time_UTC) # only 2022
-```
-
-# *Combine data and environnment*
+# *Combine sensors data and their environment*
 
 ```{r, include = F}
 Tomstdata <- Tomstdata %>% 
@@ -259,12 +263,23 @@ Tomstdata <- Tomstdata %>%
 
 ## *NA ?*
 
+Check if there are any missing data for T°
+
 ```{r}
 Na_tabble <- Tomstdata %>%
   filter(is.na(Moisture) | is.na(SoilTemp) | is.na(SurfaceTemp) | is.na(AirTemp))
 ```
 
-# *Manage date and hours*
+## Check if T° \<0
+
+```{r, echo = F, include = F}
+unique(Tomstdata[Tomstdata$SoilTemp<0,]$TomstSensorNum) # que ceux de Jérome
+unique(Tomstdata[Tomstdata$SoilTemp<0,]$Time_UTC) # only 2022 (quand ils n'étaient pas installés)
+```
+
+# *Manage time information*
+
+Create the different time variables I need and restrict the data to the duration of the study.
 
 ```{r}
 Tomstdata <- Tomstdata %>% 
@@ -275,18 +290,20 @@ Tomstdata <- Tomstdata %>%
   # filtrer sur les dates d'étude (1 an) (même dates que les HOBO):
   filter(Time >= mdy_hms("04/01/2023 00:00:00") & Time < mdy_hms("03/31/2024 24:00:00"))
 
+# check
 Tomstdata$Time[1] >= mdy_hms("04/01/2023 00:00:00")
 ```
 
 # From raw TDT signal to volumetric moisture content, calibrated from granulometry
 
-Voir annexe A du papier des Tomst pour la transformation du signal en % volumique d'humidité et une calibration à partir de la granulométrie
+Soil moisture sensors need to be calibrated for the soil texture and organic matter concentration that determines the electric conductivity; otherwise the results are uncertain (Bramer et al., 2018).
 
-*theta=ax^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
+See Appendix A of the Tomst paper (Wild et al., 2019) for the transformation of the signal into volumetric % moisture from particle size.
 
-Si la granulo match pas avec mes données, il y a la possibilité d'utiliser leur excel pour faire du sur mesure (pas accès à la formule)
+*theta=ax\^2+bx+c*, where theta is volumetric moisture content and x is raw TDT signal.
 
-%clay, silt, sand, bulk density (g/cm3)
+[data]{.underline}: %clay, silt, sand, bulk density (g/cm3)
+
 ```{r}
 CalibParam <- read_csv("~/PhD/Microclimate/Tomst - data and scripts/Paracou_Tomst_humidity_granulo_parameters.csv") # generate in Pedology_analysis.Rmd + Tomst calibration table
 
@@ -299,44 +316,50 @@ Tomstdata <- Tomstdata %>%
 
 nrow(Tomstdata) #  1 076 426
 
-# Checks
-# test2 <- test %>% 
-#   select(TopoHabitat, a,b,c) %>% unique()
-# 
-# names(test)
-# 
-# test3 <- test %>% 
-#   filter(VolumetricMoisture<0) %>% # nrow(test3) #  39 641
-#   select(TomstID, Month,
-#          Tomst_Material_info_30_03_23, Tomst_Material_info_16_10_23,Tomst_Material_info_25_03_24) %>% 
-#   unique()
-# nrow(test3) # 19
-# 
-# test3$TomstID # 24 (2 mois),26 (3 mois),27 (4 mois),28 (10 mois)
-# test3$Tomst_Material_info_16_10_23
-# "sorti de terre, trou mouillé car sol trop dure, puis replacé"
-# "sorti de terre, trou mouillé car sol trop dure, puis déplacé"
-# "pas de chapeau (pas trouvé)"                                 
-# "semble pas mesurer d’humidité"
+Tomstdata <- Tomstdata %>%
+  mutate(VolumetricMoisture = ifelse(VolumetricMoisture<0, NA, VolumetricMoisture))
+```
+
+## Checks
+
+```{r}
+Tomstdata %>%
+  select(TopoHabitat, a,b,c) %>% unique()
+
+names(Tomstdata)
+
+# Negative values of volumetric moisture:
+test3 <- Tomstdata %>%
+  filter(VolumetricMoisture < 0) %>% # nrow(test3) #  39 641
+  select(TomstID, Month,
+         Tomst_Material_info_30_03_23, Tomst_Material_info_16_10_23,Tomst_Material_info_25_03_24) %>%
+  unique()
+nrow(test3) # 19
+
+test3$TomstID # 24 (2 mois),26 (3 mois),27 (4 mois),28 (10 mois)
+test3$Tomst_Material_info_16_10_23
+"sorti de terre, trou mouillé car sol trop dure, puis replacé"
+"sorti de terre, trou mouillé car sol trop dure, puis déplacé"
+"pas de chapeau (pas trouvé)"
+"semble pas mesurer d’humidité"
 
 unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_30_03_23),]$Tomst_Material_info_30_03_23)
 unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_16_10_23),]$Tomst_Material_info_16_10_23)
 unique(Tomstdata[!is.na(Tomstdata$Tomst_Material_info_25_03_24),]$Tomst_Material_info_25_03_24)
-
-
-Tomstdata <- Tomstdata %>%
-  mutate(VolumetricMoisture = ifelse(VolumetricMoisture<0, NA, VolumetricMoisture))
 ```
-# **Intercalibration !!** (a faire)
-- intercalibration de la T° sur la période dans le bureau (application de la différence)
-- intercalibration moisture même méthode avec données nouragues tous au même endroit)
 
+# **Intercalibration !!** (A FAIRE)
+
+-   intercalibration de la T° à partir des données prises sur la période dans le bureau (application de la différence ou ramener tout à la médiane) (avant la date de mise en place (*FieldDate*))
+-   intercalibration de l'humidité avec données prises aux Nouragues lorsque les capteurs étaient tous plantés au même endroit (2023-02-19 12:00:00 to 2023-02-22 16:45:00)
+
+Intercalibration des tomst avec données bureau seulement sur la T° car le capteur ne mesure l'humidité lorsqu'il est hors sol.
 
 # Data checks
 
--   Maximum values of T° of each day are at midday
+-   Maximum values of T° of each day are around midday
 -   Higher values of T° of each day are for sensors in gaps
--   Sensors data \< flux tower data
+-   Sensors T° \< flux tower T°
 -   Sensors data follow flux tower data
 
 ```{r}
@@ -366,7 +389,7 @@ test[test$AirTemp == test$MaxDailyAirTemp,]$LightHabitat
 test[test$AirTemp == test$MaxDailyAirTemp & test$LightHabitat == "Understory",] # ! artefact !
 
 
-# Sensors data < flux tower data (le faire avec données tour 2023-2024)
+# Sensors data < flux tower data
 # `Temp(55)` : Mean Air temperature at 55 m (°C)
 test <- Tomstdata %>%
   # mutate(Day = day(Date)) %>% # for 2022 tower data
@@ -428,10 +451,14 @@ test %>%
   scale_x_time(breaks = scales::breaks_width("1 hour"))
 
 ```
-# Plot data of each sensor
 
-une ligne d'une couleur pour chaque jour le temps en abscisse la lumière
-en ordonnée
+# Plot data of each sensor to check
+
+Make graphs for each sensor to check that they are working.
+
+une ligne d'une couleur pour chaque jour, le temps en abscisse la var clim en ordonnée
+
+## T°
 
 ```{r}
 Tomstdata <- test %>% 
@@ -471,6 +498,8 @@ dev.off() # Close the final graphics device
 # faire le meme graph pour chaque hauteur de T° moyennéee à l'heure pour chaque mois
 ```
 
+## Moisture
+
 ```{r}
 Tomstdata <- test %>% 
   group_by(Month, Hour) %>% 
@@ -505,12 +534,9 @@ for(p in 1:(ceiling(n/16))){
   )
 }
 dev.off() # Close the final graphics device
-
-# faire le meme graph pour chaque hauteur de T° moyennéee à l'heure pour chaque mois
-```
 ```
 
-# *Relation between VolumetricMoisture and temperatures*
+# Plot relation between VolumetricMoisture and temperatures\*
 
 ```{r, echo = F}
 ggplot(Tomstdata) +
@@ -569,7 +595,7 @@ cat("cor:",cor(Tomstdata$VolumetricMoisture, Tomstdata$SurfaceTemp)) # 0.02
 
 *Très bien corrélés : Air et surface temp.*
 
-*Surafec et soil temp corrèlent moins bien.*
+*Surface et soil temp corrèlent moins bien.*
 
 *Air et soil temp corrèlent encore moins bien. -\> la température du sol est tamponnée*
 
@@ -577,8 +603,9 @@ cat("cor:",cor(Tomstdata$VolumetricMoisture, Tomstdata$SurfaceTemp)) # 0.02
 
 # *Day/night*
 
+Jour : de 06:15 à 18:45
+
 ```{r}
-# Memes heures que les HOBO
 Tomstdata <- Tomstdata %>%
   mutate(Phase = ifelse((Hour <= hms::as_hms("18:45:00") & 
                            Hour >= hms::as_hms("06:15:00")),
@@ -588,9 +615,7 @@ cat("Night AirTemp range:",range(Tomstdata[Tomstdata$Phase == "Night",]$AirTemp)
 cat("Day AirTemp range:",range(Tomstdata[Tomstdata$Phase == "Day",]$AirTemp), "°C") # 20.50 - 36.75 °C
 ```
 
-Ma délimitation du jour et de la nuit sur la base des données de lumière des HOBO.
-
-Jour : de 06:15 à 18:45
+## Plot
 
 ```{r, echo = F}
 ggplot(Tomstdata, aes(x = Hour,y = AirTemp)) +
@@ -645,13 +670,17 @@ ggsave("FluxTower_2023_2024_SoilMoisture_over_the_day.png",
 
 ```
 
-# *Seasons*
-Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
+# *Seasons* (à définir à la journée)
+
+Definition of dry season per month : \< 100 mm per month (Bonal et al. 2008)
+
 ```{r}
 Tomstdata <- Tomstdata %>%
-  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # juill-nov et mars
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # juill-nov et février-mars
                          "Dry", "Wet"))
 ```
+
+## Plot
 
 ```{r, echo = F}
 ggplot(Tomstdata, aes(x = as.factor(Month),y = AirTemp)) +
@@ -686,6 +715,7 @@ ggsave("FluxTower_2023_2024_SoilMoisture_by_season.png",
 ```
 
 ```{r}
+# code Sylvain
 ggplot(Tomstdata, aes(x = Season,y = VolumetricMoisture)) +
   geom_boxplot() +
   theme_minimal() +
@@ -696,7 +726,10 @@ ggplot(Tomstdata, aes(x = Season,y = VolumetricMoisture)) +
 
 A travers les saisons l'humidité n'est pas incohérente.
 
-# Correlation test all values (no means)
+# Correlation tests between VolumetricMoisture and season/rain/topography/canopy opening (all values, no means)
+
+pas faire ça mais une comparaison de moyenne pour les variables catégoricielles (Sylvain)
+
 ```{r}
 # TomstID 28 pas de valeurs d'humidité pendant 10 mois -> ne pas le compter
 DF_cor <- Tomstdata %>%
@@ -714,12 +747,9 @@ cor.test(DF_cor$VolumetricMoisture, DF_cor$Pluie, method= "pearson") # 0.1
 
 cor.test(DF_cor$VolumetricMoisture, DF_cor$TopoHabitat, method= "spearman") # 0.2
 cor.test(DF_cor$VolumetricMoisture, DF_cor$LightHabitat, method= "spearman") # 0.2
-
-
 ```
 
-
-# *Variables à calculer*
+# *Metrics to compute* (avant Sylvain)
 
 *à l'échelle du capteur :\
 - moyenne de l'année\
@@ -733,12 +763,17 @@ cor.test(DF_cor$VolumetricMoisture, DF_cor$LightHabitat, method= "spearman") # 0
 - nocturne\
 - coefficient variation à ces échelles*
 
+A quel moment de la journée on observe les plus grandes différences sur le gradient d'ouverture de canopée et sur le gradient topo ? (Kong et al., 2016)
+
+Idée de Sylvain : regrouper BasFonds-LowerSlope; HigherSlope-Plateau
+
 ```{r}
 # TomstID 28 pas de valeurs d'humidité pendant 10 mois -> ne pas le compter
 Tomstdata <- Tomstdata %>%
   mutate(VolumetricMoisture = ifelse(TomstID==28, NA, VolumetricMoisture))
 
-# faire d'abord la médiane par jour et par capteur 
+# faire d'abord la médiane par jour et par capteur (code de Sylvain, pas encore incorporé)
+# on lisse l'humidité de la journée pcq elle a peu de raison de changer et que ces changements ne nous intéressent pas.
 daily <- Tomstdata %>%
   group_by(TomstID, Date) %>% # la médiane de la journée (lisser les variations journalières)
   mutate(VolumetricMoisture = median(VolumetricMoisture)) %>%
@@ -769,7 +804,7 @@ October_stats <- Tomstdata %>%
                         october_Q05 = ~quantile(., .05)), # quantile 5%
                    .names = "Tomst_{.col}_{.fn}"))
 
-# phase_stats <- Tomstdata %>%
+# phase_stats <- Tomstdata %>% # day/night phases
 #   group_by(TomstID,Phase) %>%
 #   summarise(across(c("VolumetricMoisture", "SoilTemp", "SurfaceTemp", "AirTemp"),
 #                    list(mean = ~mean(.),
@@ -815,9 +850,10 @@ write.csv(stats, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_stats.csv")
 stats <- left_join(stats, env_Par, by="TomstID") %>% select(-Transect)
 ```
 
-# *Some plots*
+# *Some plots to check relations between metrics and topography/canopy opening*
 
 ```{r}
+# code de Sylvain
 # Ecart à la moyenne _journalière d'humidité
 # options(scipen = 999)
 Tomstdata %>% 
@@ -830,8 +866,8 @@ Tomstdata %>%
   scale_x_log10() 
 ```
 
-
 ```{r}
+# code de Sylvain
 # Variations de l'humidité au cours de la journée pour 1 capteur et pour différentes dates 
 Tomstdata %>% 
   filter(TomstSensorNum == 94223161) %>% 
@@ -844,6 +880,7 @@ Tomstdata %>%
 ```
 
 ```{r}
+# code de Sylvain
 # La médiane par capteur de la médiane journalière par capteur et par catégorie topo
 Tomstdata %>% 
   group_by(TomstSensorNum, Date, TopoHabitat) %>% 
@@ -856,7 +893,9 @@ Tomstdata %>%
 
 # n'a-t-il pas des valeurs extremes d'humidité le capteur qui enregistre une médiane à 0.6 d'humidité ?
 ```
+
 ```{r}
+# code de Sylvain
 # La médiane journalière par capteur et par catégorie topo
 Tomstdata %>% 
   group_by(TomstID, Date, TopoHabitat) %>% 
@@ -878,6 +917,7 @@ Tomstdata %>%
 ```
 
 ```{r}
+# code de Sylvain
 # Nbr de jours en stress hydrique par capteur et par catégorie topo
 Tomstdata %>% 
   group_by(TomstSensorNum, Date, TopoHabitat) %>% 
@@ -890,7 +930,12 @@ Tomstdata %>%
   theme_bw()
 ```
 
+## Relation between soil moisture et sand proportion
+
+calculer la corrélation Moisture - %Sable
+
 ```{r}
+# code de Sylvain
 # Le sable ne retient pas l'eau
 Tomstdata %>% 
   group_by(TomstSensorNum, Date, Sables, Season, TopoHabitat) %>% 
@@ -916,6 +961,7 @@ Tomstdata %>%
 ```
 
 ```{r}
+# code de Sylvain
 # VolumetricMoisture (5%, 50%, 95%) per topo categorie et par saison (après moyenne journalière par capteur et par saison)
 Tomstdata %>% 
   group_by(TomstSensorNum, Date, TopoHabitat, Season) %>% 
@@ -938,6 +984,7 @@ Tomstdata %>%
 ```
 
 ```{r}
+# code de Sylvain
 Tomstdata %>% 
   group_by(TomstSensorNum, Date, TopoHabitat, Season) %>% 
   summarise(VolumetricMoisture = mean(VolumetricMoisture)) %>% 
@@ -956,7 +1003,9 @@ Tomstdata %>%
 
 # en dry season les bas-fonds semble plus secs que les plateau en médiane
 ```
+
 ```{r}
+# code de Sylvain
 Tomstdata %>% 
   group_by(TomstSensorNum, Date, LightHabitat, Season) %>% 
   summarise(AirTemp = mean(AirTemp)) %>% 
@@ -973,7 +1022,6 @@ Tomstdata %>%
   ggpubr::stat_compare_means() +
   theme_bw()
 
-# en dry season les bas-fonds semble plus secs que les plateau en médiane
 ```
 
 ```{r, echo = F}
@@ -1076,8 +1124,10 @@ cat("la température à la lumière c'est bon")
 
 ```
 
-# *Correlation test*
+# *Correlation tests between T°/moisture metrics and topography/canopy opening*
+
 Spearman correlation test for categoric variables
+
 ```{r, fig.height = 20}
 DF_cor <- stats %>% 
   mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory")) %>% 
@@ -1099,7 +1149,7 @@ corrplot(CorMatrix, method="circle", type="lower", diag = F, addCoef.col = 'whit
 write.csv(CorMatrix, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_CorMatrix.csv")
 ```
 
-*Srongly linked to LightHabitat:*
+Strongly linked to LightHabitat:
 
 -   *Maximum annual air and surface temperature*
 
@@ -1111,8 +1161,6 @@ write.csv(CorMatrix, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_CorMatri
 
 -   *Average dry and wet season air temperatures*
 
-<!-- -->
-
 -   *Average day surface and air temperature*
 
 -   *Maximum day air and surface temperature*
@@ -1123,9 +1171,9 @@ write.csv(CorMatrix, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_CorMatri
 
 -   Maximum night air and surface temperature (+)
 
--   les sd et les varcoef (**je ne sais pas comment les interporéter**)
+-   les sd et les varcoef (**je ne sais pas comment les interpréter**)
 
-# *Sensors coordinates (mis de côté, à continuer)*
+# Sensors coordinates (mis de côté, à continuer)
 
 ```{r, include = F}
 coord_table <- Tomst_Paracou_env %>% 
@@ -1146,14 +1194,27 @@ Target <- coord_table
 # stop("Sensors coordinates: mis de côté, à continuer")
 ```
 
-## *Trilateration*
+## Trilateration
 
 ```{r}
-
+source("~/PhD/R_codes/PhD/trilateration_code.R")
+trilateration()
 ```
 
-# *Save the stats dataset*
+# Save the stats dataset
 
 ```{r}
 # write.csv(stats, "~/PhD/Microclimate/Tomst - data and scripts/Tomst_stats.csv")
 ```
+
+# References
+
+Maclean, I. M., Duffy, J. P., Haesen, S., Govaert, S., De Frenne, P., Vanneste, T., ... & Van Meerbeek, K. (2021). On the measurement of microclimate. Methods in Ecology and Evolution, 12(8), 1397-1410.
+
+Bonal, D., Bosc, A., Ponton, S., GORET, J. Y., Burban, B., Gross, P., ... & Granier, A. (2008). Impact of severe dry season on net ecosystem exchange in the Neotropical rainforest of French Guiana. Global Change Biology, 14(8), 1917-1933.
+
+Bramer, I., Anderson, B. J., Bennie, J., Bladon, A. J., De Frenne, P., Hemming, D., ... & Gillingham, P. K. (2018). Advances in monitoring and modelling climate at ecologically relevant scales. In Advances in ecological research (Vol. 58, pp. 101-161). Academic Press.
+
+Wild, J., Kopecký, M., Macek, M., Šanda, M., Jankovec, J., & Haase, T. (2019). Climate at ecologically relevant scales: A new temperature and soil moisture logger for long-term microclimate measurement. Agricultural and Forest Meteorology, 268, 40-47.
+
+Kong, F., Yan, W., Zheng, G., Yin, H., Cavan, G., Zhan, W., ... & Cheng, L. (2016). Retrieval of three-dimensional tree canopy and shade using terrestrial laser scanning (TLS) data to analyze the cooling effect of vegetation. Agricultural and forest meteorology, 217, 22-34.

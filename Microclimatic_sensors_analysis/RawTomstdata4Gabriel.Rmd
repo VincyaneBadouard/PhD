@@ -26,19 +26,20 @@ library(stringr)
 ## *Sensor environnment data*
 
 ```{r include = F}
-Tomst_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")[1:32,] %>% 
-  select(-`...1`, -Operator, -FieldDate) %>% 
+Tomst_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv", 
+    col_types = cols(FieldDate = col_character()))[1:32,]%>% 
+  select(-`...1`, -Operator) %>% 
   mutate(TopoHabitat = factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))
 
 Tomst_Nouragues_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst sensors - Nouragues - Data.csv") %>% 
-  select(-Operator, -FieldDate) %>%  # -Tomst_Material_info_30_03_23
+  select(-Operator) %>%  # -Tomst_Material_info_30_03_23
   mutate(TopoHabitat = factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))
 
-env_Par <- Tomst_Paracou_env %>% 
-  select(TomstID,Transect,LightHabitat,TopoHabitat)
-
-env_Nour <- Tomst_Nouragues_env %>% 
-  select(TomstID,Transect,LightHabitat,TopoHabitat)
+# env_Par <- Tomst_Paracou_env %>% 
+#   select(TomstID,Transect,LightHabitat,TopoHabitat)
+# 
+# env_Nour <- Tomst_Nouragues_env %>% 
+#   select(TomstID,Transect,LightHabitat,TopoHabitat)
 ```
 
 ## *Sensor data*
