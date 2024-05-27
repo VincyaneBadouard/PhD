@@ -166,6 +166,10 @@ ggsave("Paracou_P16_4ha_UAV_trajectories_2023.png",
 laz_14_15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las")
 laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las")
 
+# Compute the scan angles
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+ComputeScanAngle(las, traj)
+
 # Filter < 2m range
 library(lidR)
 # readLAS(filter = "-help")

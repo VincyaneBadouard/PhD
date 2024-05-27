@@ -19,7 +19,7 @@ library(raster)
 # Load LiDAR data
 ## ALS
 ```{r}
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 ```
 
 ## UAV
@@ -217,6 +217,17 @@ laz_14_15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/Hov
 laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las")
 ```
 
+# Recouper selon le ROI (9ha)
+```{r}
+
+```
+
+# Compute the scan angles
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+laz_14_15 <- ComputeScanAngle(laz_14_15, traj_14_15)
+laz_19_20 <- ComputeScanAngle(laz_14_15, traj_19_20)
+```
 
 # Filter < 2m range and angles < 45°
 UAV altitude filght: 85m

@@ -260,7 +260,7 @@ ggplot(Piquets_Paracou) +
 ```
 
 # Correction des coordonnées des arbres (A FAIRE)
-1) Les 4 coins du carré de 1 ha sont eux normalement bien positionnés.  
+1) Les 4 coins du carré de 1 ha on été géoréférencés en 2023 par des géomètres.  
 Nous les prendrons comme référence en projetant les piquets de manière à ce que les 4 coins du carré de 1 ha soient bien représentés (100x100m) (= que le point rouge se superpose au point gris)  
 Méthode à chercher : interpolation polynomiale de degré 2 (voir gdalwarp), sur qgis ou R  
 
@@ -272,10 +272,66 @@ Après avoir reprojeté les piquets selon ces bornes, on obtient les coordonnée
 Subsistera l’erreur de mesure des distances.  
 
 ## Reprojection des piquets selon les coins du carré
-"warping"
+**"warping"**
+### Importer les points géomètre
 ```{r}
+Paracou_P16_9ha_coord_Subplot <- read.table("~/PhD/SIG_data/Understory-ALT/Geometre_2024/Sy23179-Paracou_P16_9ha_coord_Subplot.txt", quote="\"", comment.char="") # UTM 22 N
+
+Paracou_P16_9ha_coord_Subplot <- Paracou_P16_9ha_coord_Subplot %>% 
+  rename(ID = V1) %>% 
+  rename(Xutm = V2) %>%
+  rename(Yutm = V3) %>%
+  rename(Zutm = V4)
+
+P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
+SubplotCoordsf <- st_as_sf(Paracou_P16_9ha_coord_Subplot, coords = c('Xutm','Yutm'))
+SubplotCoordsf <- st_set_crs(SubplotCoordsf, crs(P16shp))
+
+ggplot() +
+  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
+  geom_sf(data = SubplotCoordsf, col = "red", size = 2) +
+  ggtitle("Paracou P16 9ha - Geometre points")
+
+ggsave("Paracou_P16_9ha_Geometre_points.png",
+         path = "D:/Mes Donnees/PhD/Figures/inventory",
+         width = 15, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+### Reprojection des piquets
+'gdalwarp' function is part of the Geospatial Data Abstraction Library (GDAL).
+
+Resampling_methods available:
+- near: nearest neighbour resampling (default, fastest algorithm, worst interpolation quality).
+- average: average resampling, computes the average of all non-NODATA contributing pixels. (GDAL >= 1.10.0)
+- interpolation polynomiale de degré 2
+
+```{r}
+library(sf)
+library(stars)
+
+ALT <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/ALT_stakes_theoretical_UTM.csv")
+P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
+ALT <- st_as_sf(ALT, coords = c('Xutm','Yutm'))
+ALT <- st_set_crs(ALT, crs(P16shp))
+
+ALTstars <- st_rasterize(ALT %>% dplyr::select(geometry))
+geometreStars <- st_rasterize(SubplotCoordsf %>% dplyr::select(geometry))
+
+plot(ALTstars)
+plot(geometreStars)
+
+rm(warp)
+warp <- st_warp(ALTstars, # to warp
+                geometreStars, # target 
+        method = "average", use_gdal=TRUE)
+
+ggplot() +
+  geom_sf(data = st_as_sf(warp,as_points = T), col="green", size = 1) +
+  geom_sf(data = SubplotCoordsf, col="darkgreen", size = 0.8) +
+  ggtitle("Warping")
 
 ```
+
 
 ## Correction des coordonées des arbres selon les piquets S-O corrigés
 ```{r}

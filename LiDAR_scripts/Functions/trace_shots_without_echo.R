@@ -26,9 +26,9 @@
 #'   
 #' @export
 #' 
-#' @importFrom lidR
-#' @importFrom data.table
-#' @importFrom interp
+#' @import lidR
+#' @import data.table
+#' @import interp
 #'
 #' @examples
 #' library(lidR)
