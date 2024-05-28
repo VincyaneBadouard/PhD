@@ -244,6 +244,9 @@ Pour enlever le bruit (**à faire avant la recherche de points sol**) utiliser u
 Procéder comme suit :
 * normaliser par rapport à un dtm existant et enlever tous les points nettement sous le sol (e.g. z<-0.5)
 * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
+**checher une fct lidR ou lastools pour ça**
+https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point-cloud-in-lidr
+
 * dénormaliser
 
 ```{r}
@@ -261,6 +264,10 @@ RemoveOutliers <- function(laz, mnt){
   
   # table(laz_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
   # plot(laz_norm, color = "Classification") # trop long
+  
+  classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # -> 18
+  # sor: Statistical Outliers Removal (SOR) (also implemented in CloudCompare). It computes the mean distance to all its k-nearest neighbours. sor(k,m)
+  # ivf: isolated voxels filter (IVF) (similar to lasnoise from lastools). The algorithm finds points that have only a few other points in their surrounding 3 x 3 x 3 = 27 voxels. ivf(res = 5, n = 6)
   
   # * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
   laz_norm <- laz_norm@data[Classification!=7,]
@@ -324,6 +331,8 @@ LASrun <- LAStool('lasground_new', inFiles,
                   '-o', outFile # -o out.laz
 )
 
+# ou avec lidR
+classify_ground(las, algorithm, last_returns = TRUE) # pmf: , csf: , mcc:  
 ```
 
 ## Check
