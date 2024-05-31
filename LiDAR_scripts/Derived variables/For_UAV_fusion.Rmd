@@ -219,7 +219,54 @@ laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/Hov
 
 # Recouper selon le ROI (9ha)
 ```{r}
+# Region of Interest (ROI)
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp") # interest zone + 100m buffer
+plot(ROI)
+class(ROI) # SpatVector (terra)
 
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+
+PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
+ST;PC 
+plot(PC)
+
+## For 1 file
+str(PC) # List of 4 las
+
+# Join the 4 las if there are different of each others
+rm(buffer, ST)
+gc()
+# usethis::edit_r_environ()
+PCall <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
+
+# or if only the first is not empty
+PC <- PC[[1]]
+# lidR::plot(PC) 
+```
+
+# Crop UAV with the trajectory
+
+```{r}
+rgl::plot3d(traj_C14C15[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+# options(digits=22)
+# range(traj$gpstime) # 1697736241.571922063828 1697737554.552948951721
+# range(UAV_C14C15@data$gpstime) # 1697736245.296575307846 1697737554.548056840897
+traj_crop <- traj_C14C15[y>=770 & x>(-250) & x<50,]
+traj_crop <- traj_C19C20[y>=750 & x>(-500) & x<(-150),] 
+
+rgl::plot3d(traj_crop[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+UAV_C14C15_crop <- UAV_C14C15
+UAV_C14C15_crop@data <- UAV_C14C15_crop@data[Y>=770 & Y<1075 & X>(-250) & X<50,]
+
+UAV_C19C20_crop <- UAV_C19C20
+UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-200),]
 ```
 
 # Compute the scan angles
