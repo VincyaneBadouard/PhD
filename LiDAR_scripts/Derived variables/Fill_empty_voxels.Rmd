@@ -18,21 +18,20 @@ des 26 voisins les plus proches**.
 
 Ce ne sont pas des trouées, mais des voxels perdus dans le nuage végétal
 
-Estimer selon le plus probable et selon les besoins Prendre en compte le
-voisinage en excluant les trouées
+Estimer selon le plus probable et selon les besoins  
+Prendre en compte le voisinage en excluant les trouées  
 
-3 possibilités si pas de voisins : - une valeur fallback (fait
-actuellement) - augmenter le voisinage - tourner le script plusieurs de
-fois et faire donc du proche en proche
+3 possibilités si pas de voisins :
+- une valeur fallback (fait actuellement)  
+- augmenter le voisinage  
+- tourner le script plusieurs de fois et faire donc du proche en proche  
 
-1)  get the vegetation voxels only (z \> 0.5 m)
+1)  get the vegetation voxels only (z > 0.5 m)
 
 2)  Choose a threshold (pulse.min) to consider an poorly sampled voxel:
-
--   before : nbSampling \<25
--   now :
-median([fullcanopy\@data](mailto:fullcanopy@data){.email}\$nbSampling)
--   test for low altitude lidar : 4,12,20,28,44
+-   nbSampling <20
+-   median : median(fullcanopy@data$nbSampling)
+-   test for low altitude lidar: 4,12,20,28,44
 
 Compute a reasonnable fallback value (the median of attenuation) if
 local re-estimation fails
@@ -45,7 +44,11 @@ median* of the data)
 -   Get neighbors in immediate neighborhood (27 nearest voxels including
 target = 3 neighbors)
 -   Recompute attenuation from local neighbourhood :
-sum(bsIntercepted)/sum(weightedFreepathLength)
+sum(bsIntercepted)/sum(weightedFreepathLength) (Pimont et al., 2019)
+
+bsIntercepted: nbr de pulses interceptés par l'empreinte du faisceau = surface occluse dans le faisceau
+weightedFreepathLength: longueur des trajets optiques pondérée par l'empreinte du faisceau
+    
 -   When no value was found, take the fallback value
 
 4)  Create PadBVTotal
@@ -208,7 +211,7 @@ fullcanopy_Low <- OnlyVegetation(vxsp_Low)
 
 fallback value = the median of attenuation
 
-nbSampling : nombre d'échantillonage. Prendre les plus fiables (\>=25)
+nbSampling : nombre d'échantillonage. Prendre les plus fiables (>=25)
 
 On utilise l'atténuation biaisée pcq la débiaisée ne peut pas être
 utilisée à multiple échelle.
@@ -366,12 +369,12 @@ note on PAD/LAD estimators implemented in AMAPVox 1.7",
 
 Computes Plant Area Density either from (transmittance or) attenuation
 coefficient estimates. PAD is defind as the plant area per unit volume
-(PAD plant area / voxel volume = m\^2 / m\^3). Plant area density (PAD
+(PAD plant area / voxel volume = m^2 / m^3). Plant area density (PAD
 in m2·m−3)
 
-PadBVTotal = 2\* attenuation (soit 2\*-log(transmittance)
+PadBVTotal = 2* attenuation (soit 2*-log(transmittance)
 
-PadBVTotal = 2 \* HLE
+PadBVTotal = 2 * HLE
 
 *AMAPVox::plantAreaDensity utilise une des variables disponibles
 "transmittance", "attenuation_FPL_unbiasedMLE" ou "attenuation_PPL_MLE"
