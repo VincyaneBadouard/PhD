@@ -18,25 +18,57 @@ Pour les autres subplots, les DBH des arbres CIRAD ont été mesuré par l'équi
 
 # Packages
 ```{r, include = F}
-remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
-library(EcoFoG)
-
 library(tidyverse)
 library(data.table)
 library(readr)
 # library() # TreeData
+
+# remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
+library(EcoFoG)
 ```
 
 # Import inventory data
 Plot 16, SubPlot X
 ```{r,include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/understory_paracou_9ha_20240124.csv")
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20240430.csv")
 
 # Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
 # write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 
 Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9 ha
+```
+# Strategy data
+```{r}
+strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
+                       delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  select(genre_esp, Strategy) %>%
+  rename(ScientificName = genre_esp) %>%
+  mutate(Strategy = ifelse(Strategy== "#N/A", NA, Strategy)) %>%
+  mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
+  unique()
+
+Understory <- Understory %>% left_join(strategy, by="ScientificName")
+```
+
+
+# Plot size distribution
+```{r}
+Understory %>% 
+  filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
+  ggplot(aes(x=DBH)) +
+  geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
+  scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
+  scale_y_continuous(breaks = seq(0,35000, by=5000)) +
+  theme_minimal() +
+  labs(title="ALT Paracou P16 - Size distribution", x ="DBH (cm)", y = "Individuals number")
+
+ggsave("ALT_Paracou_P16_9ha_Size_distribution.png", path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
+
+nrow(Understory[Understory$DBH<10,])/nrow(Understory) # 0.88 : les moins de 10 cm
+nrow(Understory[Understory$Strategy=="Understory species",])/nrow(Understory) # 0.35 : espèces de sous-bois
+nrow(Understory[Understory$DBH<10 & Understory$Strategy=="Canopy species",])/nrow(Understory) # 0.78 : juvéniles de canopée
+
 ```
 
 Vérifications :
@@ -148,7 +180,7 @@ Understory <- Understory %>%
   filter(DBH>=1) %>% 
   # Only alive trees
   filter(CodeAlive == T) %>%
-    # Only the principal stem
+  # Only the principal stem
   filter(Stem.number == 1) %>% 
   
   # Only measured trees
@@ -164,7 +196,7 @@ Understory <- Understory %>%
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% 
-    # Take only sp >= 30 ind
+  # Take only sp >= 30 ind
   filter(N >= 30)
 
 
