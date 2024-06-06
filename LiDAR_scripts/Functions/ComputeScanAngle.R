@@ -3,8 +3,8 @@
 #' @description Compute missing scan angles of an aerial LiDAR acquisition.
 #'
 #'
-#' @param las Point cloud (LAS)
-#' @param traj LiDAR trajectory (data.frame)
+#' @param las Point cloud with gpstime column (LAS)
+#' @param traj LiDAR trajectory with gpstime column (data.frame)
 #'
 #' @return Point cloud (LAS) with *ScanAngle* column.
 #' @export
@@ -23,13 +23,13 @@ ComputeScanAngle <- function (las, traj)
   #### Euclidean distance calculation #### -------------------------------------
   
   ## GPS time (trajectory) vectors
-  TGPS <- matrix(data = NA, nrow = length(traj$t), ncol = 3) # create an empty 3-column matrix
+  TGPS <- matrix(data = NA, nrow = length(traj$gpstime), ncol = 3) # create an empty 3-column matrix
   # allocate GPS time (trajectory) to first column
-  TGPS[,1] <- traj$t
+  TGPS[,1] <- traj$gpstime
   # allocate 0s for GPS (trajectory) points to second column
   TGPS[,2] <- 0
   # allocate index to third column
-  TGPS[,3] <- 1:length(traj$t)
+  TGPS[,3] <- 1:length(traj$gpstime)
   
   ## LIDAR (target) time vectors
   TLIDAR <- matrix(data = NA,nrow = length(las@data$gpstime), ncol = 3) # create an empty 3-column matrix
@@ -60,10 +60,10 @@ ComputeScanAngle <- function (las, traj)
   fusion_ordered <- fusion_ordered[order(fusion_ordered[,3]),]
   
   # join to tile450m12p
-  las@data$tgps <- fusion_ordered[,1] # laz <-  traj time
+  las@data$tgps <- fusion_ordered[,1] # laz <- traj time
   
-  # fusion by time
-  las@data <- merge(las@data,traj, by.x = "tgps", by.y = "t", all.x = T) # fusion laz & traj by time
+  # fusion by time (Problme pcs la traj translated n'a pas de valeur après la virgule dans le gpstime)
+  las@data <- merge(las@data,traj, by.x = "tgps", by.y = "gpstime", all.x = T) # fusion laz & traj by time
   
   # distance calculation
   # las@data$range <- mapply(dfdist, las@data$X, las@data$Y, las@data$Z,

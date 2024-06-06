@@ -15,20 +15,24 @@ library(data.table)
 library(raster)
 ```
 
+```{r}
+# //amap-data.cirad.fr/work -> Y:/
+```
+
 
 # Load LiDAR data
 ## ALS
 ```{r}
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
+ALS <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 ```
 
 ## UAV
 ```{r}
 # readLAS(filter = "-help")
 # readLAS(select = "-help")
-UAV_C14C15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output-(2)_subsampled_laz1_4.laz",
+UAV_C14C15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output-(2)_subsampled_laz1_4.laz",
                       select = "xyztr")
-UAV_C19C20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz",
+UAV_C19C20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz",
                       select = "xyztr")
 # Message d'avis :
 # Invalid data: 28460622 points with a return number equal to 0 found
@@ -44,35 +48,35 @@ range(UAV_C14C15$Intensity) # 1 255
 
 # Crop the ALS in 2 parts as the UAV data
 ```{r}
-ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI <- st_as_sf(vect("Y:/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) 
 
 ROI_C14C15 <- ROI %>% filter(SubPlot==14 | SubPlot==15)
 ROI_C19C20 <- ROI %>% filter(SubPlot==19 | SubPlot==20)
 
-ST_C14C15 <- lidR::clip_roi(las = ST, geometry = ROI_C14C15)
-ST_C19C20 <- lidR::clip_roi(las = ST, geometry = ROI_C19C20)
-rm(ST, ROI, ROI_C14C15, ROI_C19C20)
+ALS_C14C15 <- lidR::clip_roi(las = ALS, geometry = ROI_C14C15)
+ALS_C19C20 <- lidR::clip_roi(las = ALS, geometry = ROI_C19C20)
+rm(ALS, ROI, ROI_C14C15, ROI_C19C20)
 gc()
 
-ST_C14C15 ; ST_C19C20
+ALS_C14C15 ; ALS_C19C20
 
-ST_C14C15 <- rbind(ST_C14C15[[1]], ST_C14C15[[2]])
-ST_C19C20 <- rbind(ST_C19C20[[1]], ST_C19C20[[2]])
-ST_C14C15 ; ST_C19C20
+ALS_C14C15 <- rbind(ALS_C14C15[[1]], ALS_C14C15[[2]])
+ALS_C19C20 <- rbind(ALS_C19C20[[1]], ALS_C19C20[[2]])
+ALS_C14C15 ; ALS_C19C20
 ```
 
 ```{r}
-writeLAS(ST_C14C15, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C14C15.laz")
-writeLAS(ST_C19C20, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C19C20.laz")
+writeLAS(ALS_C14C15, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C14C15.laz")
+writeLAS(ALS_C19C20, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C19C20.laz")
 ```
 
 # Crop UAV with the trajectory
 
 ```{r}
-traj_C14C15 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/C14C15_Output_traj.xyz")
-traj_C19C20 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_traj.xyz")
+traj_C14C15 <- fread("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/C14C15_Output_traj.xyz")
+traj_C19C20 <- fread("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_traj.xyz")
 rgl::plot3d(traj_C14C15[,3:5], aspect=F) # plot the trajectory (x,y,z)
 ```
 
@@ -95,8 +99,8 @@ UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-20
 ```
 
 ```{r}
-writeLAS(UAV_C14C15_crop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/UAV_C14C15_subsampled_croptraj.laz")
-writeLAS(UAV_C19C20_crop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/UAV_C19C20_subsampled_croptraj.laz")
+writeLAS(UAV_C14C15_crop, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/UAV_C14C15_subsampled_croptraj.laz")
+writeLAS(UAV_C19C20_crop, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/UAV_C19C20_subsampled_croptraj.laz")
 ```
 
 ```{r}
@@ -107,13 +111,13 @@ rm(UAV_C19C20, traj_C19C20, traj_crop)
 
 # DSM (Digital Surface Model) of ALS and UAV
 ```{r}
-ST_C14C15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C14C15.laz")
-ST_C19C20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C19C20.laz")
+ALS_C14C15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C14C15.laz")
+ALS_C19C20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C19C20.laz")
 ```
 
 ```{r}
-DSM_ALS_C14C15 <- rasterize_canopy(ST_C14C15, res = 0.5, algorithm = dsmtin())
-DSM_ALS_C19C20 <- rasterize_canopy(ST_C19C20, res = 0.5, algorithm = dsmtin())
+DSM_ALS_C14C15 <- rasterize_canopy(ALS_C14C15, res = 0.5, algorithm = dsmtin())
+DSM_ALS_C19C20 <- rasterize_canopy(ALS_C19C20, res = 0.5, algorithm = dsmtin())
 ```
 
 ```{r}
@@ -126,24 +130,24 @@ rm(UAV_C19C20_crop); gc()
 
 # Write DSM
 ```{r}
-terra::writeRaster(raster(DSM_ALS_C14C15),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc",
+terra::writeRaster(raster(DSM_ALS_C14C15),"Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc",
                    format="ascii",  varname= "Z", overwrite=T)
-writeRaster(raster(DSM_ALS_C19C20),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc",
+writeRaster(raster(DSM_ALS_C19C20),"Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc",
             format="ascii", overwrite=T)
 
-writeRaster(raster(DSM_UAV_C14C15),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C14C15.asc",
+writeRaster(raster(DSM_UAV_C14C15),"Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C14C15.asc",
             format="ascii", overwrite=T)
-writeRaster(raster(DSM_UAV_C19C20),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C19C20.asc",
+writeRaster(raster(DSM_UAV_C19C20),"Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C19C20.asc",
             format="ascii", overwrite=T)
 ```
 
 
 # Plot
 ```{r}
-DSM_ALS_C14C15 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc")
-DSM_ALS_C19C20 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc")
-DSM_UAV_C14C15 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C14C15.asc")
-DSM_UAV_C19C20 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C19C20.asc")
+DSM_ALS_C14C15 <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc")
+DSM_ALS_C19C20 <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc")
+DSM_UAV_C14C15 <- rast("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C14C15.asc")
+DSM_UAV_C19C20 <- rast("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C19C20.asc")
 
 raster::plot()
 terra::plot()
@@ -186,13 +190,13 @@ DSM_UAV_C19C20$DSM_P16_2023_UAV_C19C20
 ## Check the trajectory translation
 
 ```{r}
-zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+zone <- st_as_sf(vect("Y:/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 
 traj_14_15 <- st_set_crs(st_as_sf(unique(
-  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz"
+  fread("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz"
   )[,list(X,Y,Z)]), coords = c('X','Y')), crs(zone))
 traj_19_20 <- st_set_crs(st_as_sf(unique(
-  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz"
+  fread("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz"
   )[,list(X,Y,Z)]), coords = c('X','Y')), crs(zone))
 ```
 
@@ -213,14 +217,18 @@ ggsave("Paracou_P16_4ha_UAV_trajectories_2023.png",
 
 ## Check the laz translation (cloudcompare)
 ```{r}
-laz_14_15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las")
-laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las")
+laz_14_15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las")
+laz_19_20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las")
+ST <- laz_14_15
+ST <- laz_19_20
+
+ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
 ```
 
 # Recouper selon le ROI (9ha)
 ```{r}
 # Region of Interest (ROI)
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp") # interest zone + 100m buffer
+ROI <- vect("Y:/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp") # interest zone + 100m buffer
 plot(ROI)
 class(ROI) # SpatVector (terra)
 
@@ -243,6 +251,10 @@ PCall <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
 # or if only the first is not empty
 PC <- PC[[1]]
 # lidR::plot(PC) 
+
+writeLAS(PC, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_croped.laz")
+writeLAS(PC, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_croped.laz")
+
 ```
 
 # Crop UAV with the trajectory
@@ -269,19 +281,36 @@ UAV_C19C20_crop <- UAV_C19C20
 UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-200),]
 ```
 
+# Create a subset of the laz to developpe the code with smaller data
+```{r}
+range(PC$gpstime) #  1697733332 1697734174
+readLAS(filter = "-help")
+UAV_sampletowork <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
+                     filter = "-keep_gps_time 1697733332 1697733334")
+UAV_sampletowork <- decimate_points(UAV_sampletowork, random(1)) # reduce point density
+
+plot(UAV_sampletowork)
+writeLAS(UAV_sampletowork, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_sampletowork.laz")
+```
+
 # Compute the scan angles
 ```{r}
-source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+source("D:/UAV_Vincyane/ComputeScanAngle.R")
 laz_14_15 <- ComputeScanAngle(laz_14_15, traj_14_15)
 laz_19_20 <- ComputeScanAngle(laz_14_15, traj_19_20)
+
+writeLAS(laz_14_15, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_scanAngles.laz")
+writeLAS(laz_19_20, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_scanAngles.laz")
+
 ```
 
 # Filter < 2m range and angles < 45°
 UAV altitude filght: 85m
 ```{r}
-laz_14_15 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las",
+laz_14_15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las",
                      filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
-laz_19_20 <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
+laz_19_20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
                      filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
 ```
 
@@ -297,7 +326,7 @@ https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point
 * dénormaliser
 
 ```{r}
-mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+mnt <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
 plot(mnt)
 ```
 
@@ -328,8 +357,8 @@ laz_19_20 <- RemoveOutliers(laz_19_20, mnt)
 ```
 
 ```{r}
-writeLAS(laz_14_15, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_OutliersRemoved.laz")
-writeLAS(laz_19_20, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_OutliersRemoved.laz")
+writeLAS(laz_14_15, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_OutliersRemoved.laz")
+writeLAS(laz_19_20, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_OutliersRemoved.laz")
 ```
 
 
@@ -357,7 +386,7 @@ LAStool <- function(tool, inputFile, ...){
 ## In and output
 ```{r}
 # Define the directory
-Path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed" 
+Path <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed" 
 
 # Define las/laz files to be processed
 inFiles_C14C15 = paste(Path,"/UAV_C14C15_OutliersRemoved.laz", sep ='')
@@ -397,7 +426,7 @@ résolution par défaut : 1 m ('-step 1')
 ## In and output
 ```{r}
 # Define the directory
-Path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed" 
+Path <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed" 
 
 # Define las/laz files to be processed
 inFiles_C14C15 = paste(Path,"/UAV_C14C15_GroundClassif.laz", sep ='')

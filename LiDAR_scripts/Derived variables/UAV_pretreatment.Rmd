@@ -1,0 +1,197 @@
+---
+title: "UAV pre-treatment"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+For HovermapST-X data:
+- Crop las (9ha)
+- Compute scan angles
+- Filter < 2m range
+- Filter angles < 45°
+- Remove outliers
+- Ground point classification
+- Create MNT
+
+```{r}
+library(lidR)
+library(sf)
+library(terra)
+library(tidyverse)
+library(data.table)
+library(raster)
+```
+
+# Paths
+```{r}
+local <- "//amap-data.cirad.fr/work/"
+# local <- "Y:/"
+
+folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
+file <- "UAV_sampletowork"
+trajectory <- "UAV_C19C20_traj_translated.xyz"
+```
+
+
+# Load LiDAR data
+```{r}
+las <- readLAS(paste(local,folders,file,".laz", sep = "")) # 1 min (20.4 GB)
+# "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_sampletowork.laz"
+
+# las <- decimate_points(las, random(1)) # reduce point density (13 MB)
+# writeLAS(las, paste(local,folders,file,".laz", sep = ""))
+
+traj <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/",trajectory, sep = ""))[,1:5]
+```
+
+
+# Crop las (9ha)
+```{r}
+# Region of Interest (ROI)
+ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+las <- st_set_crs(las, 2972) 
+
+las_crop <- lidR::clip_roi(las = las, geometry = ROI) # très long
+las;las_crop 
+plot(las_crop)
+
+writeLAS(las_crop, paste(local,folders,file, "_croped.laz", sep = "" ))
+```
+
+# Compute the scan angles
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+# source("D:/UAV_Vincyane/ComputeScanAngle.R")
+laz_scanAngles <- ComputeScanAngle(las_crop, traj)
+
+writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = "" ))
+```
+
+# Filter < 2m range and angles < 45°
+UAV altitude flight: 85m
+```{r}
+laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = "" ),
+                     filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+```
+
+# Remove outliers
+Pour enlever le bruit (**à faire avant la recherche de points sol**) utiliser un algo dédié (c'est à peu près les mêmes dans lastools et LidR)
+
+Procéder comme suit :
+* normaliser par rapport à un dtm existant et enlever tous les points nettement sous le sol (e.g. z<-0.5)
+* filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
+**checher une fct lidR ou lastools pour ça**
+https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point-cloud-in-lidr
+
+* dénormaliser
+
+```{r}
+mnt <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+plot(mnt)
+```
+
+```{r}
+RemoveOutliers <- function(laz, mnt){
+  laz_norm <- lidR::normalize_height(laz, mnt) # Normaliser la hauteur du sol # applati le relief
+  # laz_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # Classifier les points sol
+  laz_norm@data[Z<(-0.2), Classification := 7] # Classifier les points bruits en dessous du sol
+  laz_norm@data[Z>60, Classification := 7] # Classifier les points bruits au dessous de la canopée
+  # laz_norm@data[is.na(Classification), Classification := 1] # Classifier les points non-bruit
+  
+  # table(laz_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
+  # plot(laz_norm, color = "Classification") # trop long
+  
+  classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # -> 18
+  # sor: Statistical Outliers Removal (SOR) (also implemented in CloudCompare). It computes the mean distance to all its k-nearest neighbours. sor(k,m)
+  # ivf: isolated voxels filter (IVF) (similar to lasnoise from lastools). The algorithm finds points that have only a few other points in their surrounding 3 x 3 x 3 = 27 voxels. ivf(res = 5, n = 6)
+  
+  # * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
+  laz_norm <- laz_norm@data[Classification!=7,]
+  
+  # * dénormaliser
+  laz <- lidR::unnormalize_height(laz_norm) # Dénormaliser la hauteur du sol
+}
+
+laz_OutliersRemoved <- RemoveOutliers(laz_angles_filtered, mnt)
+```
+
+```{r}
+writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = "" ))
+```
+
+# Classification des points sols avec lastools
+https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terrain-mnt-avec-lastools/
+
+- LASGround est un outil qui identifie et classe les points du sol dans un nuage de points LiDAR en se basant sur la densité des points voisins. 
+
+- **LASGround_New** est une version améliorée de LASGround, introduite pour fournir de meilleures performances et une extraction plus précise des points du sol.LASGround_New utilise une approche basée sur l’apprentissage automatique (machine learning), en se basant sur des caractéristiques telles que la hauteur, la densité, etc. 
+- option **« -nature »** (pas de 5 mètres) ou « -wilderness » (pas de 3 mètres)
+
+## Define the path and the function for lastools executables
+```{r}
+LAStoolsDir =  "D:/Program/LAStools/bin/"
+
+## Define the R function that calls lastools executables
+LAStool <- function(tool, inputFile, ...){
+  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...) # -i in.laz
+  cat(cmd)
+  system(cmd)
+  return(cmd)
+}
+```
+
+## In and output
+```{r}
+# Define las/laz files to be processed
+inFiles = paste(local,folders,file, "_OutliersRemoved.laz", sep = "" )
+outFile = paste(file, "_GroundClassif.laz", sep = "" )
+```
+
+## Call the lastools lasground_new function to classify the ground points
+```{r}
+cores <- detectCores()
+
+LASrun <- LAStool('lasground_new', inFiles,
+                  '-cores', cores,
+                  '-nature',
+                  '-odir', Path, # output folder
+                  '-o', outFile # -o out.laz
+)
+
+# ou avec lidR
+# classify_ground(laz_OutliersRemoved, algorithm, last_returns = TRUE) # pmf: , csf: , mcc:  
+```
+
+## Check
+```{r}
+range(laz_GroundClassif@data[, Classification := 2]$Z) # Points sol (attendu : (Z>(-0.2) & Z< 0.5))
+```
+
+# Générer le MNT sur lastools
+Calcul du MNT avec LAS2dem :
+
+Cet outil lit les points LIDAR, les triangule temporairement en un TIN, puis calque le TIN sur un raster MNT.
+- Le filtre keep_class 2 fait qu’on ne traitera que les points classés « sol » (code 2).
+résolution par défaut : 1 m ('-step 1')
+
+## In and output
+```{r}
+# Define las/laz files to be processed
+inFiles = paste(local,folders,file, "_GroundClassif.laz", sep = "" )
+outFile = paste(file, "_DEM.asc", sep = "" )
+```
+
+```{r}
+LASrun <- LAStool('LAS2dem', inFiles,
+                  '-cores', cores,
+                  '-keep_class 2', # que les points sol
+                  '-elevation',
+                  '-o', outFile # -o out.laz
+)
+```
+
+
+# Fusion
+# Buffer d’ALS
