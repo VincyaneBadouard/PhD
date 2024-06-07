@@ -111,6 +111,7 @@ ggplot() +
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
+  theme_classic() +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
 crs(mnt) <- crs(ROI) 
@@ -123,6 +124,7 @@ ggplot() +
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
+  theme_classic() +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
 writeRaster(raster(mntROI),"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc", format="ascii", overwrite=T)

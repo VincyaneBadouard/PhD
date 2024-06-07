@@ -41,7 +41,14 @@ las <- readLAS(paste(local,folders,file,".laz", sep = "")) # 1 min (20.4 GB)
 # las <- decimate_points(las, random(1)) # reduce point density (13 MB)
 # writeLAS(las, paste(local,folders,file,".laz", sep = ""))
 
+options(digits = 22)
 traj <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/",trajectory, sep = ""))[,1:5]
+traj_beforetranslation <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/C14C15_Output_traj.xyz", sep = ""))[,1:5]
+# traj$time %in% traj_beforetranslation$time
+traj <- traj[traj_beforetranslation, on = .(time)]
+traj <- merge(traj,traj_beforetranslation, by = "time", all.x = T) 
+traj <- traj[!is.na(gpstime),]
+
 ```
 
 
@@ -66,14 +73,17 @@ source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
 # source("D:/UAV_Vincyane/ComputeScanAngle.R")
 laz_scanAngles <- ComputeScanAngle(las_crop, traj)
 
-writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = "" ))
+writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = ""))
 ```
 
 # Filter < 2m range and angles < 45°
 UAV altitude flight: 85m
 ```{r}
-laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = "" ),
-                     filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = ""),
+                               filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+
+max(laz_angles_filtered@data$Z) # 65.6
+range(laz_angles_filtered@data$ScanAngle) #
 ```
 
 # Remove outliers
@@ -88,37 +98,46 @@ https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point
 * dénormaliser
 
 ```{r}
-mnt <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+mnt <- rast(paste(local,"users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc", sep = "")) # de lALS ? croppé ?
 plot(mnt)
 ```
 
 ```{r}
+laz <- laz_angles_filtered
 RemoveOutliers <- function(laz, mnt){
   laz_norm <- lidR::normalize_height(laz, mnt) # Normaliser la hauteur du sol # applati le relief
   # laz_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # Classifier les points sol
   laz_norm@data[Z<(-0.2), Classification := 7] # Classifier les points bruits en dessous du sol
-  laz_norm@data[Z>60, Classification := 7] # Classifier les points bruits au dessous de la canopée
+  laz_norm@data[Z>60, Classification := 7] # Classifier les points bruits au dessus de la canopée
   # laz_norm@data[is.na(Classification), Classification := 1] # Classifier les points non-bruit
   
   # table(laz_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
   # plot(laz_norm, color = "Classification") # trop long
   
-  classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # -> 18
+  laz_norm <- classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # !!-> 18!!
   # sor: Statistical Outliers Removal (SOR) (also implemented in CloudCompare). It computes the mean distance to all its k-nearest neighbours. sor(k,m)
   # ivf: isolated voxels filter (IVF) (similar to lasnoise from lastools). The algorithm finds points that have only a few other points in their surrounding 3 x 3 x 3 = 27 voxels. ivf(res = 5, n = 6)
   
   # * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
-  laz_norm <- laz_norm@data[Classification!=7,]
+  table(laz_norm@data$Classification)
+  # plot(laz_norm)
+  laz_norm@data[,Classification := ifelse(Classification==18, 7,Classification)] # recode 18->7
+  laz_norm@data <- laz_norm@data[Classification!=7,]
+  laz_norm@data[, Classification := as.integer(Classification)]
+  # plot(laz_norm)
+  # min(laz_norm@data$Z)
   
   # * dénormaliser
   laz <- lidR::unnormalize_height(laz_norm) # Dénormaliser la hauteur du sol
+  return(laz)
 }
 
 laz_OutliersRemoved <- RemoveOutliers(laz_angles_filtered, mnt)
+# plot(laz_OutliersRemoved)
 ```
 
 ```{r}
-writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = "" ))
+writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = ""))
 ```
 
 # Classification des points sols avec lastools
@@ -151,12 +170,12 @@ outFile = paste(file, "_GroundClassif.laz", sep = "" )
 
 ## Call the lastools lasground_new function to classify the ground points
 ```{r}
-cores <- detectCores()
+cores <- parallel::detectCores()
 
 LASrun <- LAStool('lasground_new', inFiles,
                   '-cores', cores,
-                  '-nature',
-                  '-odir', Path, # output folder
+                  '-nature', # pas de 5 mètres ( -wilderness : 3 mètres)
+                  '-odir', paste(local,folders,sep = ""), # output folder
                   '-o', outFile # -o out.laz
 )
 
@@ -166,7 +185,11 @@ LASrun <- LAStool('lasground_new', inFiles,
 
 ## Check
 ```{r}
-range(laz_GroundClassif@data[, Classification := 2]$Z) # Points sol (attendu : (Z>(-0.2) & Z< 0.5))
+laz_GroundClassif <- readLAS(paste(local,folders,file, "_GroundClassif.laz", sep = "" ))
+table(las@data$Classification) # 2 = sol
+plot(las, color = "Classification") # points sols trop hauts !
+
+range(laz_GroundClassif@data[, Classification := 2]$Z) # Points sol: 7.4242 65.6011! (attendu : (Z>(-0.2) & Z< 0.5))
 ```
 
 # Générer le MNT sur lastools
@@ -189,9 +212,24 @@ LASrun <- LAStool('LAS2dem', inFiles,
                   '-keep_class 2', # que les points sol
                   '-elevation',
                   '-o', outFile # -o out.laz
-)
+) # bloqué par withscecure
+
+# ou avec lidR
+
+UAV_DEM <- lidR::rasterize_terrain(laz_GroundClassif, algorithm = lidR::tin()) # to mnt
+terra::writeRaster(UAV_DEM, file.path(paste(file, "_DEM.asc", sep = "" )), overwrite=TRUE)
 ```
 
+## Check
+```{r}
+UAV_DEM <- rast(paste(local,folders,file, "_DEM.asc", sep = "" ))
+
+ggplot() + 
+  tidyterra::geom_spatraster(data = UAV_DEM, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(20), na.value="white") +
+  theme_classic()
+```
 
 # Fusion
 # Buffer d’ALS

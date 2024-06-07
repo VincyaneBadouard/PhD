@@ -143,6 +143,7 @@ ggplot() +
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(45, rev=T)) + 
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  theme_classic() +
   ggtitle("Paracou MNT ALS 2022") + 
   coord_sf()
 ```
@@ -162,6 +163,7 @@ ggplot() +
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(45, rev=T)) + 
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  theme_classic() +
   ggtitle("Paracou MNT ALS 2022 - 5m resolution") + 
   coord_sf()
 
@@ -208,6 +210,7 @@ ggplot() +
   scale_fill_gradientn(name = "TWI",
                        colors =  hcl.colors(12, "Blues", rev = T)) + 
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  theme_classic() +
   ggtitle("Paracou TWI 5 m ALS 2022") + 
   coord_sf()
 ```
@@ -235,6 +238,7 @@ ggplot() +
   scale_fill_gradientn(name = "Relative elevation to the creek (m)",
                        colors = hcl.colors(45, "Blues")) +
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  theme_classic() +
   ggtitle("Paracou Relative elevation to the creek - ALS 2022") + 
   coord_sf()
 ```
@@ -259,6 +263,7 @@ ggplot() +
   scale_fill_gradientn(name = "Hillshade",
                        colors = hcl.colors(2, "Grays", rev=T)) +
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  theme_classic() +
   ggtitle("Paracou Hillshade - ALS 2022") + 
   coord_sf()
 ```

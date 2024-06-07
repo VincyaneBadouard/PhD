@@ -63,6 +63,7 @@ ComputeScanAngle <- function (las, traj)
   las@data$tgps <- fusion_ordered[,1] # laz <- traj time
   
   # fusion by time (Problme pcs la traj translated n'a pas de valeur après la virgule dans le gpstime)
+  # https://campus.datacamp.com/courses/joining-data-with-datatable-in-r/diagnosing-and-fixing-common-join-problems?ex=8
   las@data <- merge(las@data,traj, by.x = "tgps", by.y = "gpstime", all.x = T) # fusion laz & traj by time
   
   # distance calculation
