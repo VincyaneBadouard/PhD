@@ -6,9 +6,9 @@ output: html_document
 ---
 
 1) Faire une carte des piquets tels que placés réellement
- - Faire la moyenne de X et X2 , et la moyenne de Y et Y2 qui devraient être égaux mais qui à la re-mesure ne donne pas exactement la même valeur.
- - Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)
- - Les coordonnées y des piquets se calculent en ajoutant la moyenne Y-Y2 de chaque cadrat à la valeur y du quadrat précédent, en commençant de y = 0. Cela pour chaque quadrat X. (du sud vers le nord et d’ouest en est, colonne par colonne)
+- Faire la moyenne de X et X2 , et la moyenne de Y et Y2 qui devraient être égaux mais qui à la re-mesure ne donne pas exactement la même valeur.
+- Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)
+- Les coordonnées y des piquets se calculent en ajoutant la moyenne Y-Y2 de chaque cadrat à la valeur y du quadrat précédent, en commençant de y = 0. Cela pour chaque quadrat X. (du sud vers le nord et d’ouest en est, colonne par colonne)
 
 
 2) Faire une carte de leur position théorique :  piquets espacés de 10x10
@@ -17,6 +17,7 @@ output: html_document
 ```{r, include = F}
 library(readr)
 library(tidyverse)
+library(terra)
 ```
 
 # Import data
@@ -100,13 +101,13 @@ for(p in plots){
 
 
 ## Data filling
- - Les coordonnées y des piquets se calculent en ajoutant la moyenne Y-Y2 de chaque cadrat à la valeur y du quadrat précédent, en commençant de y = 0. Cela pour chaque quadrat X. (du sud vers le nord et d’ouest en est, colonne par colonne)
+- Les coordonnées y des piquets se calculent en ajoutant la moyenne Y-Y2 de chaque cadrat à la valeur y du quadrat précédent, en commençant de y = 0. Cela pour chaque quadrat X. (du sud vers le nord et d’ouest en est, colonne par colonne)
 ```{r}
 # Remplir Y pour tous les X
 
 for(p in plots){ # for each plot
   for (x in 0:10){ # for each X
-
+    
     Y <- c(0, rep(NA, 10))
     
     Y_length <- Piquets_Paracou[Piquets_Paracou$plot==p &
@@ -125,7 +126,7 @@ for(p in plots){ # for each plot
   }
 }
 ```
- - Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)  
+- Les coordonnées x des piquets se calculent en ajoutant la moyenne X-X2 de chaque cadrat à la valeur x du quadrat précédent, en commençant de x = 0. Cela pour chaque quadrat Y. (d’ouest en est et du sud vers le nord, ligne par ligne)  
 
 ```{r}
 # Remplir X pour tous les Y
@@ -182,7 +183,7 @@ Piquets_theor <- Piquets_Paracou %>%
 
 for(p in plots){ # for each plot
   for (x in 0:10){ # for each X
-
+    
     Y <- c(0, rep(NA, 10))
     
     Y_length <- rep(10, 10) # 10 m
@@ -293,8 +294,8 @@ ggplot() +
   ggtitle("Paracou P16 9ha - Geometre points")
 
 ggsave("Paracou_P16_9ha_Geometre_points.png",
-         path = "D:/Mes Donnees/PhD/Figures/inventory",
-         width = 15, height = 15, units = "cm", dpi=800, bg="white")
+       path = "D:/Mes Donnees/PhD/Figures/inventory",
+       width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ### Reprojection des piquets
@@ -305,30 +306,63 @@ Resampling_methods available:
 - average: average resampling, computes the average of all non-NODATA contributing pixels. (GDAL >= 1.10.0)
 - interpolation polynomiale de degré 2
 
+near : interpolation du plus proche voisin (par défaut, l’interpolation la plus rapide, mais de moins bonne qualité).
+bilinear : interpolation bilinéaire.
+cubic : interpolation cubique.
+cubicspline : interpolation cubique spline (algorithme le plus lent).
+lanczos : interpolation Lanczos windowed sinc.
+
 ```{r}
 library(sf)
-library(stars)
+library(stars) # st_warp()
 
 ALT <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/ALT_stakes_theoretical_UTM.csv")
-P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
-ALT <- st_as_sf(ALT, coords = c('Xutm','Yutm'))
-ALT <- st_set_crs(ALT, crs(P16shp))
+P16shp <- st_as_sf(terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
+ALT <- st_as_sf(ALT, coords = c('Xutm','Yutm')) # as sf
+ALT <- st_set_crs(ALT, terra::crs(P16shp)) # set crs
 
-ALTstars <- st_rasterize(ALT %>% dplyr::select(geometry))
-geometreStars <- st_rasterize(SubplotCoordsf %>% dplyr::select(geometry))
-
-plot(ALTstars)
-plot(geometreStars)
-
-rm(warp)
-warp <- st_warp(ALTstars, # to warp
-                geometreStars, # target 
-        method = "average", use_gdal=TRUE)
+ALTstars <- st_rasterize(ALT %>% dplyr::select(geometry)) # as stars
+geometreStars <- st_rasterize(SubplotCoordsf %>% dplyr::select(geometry)) # as stars
 
 ggplot() +
-  geom_sf(data = st_as_sf(warp,as_points = T), col="green", size = 1) +
-  geom_sf(data = SubplotCoordsf, col="darkgreen", size = 0.8) +
-  ggtitle("Warping")
+  geom_sf(data = st_as_sf(ALTstars,as_points = T), col="green", size = 1) +
+  geom_sf(data = st_as_sf(geometreStars,as_points = T), col="darkgreen", size = 0.8) +
+  ggtitle("Before warping")
+
+# rm(warp)
+warp <- st_warp(geometreStars, # to warp ALTstars
+                geometreStars, # target 
+                method = "near", use_gdal=F) # not what I want
+warp
+
+# Using GDAL -------------------------------------------------------------------
+sf::sf_extSoftVersion() # GDAL 3.8.2
+Sys.setenv("GDAL_DATA" = "/path/to/gdal/data")
+
+warp <- st_warp(ALTstars, # to warp
+                geometreStars, # target 
+                method = "average", use_gdal=T) # doesn't work 
+warp_gdal
+warp; warp_gdal
+# ------------------------------------------------------------------------------
+
+ggplot() +
+  geom_sf(data = SubplotCoordsf, col="red", size = 0.8) +
+  geom_sf(data = st_as_sf(geometreStars,as_points = T), col="darkgreen", size = 0.8) # 1 point a disparu, pq?
+  # geometreStars != SubplotCoordsf, why?
+  
+ggplot() +
+  geom_sf(data = st_as_sf(geometreStars,as_points = T), col="darkgreen", size = 0.8) +
+  geom_sf(data = st_as_sf(ALTstars,as_points = T), col="green", size = 0.8) +
+  ggtitle("Before warping")
+
+ggplot() +
+  # geom_sf(data = SubplotCoordsf, col="red", size = 0.8) +
+  geom_sf(data = st_as_sf(geometreStars,as_points = T), col="darkgreen", size = 0.8) +
+  # geometreStars != SubplotCoordsf, why?
+  # geom_sf(data = st_as_sf(ALTstars,as_points = T), col="blue", size = 1) +
+  geom_sf(data = st_as_sf(warp,as_points = T), col="green", size = 0.8) + # des points ont disparus, et ça n'a servi à rien
+  ggtitle("After arping")
 
 ```
 
