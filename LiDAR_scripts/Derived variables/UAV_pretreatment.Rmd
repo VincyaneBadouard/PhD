@@ -28,7 +28,7 @@ local <- "//amap-data.cirad.fr/work/"
 # local <- "Y:/"
 
 folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
-file <- "UAV_sampletowork"
+file <- "UAV_sampletowork" # petit jeu de données
 trajectory <- "UAV_C19C20_traj_translated.xyz"
 ```
 
@@ -36,19 +36,11 @@ trajectory <- "UAV_C19C20_traj_translated.xyz"
 # Load LiDAR data
 ```{r}
 las <- readLAS(paste(local,folders,file,".laz", sep = "")) # 1 min (20.4 GB)
-# "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_sampletowork.laz"
-
 # las <- decimate_points(las, random(1)) # reduce point density (13 MB)
 # writeLAS(las, paste(local,folders,file,".laz", sep = ""))
 
 options(digits = 22)
 traj <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/",trajectory, sep = ""))[,1:5]
-traj_beforetranslation <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/C14C15_Output_traj.xyz", sep = ""))[,1:5]
-# traj$time %in% traj_beforetranslation$time
-traj <- traj[traj_beforetranslation, on = .(time)]
-traj <- merge(traj,traj_beforetranslation, by = "time", all.x = T) 
-traj <- traj[!is.na(gpstime),]
-
 ```
 
 
@@ -67,11 +59,12 @@ plot(las_crop)
 writeLAS(las_crop, paste(local,folders,file, "_croped.laz", sep = "" ))
 ```
 
-# Compute the scan angles
+# Compute the scan angles (Problème : production de NaN)
 ```{r}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
 # source("D:/UAV_Vincyane/ComputeScanAngle.R")
 laz_scanAngles <- ComputeScanAngle(las_crop, traj)
+view(laz_scanAngles@data)
 
 writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = ""))
 ```
@@ -86,7 +79,7 @@ max(laz_angles_filtered@data$Z) # 65.6
 range(laz_angles_filtered@data$ScanAngle) #
 ```
 
-# Remove outliers
+# Remove outliers 
 Pour enlever le bruit (**à faire avant la recherche de points sol**) utiliser un algo dédié (c'est à peu près les mêmes dans lastools et LidR)
 
 Procéder comme suit :
@@ -140,7 +133,7 @@ laz_OutliersRemoved <- RemoveOutliers(laz_angles_filtered, mnt)
 writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = ""))
 ```
 
-# Classification des points sols avec lastools
+# Classification des points sols avec lastools (Problème : points sols trop hauts)
 https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terrain-mnt-avec-lastools/
 
 - LASGround est un outil qui identifie et classe les points du sol dans un nuage de points LiDAR en se basant sur la densité des points voisins. 

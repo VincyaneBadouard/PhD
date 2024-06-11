@@ -1,25 +1,30 @@
-# Translate 
+#' Translate LiDAR trajectory with a translation matrix
+#'
+#' @param traj Trajectory (data.table)
+#' @param matrix Translation matrix ( 4 rows, 4 columns) (matrix)
+#'               (can be computed on CloudCompare)
+#'
+#' @return Translated trajectory (data.table)
+#' @export
+#'
+#' @import data.table
+#'
+#' @examples
+#' traj <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_traj.xyz", select = seq(1:5))
+#' matrix <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Translation_matrix/Matrix_C19C20_cor.mat.txt", header=F))
+#' Trans <- TranslateTraj(traj, matrix)
+#' 
+TranslateTraj <- function(traj, matrix){
+  dat <- traj[,.(x,y,z)] # only coordinates
+  dat$C <- 1 # 4 columns
+  dat <- as.matrix(dat)
+  
+  Trans <- dat %*% t(matrix) # pour appliquer la matrice de translation
 
-# Trajectory
-traj <- fread("Strip_traj.txt",select = seq(1:4))
+  # options(digits = 22)
+  traj_cor <- cbind(traj[,.(time,gpstime)],Trans[,1:3])
+  names(traj_cor) = c("time","gpstime", "x","y","z")
+  
+  return(traj_cor)
+}
 
- 
-#GlobShift=matrix(data=c(1,0,0,-286608,0,1,0,-583966,0,0,1, -35,0,0,0,1), ncol=4, byrow=T) # Pour ramener les nuages autour de zéro             
-GlobShift=diag(4)
-
-ICPmat=as.matrix(read.table("ICP_OK.txt", header=F))
-
-dat <- traj[,.(X,Y,Z)]
-dat$C <- 1
-
-S <- (as.matrix(dat) %*% t(GlobShift)) # Pour ramener les nuages autour de zéro
-rm(dat)
-
-T <- S %*% t(ICPmat) # pour appliquer la matrice de translation
-rm(S)
-F <- T %*% t(solve(GlobShift))
-rm(T)
-traj_cor = cbind(traj[,.(Time)],F[,1:3])
-names(traj_cor) = c("Time","X","Y","Z")
-
-fwrite(traj_cor, "Strip_traj_ICPCor.txt")

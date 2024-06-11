@@ -15,7 +15,7 @@
 #'
 #' @examples
 #' las <- ComputeScanAngle(las, traj)
-#' las30<-las[abs(las@data$ScanAngle)<=30 & !is.na(las@data$ScanAngleRank)]
+#' las30 <- las[abs(las@data$ScanAngle)<=30 & !is.na(las@data$ScanAngleRank)]
 
 ComputeScanAngle <- function (las, traj)
 {
@@ -51,7 +51,7 @@ ComputeScanAngle <- function (las, traj)
   
   # fill empty spaces from left to right
   # LIDAR point takes the closest inferior GPS (trajectory) time available
-  fusion_ordered[,1] <- zoo::na.locf(fusion_ordered[,1]) # Generic function for replacing each NA with the most recent non-NA prior to it.
+  fusion_ordered[,1] <- zoo::na.locf(fusion_ordered[,1],na.rm = F) # Generic function for replacing each NA with the most recent non-NA prior to it.
   
   # keep only LIDAR points
   fusion_ordered <- fusion_ordered[which(fusion_ordered[,2] == 1),]
@@ -73,7 +73,9 @@ ComputeScanAngle <- function (las, traj)
   
   # Shot angle calculation -----------------------------------------------------
   las@data$theta <-
-    ((acos((las@data$z-las@data$Z)/las@data$Range))/pi)*180 # compute angle
+    ((acos((las@data$z-las@data$Z)/las@data$Range))/pi)*180 # compute angle (prbl produit des NaN)
+  view(las@data)
+  range(las@data$theta, na.rm =T) # 97-179
   
   las@data$ScanAngle <- round(las@data$theta) # round angle
   
