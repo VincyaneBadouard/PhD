@@ -309,7 +309,7 @@ UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-20
 range(PC$gpstime) #  1697733332 1697734174
 readLAS(filter = "-help")
 UAV_sampletowork <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
-                     filter = "-keep_gps_time 1697733332 1697733334")
+                     filter = "-keep_gps_time 1697733332 1697733333")
 UAV_sampletowork <- decimate_points(UAV_sampletowork, random(1)) # reduce point density
 
 plot(UAV_sampletowork)
@@ -354,10 +354,11 @@ plot(mnt)
 ```
 
 ```{r}
+plot(las)
 RemoveOutliers <- function(laz, mnt){
   laz_norm <- lidR::normalize_height(laz, mnt) # Normaliser la hauteur du sol # applati le relief
   # laz_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # Classifier les points sol
-  laz_norm@data[Z<(-0.2), Classification := 7] # Classifier les points bruits en dessous du sol
+  laz_norm@data[Z<(-1), Classification := 7] # Classifier les points bruits en dessous du sol
   laz_norm@data[Z>60, Classification := 7] # Classifier les points bruits au dessous de la canopée
   # laz_norm@data[is.na(Classification), Classification := 1] # Classifier les points non-bruit
   

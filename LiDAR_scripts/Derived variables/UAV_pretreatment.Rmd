@@ -59,6 +59,29 @@ plot(las_crop)
 writeLAS(las_crop, paste(local,folders,file, "_croped.laz", sep = "" ))
 ```
 
+# Crop UAV with the trajectory
+```{r}
+rgl::plot3d(traj_C14C15[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+# options(digits=22)
+# range(traj$gpstime) # 1697736241.571922063828 1697737554.552948951721
+# range(UAV_C14C15@data$gpstime) # 1697736245.296575307846 1697737554.548056840897
+traj_crop <- traj_C14C15[y>=770 & x>(-250) & x<50,]
+traj_crop <- traj_C19C20[y>=750 & x>(-500) & x<(-150),] 
+
+rgl::plot3d(traj_crop[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+UAV_C14C15_crop <- UAV_C14C15
+UAV_C14C15_crop@data <- UAV_C14C15_crop@data[Y>=770 & Y<1075 & X>(-250) & X<50,]
+
+UAV_C19C20_crop <- UAV_C19C20
+UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-200),]
+```
+
 # Compute the scan angles (Problème : production de NaN)
 ```{r}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
@@ -156,8 +179,13 @@ LAStool <- function(tool, inputFile, ...){
 
 ## In and output
 ```{r}
+# //amap-data.cirad.fr\work\users\VincyaneBadouard\Lidar\HovermapUAV2023\P16_C19C20/Output_subsampled_laz1_4.laz
 # Define las/laz files to be processed
-inFiles = paste(local,folders,file, "_OutliersRemoved.laz", sep = "" )
+inFiles = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz" # " "
+subsample <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz")
+unique(subsample@data$Classification)
+
+inFiles = paste(local,folders, file, "_OutliersRemoved.laz", sep = "" ) # _OutliersRemoved
 outFile = paste(file, "_GroundClassif.laz", sep = "" )
 ```
 
