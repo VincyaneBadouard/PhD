@@ -73,12 +73,16 @@ ComputeScanAngle <- function (las, traj)
   
   # Shot angle calculation -----------------------------------------------------
   # un acos peut pas etre supérieur à 1
-  las@data$theta <-
-    ((acos(min((las@data$z-las@data$Z)/las@data$Range, 1)/pi)))*180 # compute angle (prbl produit des NaN)
-  view(las@data)
-  range(las@data$theta, na.rm =T) # 0.14 - 82.86
+  las@data[, ScanAngle := round(((acos((z-Z)/Range))*180)/pi)] # Acos donne un angles en radians, le multiplier par 180 et divisé par pi le transforme en degrees
+  # quand range < à z-Z -> NaN. Pq range < ?
+  range(las@data$ScanAngle, na.rm =T) # 0 - 86
+  las@data[, ScanAngle := ifelse(is.nan(ScanAngle), 180, ScanAngle)]
   
-  las@data$ScanAngle <- round(las@data$theta) # round angle
+  # las@data$theta <-
+  #   ((min(acos((las@data$z-las@data$Z)/las@data$Range), 1)/pi))*180 # compute angle (prbl produit des NaN)
+  # view(las@data)
+  
+  # las@data$ScanAngle <- round(las@data$theta) # round angle
   
   return(las)
   

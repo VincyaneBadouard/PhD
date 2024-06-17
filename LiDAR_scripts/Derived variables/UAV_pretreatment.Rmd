@@ -27,15 +27,17 @@ library(raster)
 local <- "//amap-data.cirad.fr/work/"
 # local <- "Y:/"
 
-folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
-file <- "UAV_sampletowork" # petit jeu de données
+# folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
+folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/"
+# file <- "UAV_sampletowork" # petit jeu de données
+file <- "UAV_C19C20_translated"
 trajectory <- "UAV_C19C20_traj_translated.xyz"
 ```
 
 
 # Load LiDAR data
 ```{r}
-las <- readLAS(paste(local,folders,file,".laz", sep = "")) # 1 min (20.4 GB)
+las <- readLAS(paste(local,folders,file,".las", sep = "")) # 1 min (20.4 GB)
 # las <- decimate_points(las, random(1)) # reduce point density (13 MB)
 # writeLAS(las, paste(local,folders,file,".laz", sep = ""))
 
@@ -43,51 +45,54 @@ options(digits = 22)
 traj <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/",trajectory, sep = ""))[,1:5]
 ```
 
+```{r}
+folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
+```
 
 # Crop las (9ha)
 ```{r}
 # Region of Interest (ROI)
-ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
-ROI <- st_as_sf(ROI) # as sf object
-ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
-las <- st_set_crs(las, 2972) 
-
-las_crop <- lidR::clip_roi(las = las, geometry = ROI) # très long
-las;las_crop 
-plot(las_crop)
-
-writeLAS(las_crop, paste(local,folders,file, "_croped.laz", sep = "" ))
+# ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
+# ROI <- st_as_sf(ROI) # as sf object
+# ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+# las <- st_set_crs(las, 2972) 
+# 
+# las_crop <- lidR::clip_roi(las = las, geometry = ROI) # très long
+# las;las_crop 
+# plot(las_crop)
+# 
+# writeLAS(las_crop, paste(local,folders,file, "_croped.laz", sep = "" ))
 ```
 
 # Crop UAV with the trajectory
 ```{r}
-rgl::plot3d(traj_C14C15[,3:5], aspect=F) # plot the trajectory (x,y,z)
+# rgl::plot3d(traj[,3:5], aspect=F) # plot the trajectory (x,y,z)
 ```
 
 ```{r}
-# options(digits=22)
-# range(traj$gpstime) # 1697736241.571922063828 1697737554.552948951721
+options(digits=22)
+range(traj$gpstime) # 1697733191.029119968414 1697734449.009840011597
 # range(UAV_C14C15@data$gpstime) # 1697736245.296575307846 1697737554.548056840897
-traj_crop <- traj_C14C15[y>=770 & x>(-250) & x<50,]
-traj_crop <- traj_C19C20[y>=750 & x>(-500) & x<(-150),] 
+traj_crop <- traj[y<581700 & x<286000,] # 286321
 
-rgl::plot3d(traj_crop[,3:5], aspect=F) # plot the trajectory (x,y,z)
+# rgl::plot3d(traj_crop[,3:5], aspect=F) # plot the trajectory (x,y,z)
 ```
 
 ```{r}
-UAV_C14C15_crop <- UAV_C14C15
-UAV_C14C15_crop@data <- UAV_C14C15_crop@data[Y>=770 & Y<1075 & X>(-250) & X<50,]
+las_crop <- las
+las_crop@data <- las_crop@data[Y<581700 & X<286000,]
+# plot(las_crop) # fait planter R
 
-UAV_C19C20_crop <- UAV_C19C20
-UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-200),]
 ```
 
 # Compute the scan angles (Problème : production de NaN)
 ```{r}
-source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
-# source("D:/UAV_Vincyane/ComputeScanAngle.R")
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+source("D:/UAV_Vincyane/ComputeScanAngle.R")
+# rm(laz_scanAngles)
 laz_scanAngles <- ComputeScanAngle(las_crop, traj)
 view(laz_scanAngles@data)
+range(laz_scanAngles@data$ScanAngle, na.rm =T) # 0 - 86
 
 writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = ""))
 ```
@@ -98,8 +103,8 @@ UAV altitude flight: 85m
 laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = ""),
                                filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
 
-max(laz_angles_filtered@data$Z) # 65.6
-range(laz_angles_filtered@data$ScanAngle) #
+max(laz_angles_filtered@data$Z) # 65.9
+range(laz_angles_filtered@data$ScanAngle) # 0-45
 ```
 
 # Remove outliers 
@@ -130,14 +135,14 @@ RemoveOutliers <- function(laz, mnt){
   # table(laz_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
   # plot(laz_norm, color = "Classification") # trop long
   
-  laz_norm <- classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # !!-> 18!!
+  # laz_norm <- classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # !!-> 18!!
   # sor: Statistical Outliers Removal (SOR) (also implemented in CloudCompare). It computes the mean distance to all its k-nearest neighbours. sor(k,m)
   # ivf: isolated voxels filter (IVF) (similar to lasnoise from lastools). The algorithm finds points that have only a few other points in their surrounding 3 x 3 x 3 = 27 voxels. ivf(res = 5, n = 6)
   
   # * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
-  table(laz_norm@data$Classification)
-  # plot(laz_norm)
-  laz_norm@data[,Classification := ifelse(Classification==18, 7,Classification)] # recode 18->7
+  # table(laz_norm@data$Classification)
+  # # plot(laz_norm)
+  # laz_norm@data[,Classification := ifelse(Classification==18, 7,Classification)] # recode 18->7
   laz_norm@data <- laz_norm@data[Classification!=7,]
   laz_norm@data[, Classification := as.integer(Classification)]
   # plot(laz_norm)
@@ -167,6 +172,7 @@ https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terra
 ## Define the path and the function for lastools executables
 ```{r}
 LAStoolsDir =  "D:/Program/LAStools/bin/"
+# LAStoolsDir = "D:/UAV_Vincyane/LAStools/LAStools/bin"
 
 ## Define the R function that calls lastools executables
 LAStool <- function(tool, inputFile, ...){
@@ -181,12 +187,12 @@ LAStool <- function(tool, inputFile, ...){
 ```{r}
 # //amap-data.cirad.fr\work\users\VincyaneBadouard\Lidar\HovermapUAV2023\P16_C19C20/Output_subsampled_laz1_4.laz
 # Define las/laz files to be processed
-inFiles = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz" # " "
-subsample <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz")
-unique(subsample@data$Classification)
+# inFiles = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz"
+# subsample <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz")
+# unique(subsample@data$Classification)
 
 inFiles = paste(local,folders, file, "_OutliersRemoved.laz", sep = "" ) # _OutliersRemoved
-outFile = paste(file, "_GroundClassif.laz", sep = "" )
+outFile = paste(file, "_GroundClassif_las.laz", sep = "" )
 ```
 
 ## Call the lastools lasground_new function to classify the ground points
@@ -198,7 +204,7 @@ LASrun <- LAStool('lasground_new', inFiles,
                   '-nature', # pas de 5 mètres ( -wilderness : 3 mètres)
                   '-odir', paste(local,folders,sep = ""), # output folder
                   '-o', outFile # -o out.laz
-)
+) # 412.865 sec.
 
 # ou avec lidR
 # classify_ground(laz_OutliersRemoved, algorithm, last_returns = TRUE) # pmf: , csf: , mcc:  
@@ -207,10 +213,12 @@ LASrun <- LAStool('lasground_new', inFiles,
 ## Check
 ```{r}
 laz_GroundClassif <- readLAS(paste(local,folders,file, "_GroundClassif.laz", sep = "" ))
-table(las@data$Classification) # 2 = sol
-plot(las, color = "Classification") # points sols trop hauts !
+table(laz_GroundClassif@data$Classification) # 2 = sol
+# plot(laz_GroundClassif, color = "Classification") # points sols trop hauts !
 
-range(laz_GroundClassif@data[, Classification := 2]$Z) # Points sol: 7.4242 65.6011! (attendu : (Z>(-0.2) & Z< 0.5))
+range(laz_GroundClassif$Z)
+range(laz_GroundClassif@data[Classification == 2,]$Z) # Points sol: 6.3823 36.5808! (attendu : (Z>(-0.2) & Z< 0.5))
+range(laz_GroundClassif@data[Classification == 1,]$Z) # Points vegetation: 6.5425 65.9298
 ```
 
 # Générer le MNT sur lastools
