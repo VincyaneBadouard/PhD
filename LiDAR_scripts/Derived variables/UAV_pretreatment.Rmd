@@ -18,8 +18,8 @@ library(lidR)
 library(sf)
 library(terra)
 library(tidyverse)
-library(data.table)
 library(raster)
+library(data.table)
 ```
 
 # Paths
@@ -161,7 +161,7 @@ laz_OutliersRemoved <- RemoveOutliers(laz_angles_filtered, mnt)
 writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = ""))
 ```
 
-# Classification des points sols avec lastools (Problème : points sols trop hauts)
+# Classification des points sols avec lastools (Problème : points sols trop hauts -> fait sur CloudCompare)
 https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terrain-mnt-avec-lastools/
 
 - LASGround est un outil qui identifie et classe les points du sol dans un nuage de points LiDAR en se basant sur la densité des points voisins. 
@@ -209,16 +209,48 @@ LASrun <- LAStool('lasground_new', inFiles,
 # ou avec lidR
 # classify_ground(laz_OutliersRemoved, algorithm, last_returns = TRUE) # pmf: , csf: , mcc:  
 ```
+# After classification on CloudCompare, bind laz
+```{r}
+# subplot <- "UAV_C19C20"
+subplot <- "UAV_C14C15"
+veg <- readLAS(paste(local,folders, subplot, "_translated_VegPoints_CloudCompare.laz", sep = "")) 
+ground <- readLAS(paste(local,folders, subplot, "_translated_GroundPoints_CloudCompare.laz", sep = "")) 
+
+unique(ground@data$Classification)
+
+veg@data <- setDT(veg@data)
+ground@data <- setDT(ground@data)
+
+veg@data[,Classification := 1L]
+ground@data[,Classification := 2L]
+
+plot(ground)
+range(ground@data$Z) # Points sol : C1920: 6.3823 31.7885; C1415 : 4.6516 25.7552
+
+# To merge on CloudCompare if not enough RAM
+writeLAS(veg, paste(local,folders, subplot, "_translated_VegPoints_CloudCompareClassif.laz", sep = ""))
+writeLAS(ground, paste(local,folders, subplot, "_translated_GroundPoints_CloudCompareClassif.laz", sep = ""))
+
+# Merge in enough RAM...
+# laz_GroundClassif@data <- merge(veg@data, ground@data, all.x = TRUE)
+# laz_GroundClassif@data <- rbind(veg@data, ground@data, fill=TRUE)
+# veg@data[ground@data, on=]
+# writeLAS(laz_GroundClassif, paste(local,folders,file, "_GroundClassif.laz", sep = ""))
+
+```
 
 ## Check
 ```{r}
-laz_GroundClassif <- readLAS(paste(local,folders,file, "_GroundClassif.laz", sep = "" ))
+laz_GroundClassif <- readLAS(paste(local,folders, subplot, "_translated_merged_CloudCompareClassif.las", sep = "" ))
+# laz_GroundClassif <- readLAS(paste(local,folders,file, "_GroundClassif.laz", sep = "" ))
 table(laz_GroundClassif@data$Classification) # 2 = sol
 # plot(laz_GroundClassif, color = "Classification") # points sols trop hauts !
 
-range(laz_GroundClassif$Z)
-range(laz_GroundClassif@data[Classification == 2,]$Z) # Points sol: 6.3823 36.5808! (attendu : (Z>(-0.2) & Z< 0.5))
-range(laz_GroundClassif@data[Classification == 1,]$Z) # Points vegetation: 6.5425 65.9298
+range(laz_GroundClassif$Z) # 6.3823 65.9298
+range(laz_GroundClassif@data[Classification == 2L,]$Z) # Points sol: 6.3823 31.7885
+range(laz_GroundClassif@data[Classification == 1L,]$Z) # Points vegetation: 6.6792 65.9298
+
+# presque meme résultat entre lastools et cloudcompare
 ```
 
 # Générer le MNT sur lastools
@@ -231,33 +263,80 @@ résolution par défaut : 1 m ('-step 1')
 ## In and output
 ```{r}
 # Define las/laz files to be processed
-inFiles = paste(local,folders,file, "_GroundClassif.laz", sep = "" )
-outFile = paste(file, "_DEM.asc", sep = "" )
+# inFiles = paste(local,folders,file, "_GroundClassif.laz", sep = "" )
+# outFile = paste(file, "_DEM.asc", sep = "" )
 ```
-
+# 
 ```{r}
-LASrun <- LAStool('LAS2dem', inFiles,
-                  '-cores', cores,
-                  '-keep_class 2', # que les points sol
-                  '-elevation',
-                  '-o', outFile # -o out.laz
-) # bloqué par withscecure
+# LASrun <- LAStool('LAS2dem', inFiles,
+#                   '-cores', cores,
+#                   '-keep_class 2', # que les points sol
+#                   '-elevation',
+#                   '-o', outFile # -o out.laz
+# ) # bloqué par withscecure
 
 # ou avec lidR
 
-UAV_DEM <- lidR::rasterize_terrain(laz_GroundClassif, algorithm = lidR::tin()) # to mnt
-terra::writeRaster(UAV_DEM, file.path(paste(file, "_DEM.asc", sep = "" )), overwrite=TRUE)
+UAV_DEM <- lidR::rasterize_terrain(laz_GroundClassif, res = 1, algorithm = lidR::tin()) # to mnt
+terra::writeRaster(UAV_DEM, file.path(paste(local,folders, subplot, "_DEM.asc", sep = "" )))
 ```
 
 ## Check
 ```{r}
-UAV_DEM <- rast(paste(local,folders,file, "_DEM.asc", sep = "" ))
+UAV_DEM <- rast(paste(local,folders, subplot, "_DEM.asc", sep = "" ))
+
+# Region of Interest (ROI)
+ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+crs(UAV_DEM) <- crs(ROI)
 
 ggplot() + 
   tidyterra::geom_spatraster(data = UAV_DEM, aes(fill = Z)) +
   scale_fill_gradientn(name = "Elevation (m)",
-                       colors = terrain.colors(20), na.value="white") +
-  theme_classic()
+                       colors = terrain.colors(30, rev=T), na.value="white") +
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+  ggtitle("Paracou P16: MNT - UAV 2023 (1m)") +
+  theme_classic() +
+  coord_sf()
+
+ggsave(paste(subplot, "_DEM_1m.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+## Crop mnt (9ha)
+```{r}
+UAV_DEMROI <- raster::mask(UAV_DEM,ROI)
+UAV_DEMROI <- raster::crop(UAV_DEMROI,ROI)
+
+mntROI <- resample(mnt,UAV_DEMROI)
+
+ggplot() + 
+  tidyterra::geom_spatraster(data = mntROI, aes(fill = dtm2023_4ha_HighAlt_buffer)) + # mnt_roi36ha_1m # dtm2023
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  theme_classic() +
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
+
+```
+
+## Check ALS UAV match
+```{r}
+# 5-2 =3
+diffmnt <- mntROI - UAV_DEMROI
+
+ggplot() + 
+  tidyterra::geom_spatraster(data = diffmnt, aes(fill = dtm2023_4ha_HighAlt_buffer)) + # mnt_roi36ha_1m # dtm2023
+  scale_fill_gradientn(name = "Elevation difference (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  theme_classic() +
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+  ggtitle("Paracou P16: MNT (1m) - ALS-UAV 2023 difference") +
+  theme_classic() +
+  coord_sf()
+
+ggsave(paste("ALS-", subplot, "_2023_DEM_difference.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 # Fusion
