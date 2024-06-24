@@ -19,14 +19,14 @@ library(RColorBrewer)
 ```{r}
 buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp")) # interest zone with buffer
 zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
-Understory_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory/Understory_stakes_theoretical_UTM.csv") # stakes on the understory 4ha on P16
+Understory_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/Understory_stakes_theoretical_UTM.csv") # stakes on the understory 4ha on P16
 
 
 ```
 
 # Process raw data from AMAPVox
 ```{r}
-# Echo weight by intensity :  
+# Echo weight by intensity (2 m res):  
 path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_annual_intensity2m.txt"
 path_Low <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_annual_intensity2m.txt"
 

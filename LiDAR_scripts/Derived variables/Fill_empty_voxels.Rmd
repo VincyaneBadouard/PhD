@@ -403,7 +403,7 @@ range(vxsp_High@data$PadBVTotal);range(vxsp_Low@data$PadBVTotal)
 any(is.na(vxsp_High@data$PadBVTotal))
 ```
 
-# Compute Transmittance from attenuation (pas besoin, ampavox le calcul)
+# Compute Transmittance from attenuation (pas besoin, ampavox le calcule)
 
 T = I/Io, where I = transmitted light (“output”) and Io = incident light
 (“input”) Transmission=exp\^(-HLE) ?

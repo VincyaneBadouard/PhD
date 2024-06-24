@@ -2,23 +2,32 @@
 library(lidR)
 library(data.table)
 
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz")
-#"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
+local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/"
+# local <- "Y:/"
+
+# laz_GroundClassif -> ST
+ST <- readLAS(paste(local, "HovermapUAV2023/Processed/UAV_C19C20_translated_merged_CloudCompareClassif.las", sep = ""))
+# ST <- readLAS(paste(local, "ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz", sep = ""))
+#"ALS2023/HighAltitudeFlight/HighFlight_alt4ha_buff100m_2023_RefAsInt.laz"
+# "ALS2023/lowAltitudeFlight/LowFlight_alt4ha_buff100m_2023_RefAsInt.laz"
+# "ALS2022/P16_2022_4ha_buffer.laz"
 
 ST
 summary(ST@data)
 lidR::las_check(ST) # lidR checks
 
+# UAV C19C20:
+# ⚠ 36179 points are duplicated and share XYZ coordinates with other points
+# ✗ 846416 pulses (points with the same gpstime) have points with identical ReturnNumber
+
 # crs
 crs(ST)
 
 # Density
-mean(grid_density(ST, res=1)[])
-ST <- retrieve_pulses(ST)
-d <- rasterize_density(ST) # Creates a map of the point and pulses density
-dim(ST@data[NumberOfReturns==ReturnNumber,])
+mean(grid_density(ST, res=1)[]) 
+STp <- retrieve_pulses(ST)
+d <- rasterize_density(STp) # Creates a map of the point and pulses density
+dim(STp@data[NumberOfReturns==ReturnNumber,]) 
 plot(d)
 pts=d[[1]] # points/m2
 pls=d[[2]] # pulses/m2

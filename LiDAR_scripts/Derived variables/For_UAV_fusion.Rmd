@@ -207,6 +207,36 @@ fwrite(Trans_C19C20,
 fwrite(Trans_C14C15,
        "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz")
 
+# Greg translation :
+# inputs
+traj_C19C20 <- fread( "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz")
+matrix_C19C20 <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/recalageGreg/Matrix_C19C20_Greg.txt", header=F))
+
+traj_C14C15 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz")
+matrix_C14C15 <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/recalageGreg/Matrix_C14C15_Greg.txt", header=F))
+
+# Translate
+traj_C19C20[, `:=`(x = x-285000.00 , y = y-581000.00)]
+range(traj_C19C20$x) ; range(traj_C19C20$y) 
+
+Trans_C19C20 <- TranslateTraj(traj_C19C20, matrix_C19C20)
+Trans_C19C20[, `:=`(x = x+285000.00 , y = y+581000.00)]
+range(Trans_C19C20$x) ; range(Trans_C19C20$y) 
+
+
+traj_C14C15[, `:=`(x = x-285000.00 , y = y-581000.00)]
+range(traj_C14C15$x) ; range(traj_C14C15$y) 
+
+Trans_C14C15 <- TranslateTraj(traj_C14C15, matrix_C14C15)
+Trans_C14C15[, `:=`(x = x+285000.00 , y = y+581000.00)]
+range(Trans_C14C15$x) ; range(Trans_C14C15$y) 
+
+# Write
+fwrite(Trans_C19C20,
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_retranslated.xyz")
+fwrite(Trans_C14C15,
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_retranslated.xyz")
+
 ```
 
 # After translation on CloudCompare
@@ -216,11 +246,11 @@ fwrite(Trans_C14C15,
 zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 
 Trans_C14C15 <- st_set_crs(st_as_sf(unique(
-  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz"
-  )[,list(X,Y,Z)]), coords = c('X','Y')), crs(zone))
+  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_retranslated.xyz"
+  )[,list(x,y,z)]), coords = c('x','y')), crs(zone))
 Trans_C19C20 <- st_set_crs(st_as_sf(unique(
-  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz"
-  )[,list(X,Y,Z)]), coords = c('X','Y')), crs(zone))
+  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_retranslated.xyz"
+  )[,list(x,y,z)]), coords = c('x','y')), crs(zone))
 ```
 
 ### Plot P16 with traj
@@ -231,7 +261,7 @@ ggplot() +
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
   ggtitle("Paracou P16 4ha - UAV trajectories 2023") +  
   coord_sf()
-ggsave("Paracou_P16_4ha_UAV_trajectories_2023.png",
+ggsave("Paracou_P16_4ha_UAV_trajectories_2023_retranslated.png",
        path = "D:/Mes Donnees/PhD/Figures/lidar/UAV",
        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```

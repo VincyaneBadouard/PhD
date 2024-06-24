@@ -13,7 +13,7 @@ For HovermapST-X data:
 - Ground point classification
 - Create MNT
 
-```{r}
+```{r, include = F}
 library(lidR)
 library(sf)
 library(terra)
@@ -47,21 +47,6 @@ traj <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/Translat
 
 ```{r}
 folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
-```
-
-# Crop las (9ha)
-```{r}
-# Region of Interest (ROI)
-# ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
-# ROI <- st_as_sf(ROI) # as sf object
-# ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
-# las <- st_set_crs(las, 2972) 
-# 
-# las_crop <- lidR::clip_roi(las = las, geometry = ROI) # très long
-# las;las_crop 
-# plot(las_crop)
-# 
-# writeLAS(las_crop, paste(local,folders,file, "_croped.laz", sep = "" ))
 ```
 
 # Crop UAV with the trajectory
@@ -191,8 +176,13 @@ LAStool <- function(tool, inputFile, ...){
 # subsample <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz")
 # unique(subsample@data$Classification)
 
-inFiles = paste(local,folders, file, "_OutliersRemoved.laz", sep = "" ) # _OutliersRemoved
-outFile = paste(file, "_GroundClassif_las.laz", sep = "" )
+# inFiles = paste(local,folders, file, "_OutliersRemoved.laz", sep = "" ) # _OutliersRemoved
+# outFile = paste(file, "_GroundClassif_las.laz", sep = "" )
+
+# after retranslation
+file <- "UAV_C19C20"
+inFiles = paste(local,folders, file, "_retranslated_declassif.laz", sep = "" )
+outFile = paste(file, "_retranslated_lastoolsclassif.laz", sep = "" )
 ```
 
 ## Call the lastools lasground_new function to classify the ground points
@@ -212,24 +202,24 @@ LASrun <- LAStool('lasground_new', inFiles,
 # After classification on CloudCompare, bind laz
 ```{r}
 # subplot <- "UAV_C19C20"
-subplot <- "UAV_C14C15"
-veg <- readLAS(paste(local,folders, subplot, "_translated_VegPoints_CloudCompare.laz", sep = "")) 
-ground <- readLAS(paste(local,folders, subplot, "_translated_GroundPoints_CloudCompare.laz", sep = "")) 
-
-unique(ground@data$Classification)
-
-veg@data <- setDT(veg@data)
-ground@data <- setDT(ground@data)
-
-veg@data[,Classification := 1L]
-ground@data[,Classification := 2L]
-
-plot(ground)
-range(ground@data$Z) # Points sol : C1920: 6.3823 31.7885; C1415 : 4.6516 25.7552
-
-# To merge on CloudCompare if not enough RAM
-writeLAS(veg, paste(local,folders, subplot, "_translated_VegPoints_CloudCompareClassif.laz", sep = ""))
-writeLAS(ground, paste(local,folders, subplot, "_translated_GroundPoints_CloudCompareClassif.laz", sep = ""))
+# subplot <- "UAV_C14C15"
+# veg <- readLAS(paste(local,folders, subplot, "_translated_VegPoints_CloudCompare.laz", sep = "")) 
+# ground <- readLAS(paste(local,folders, subplot, "_translated_GroundPoints_CloudCompare.laz", sep = "")) 
+# 
+# unique(ground@data$Classification)
+# 
+# veg@data <- setDT(veg@data)
+# ground@data <- setDT(ground@data)
+# 
+# veg@data[,Classification := 1L]
+# ground@data[,Classification := 2L]
+# 
+# plot(ground)
+# range(ground@data$Z) # Points sol : C1920: 6.3823 31.7885; C1415 : 4.6516 25.7552
+# 
+# # To merge on CloudCompare if not enough RAM
+# writeLAS(veg, paste(local,folders, subplot, "_translated_VegPoints_CloudCompareClassif.laz", sep = ""))
+# writeLAS(ground, paste(local,folders, subplot, "_translated_GroundPoints_CloudCompareClassif.laz", sep = ""))
 
 # Merge in enough RAM...
 # laz_GroundClassif@data <- merge(veg@data, ground@data, all.x = TRUE)
@@ -241,7 +231,9 @@ writeLAS(ground, paste(local,folders, subplot, "_translated_GroundPoints_CloudCo
 
 ## Check
 ```{r}
-laz_GroundClassif <- readLAS(paste(local,folders, subplot, "_translated_merged_CloudCompareClassif.las", sep = "" ))
+file <- "UAV_C19C20"
+
+laz_GroundClassif <- readLAS(paste(local,folders, file, "_retranslated_lastoolsclassif.laz", sep = "" ))
 # laz_GroundClassif <- readLAS(paste(local,folders,file, "_GroundClassif.laz", sep = "" ))
 table(laz_GroundClassif@data$Classification) # 2 = sol
 # plot(laz_GroundClassif, color = "Classification") # points sols trop hauts !
@@ -266,7 +258,7 @@ résolution par défaut : 1 m ('-step 1')
 # inFiles = paste(local,folders,file, "_GroundClassif.laz", sep = "" )
 # outFile = paste(file, "_DEM.asc", sep = "" )
 ```
-# 
+
 ```{r}
 # LASrun <- LAStool('LAS2dem', inFiles,
 #                   '-cores', cores,
@@ -277,13 +269,19 @@ résolution par défaut : 1 m ('-step 1')
 
 # ou avec lidR
 
-UAV_DEM <- lidR::rasterize_terrain(laz_GroundClassif, res = 1, algorithm = lidR::tin()) # to mnt
-terra::writeRaster(UAV_DEM, file.path(paste(local,folders, subplot, "_DEM.asc", sep = "" )))
+# tin() Erreur : Internal error in C_interpolate_delaunay: xy coordinates were not converted to integer. Scale factors are likely to be invalid.
+las_quantize(laz_GroundClassif)
+laz_GroundClassif <- las_update(laz_GroundClassif) # Update the object to set up-to-date header data
+laz_GroundClassif <- las_rescale(laz_GroundClassif, xscale = 0.01, yscale = 0.01)
+
+UAV_DEM <- lidR::rasterize_terrain(laz_GroundClassif, res = 1, algorithm = lidR::tin(), use_class = 2L) # to mnt
+
+terra::writeRaster(UAV_DEM, file.path(paste(local, folders, file, "_DEM.asc", sep = "")), overwrite=T)
 ```
 
 ## Check
 ```{r}
-UAV_DEM <- rast(paste(local,folders, subplot, "_DEM.asc", sep = "" ))
+UAV_DEM <- raster(paste(local, folders, file, "_DEM.asc", sep = ""))
 
 # Region of Interest (ROI)
 ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
@@ -300,7 +298,7 @@ ggplot() +
   theme_classic() +
   coord_sf()
 
-ggsave(paste(subplot, "_DEM_1m.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave(paste(file, "_DEM2_1m.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Crop mnt (9ha)
@@ -318,6 +316,7 @@ ggplot() +
   theme_classic() +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
+ggsave(paste(file, "_DEM2_1m_crop.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Check ALS UAV match
@@ -336,7 +335,27 @@ ggplot() +
   theme_classic() +
   coord_sf()
 
-ggsave(paste("ALS-", subplot, "_2023_DEM_difference.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave(paste("ALS-", file, "_2023_DEM_difference2.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+# Crop las (9ha)
+```{r}
+# subP <- "C14C15"
+subP <- "C19C20"
+
+las <- readLAS(paste(local,folders,"UAV_",subP,"_classif_retranslated1step",".las", sep = "")) # 1 min (20.4 GB)
+
+# Region of Interest (ROI)
+ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+las <- st_set_crs(las, 2972)
+
+las_crop <- lidR::clip_roi(las = las, geometry = ROI) # très long
+las;las_crop
+# plot(las_crop)
+
+writeLAS(las_crop, paste(local,folders, "UAV_",subP,"_classif_retranslated_croped.laz", sep = "" ))
 ```
 
 # Fusion
