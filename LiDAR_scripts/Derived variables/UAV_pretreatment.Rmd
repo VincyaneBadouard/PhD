@@ -339,8 +339,9 @@ ggplot() +
 
 ggsave(paste("ALS-", file, "_2023_DEM_difference2.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
+# Fusion
 
-# Merge DEMs
+## Merge DEMs
 ```{r}
 mnt_C14C15 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_C14C15_buffer.asc")
 mnt_C19C20 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_C19C20_buffer.asc")
@@ -365,6 +366,42 @@ writeRaster(raster(mnt_UAV),
             "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_buffer.asc",
             format="ascii", overwrite=T)
 ```
+## Merge point clouds
+```{r}
+# Define the path for lastools executables
+LAStoolsDir =  "D:/Program/LAStools/bin/"
+
+# Define the R function that calls lastools executables
+LAStool <- function(tool, inputFile, ...){
+  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...)
+  cat(cmd)
+  system(cmd)
+  return(cmd)
+}
+
+# Define las/laz files to be processed
+inFiles <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ", '/*.laz', sep='') # files
+outFile = "P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz"
+outDir <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ"
+
+# Merge files
+LASrun <- LAStool('lasmerge64', inFiles,
+                  '-odir', outDir,
+                  # '-odix _cor',
+                  '-o', outFile)
+# WARNING: files have different attribute 0
+```
+
+## Merge trajectories
+```{r}
+traj_C14C15 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Traj/UAV_C14C15_traj_retranslated.xyz")
+traj_C19C20 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Traj/UAV_C19C20_traj_retranslated.xyz")
+
+traj_UAV <- rbind(traj_C14C15, traj_C19C20)
+
+fwrite(traj_UAV, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Traj/UAV_P16_4ha_traj.txt")
+```
+
 
 # Crop mnt (4ha)
 ```{r}
@@ -394,5 +431,4 @@ writeRaster(raster(mnt_UAV),
 ```
 
 
-# Fusion
 # Buffer d’ALS
