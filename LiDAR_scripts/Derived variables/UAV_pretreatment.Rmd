@@ -231,7 +231,7 @@ LASrun <- LAStool('lasground_new', inFiles,
 
 ## Check
 ```{r}
-file <- "UAV_C19C20"
+file <- "UAV_C14C15" # "UAV_C19C20"
 
 laz_GroundClassif <- readLAS(paste(local,folders, file, "_retranslated_lastoolsclassif.laz", sep = "" ))
 # laz_GroundClassif <- readLAS(paste(local,folders,file, "_GroundClassif.laz", sep = "" ))
@@ -276,15 +276,17 @@ laz_GroundClassif <- las_rescale(laz_GroundClassif, xscale = 0.01, yscale = 0.01
 
 UAV_DEM <- lidR::rasterize_terrain(laz_GroundClassif, res = 1, algorithm = lidR::tin(), use_class = 2L) # to mnt
 
-terra::writeRaster(UAV_DEM, file.path(paste(local, folders, file, "_DEM.asc", sep = "")), overwrite=T)
+# raster::writeRaster(UAV_DEM, file.path(paste(local, folders, file, "_DEM.asc", sep = "")), overwrite=T)
+raster::writeRaster(UAV_DEM, file.path(paste(local, folders, file, "_DEM.tif", sep = "")), overwrite=T)
+
 ```
 
 ## Check
 ```{r}
-UAV_DEM <- raster(paste(local, folders, file, "_DEM.asc", sep = ""))
+UAV_DEM <- raster(paste(local, folders, file, "_DEM.tif", sep = ""))
 
 # Region of Interest (ROI)
-ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
+ROI <- terra::vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 crs(UAV_DEM) <- crs(ROI)
@@ -316,7 +318,7 @@ ggplot() +
   theme_classic() +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-ggsave(paste(file, "_DEM2_1m_crop.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave(paste(file, "_ALS_DEM2_1m_crop.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Check ALS UAV match
@@ -338,25 +340,59 @@ ggplot() +
 ggsave(paste("ALS-", file, "_2023_DEM_difference2.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
-# Crop las (9ha)
+# Merge DEMs
 ```{r}
-# subP <- "C14C15"
-subP <- "C19C20"
+mnt_C14C15 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_C14C15_buffer.asc")
+mnt_C19C20 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_C19C20_buffer.asc")
 
-las <- readLAS(paste(local,folders,"UAV_",subP,"_classif_retranslated1step",".las", sep = "")) # 1 min (20.4 GB)
+mnt_UAV <- raster::merge(mnt_C14C15, mnt_C19C20, first = T)
+crs(mnt_UAV) <- crs(ROI)
 
-# Region of Interest (ROI)
-ROI <- vect(paste(local,"users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp", sep = "")) # interest zone + 100m buffer
-ROI <- st_as_sf(ROI) # as sf object
-ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
-las <- st_set_crs(las, 2972)
+ggplot() + 
+  tidyterra::geom_spatraster(data = mnt_UAV, aes(fill = dtm2023_4ha_UAV_C14C15_buffer)) + 
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  theme_classic() +
+  geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+  ggtitle("Paracou P16: DEM (1m) - UAV 2023") +
+  theme_classic() +
+  coord_sf()
 
-las_crop <- lidR::clip_roi(las = las, geometry = ROI) # très long
-las;las_crop
-# plot(las_crop)
+ggsave("P16_4ha_buffer_UAV_2023_DEM_1m.png", path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-writeLAS(las_crop, paste(local,folders, "UAV_",subP,"_classif_retranslated_croped.laz", sep = "" ))
+writeRaster(raster(mnt_UAV),
+            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_buffer.asc",
+            format="ascii", overwrite=T)
 ```
+
+# Crop mnt (4ha)
+```{r}
+Understory <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp") 
+Understory <- st_as_sf(Understory) # as sf object
+Understory <- st_set_crs(Understory, 2972) # attribuer le dernier crs
+
+mnt_UAV <- raster::mask(mnt_UAV,Understory)
+mnt_UAV <- raster::crop(mnt_UAV,Understory)
+
+ggplot() + 
+  tidyterra::geom_spatraster(data = mnt_UAV, aes(fill = dtm2023_4ha_UAV_C14C15_buffer)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  theme_classic() +
+  geom_sf(data = sf::st_cast(Understory, "LINESTRING")) +
+  ggtitle("Paracou P16 4ha: DEM (1m) - UAV 2023") +
+  theme_classic() +
+  coord_sf()
+
+ggsave("P16_4ha_UAV_2023_DEM_1m.png", path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+writeRaster(raster(mnt_UAV),
+            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/dtm2023_4ha_UAV.asc",
+            format="ascii", overwrite=T)
+```
+
 
 # Fusion
 # Buffer d’ALS
