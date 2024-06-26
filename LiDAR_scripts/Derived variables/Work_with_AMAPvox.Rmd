@@ -453,7 +453,7 @@ library(AMAPVox)
 # For the 1st time
 AMAPVox::run(jvm.option = "-Xms16g") # pour allouer 16Go de RAM # 
 
-AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4") # pour allouer 16Go de RAM # 
+AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4")  
 
 # Get the configuration file
 xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.xml"

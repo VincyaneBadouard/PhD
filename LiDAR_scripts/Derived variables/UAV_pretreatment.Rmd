@@ -388,6 +388,7 @@ outDir <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV202
 LASrun <- LAStool('lasmerge64', inFiles,
                   '-odir', outDir,
                   # '-odix _cor',
+                  '-unique',
                   '-o', outFile)
 # WARNING: files have different attribute 0
 ```

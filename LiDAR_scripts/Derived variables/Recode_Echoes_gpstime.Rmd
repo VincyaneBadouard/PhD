@@ -19,7 +19,7 @@ library(foreach)
 ```
 
 # Need to split for instance by gpstime (per mn) to reduce size of file
-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz -cores 4 -by_gps_time_interval 60 -odir //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split -odix _split -o FullDensity.laz
+data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz -cores 4 -by_gps_time_interval 60 -odir //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Split -odix _split -o FullDensity.laz
 ```{r}
 rm(list=ls())
 gc()  # Remove Garbage collection
@@ -36,14 +36,15 @@ LAStool <- function(tool, inputFile, ...){
 }
 
 # Define the directory
-cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
+cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
 
 # Define las/laz files to be processed
-inFiles = paste(cloudPath, 'Output_laz1_4.laz', sep ='')
-outFile = "FullDensity.laz"
+inFiles = paste(cloudPath, "P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz", sep ='') # 'Output_laz1_4.laz'
+outFile = "UAV.laz" # "FullDensity.laz"
 
 # Define output directory (and creates it ... if doesn't exist)
-outDir = paste(cloudPath, 'FullDens_split', sep ='')
+outDir = paste(cloudPath, 'Split', sep ='')
 dir.create(outDir) # , showWarnings = F (pas le droit de le faire dans le serveur safe)
 
 # Call the lastools function
@@ -51,7 +52,7 @@ cores <- detectCores()
 
 LASrun <- LAStool('lassplit64', inFiles, # input
                   '-cores', cores,
-                  '-by_gps_time_interval 60', # parameter
+                  '-by_gps_time_interval 60', # split points into intervals of 60 seconds
                   '-odir', outDir, # output folder
                   '-odix _split',
                   '-o', outFile # output
@@ -62,10 +63,9 @@ lof <- dir(outDir, full.names=T) # list files in the named directory
 
 # For each file correct the NumberOfReturns and the ReturnNumber (12 min)
 ```{r}
-rm(list=ls())
 gc(reset = TRUE)  # Remove Garbage collection
 
-lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
+lof <- dir(outDir, full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
 
 cores <- 2
 
@@ -85,7 +85,12 @@ foreach::foreach(
   f=1:length(lof), 
   .packages = c("data.table","lidR"), .options.snow = opts
 ) %dopar% {
+  f=13 # to debug
+  print(f) # to debug
   
+  options(digits = 22)
+  
+  # range(lasf@data$gpstime) ; lasf@data$gpstime[1:10]
   lasf <- readLAS(lof[f]) # Laz
   
   lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
@@ -96,12 +101,15 @@ foreach::foreach(
   lasf@data <- merge(lasf@data, NoR, by = c("gpstime","Ring"))
   lasf@data$NumberOfReturns <- NULL # remove the initial column
   names(lasf@data)[which(names(lasf@data) == "N")] <- "NumberOfReturns" # rename the new column
+  lasf@data[, NumberOfReturns := as.integer(NumberOfReturns)]
+  # View(lasf@data)
   
   # Get ReturnNumber ------------------------------------------------------------
   # Returns coded by increasing distance
   lasf@data$ReturnNumber <- NULL # remove the initial column
   # lasf@data[, ReturnNumber := as.integer(frank(Range)), by = .(gpstime, Ring)] # ranking
-  lasf@data[order(Range), ReturnNumber := 1:.N, by = .(gpstime, Ring)]
+  lasf@data[order(Range), ReturnNumber := 1L:.N, by = .(gpstime, Ring)]
+  lasf@data[, ReturnNumber := as.integer(ReturnNumber)]
   # View(lasf@data)
   
   # Write the modified dataset
@@ -120,7 +128,7 @@ stopCluster(cl)
 
 # Checks
 ```{r}
-lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/FullDens_split", full.names=T) # list files in the named directory
+lof <- dir(outDir, full.names=T) # list files in the named directory
 
 # Loop for each file
 for (f in 1:length(lof))
@@ -157,7 +165,7 @@ temps gps + 1 microseconde * n° du ring
 rm(list=ls())
 gc(reset = TRUE)  # Remove Garbage collection
 
-lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/FullDens_split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
+lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
 
 cores <- 2 # more is to much for my RAM
 
@@ -194,6 +202,7 @@ close(pb)
 # close the cluster
 stopCluster(cl)
 ```
+
 # Merge files once corrected
 ```{r}
 # table(lasf@data$NumberOfReturns, lasf@data$ReturnNumber)
@@ -221,7 +230,7 @@ cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV
 outDir2 <- paste(cloudPath, 'FullDens_cor', sep='') # new folder: files rebinded and corrected
 dir.create(outDir2, showWarnings = F)
 
-outDir = paste(cloudPath, 'FullDens_split', sep ='')
+outDir = paste(cloudPath, 'Split', sep ='')
 inFiles <- paste(outDir, '/*.laz', sep='') # files corrected
 outFile = "FullDensity.laz"
 
