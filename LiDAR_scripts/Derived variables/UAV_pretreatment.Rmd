@@ -70,7 +70,7 @@ las_crop@data <- las_crop@data[Y<581700 & X<286000,]
 
 ```
 
-# Compute the scan angles (Problème : production de NaN)
+# Compute the scan angles
 ```{r}
 # source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
 source("D:/UAV_Vincyane/ComputeScanAngle.R")
@@ -245,7 +245,7 @@ range(laz_GroundClassif@data[Classification == 1L,]$Z) # Points vegetation: 6.67
 # presque meme résultat entre lastools et cloudcompare
 ```
 
-# Générer le MNT sur lastools
+# Générer le MNT sur lastools ou lidR
 Calcul du MNT avec LAS2dem :
 
 Cet outil lit les points LIDAR, les triangule temporairement en un TIN, puis calque le TIN sur un raster MNT.

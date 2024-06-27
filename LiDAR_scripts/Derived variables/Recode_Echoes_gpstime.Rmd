@@ -6,9 +6,10 @@ output: pdf_document
 ---
 Source : à partir du script de Grégoire Vincent.
 
-scanAngleRank (not necessary) & NumberOfReturns are not populated (all = 0)!!
-Returns not coded by increasing distance!!
-gpstime are not unique
+To solve:
+- NumberOfReturns are not populated (all = 0)!!
+- ReturnNumber not coded by increasing distance!!
+- gpstime are not unique
 
 
 ```{r, include = F, packages}
@@ -18,8 +19,14 @@ library(parallel)
 library(foreach)
 ```
 
+Raw UAV LiDAR data : 
+//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_laz1_4.laz
+//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz
+
 # Need to split for instance by gpstime (per mn) to reduce size of file
 data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output_laz1_4.laz -cores 4 -by_gps_time_interval 60 -odir //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Split -odix _split -o FullDensity.laz
+
+## LAStool function
 ```{r}
 rm(list=ls())
 gc()  # Remove Garbage collection
@@ -34,19 +41,27 @@ LAStool <- function(tool, inputFile, ...){
   system(cmd)
   return(cmd)
 }
+```
 
+## In & output
+```{r}
 # Define the directory
-cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/"
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
+cloudPath <- 
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/"
 
 # Define las/laz files to be processed
-inFiles = paste(cloudPath, "P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz", sep ='') # 'Output_laz1_4.laz'
+inFiles = paste(cloudPath, 'Output_Aura_Raw_laz1_4.laz', sep ='') # "P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz"
 outFile = "UAV.laz" # "FullDensity.laz"
 
 # Define output directory (and creates it ... if doesn't exist)
-outDir = paste(cloudPath, 'Split', sep ='')
+outDir = paste(cloudPath, 'Split2', sep ='')
 dir.create(outDir) # , showWarnings = F (pas le droit de le faire dans le serveur safe)
+```
 
+## Split files
+```{r}
 # Call the lastools function
 cores <- detectCores()
 
@@ -55,6 +70,7 @@ LASrun <- LAStool('lassplit64', inFiles, # input
                   '-by_gps_time_interval 60', # split points into intervals of 60 seconds
                   '-odir', outDir, # output folder
                   '-odix _split',
+                  '-unique', # il y a des dupliqués
                   '-o', outFile # output
 )
 
@@ -65,7 +81,7 @@ lof <- dir(outDir, full.names=T) # list files in the named directory
 ```{r}
 gc(reset = TRUE)  # Remove Garbage collection
 
-lof <- dir(outDir, full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
+# lof <- dir(outDir, full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
 
 cores <- 2
 
@@ -85,15 +101,19 @@ foreach::foreach(
   f=1:length(lof), 
   .packages = c("data.table","lidR"), .options.snow = opts
 ) %dopar% {
-  f=13 # to debug
-  print(f) # to debug
+  # f=13 # to debug
+  # print(f) # to debug
   
   options(digits = 22)
   
-  # range(lasf@data$gpstime) ; lasf@data$gpstime[1:10]
+  # range(lasf@data$gpstime) ; lasf@data$gpstime[1:10] ; View(lasf@data)
   lasf <- readLAS(lof[f]) # Laz
   
-  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
+  lasf@data <- setorder(lasf@data, gpstime,Ring,ReturnNumber) 
+  
+  lasf@data[,`:=`(X = round(X,digits = 3), Y = round(Y,digits = 3), Z = round(Z,digits = 3))] # if not there are duplicated and so more than 3 echoes
+  
+  lasf@data <- lasf@data[!duplicated(lasf@data[,c('X','Y','Z')]),]
   
   # Get NumberOfReturns ---------------------------------------------------------
   # Number of pulses of the same ring and gpstime
@@ -133,39 +153,42 @@ lof <- dir(outDir, full.names=T) # list files in the named directory
 # Loop for each file
 for (f in 1:length(lof))
 {
+  print(f)
   lasf <- readLAS(lof[f]) # Laz
-  lasf@data <- lasf@data[1:1000]
+  # lasf@data <- setDT(lasf@data) #[1:1000]
+  # options(digits = 22) ; View(lasf@data)
   
   
-  options(digits = 22)
+  # 
   # i= 1
-  test <- lasf@data
-  lasf@data[Ring==i,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
+  # lasf@data[Ring==i,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
   
   # != 0
-  all(lasf@data[,ReturnNumber] != 0)
-  all(lasf@data[,NumberOfReturns] != 0)
+  print(paste("ReturnNumber != 0:", all(lasf@data[,ReturnNumber] != 0)))
+  print(paste("NumberOfReturns != 0:", all(lasf@data[,NumberOfReturns] != 0)))
+  print(paste("Maximum NumberOfReturns:", max(lasf@data$NumberOfReturns))) # 3 echoes max in Hovermap
+  print(paste("ReturnNumber <= NumberOfReturns:", all(lasf@data[,ReturnNumber <= NumberOfReturns])))
   
   # by ring-gpstime, ReturnNumber = c(1:NumberOfReturns)
-  lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
+  # lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber))
   
-  lasf@data[, .(test = all(ReturnNumber == c(1:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
+  # lasf@data[, .(test = all(ReturnNumber == c(1L:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
   # lasf@data[gpstime== 1697736323.571918487549 & Ring ==26]
   
   # their range are in the increasing order
-  lasf@data[,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
-  # lasf@data[gpstime== 1697737530.000000715256 & Ring ==24]
+  # lasf@data[,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
+  # lasf@data[gpstime== 1697733194.045943498611 & Ring ==26]
   
 }
 ```
 
 # Correct time stamp (5 min)
 temps gps + 1 microseconde * n° du ring
+**!si à refaire tourner, repartir des données brutes sinon le gpstime est modifié plusieurs fois!**
 ```{r}
-rm(list=ls())
 gc(reset = TRUE)  # Remove Garbage collection
 
-lof <- dir("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Split", full.names=T) # list files in the named directory Z:/users/VincyaneBadouard
+lof <- dir(outDir, full.names=T) # list files in the named directory 
 
 cores <- 2 # more is to much for my RAM
 
@@ -203,6 +226,42 @@ close(pb)
 stopCluster(cl)
 ```
 
+# Re-check
+```{r}
+lof <- dir(outDir, full.names=T) # list files in the named directory
+
+# Loop for each file
+for (f in 1:length(lof))
+{
+  print(f)
+  lasf <- readLAS(lof[f]) # Laz
+  # lasf@data <- setDT(lasf@data) #[1:1000]
+  # options(digits = 22) ; View(lasf@data)
+  
+  
+  # 
+  # i= 1
+  # lasf@data[Ring==i,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
+  
+  # != 0
+  print(paste("ReturnNumber != 0:", all(lasf@data[,ReturnNumber] != 0)))
+  print(paste("NumberOfReturns != 0:", all(lasf@data[,NumberOfReturns] != 0)))
+  print(paste("Maximum NumberOfReturns:", max(lasf@data$NumberOfReturns))) # 3 echoes max in Hovermap
+  print(paste("ReturnNumber <= NumberOfReturns:", all(lasf@data[,ReturnNumber <= NumberOfReturns])))
+  
+  # by ring-gpstime, ReturnNumber = c(1:NumberOfReturns)
+  # lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber))
+  
+  # lasf@data[, .(test = all(ReturnNumber == c(1L:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
+  # lasf@data[gpstime== 1697736323.571918487549 & Ring ==26]
+  
+  # their range are in the increasing order
+  # lasf@data[,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
+  # lasf@data[gpstime== 1697733194.045943498611 & Ring ==26]
+  
+}
+```
+
 # Merge files once corrected
 ```{r}
 # table(lasf@data$NumberOfReturns, lasf@data$ReturnNumber)
@@ -211,32 +270,14 @@ stopCluster(cl)
 # plot(lasf)
 
 # Define the directory for the ALS project
-rm(list=ls())
 gc()  # Remove Garbage collection
 
-# Define the path for lastools executables
-LAStoolsDir =  "D:/Program/LAStools/bin/" # "C:/Users/SPARE-N219/Desktop/PhD/"
-
-# Define the R function that calls lastools executables
-LAStool <- function(tool, inputFile, ...){
-  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...)
-  cat(cmd)
-  system(cmd)
-  return(cmd)
-}
-
-cloudPath <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/" 
-
-outDir2 <- paste(cloudPath, 'FullDens_cor', sep='') # new folder: files rebinded and corrected
-dir.create(outDir2, showWarnings = F)
-
-outDir = paste(cloudPath, 'Split', sep ='')
 inFiles <- paste(outDir, '/*.laz', sep='') # files corrected
-outFile = "FullDensity.laz"
+outFile <- "Returns_and_gpstime_corrected.laz"
 
 LASrun <- LAStool('lasmerge64', inFiles,
-                  '-odir', outDir2,
-                  '-odix _cor',
+                  '-odir', cloudPath,
+                  # '-odix _cor',
                   '-o', outFile
 )
 ```

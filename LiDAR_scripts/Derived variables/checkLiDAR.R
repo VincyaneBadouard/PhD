@@ -7,7 +7,9 @@ options(digits = 22)
 local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/"
 # local <- "Y:/"
 
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Returns_and_gpstime_corrected.laz",
+              filter = "-keep_gps_time 1697733343 1697734000")
+# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz")
 
 # ST <- readLAS(paste(local, "HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C19C20_buffer_intensitycor.laz", sep = "")) 
 range(ST@data$gpstime) # C19C20: 1697733342.914306640625 1697734144.802246093750 ; C14C15: 1697736417.1210937500 1697737307.1318359375
@@ -90,33 +92,33 @@ table(ST@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5, Unclassified = 
 table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt ; UAV: 4
 # + d’écho veut dire que le signal a été intercepté plsrs fois sans s’éteindre car plus puissant.
 
-
-all(ST@data[,ReturnNumber] != 0)
-all(ST@data[,NumberOfReturns] != 0)
-
 ST@data <- unique(setorder(ST@data, gpstime,ReturnNumber)) 
 
 options(digits = 22)
 
-ST@data[1:1000][, .(test = all(ReturnNumber == c(1:NumberOfReturns))), by = .(gpstime)][test!=TRUE]
+ST@data[1:1000][, .(test = all(ReturnNumber == c(1L:NumberOfReturns))), by = .(gpstime)][test!=TRUE]
 # ST@data[gpstime== 1697733343.266845703125] # il maqnue les 1ers retours
 
-test <- lasf@data
-lasf@data[Ring==i,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
+test <- ST@data
+ST@data[Ring==i,.(ReturnNumber, NumberOfReturns, Range), by = .(gpstime, Ring)][order(gpstime, Ring)]
 
 # != 0
-all(lasf@data[,ReturnNumber] != 0)
-all(lasf@data[,NumberOfReturns] != 0)
+all(ST@data[,ReturnNumber] != 0)
+all(ST@data[,NumberOfReturns] != 0)
+
+max(ST@data$NumberOfReturns) == 3 # 3 echoes max in Hovermap
+all(ST@data[,ReturnNumber <= NumberOfReturns])
+View(ST@data[NumberOfReturns==4])
 
 # by ring-gpstime, ReturnNumber = c(1:NumberOfReturns)
-lasf@data <- unique(setorder(lasf@data, gpstime,Ring,ReturnNumber)) 
+ST@data <- unique(setorder(ST@data, gpstime,Ring,ReturnNumber)) 
 
-lasf@data[, .(test = all(ReturnNumber == c(1:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
-# lasf@data[gpstime== 1697736323.571918487549 & Ring ==26]
+ST@data[, .(test = all(ReturnNumber == c(1L:NumberOfReturns))), by = .(gpstime, Ring)][test!=TRUE]
+# ST@data[gpstime== 1697736323.571918487549 & Ring ==26]
 
 # their range are in the increasing order
-lasf@data[,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
-# lasf@data[gpstime== 1697737530.000000715256 & Ring ==24]
+ST@data[,.(!is.unsorted(Range)), by = .(gpstime, Ring)][V1!=TRUE]
+# ST@data[gpstime== 1697737530.000000715256 & Ring ==24]
 
 ST@data <- unique(ST@data)
 
