@@ -196,7 +196,8 @@ ggsave("FluxTower_2023_2024_Net_radiation_over_the_seasons.png",
 ## Sensor environnment data
 
 ```{r , include = F}
-HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
+HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
+  mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory"))
 
 # Set the categorical variable as a factor with the custom order
 HOBO_Paracou_env$TopoHabitat <- factor(HOBO_Paracou_env$TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau"))
@@ -210,7 +211,7 @@ env <- HOBO_Paracou_env %>%
 ```{r , include = F}
 # catch the name of all the files of the folder
 # filenames <- list.files("~/PhD/Microclimate/HOBO/16_10_2023/csv", pattern="*.csv", full.names=TRUE) 
-filenames <- list.files("~/PhD/Microclimate/HOBO/16_10_2023", pattern="*.xlsx", full.names=TRUE)
+filenames <- list.files("~/PhD/Microclimate/HOBO/06_05_2024", pattern="*.xlsx", full.names=TRUE)
 # dans l'ordre du numéro des capteurs
 filenames <- gtools::mixedsort(sort(filenames)) 
 
@@ -219,6 +220,17 @@ library(readxl)
 
 df_list <- lapply(filenames, read_excel, 
                   trim_ws = TRUE) # read all the folder files
+
+ID <- str_remove(filenames, "D:/Mes Donnees/PhD/Microclimate/HOBO/06_05_2024/")
+ID <- substring(ID, first=1, last=2)
+ID <- str_remove(ID, " ")
+
+df_list <- mapply(function(df, id) {
+  df <- df %>%
+    mutate(HoboID = ID[id])
+  
+  return(df)
+}, df_list, c(1:length(df_list)), SIMPLIFY = F)
 
 # df_list <- lapply(filenames, read_delim, 
 #                   delim = ";", escape_double = FALSE,
@@ -230,7 +242,11 @@ df_list <- lapply(filenames, read_excel,
 #                   trim_ws = TRUE) # read all the folder files
 
 # bind all the files
-HOBOdata <- bind_rows(df_list, .id = "HoboID") # df number -> HoboID column
+HOBOdata <- bind_rows(df_list)
+
+unique(HOBOdata$HoboID)
+# 2, 7, 22, 25,26 HS, dernières données 16-10-23 (6 mois et demi de données manquantes !)
+# 2x le 16
 ```
 
 # Combine data and environment
@@ -254,10 +270,11 @@ minutes.
 Rename variables
 
 ```{r}
+# names(HOBOdata)
 HOBOdata <- HOBOdata %>% 
   rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
-  rename(Temp = 'Ch: 1 - Température   (°C)') %>%
-  rename(Light = 'Ch: 2 - Lumière   (lux)')
+  rename(Temp = 'Ch:1 - Température   (°C)') %>%
+  rename(Light = 'Ch:2 - Lumière   (lux)')
 ```
 
 ## Manage date and hours
@@ -279,9 +296,8 @@ HOBOdata <- HOBOdata %>%
 ```
 
 ```{r}
-cat("Sensors time range:",as.character(range(HOBOdata$Time)), '\n')
-cat(max(HOBOdata$Date) - min(HOBOdata$Date), "days of collect", '\n') # 200 days of collect
-cat("Sensors number range:",range(HOBOdata$HoboID), '\n') # 30 sensors
+cat("Sensors time range:",as.character(range(HOBOdata$Time)), '\n') #  2023-04-01 2024-03-31 23:45:00
+cat(max(HOBOdata$Date) - min(HOBOdata$Date), "days of collect", '\n') # 365  days of collect
 ```
 
 ## NA ?
@@ -297,6 +313,9 @@ nrow(Na_tabble)
 # # Remove what is between the 15 minutes
 # HOBOdata <- HOBOdata %>%
 #   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
+```
+```{r}
+rm(df_list, Na_tabble, filenames, ID)
 ```
 
 # Data checks
@@ -658,9 +677,10 @@ Lumière : somme
 ```{r}
 annual_stats <- HOBOdata %>%
   group_by(HoboID) %>%
-  summarise(across("Light",
-                   list(annual_sum = ~sum(.)), # annual
-                   .names = "HOBO_{.col}_{.fn}"))
+  # summarise(across("Light",
+  #                  list(annual_sum = ~sum(.)), # annual
+  #                  .names = "HOBO_{.col}_{.fn}"))
+  summarise(HOBO_Light_annual_sum = sum(Light)) %>% ungroup()
 
 October_stats <- HOBOdata %>%
   filter(Month==10) %>% 
@@ -688,6 +708,7 @@ write.csv(Light_stats, "~/PhD/Microclimate/HOBO/HOBO_Light_stats.csv")
 stats <- left_join(Light_stats, env, by="HoboID")
 
 ```
+
 # Some plots
 
 ```{r}
@@ -695,7 +716,7 @@ stats <- left_join(Light_stats, env, by="HoboID")
 stats %>%
   filter(!is.na(LightHabitat)) %>%
   ggplot() +
-  aes(x = LightHabitat, y = Light_annual_sum) +
+  aes(x = LightHabitat, y = HOBO_Light_annual_sum) +
   geom_boxplot(fill = "#FFAE00") +
   labs(x ="Light Habitat", y = "Sum annual light (lux)") +
   theme_minimal()
@@ -703,7 +724,7 @@ stats %>%
 stats %>%
   filter(!is.na(LightHabitat)) %>%
   ggplot() +
-  aes(x = LightHabitat, y = Light_sum_Dry) +
+  aes(x = LightHabitat, y = HOBO_Light_sum_Dry) +
   geom_boxplot(fill = "#FFAE00") +
   labs(x ="Light Habitat", y = "Sum dry season light (lux)") +
   theme_minimal()
@@ -711,7 +732,7 @@ stats %>%
 stats %>%
   filter(!is.na(LightHabitat)) %>%
   ggplot() +
-  aes(x = LightHabitat, y = Light_sum_Wet) +
+  aes(x = LightHabitat, y = HOBO_Light_sum_Wet) +
   geom_boxplot(fill = "#FFAE00") +
   labs(x ="Light Habitat", y = "Sum wet season light (lux)") +
   theme_minimal()
@@ -719,7 +740,7 @@ stats %>%
 stats %>%
   filter(!is.na(LightHabitat)) %>%
   ggplot() +
-  aes(x = LightHabitat, y = Light_october_sum) +
+  aes(x = LightHabitat, y = HOBO_Light_october_sum) +
   geom_boxplot(fill = "#FFAE00") +
   labs(x ="Light Habitat", y = "Sum October light (lux)") +
   theme_minimal()
@@ -871,6 +892,15 @@ Pval_corr <- CorMatrixS$P # p-values
 # png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
 corrplot(CorMatrix, method="circle", type="lower",
          col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
+
+# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlation_plot_HOBOLAI2200vsLiDAR_High_and_Low_altitude_byRing_equalecho2m_test.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower", diag = F,
+         addCoef.col = 'white', number.cex = 1.5, 
+         col=brewer.pal(n=8, name="PuOr"),
+         tl.col="black", tl.cex = 2, tl.srt=30,
+         p.mat = Pval_corr
+)
+# dev.off()
 # dev.off()
 ```
 
