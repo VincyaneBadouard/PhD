@@ -24,32 +24,94 @@ library(data.table)
 
 # Paths
 ```{r}
-local <- "//amap-data.cirad.fr/work/"
-# local <- "Y:/"
+local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
+# local <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
 
-# folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
-folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/"
-# file <- "UAV_sampletowork" # petit jeu de données
-file <- "UAV_C19C20_translated"
-trajectory <- "UAV_C19C20_traj_translated.xyz"
+folders <- "P16_C14C15/"
+# "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
+# "users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/"
+
+file <- "Returns_and_gpstime_corrected"
+# "UAV_sampletowork" # petit jeu de données
+# "UAV_C19C20_translated"
+
+matrix1 <- as.matrix(read.table(paste(local, folders, "Translation_matrix/Matrix_cor1.txt", sep = ""), header=F))
+matrix2 <- as.matrix(read.table(paste(local, folders, "Translation_matrix/Matrix_Greg.txt", sep = ""), header=F))
+
+trajectory <- "Output_traj.xyz"
 ```
 
 
 # Load LiDAR data
 ```{r}
-las <- readLAS(paste(local,folders,file,".las", sep = "")) # 1 min (20.4 GB)
+las <- readLAS(paste(local,folders,file,".laz", sep = "")) 
 # las <- decimate_points(las, random(1)) # reduce point density (13 MB)
 # writeLAS(las, paste(local,folders,file,".laz", sep = ""))
 
 options(digits = 22)
-traj <- fread(paste(local,"users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/",trajectory, sep = ""))[,1:5]
+traj <- fread(paste(local,folders,trajectory, sep = ""))[,1:5]
 ```
 
 ```{r}
-folders <- "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
+folders <- paste(folders,"Processed/", sep = "")
+```
+
+# Translate the point cloud
+```{r}
+source("D:/UAV_Vincyane/TranslateLaz.R")
+las1 <- TranslateLaz(las0, matrix1, suffix = "_local")
+las1@data[, `:=`(X = X-285000.00 , Y = Y-581000.00)]
+
+las2 <- TranslateLaz(las1, matrix2, suffix = "_prev")
+# View(las2@data[1:10])
+las2@data[, `:=`(X = X+285000.00 , Y = Y+581000.00)]
+
+las2@data[, c("x_prev", "y_prev", "z_prev"):= NULL]  # remove interm columns
+las2@data <- setnames(las@data, c("x_local", "y_local", "z_local"), c("x", "y", "z"))  # change names
+
+writeLAS(las2, paste(local,folders,file, "_translated.laz", sep = ""))
+```
+
+```{r}
+rm(las1,las)
+```
+
+# Trajectory translation on R
+```{r}
+source("D:/UAV_Vincyane/TranslateTraj.R")
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateTraj.R")
+
+# Translate
+Trans1 <- TranslateTraj(traj, matrix1)
+
+# Greg translation :
+range(Trans1$x) ; range(Trans1$y) 
+Trans1[, `:=`(x = x-285000.00 , y = y-581000.00)]
+
+Trans2 <- TranslateTraj(Trans1, matrix2)
+Trans2[, `:=`(x = x+285000.00 , y = y+581000.00)]
+range(Trans2$x) ; range(Trans2$y) 
+
+# Write
+fwrite(Trans2, paste(local,folders,"UAV_traj_retranslated.xyz", sep = ""))
+```
+
+```{r}
+rm(Trans1,traj)
+```
+
+```{r}
+las <- las2
+traj <- Trans2
+
+# rm(las2,Trans2)
 ```
 
 # Crop UAV with the trajectory
+```{r}
+readLAS(paste(local,folders,file, "_OutliersRemoved.laz", sep = ""))
+```
+
 ```{r}
 # rgl::plot3d(traj[,3:5], aspect=F) # plot the trajectory (x,y,z)
 ```
@@ -64,10 +126,13 @@ traj_crop <- traj[y<581700 & x<286000,] # 286321
 ```
 
 ```{r}
+las_crop <- readLAS(paste(local,folders,file, "_OutliersRemoved.laz", sep = "")) # "_translated.laz"
+
 las_crop <- las
 las_crop@data <- las_crop@data[Y<581700 & X<286000,]
 # plot(las_crop) # fait planter R
 
+writeLAS(las_crop, paste(local,folders,file, "_cropedtraj.laz", sep = ""))
 ```
 
 # Compute the scan angles
@@ -76,20 +141,40 @@ las_crop@data <- las_crop@data[Y<581700 & X<286000,]
 source("D:/UAV_Vincyane/ComputeScanAngle.R")
 # rm(laz_scanAngles)
 laz_scanAngles <- ComputeScanAngle(las_crop, traj)
-view(laz_scanAngles@data)
-range(laz_scanAngles@data$ScanAngle, na.rm =T) # 0 - 86
+# view(laz_scanAngles@data)
+range(laz_scanAngles@data$ScanAngleRank, na.rm =T)
+hist(laz_scanAngles@data$ScanAngleRank) # 0 - 180
 
 writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = ""))
+```
+
+```{r}
+rm(las, las2, las_crop)
 ```
 
 # Filter < 2m range and angles < 45°
 UAV altitude flight: 85m
 ```{r}
-laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = ""),
-                               filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+laz_scanAngles@data <- laz_scanAngles@data[ScanAngleRank<=45,]
+laz_scanAngles@data <- laz_scanAngles@data[Z<=83,]
 
-max(laz_angles_filtered@data$Z) # 65.9
-range(laz_angles_filtered@data$ScanAngle) # 0-45
+
+# laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = ""),
+#                                filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+
+max(laz_scanAngles@data$Z) # 79.3
+range(laz_scanAngles@data$ScanAngleRank) # 0-45
+
+writeLAS(laz_scanAngles, paste(local,folders,file, "_AnglesandZ_filtered.laz", sep = ""))
+
+las <- readLAS(paste(local,folders,file, "_AnglesandZ_filtered.laz", sep = ""))
+# max(las@data$Z) # 79.3
+# range(las@data$ScanAngleRank) # 0-45
+laz_scanAngles <- las
+```
+
+```{r}
+rm(laz_crop)
 ```
 
 # Remove outliers 
@@ -104,12 +189,13 @@ https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point
 * dénormaliser
 
 ```{r}
-mnt <- rast(paste(local,"users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc", sep = "")) # de lALS ? croppé ?
+root <- "Y:/"
+mnt <- rast(paste(root,"users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc", sep = "")) # de lALS ? croppé ?
 plot(mnt)
 ```
 
 ```{r}
-laz <- laz_angles_filtered
+# laz <- laz_scanAngles
 RemoveOutliers <- function(laz, mnt){
   laz_norm <- lidR::normalize_height(laz, mnt) # Normaliser la hauteur du sol # applati le relief
   # laz_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # Classifier les points sol
@@ -138,7 +224,8 @@ RemoveOutliers <- function(laz, mnt){
   return(laz)
 }
 
-laz_OutliersRemoved <- RemoveOutliers(laz_angles_filtered, mnt)
+laz_OutliersRemoved <- RemoveOutliers(laz_scanAngles, mnt)
+table(laz_OutliersRemoved@data$Classification)
 # plot(laz_OutliersRemoved)
 ```
 
@@ -146,7 +233,8 @@ laz_OutliersRemoved <- RemoveOutliers(laz_angles_filtered, mnt)
 writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = ""))
 ```
 
-# Classification des points sols avec lastools (Problème : points sols trop hauts -> fait sur CloudCompare)
+
+# Classification des points sols avec lastools 
 https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terrain-mnt-avec-lastools/
 
 - LASGround est un outil qui identifie et classe les points du sol dans un nuage de points LiDAR en se basant sur la densité des points voisins. 
@@ -180,9 +268,8 @@ LAStool <- function(tool, inputFile, ...){
 # outFile = paste(file, "_GroundClassif_las.laz", sep = "" )
 
 # after retranslation
-file <- "UAV_C19C20"
-inFiles = paste(local,folders, file, "_retranslated_declassif.laz", sep = "" )
-outFile = paste(file, "_retranslated_lastoolsclassif.laz", sep = "" )
+inFiles = paste(local,folders, file, "_OutliersRemoved.laz", sep = "" )
+outFile = paste(file, "_lastoolsclassif.laz", sep = "" )
 ```
 
 ## Call the lastools lasground_new function to classify the ground points

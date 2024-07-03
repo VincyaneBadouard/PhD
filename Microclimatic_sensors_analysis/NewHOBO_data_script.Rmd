@@ -299,6 +299,11 @@ HOBOdata <- HOBOdata %>%
 cat("Sensors time range:",as.character(range(HOBOdata$Time)), '\n') #  2023-04-01 2024-03-31 23:45:00
 cat(max(HOBOdata$Date) - min(HOBOdata$Date), "days of collect", '\n') # 365  days of collect
 ```
+# October ?
+```{r}
+october <- HOBOdata %>% filter(Month==10)
+range(october$Date) # complet
+```
 
 ## NA ?
 
@@ -677,27 +682,36 @@ Lumière : somme
 ```{r}
 annual_stats <- HOBOdata %>%
   group_by(HoboID) %>%
-  # summarise(across("Light",
-  #                  list(annual_sum = ~sum(.)), # annual
-  #                  .names = "HOBO_{.col}_{.fn}"))
+  summarise(across("Light",
+                   list(annual_sum = ~sum(.), # annual
+                   annual_mean = ~mean(.),
+                   annual_sd = ~sd(.),
+                   annual_se = ~plotrix::std.error(.)),
+                   .names = "HOBO_{.col}_{.fn}"))
   summarise(HOBO_Light_annual_sum = sum(Light)) %>% ungroup()
 
 October_stats <- HOBOdata %>%
   filter(Month==10) %>% 
   group_by(HoboID) %>%
   summarise(across("Light",
-                   list(october_sum = ~sum(.)), # october
-                   .names = "HOBO_{.col}_{.fn}"))
+                   list(october_sum = ~sum(.), # october
+                   october_mean = ~mean(.), 
+                   october_sd = ~sd(.),
+                   october_se = ~plotrix::std.error(.)),
+            .names = "HOBO_{.col}_{.fn}"))
 
 season_stats <- HOBOdata %>%
   group_by(HoboID,Season) %>% # Season
   summarise(across("Light",
-                   list(sum = ~sum(.)),
-                   .names = "HOBO_{.col}_{.fn}")) %>% 
-  # "Season" variable as an index for the computed variables
-  pivot_wider(names_from = Season,
-              values_from = "HOBO_Light_sum",
-              names_glue = "{.value}_{Season}")
+                   list(sum = ~sum(.), # october
+                   mean = ~mean(.), 
+                   sd = ~sd(.),
+                   se = ~plotrix::std.error(.)),
+                   .names = "HOBO_{.col}_{.fn}"))
+
+season_stats <- pivot_wider(season_stats, names_from = Season,
+                            values_from = names(season_stats)[-c(1:2)],
+                            names_glue = "{.value}_{Season}")
 
 Light_stats <- annual_stats %>% 
   left_join(season_stats, by="HoboID") %>% left_join(October_stats, by="HoboID")

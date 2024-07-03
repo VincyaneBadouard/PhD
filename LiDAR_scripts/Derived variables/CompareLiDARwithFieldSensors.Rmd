@@ -94,6 +94,15 @@ HighAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/u
 LowAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Equal_echo_2m/P16_2023_4ha_buffer_LowAlt_LAI2200sim_equalecho2m_test.txt"))
 ```
 
+```{r,eval = F}
+nrow(unique(HighAnnual_int2m %>% select(position.x,position.y,position.z))) # 45
+nrow(unique(LowAnnual_int2m %>% select(position.x,position.y,position.z))) # 45
+nrow(unique(HighAnnual_int1m %>% select(position.x,position.y,position.z))) # 45
+nrow(unique(HighAnnual_equal2m %>% select(position.x,position.y,position.z))) # 45
+nrow(unique(LowAnnual_equal2m %>% select(position.x,position.y,position.z))) # 45
+# 45 <- 20+26 LAI2200 dont 1 en commun
+```
+
 # Fusion
 ```{r, include = F}
 LiDAR <- HighAnnual_int2m %>%
@@ -114,7 +123,21 @@ LiDAR <- LiDAR %>%
 rm(HighAnnual_int2m, LowAnnual_int2m, HighAnnual_int1m, HighAnnual_equal2m, LowAnnual_equal2m, EqualEch, Read_LAI2200_Transfile)
 ```
 
-# Manage azimut data
+# Rings & azimuts
+```{reval = F}
+RingAzimut <- LiDAR %>% 
+  select(ring, azimut) %>% 
+  unique()
+
+RingAzimut %>% group_by(ring) %>% summarise(N = n())
+
+ggplot(RingAzimut, aes(x = ring)) +
+  # Inetnsity
+  geom_point(aes(y = azimut))
+# geom_line(aes(y = azimut, colour = Ring)) 
+```
+
+# Average azimut data
 moyenne, ecart-type et l'erreur standard par capteur et par ring sur les azimuts
 ```{r, include = F}
 LiDAR <- LiDAR %>% 
@@ -143,20 +166,6 @@ LiDAR <- LiDAR %>%
   ungroup()
 ```
 
-# Rings & azimuts
-```{r}
-RingAzimut <- LiDAR %>% 
-  select(Ring, azimut) %>% 
-  unique()
-
-RingAzimut %>% group_by(Ring) %>% summarise(N = n())
-
-ggplot(RingAzimut, aes(x = Ring)) +
-  # Inetnsity
-  geom_point(aes(y = azimut))
-# geom_line(aes(y = azimut, colour = Ring)) 
-```
-
 ## Local to UTM coord
 ```{r}
 # Lecture matrice de transformation
@@ -172,6 +181,104 @@ LiDAR <- setDF(LiDAR) %>% rename(Ring= ring) %>%
          Zutm = round(Zutm))
 rm(VOP,xyz)
 ```
+
+## Load LAI2200 data
+```{r, include = F}
+LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
+LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+
+names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
+names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
+
+LAI2200 <- LAI2200_coord %>% 
+  left_join(LAI2200_data, by= c("Transect", "Id")) %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+
+nrow(unique(LAI2200 %>% select(Xutm,Yutm,Zutm))) # 45 <- 20+26 LAI2200 dont 1 en commun
+
+rm(LAI2200_coord)
+```
+
+## Combine LiDAR and LAI2200 data
+```{r}
+LAI2200_LiDAR <- LAI2200 %>% 
+  mutate(Ring = case_when(
+    Ring == "Ring1" ~ 1,
+    Ring == "Ring2" ~ 2,
+    Ring == "Ring3" ~ 3,
+    Ring == "Ring4" ~ 4,
+    Ring == "Ring5" ~ 5)) %>% 
+  left_join(LiDAR, by= c("Xutm","Yutm","Zutm", "Ring")) %>% 
+  rename(Transmittance_LAI2200 = Transmittance_mean)
+
+NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
+```
+
+```{r}
+rm(NA_table)
+```
+
+```{r,eval = F }
+test <- unique(LAI2200_LiDAR %>% filter(Ring==1) %>% select(Transect, Id, Xutm,Yutm, Transmittance_LAI2200, Transmittance_sd, MeanTransmittance_HighInt2m)) # 46 
+test[duplicated(test$MeanTransmittance_HighInt2m), ] 
+test %>% filter(Xutm == 285517 & Yutm==581503) # c'est 6 du LAY et le 10 du HOBO qui sont communs
+```
+
+
+```{r}
+# Transmittance_LAI2200, "MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m"
+LAI2200_LiDAR <- LAI2200_LiDAR %>%
+  group_by(Transect, Id, Ring) %>%
+  mutate(MeanTransmittance_LAI2200 = mean(Transmittance_LAI2200)) %>% # mean
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance_LAI2200)) %>% # standard error
+  #   mutate(MeanTransmittance_High = mean(Transmittance_High)) %>% 
+  #   # mutate(SeTransmittance_High = plotrix::std.error(Transmittance_High)) %>% 
+  #   mutate(MeanTransmittance_Low = mean(Transmittance_Low)) %>%
+  #   # mutate(SeTransmittance_Low = plotrix::std.error(Transmittance_Low)) %>%
+  ungroup()
+```
+
+# Compute differences
+```{r}
+# "MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m"
+# names(LAI2200_LiDAR)
+LAI2200_LiDAR <- LAI2200_LiDAR %>% 
+  # select(-c("...1.x","...1.y")) %>% 
+  select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,Transmittance_LAI2200, Transmittance_sd,
+         # Transmittance_HighInt2m,Transmittance_LowInt2m, Transmittance_HighInt1m,
+         # Transmittance_HighEqual2m,Transmittance_LowEqual2m,
+         MeanTransmittance_HighInt2m, SdTransmittance_HighInt2m, SeTransmittance_HighInt2m,
+         MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m,
+         MeanTransmittance_HighInt1m, SdTransmittance_HighInt1m, SeTransmittance_HighInt1m,
+         MeanTransmittance_HighEqual2m, SdTransmittance_HighEqual2m, SeTransmittance_HighEqual2m,
+         MeanTransmittance_LowEqual2m, SdTransmittance_LowEqual2m, SeTransmittance_LowEqual2m) %>%
+  unique() %>% 
+  # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
+  mutate(Transmittance_LowvsHigh_2m =  MeanTransmittance_LowInt2m - MeanTransmittance_HighInt2m) %>% 
+  mutate(Transmittance_HighInt2mvsLAI2200 = MeanTransmittance_HighInt2m -Transmittance_LAI2200) %>% 
+  mutate(Transmittance_LowInt2mvsLAI2200 = MeanTransmittance_LowInt2m - Transmittance_LAI2200) %>% 
+  mutate(Transmittance_HighInt1mvsLAI2200 = MeanTransmittance_HighInt1m -Transmittance_LAI2200) %>% 
+  mutate(Transmittance_HighInt1mvsHigh2m = MeanTransmittance_HighInt1m -MeanTransmittance_HighInt2m) %>% 
+  
+  mutate(Transmittance_HighEqual2mvsLAI2200 = MeanTransmittance_HighEqual2m -Transmittance_LAI2200) %>% 
+  mutate(Transmittance_LowEqual2mvsLAI2200 = MeanTransmittance_LowEqual2m - Transmittance_LAI2200) %>% 
+  mutate(Transmittance_LowInt2mvsLowEqual2m =  MeanTransmittance_LowInt2m - MeanTransmittance_LowEqual2m) %>% 
+  mutate(Transmittance_HighInt2mvsHighEqual2m =  MeanTransmittance_HighInt2m - MeanTransmittance_HighEqual2m) 
+```
+
+```{r}
+range(LAI2200_LiDAR$Transmittance_HighInt2mvsLAI2200) # -0.54124286  0.06917472
+range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.49684541  0.06841737 : le plus proche du lAI2200
+range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 : le moins proche du lAI2200 (sousestime le plus)
+
+range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
+range(LAI2200_LiDAR$Transmittance_LowEqual2mvsLAI2200) # -0.4410783  0.1079312 : surrestime le plus
+range(LAI2200_LiDAR$Transmittance_LowInt2mvsLowEqual2m) # -0.0703229895 -0.0001377847
+range(LAI2200_LiDAR$Transmittance_HighInt2mvsHighEqual2m) # -0.047436156  0.005860184
+```
+
 
 ## Plot LiDAR data
 ```{r}
@@ -203,23 +310,6 @@ for(acq in c("MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTr
 
 ```
 
-## Load LAI2200 data
-```{r, include = F}
-LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
-LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
-
-names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
-names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
-
-LAI2200 <- LAI2200_coord %>% 
-  left_join(LAI2200_data, by= c("Transect", "Id")) %>% 
-  mutate(Xutm = round(Xutm), 
-         Yutm = round(Yutm),
-         Zutm = round(Zutm))
-
-rm(LAI2200_coord, LAI2200_data)
-```
-
 ## Plot LAI2200 data
 ```{r}
 LAI2200UTMsf <- st_as_sf(LAI2200, coords = c('Xutm','Yutm'))
@@ -240,62 +330,9 @@ ggsave(paste("P16_2023_4ha_LAI2200_Transmittances.png", sep=""),
        width = 25, height = 25, units = "cm", dpi=800, bg="white")
 ```
 
-## Combine LiDAR and LAI2200 data
-```{r}
-LAI2200_LiDAR <- LAI2200 %>% 
-  mutate(Ring = case_when(
-    Ring == "Ring1" ~ 1,
-    Ring == "Ring2" ~ 2,
-    Ring == "Ring3" ~ 3,
-    Ring == "Ring4" ~ 4,
-    Ring == "Ring5" ~ 5)) %>% 
-  left_join(LiDAR, by= c("Xutm","Yutm","Zutm", "Ring")) %>% 
-  rename(Transmittance_LAI2200 = Transmittance_mean)
-
-NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
-
-```
-
-```{r}
-rm(NA_table)
-```
 
 # Difference plots
 ```{r}
-# "MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m"
-# names(LAI2200_LiDAR)
-LAI2200_LiDAR <- LAI2200_LiDAR %>% 
-  # select(-c("...1.x","...1.y")) %>% 
-  select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,Transmittance_LAI2200, Transmittance_sd,
-         # Transmittance_HighInt2m,Transmittance_LowInt2m, Transmittance_HighInt1m,
-         # Transmittance_HighEqual2m,Transmittance_LowEqual2m,
-         MeanTransmittance_HighInt2m, SdTransmittance_HighInt2m, SeTransmittance_HighInt2m,
-         MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m,
-         MeanTransmittance_HighInt1m, SdTransmittance_HighInt1m, SeTransmittance_HighInt1m,
-         MeanTransmittance_HighEqual2m, SdTransmittance_HighEqual2m, SeTransmittance_HighEqual2m,
-         MeanTransmittance_LowEqual2m, SdTransmittance_LowEqual2m, SeTransmittance_LowEqual2m) %>%
-  unique() %>% 
-  # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
-  mutate(Transmittance_LowvsHigh_2m =  MeanTransmittance_LowInt2m - MeanTransmittance_HighInt2m) %>% 
-  mutate(Transmittance_HighInt2mvsLAI2200 = MeanTransmittance_HighInt2m -Transmittance_LAI2200) %>% 
-  mutate(Transmittance_LowInt2mvsLAI2200 = MeanTransmittance_LowInt2m - Transmittance_LAI2200) %>% 
-  mutate(Transmittance_HighInt1mvsLAI2200 = MeanTransmittance_HighInt1m -Transmittance_LAI2200) %>% 
-  mutate(Transmittance_HighInt1mvsHigh2m = MeanTransmittance_HighInt1m -MeanTransmittance_HighInt2m) %>% 
-  
-  mutate(Transmittance_HighEqual2mvsLAI2200 = MeanTransmittance_HighEqual2m -Transmittance_LAI2200) %>% 
-  mutate(Transmittance_LowEqual2mvsLAI2200 = MeanTransmittance_LowEqual2m - Transmittance_LAI2200) %>% 
-  mutate(Transmittance_LowInt2mvsLowEqual2m =  MeanTransmittance_LowInt2m - MeanTransmittance_LowEqual2m) %>% 
-  mutate(Transmittance_HighInt2mvsHighEqual2m =  MeanTransmittance_HighInt2m - MeanTransmittance_HighEqual2m) 
-
-range(LAI2200_LiDAR$Transmittance_HighInt2mvsLAI2200) # -0.54124286  0.06917472
-range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.49684541  0.06841737 : le plus proche du lAI2200
-range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 : le moins proche du lAI2200 (sousestime le plus)
-
-range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
-range(LAI2200_LiDAR$Transmittance_LowEqual2mvsLAI2200) # -0.4410783  0.1079312 : surrestime le plus
-range(LAI2200_LiDAR$Transmittance_LowInt2mvsLowEqual2m) # -0.0703229895 -0.0001377847
-range(LAI2200_LiDAR$Transmittance_HighInt2mvsHighEqual2m) # -0.047436156  0.005860184
-
 LAI2200_LiDAR1 <- LAI2200_LiDAR %>% filter(Ring==1)
 
 LAI2200_LiDARsf <- st_as_sf(LAI2200_LiDAR1, coords = c('Xutm','Yutm'))
@@ -381,17 +418,6 @@ pour chaque ring
 ```
 
 ```{r}
-# Transmittance_LAI2200, "MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m"
-
-LAI2200_LiDAR <- LAI2200_LiDAR %>%
-  group_by(Transect, Id, Ring) %>%
-  mutate(MeanTransmittance_LAI2200 = mean(Transmittance_LAI2200)) %>% # mean
-  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance_LAI2200)) %>% # standard error
-  #   mutate(MeanTransmittance_High = mean(Transmittance_High)) %>% 
-  #   # mutate(SeTransmittance_High = plotrix::std.error(Transmittance_High)) %>% 
-  #   mutate(MeanTransmittance_Low = mean(Transmittance_Low)) %>%
-  #   # mutate(SeTransmittance_Low = plotrix::std.error(Transmittance_Low)) %>%
-  ungroup()
 
 for(t in c("HOBO", "LAY")){
   for(R in 1:5){
@@ -698,8 +724,8 @@ DF_cor_LiDAR <- LAI2200_LiDAR %>%
 
 names(DF_cor_LiDAR) <- str_remove(names(DF_cor_LiDAR), "MeanTransmittance_") # simplify the var names
 
+nrow(DF_cor_LiDAR) # 45
 # na.omit()
-# 45 obs <- 20 +26 capteurs dont 1 en commun
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor_LiDAR))
 CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
@@ -747,7 +773,7 @@ DF_cor_LiDARvsLAI2200 <- LAI2200_LiDAR %>%
 names(DF_cor_LiDARvsLAI2200) <- str_remove(names(DF_cor_LiDARvsLAI2200), "MeanTransmittance_") # simplify the var names
 names(DF_cor_LiDARvsLAI2200) <- str_remove(names(DF_cor_LiDARvsLAI2200), "Transmittance_") # simplify the var names
 
-
+nrow(DF_cor_LiDARvsLAI2200)
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor_LiDARvsLAI2200))
 CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
@@ -861,6 +887,56 @@ ggplot() +
   ggtitle("Paracou P16 4ha - HOBO Light (lux)")
 ```
 
+# # Profils en long (Transmittances le long du transect)
+Lux le long du transect
+
+```{r}
+# names(HOBO) #  "Id" "x"  "y""Xutm" "Yutm"  "Zutm""HOBO_Light_annual_sum" "HOBO_Light_sum_Dry" "HOBO_Light_sum_Wet"   "HOBO_Light_october_sum"
+
+idmax = max(HOBO$Id) # last sensor Id
+
+HOBO %>% 
+  ggplot(aes(x = Id)) +
+  
+  geom_point(aes(y = HOBO_Light_annual_mean, colour = "Annual")) +
+  geom_line(aes(y = HOBO_Light_annual_mean, colour = "Annual")) +
+  geom_errorbar(aes(ymin=HOBO_Light_annual_mean-HOBO_Light_annual_se,
+                    ymax=HOBO_Light_annual_mean+HOBO_Light_annual_se, colour = "Annual"), width=.2) +
+  
+  geom_point(aes(y = HOBO_Light_october_mean, colour = "October")) +
+  geom_line(aes(y = HOBO_Light_october_mean, colour = "October")) +
+  geom_errorbar(aes(ymin=HOBO_Light_october_mean-HOBO_Light_october_se,
+                    ymax=HOBO_Light_october_mean+HOBO_Light_october_se, colour = "October"), width=.2) +
+  
+  geom_point(aes(y = HOBO_Light_mean_Dry, colour = "Dry season")) +
+  geom_line(aes(y = HOBO_Light_mean_Dry, colour = "Dry season")) +
+  geom_errorbar(aes(ymin=HOBO_Light_mean_Dry-HOBO_Light_se_Dry,
+                    ymax=HOBO_Light_mean_Dry+HOBO_Light_se_Dry, colour = "Dry season"), width=.2) +
+  
+  geom_point(aes(y = HOBO_Light_mean_Wet, colour = "Wet season")) +
+  geom_line(aes(y = HOBO_Light_mean_Wet, colour = "Wet season")) +
+  geom_errorbar(aes(ymin=HOBO_Light_mean_Wet-HOBO_Light_se_Wet,
+                    ymax=HOBO_Light_mean_Wet+HOBO_Light_se_Wet, colour = "Wet season"), width=.2) +
+  
+  
+  scale_colour_manual(values = c("Wet season" = "blue",
+                                 "Annual" = "#CC79A7",
+                                 "Dry season" = "#999999",
+                                 "October" = "#D55E00"),
+                      breaks=c("Annual",
+                               "Dry season",  "Wet season", 
+                               "October")) +
+  
+  labs(title = "HOBO light", y="Light mean (lux)", x="ID", color = "Period") +
+  scale_x_continuous(breaks = seq(1:idmax)) + # 26 # 20
+  theme(title= element_text(size=16), axis.title= element_text(size=16), axis.text= element_text(size=16), legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  theme_minimal()
+
+ggsave("P16_2023_4ha_HOBO_light_lux_mean_se.png",
+       path = "D:/Mes Donnees/PhD/Figures/HOBO",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
+```
 ## Combine HOBO with LiDAR and LAI2200 data
 ```{r}
 HOBO_LAI2200_LiDAR <- LAI2200_LiDAR %>% 

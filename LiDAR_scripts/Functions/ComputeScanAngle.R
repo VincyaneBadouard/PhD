@@ -6,7 +6,7 @@
 #' @param las Point cloud with gpstime column (LAS)
 #' @param traj LiDAR trajectory with gpstime column (data.frame)
 #'
-#' @return Point cloud (LAS) with *ScanAngle* column.
+#' @return Point cloud (LAS) with *ScanAngleRank* column.
 #' @export
 #'
 #' @import lidR
@@ -15,7 +15,7 @@
 #'
 #' @examples
 #' las <- ComputeScanAngle(las, traj)
-#' las30 <- las[abs(las@data$ScanAngle)<=30 & !is.na(las@data$ScanAngleRank)]
+#' las30 <- las[abs(las@data$ScanAngleRank)<=30 & !is.na(las@data$ScanAngleRank)]
 
 ComputeScanAngle <- function (las, traj)
 {
@@ -73,16 +73,18 @@ ComputeScanAngle <- function (las, traj)
   
   # Shot angle calculation -----------------------------------------------------
   # un acos peut pas etre supérieur à 1
-  las@data[, ScanAngle := round(((acos((z-Z)/Range))*180)/pi)] # Acos donne un angles en radians, le multiplier par 180 et divisé par pi le transforme en degrees
+  las@data[, ScanAngleRank := round(((acos((z-Z)/Range))*180)/pi)] # Acos donne un angles en radians, le multiplier par 180 et divisé par pi le transforme en degrees
   # quand range < à z-Z -> NaN. Pq range < ?
-  range(las@data$ScanAngle, na.rm =T) # 0 - 86
-  las@data[, ScanAngle := ifelse(is.nan(ScanAngle), 180, ScanAngle)]
+  # range(las@data$ScanAngleRank, na.rm =T) # 0 - 86
+  las@data[, ScanAngleRank := ifelse(is.nan(ScanAngleRank), 180, ScanAngleRank)]
+  
+  las@data[, ScanAngleRank := as.integer(ScanAngleRank)]
   
   # las@data$theta <-
   #   ((min(acos((las@data$z-las@data$Z)/las@data$Range), 1)/pi))*180 # compute angle (prbl produit des NaN)
   # view(las@data)
   
-  # las@data$ScanAngle <- round(las@data$theta) # round angle
+  # las@data$ScanAngleRank <- round(las@data$theta) # round angle
   
   return(las)
   
