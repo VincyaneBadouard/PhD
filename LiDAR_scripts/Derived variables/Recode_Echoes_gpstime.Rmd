@@ -47,8 +47,8 @@ LAStool <- function(tool, inputFile, ...){
 ```{r}
 # Define the directory
 cloudPath <- 
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/"
 
 # Define las/laz files to be processed
@@ -107,7 +107,7 @@ foreach::foreach(
   options(digits = 22)
   
   # range(lasf@data$gpstime) ; lasf@data$gpstime[1:10] ; View(lasf@data)
-  lasf <- readLAS(lof[f]) # Laz
+  lasf <- readLAS(lof[f]) # lof[f] Laz # paste(cloudPath, 'Output_subsampled_laz1_4.laz', sep ='') # decimé
   
   lasf@data <- setorder(lasf@data, gpstime,Ring,ReturnNumber) 
   

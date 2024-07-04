@@ -76,7 +76,7 @@ ComputeScanAngle <- function (las, traj)
   las@data[, ScanAngleRank := round(((acos((z-Z)/Range))*180)/pi)] # Acos donne un angles en radians, le multiplier par 180 et divisé par pi le transforme en degrees
   # quand range < à z-Z -> NaN. Pq range < ?
   # range(las@data$ScanAngleRank, na.rm =T) # 0 - 86
-  las@data[, ScanAngleRank := ifelse(is.nan(ScanAngleRank), 180, ScanAngleRank)]
+  las@data[, ScanAngleRank := ifelse(is.nan(ScanAngleRank)|is.na(ScanAngleRank), 99, ScanAngleRank)] # 99 to be 8 bits
   
   las@data[, ScanAngleRank := as.integer(ScanAngleRank)]
   

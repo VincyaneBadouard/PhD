@@ -41,7 +41,8 @@ ctg : catalog of laz files
 ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_retranslated_lastoolsclassif.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_lastoolsclassif.laz") # décimé
+# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_retranslated_lastoolsclassif.laz")
 # UAV_C19C20_retranslated_lastoolsclassif
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_retranslated_lastoolsclassif.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
@@ -111,7 +112,8 @@ ROI <- st_set_crs(ROI, 2972) # crs
 # Modèle numérique de terrain
 file <- "UAV_C19C20" # "UAV_C14C15"
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc""
-mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/",file,"_DEM.tif", sep = ""))
+mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_DEM.tif", sep = "")) # decimated
+# mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/",file,"_DEM.tif", sep = ""))
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc"
 
@@ -139,10 +141,13 @@ ggplot() +
 
 ggsave(paste(file, "_DEM_1m_crop.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-
 writeRaster(raster(mntROI),
-            paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
-            format="ascii", overwrite=T)
+            paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_C14C15_decimated_buffer.asc", sep = ""),
+            format="ascii", overwrite=T) # decimated
+
+# writeRaster(raster(mntROI),
+#             paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
+#             format="ascii", overwrite=T)
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023_4ha_buffer.asc"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/dtm2022_4ha_buffer.asc"

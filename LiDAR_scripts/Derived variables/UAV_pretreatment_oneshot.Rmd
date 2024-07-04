@@ -1,5 +1,5 @@
 ---
-title: "UAV pre-treatment"
+title: "UAV pre-treatment one shot"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: pdf_document
@@ -25,36 +25,43 @@ library(data.table)
 # Paths
 ## Decimated
 ```{r}
-local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
-
-folders <- "P16_C14C15/Decimated/"
-
-file <- "Subsampled_Returns_and_gpstime_corrected"
-# "UAV_sampletowork" # petit jeu de données
-# "UAV_C19C20_translated"
-
-matrix1 <- as.matrix(read.table(paste(local, "P16_C14C15/Translation_matrix/Matrix_cor1.txt", sep = ""), header=F))
-matrix2 <- as.matrix(read.table(paste(local, "P16_C14C15/Translation_matrix/Matrix_Greg.txt", sep = ""), header=F))
-
-trajectory <- "Output_traj.xyz"
-```
-## Full
-```{r}
 # local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
-# local <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
 # 
-# folders <- "P16_C14C15/"
-# # "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
-# # "users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/"
+# folders <- "P16_C14C15/Decimated/"
 # 
-# file <- "Returns_and_gpstime_corrected"
+# file <- "Subsampled_Returns_and_gpstime_corrected"
 # # "UAV_sampletowork" # petit jeu de données
 # # "UAV_C19C20_translated"
 # 
-# matrix1 <- as.matrix(read.table(paste(local, folders, "Translation_matrix/Matrix_cor1.txt", sep = ""), header=F))
-# matrix2 <- as.matrix(read.table(paste(local, folders, "Translation_matrix/Matrix_Greg.txt", sep = ""), header=F))
+# matrix1 <- as.matrix(read.table(paste(local, "P16_C14C15/Translation_matrix/Matrix_cor1.txt", sep = ""), header=F))
+# matrix2 <- as.matrix(read.table(paste(local, "P16_C14C15/Translation_matrix/Matrix_Greg.txt", sep = ""), header=F))
 # 
 # trajectory <- "Output_traj.xyz"
+
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateLaz.R")
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateTraj.R")
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+```
+## Full
+```{r}
+local <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
+
+folders <- "P16_C14C15/"
+# "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
+# "users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/"
+
+file <- "Returns_and_gpstime_corrected"
+# "UAV_sampletowork" # petit jeu de données
+# "UAV_C19C20_translated"
+
+matrix1 <- as.matrix(read.table(paste(local, folders, "Translation_matrix/Matrix_cor1.txt", sep = ""), header=F))
+matrix2 <- as.matrix(read.table(paste(local, folders, "Translation_matrix/Matrix_Greg.txt", sep = ""), header=F))
+
+trajectory <- "Output_traj.xyz"
+
+source("D:/UAV_Vincyane/TranslateLaz.R")
+source("D:/UAV_Vincyane/TranslateTraj.R")
+source("D:/UAV_Vincyane/ComputeScanAngle.R")
 ```
 
 
@@ -74,8 +81,6 @@ folders <- paste(folders,"Processed/", sep = "")
 
 # Translate the point cloud
 ```{r}
-source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateLaz.R")
-# source("D:/UAV_Vincyane/TranslateLaz.R")
 las1 <- TranslateLaz(las0, matrix1, suffix = "_local")
 range(las1@data$X);range(las1@data$Y)
 las1@data[, `:=`(X = X-285000.00 , Y = Y-581000.00)]
@@ -98,9 +103,6 @@ rm(las1,las0, las2); gc()
 
 # Trajectory translation on R
 ```{r}
-# source("D:/UAV_Vincyane/TranslateTraj.R")
-source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateTraj.R")
-
 # Translate
 Trans1 <- TranslateTraj(traj, matrix1)
 
@@ -155,8 +157,6 @@ rm(new_las) ; gc()
 
 # Compute the scan angles
 ```{r}
-source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
-# source("D:/UAV_Vincyane/ComputeScanAngle.R")
 # rm(laz_scanAngles)
 laz_scanAngles <- ComputeScanAngle(las_crop, traj)
 # view(laz_scanAngles@data)
@@ -164,10 +164,6 @@ range(laz_scanAngles@data$ScanAngleRank, na.rm =T)
 hist(laz_scanAngles@data$ScanAngleRank) # 0 - 99
 
 writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = "")) # # coord checked, spatialisation checked
-```
-
-```{r}
-rm(las_crop); gc()
 ```
 
 # Filter < 2m range and angles < 45°
@@ -188,7 +184,7 @@ writeLAS(laz_scanAngles, paste(local,folders,file, "_AnglesandZ_filtered.laz", s
 ```
 
 ```{r}
-rm(laz_crop)
+rm(laz_crop) ; gc()
 ```
 
 # Remove outliers 
@@ -249,10 +245,6 @@ https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point
 # writeLAS(laz_OutliersRemoved, paste(local,folders,file, "_OutliersRemoved.laz", sep = ""))
 ```
 
-```{r}
-rm(laz_scanAngles)
-```
-
 # Classification des points sols avec lastools 
 https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terrain-mnt-avec-lastools/
 
@@ -304,6 +296,7 @@ LASrun <- LAStool('lasground_new', inFiles,
 # ou avec lidR
 # classify_ground(laz_OutliersRemoved, algorithm, last_returns = TRUE) # pmf: , csf: , mcc:  
 ```
+
 # After classification on CloudCompare, bind laz
 ```{r}
 # subplot <- "UAV_C19C20"
@@ -448,6 +441,8 @@ ggplot() +
 
 # ggsave(paste("ALS-", file, "_2023_DEM_difference2.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
+
+--------------------------------------------------------------------------------
 # Fusion
 
 ## Merge DEMs
