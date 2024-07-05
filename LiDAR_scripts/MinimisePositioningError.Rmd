@@ -112,7 +112,149 @@ alt <- extract(MNT, dataUTMsf) %>% # extract z
 dataxyz <- dataUTM %>% cbind(alt)
 ```
 
+# Coordinates in local positions (use VOP)
 ```{r}
-write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_UTMxyz.csv")
+# path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_UTMxyz.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"
+
+dataxyz <- as.data.table(dataxyz)
+# dataxyz <- as.data.table(read.csv(path))
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+matrix <- as.matrix(dataxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- cbind(datalocal,dataxyz[,Zutm])[, -c(3,4)] # add Zutm
+
+ggplot() +
+  geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.1) 
+
 ```
 
+```{r}
+write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_local.csv")
+```
+
+```{r}
+# library(AMAPVox)
+# 
+# xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/XML/Light/P16_2023_4ha_buffer_LowAlt_LAI2200_coordsimulations_intensity2m.xml"
+# 
+# # For the 1st time
+# AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g") # pour allouer 16Go de RAM # 
+
+```
+
+# After AMAPVox
+```{r}
+Read_LAI2200_Transfile <- function(path){
+  data <- read_table(path) %>% 
+    # mutate(LiDAR = "HighAlt") %>% 
+    rename(Transmittance = transmittance) %>% 
+    select(-c(position.ID, pathLength, isOut, elevation, cross_NA))
+}
+```
+
+```{r}
+LiDAR <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_LAI2200sim_coordsimulations_intensity2m_test.txt"))
+```
+
+```{r}
+LiDAR <- LiDAR %>% 
+  group_by(`position.x`, `position.y`, `position.z`, ring) %>%
+  mutate(MeanTransmittance_LowInt2m = mean(Transmittance)) %>%
+  mutate(SdTransmittance_LowInt2m = sd(Transmittance)) %>%
+  mutate(SeTransmittance_LowInt2m = plotrix::std.error(Transmittance)) %>%
+  ungroup() %>%
+  select(-c(Transmittance, azimut)) %>%
+  unique() 
+
+```
+
+## Local to UTM coord (attention souci coordonnées locales vs UTM)
+```{r}
+# Lecture matrice de transformation
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+# Apply inverse of VOP matrix to convert back to UTM
+LiDAR<-setDT(LiDAR)
+xyz <- tcrossprod(as.matrix(LiDAR[, .(position.x, position.y, position.z, c=1)]), solve(VOP))
+LiDAR[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
+LiDAR <- setDF(LiDAR) %>% rename(Ring= ring) %>%
+  mutate(Xutm = round(Xutm),
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+rm(VOP,xyz)
+```
+
+## Load LAI2200 data
+```{r, include = F}
+LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
+LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+
+names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
+names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
+
+LAI2200 <- LAI2200_coord %>% 
+  left_join(LAI2200_data, by= c("Transect", "Id")) %>% 
+  mutate(Xutm = round(Xutm), 
+         Yutm = round(Yutm),
+         Zutm = round(Zutm))
+
+nrow(unique(LAI2200 %>% select(Xutm,Yutm,Zutm))) # 45 <- 20+26 LAI2200 dont 1 en commun
+
+rm(LAI2200_coord)
+```
+
+```{r}
+LAI2200 <- LAI2200 %>%
+  rename(MeanTransmittance_LAI2200 = Transmittance_mean) %>% # mean
+  group_by(Transect, Id, Ring) %>%
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(MeanTransmittance_LAI2200)) %>% # standard error
+  ungroup() %>% 
+  select(Sensor,Transect,Id, Xutm,Yutm, Zutm, Ring, MeanTransmittance_LAI2200, SeTransmittance_LAI2200) %>% 
+  unique()
+```
+
+## Combine LiDAR and LAI2200 data
+```{r}
+LAI2200_LiDAR <- LAI2200 %>% 
+  mutate(Ring = case_when(
+    Ring == "Ring1" ~ 1,
+    Ring == "Ring2" ~ 2,
+    Ring == "Ring3" ~ 3,
+    Ring == "Ring4" ~ 4,
+    Ring == "Ring5" ~ 5)) %>% 
+  left_join(LiDAR, by= c("Xutm","Yutm","Zutm", "Ring"))
+
+NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
+```
+
+```{r}
+rm(NA_table)
+```
+
+
+
+# Compute differences
+```{r}
+# names(LAI2200_LiDAR)
+LAI2200_LiDAR <- LAI2200_LiDAR %>% 
+  select(Sensor,Transect,Id, Xutm,Yutm, Ring, MeanTransmittance_LAI2200, Transmittance_sd,
+         MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m) %>%
+  unique() %>% 
+  # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
+  mutate(Transmittance_LowInt2mvsLAI2200 = MeanTransmittance_LowInt2m - MeanTransmittance_LAI2200) 
+```
+
+```{r}
+range(LAI2200_LiDAR$Transmittance_HighInt2mvsLAI2200) # -0.54124286  0.06917472
+range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.49684541  0.06841737 : le plus proche du lAI2200
+range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 : le moins proche du lAI2200 (sousestime le plus)
+
+range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
+range(LAI2200_LiDAR$Transmittance_LowEqual2mvsLAI2200) # -0.4410783  0.1079312 : surrestime le plus
+range(LAI2200_LiDAR$Transmittance_LowInt2mvsLowEqual2m) # -0.0703229895 -0.0001377847
+range(LAI2200_LiDAR$Transmittance_HighInt2mvsHighEqual2m) # -0.047436156  0.005860184
+```
