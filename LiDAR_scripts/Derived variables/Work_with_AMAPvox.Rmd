@@ -33,16 +33,28 @@ library(sf)
 library(corrplot)
 library(RColorBrewer)
 ```
+# Paths
+```{r}
+local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
+
+folders <- 
+  # "P16_C14C15/Processed/"
+  "P16_C19C20/Processed/"
+
+file <-
+  # "UAV_C14C15"
+"UAV_C19C20"
+```
 
 # Load points cloud
 ctg : catalog of laz files
 ```{r}
 # Si en dalles :
-ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
+# ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_lastoolsclassif.laz") # décimé
-# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_retranslated_lastoolsclassif.laz")
+# ST <- readLAS(paste(local,"P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_lastoolsclassif.laz", sep="") # décimé
+ST <- readLAS(paste(local,folders, "Returns_and_gpstime_corrected_lastoolsclassif.laz", sep=""))
 # UAV_C19C20_retranslated_lastoolsclassif
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_retranslated_lastoolsclassif.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
@@ -53,7 +65,7 @@ crs(ST) # no crs
 ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
 lidR::crs(ST)
 
-plot(ST)
+# plot(ST)
 ```
 
 # Extraire la zone d'intéret dont buffer (données classifiées dallées)
@@ -76,31 +88,33 @@ ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 # Clip the point cloud in region of interest
 ```{r, crop laz}
 PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
-ST;PC 
+ST;PC
+```
+
+```{r}
+rm(ST);gc()
+```
+
+# pas toujours nécessaire
+```{r, crop laz}
 plot(PC)
 
 ## For 1 file
 str(PC) # List of 4 las
 
 # Join the 4 las if there are different of each others
-rm(ST)
-gc()
 # usethis::edit_r_environ()
 PCall <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
 
 # or if only the first is not empty
 PC <- PC[[1]]
-# lidR::plot(PC) 
+# lidR::plot(PC)
 ```
 
 # Enlever le bruit (sous sol et au dessus canopée) et reclassifier si besoin
 ```{r}
 table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5, non-classified = 1
 PC@data <- PC@data[Classification != 7,]
-
-# Reclassif
-PC@data[, Classification := ifelse(Classification == 1L, 3L, Classification)] # 1 -> 3 veg  
-lidR::plot(PC) 
 ```
 
 # Crop the DEM in region of interest
@@ -110,13 +124,11 @@ ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) # crs
 
 # Modèle numérique de terrain
-file <- "UAV_C19C20" # "UAV_C14C15"
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc""
-mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_DEM.tif", sep = "")) # decimated
-# mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/",file,"_DEM.tif", sep = ""))
+# mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_DEM.tif", sep = "")) # decimated
+mnt <- rast(paste(local,folders,"Returns_and_gpstime_corrected_DEM.tif", sep = ""))
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc"
-
 
 ggplot() + 
   geom_spatraster(data = mnt, aes(fill = Z)) + # mnt_roi36ha_1m # dtm2023 ; MNT_0.5m_IRD_500m_Paracou_284000_579500
@@ -142,7 +154,7 @@ ggplot() +
 ggsave(paste(file, "_DEM_1m_crop.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 writeRaster(raster(mntROI),
-            paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_C14C15_decimated_buffer.asc", sep = ""),
+            paste(local,"AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
             format="ascii", overwrite=T) # decimated
 
 # writeRaster(raster(mntROI),
@@ -273,6 +285,13 @@ PC@data$initial_intensity <- NULL
 
 # Rectifier les réflectances pour pouvoir prendre en compte les propriétés optiques des matériaux dans le calcul de la transmittance dans AMAPVox
 ```{r}
+# Reclassif que pour UAV
+PC@data[, Classification := ifelse(Classification == 1L, 3L, Classification)] # 1 -> 3 veg 
+table(PC@data$Classification)
+# lidR::plot(PC) 
+```
+
+```{r}
 # PC <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
 
 means <- PC@data[NumberOfReturns == 1, .(mean=mean(Intensity)), by = Classification] # Reflectance mean by classification (veg, ground)
@@ -285,7 +304,7 @@ PC@data <- PC@data %>%
 
 table(PC@data$Classification)
 
-writeLAS(PC, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C19C20_buffer_intensitycor.laz")
+writeLAS(PC, paste(local,"AMAPVox/LAZ/P16_2023_",file,"_buffer_intensitycor.laz", sep=""))
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"

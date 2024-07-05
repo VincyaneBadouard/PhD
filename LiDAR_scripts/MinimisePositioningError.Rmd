@@ -17,39 +17,45 @@ Décaller
 ```{r, include = F}
 library(tidyverse)
 library(sf)
+library(terra)
+library(data.table)
+library(tidyterra)
 ```
 
 ```{r, include = F}
 LAI2200_coord <- as.data.frame(read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv")) # LAI2200 sensors coordinates
 # names(LAI2200_coord)
-LAI2200_coord <- LAI2200_coord %>% select(x,y)
+LAI2200_coord <- LAI2200_coord %>% select(Id, x,y)
 nrow(LAI2200_coord) # 46
 ```
 
 # Generate a grid of 0.5 res and 2m max
 ```{r}
-est <- data.frame(outer(LAI2200_coord$x, seq(0, 2, by=0.5), FUN = '+'),
-                     y=LAI2200_coord$y)
-ouest <- data.frame(outer(LAI2200_coord$x, seq(0, 2, by=0.5), FUN = '-'),
-                     y=LAI2200_coord$y)
-
-nord <- data.frame(outer(LAI2200_coord$y, seq(0, 2, by=0.5), FUN = '+'),
-                     x=LAI2200_coord$x)
-sud <- data.frame(outer(LAI2200_coord$y, seq(0, 2, by=0.5), FUN = '-'),
-                     x=LAI2200_coord$x)
+est <- data.frame(Id=LAI2200_coord$Id,
+                  outer(LAI2200_coord$x, seq(0, 2, by=0.5), FUN = '+'),
+                  y=LAI2200_coord$y)
+ouest <- data.frame(Id=LAI2200_coord$Id,
+                    outer(LAI2200_coord$x, seq(0, 2, by=0.5), FUN = '-'),
+                    y=LAI2200_coord$y)
 
 x <- rbind(est, ouest) # 46*2 =92
-y <- rbind(nord, sud) 
 
 x <- pivot_longer(x,cols=X1:X5, names_to=NULL, values_to="x") # 46*2*5 = 460
-y <- pivot_longer(y,cols=X1:X5, names_to=NULL, values_to="y")
 
-data <- rbind(x,y)
+x <- x %>%
+  cbind(data.frame(outer(x$y, seq(0, 2, by=0.5), FUN = '+'))) %>%
+  rename_with(.fn = tolower, .cols = X1:X5) %>% 
+  cbind(data.frame(outer(x$y, seq(0, 2, by=0.5), FUN = '-')))
+
+x <- pivot_longer(x,cols=x1:X5, names_to=NULL, values_to="Y") %>% select(-y) %>% rename(y=Y)
+
+data <- x
 ```
 
 ```{r}
 ggplot() +
   geom_point(data=data, aes(x = x, y = y), color = "red",  size = 0.1)+
+  geom_point(data=LAI2200_coord, aes(x = x, y = y), color = "black",  size = 0.1)+
   coord_fixed(ratio=1)
 ```
 
@@ -82,13 +88,13 @@ ggplot() +
   geom_sf(data = dataUTMsf, col = "red", size = 0.1) +
   ggtitle("Paracou P16 - LAI2200 grid simulation UTM")
 
-# ggsave("Paracou_P16_LAI2200_grid_simulation__UTM_positions.png",
+# ggsave("Paracou_P16_LAI2200_grid_simulation_UTM_positions.png",
 #          path = "D:/Mes Donnees/PhD/Figures/Sensors",
 #          width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
-# write.csv(LAI2200UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
+# write.csv(dataUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
 ```
 
 # Extract Z coord MNT to Points
@@ -107,6 +113,6 @@ dataxyz <- dataUTM %>% cbind(alt)
 ```
 
 ```{r}
-write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_UTMxyz.csv")
+write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_UTMxyz.csv")
 ```
 

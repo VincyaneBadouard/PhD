@@ -44,11 +44,12 @@ library(data.table)
 ```
 ## Full
 ```{r}
-local <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
+# local <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
+local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
 
-folders <- "P16_C14C15/"
-# "users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/"
-# "users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/"
+folders <- 
+  "P16_C19C20/"
+# "P16_C14C15/"
 
 file <- "Returns_and_gpstime_corrected"
 # "UAV_sampletowork" # petit jeu de données
@@ -62,6 +63,17 @@ trajectory <- "Output_traj.xyz"
 source("D:/UAV_Vincyane/TranslateLaz.R")
 source("D:/UAV_Vincyane/TranslateTraj.R")
 source("D:/UAV_Vincyane/ComputeScanAngle.R")
+
+LAStoolsDir =  "D:/Program/LAStools/bin/"
+# LAStoolsDir =  "D:/Program Files/LAStools/bin/"
+```
+
+```{r}
+ROI <- terra::vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp") # interest zone + 100m buffer
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+
+mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
 ```
 
 
@@ -161,7 +173,9 @@ rm(new_las) ; gc()
 laz_scanAngles <- ComputeScanAngle(las_crop, traj)
 # view(laz_scanAngles@data)
 range(laz_scanAngles@data$ScanAngleRank, na.rm =T)
-hist(laz_scanAngles@data$ScanAngleRank) # 0 - 99
+hist(laz_scanAngles@data$ScanAngleRank) # 0 - 162
+
+laz_scanAngles@data <- laz_scanAngles@data[ScanAngleRank<=99,] # 99 to be 8 bits
 
 writeLAS(laz_scanAngles, paste(local,folders,file, "_scanAngles.laz", sep = "")) # # coord checked, spatialisation checked
 ```
@@ -184,7 +198,7 @@ writeLAS(laz_scanAngles, paste(local,folders,file, "_AnglesandZ_filtered.laz", s
 ```
 
 ```{r}
-rm(laz_crop) ; gc()
+rm(las_crop) ; gc()
 ```
 
 # Remove outliers 
@@ -202,7 +216,6 @@ https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point
 # root <- 
 #   "//amap-data.cirad.fr/work/"
 # # "Y:/"
-# mnt <- rast(paste(root,"users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc", sep = "")) # de lALS ? croppé ?
 # plot(mnt)
 ```
 
@@ -255,8 +268,6 @@ https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terra
 
 ## Define the path and the function for lastools executables
 ```{r}
-LAStoolsDir =  "D:/Program/LAStools/bin/"
-
 ## Define the R function that calls lastools executables
 LAStool <- function(tool, inputFile, ...){
   cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...) # -i in.laz
@@ -268,16 +279,6 @@ LAStool <- function(tool, inputFile, ...){
 
 ## In and output
 ```{r}
-# //amap-data.cirad.fr\work\users\VincyaneBadouard\Lidar\HovermapUAV2023\P16_C19C20/Output_subsampled_laz1_4.laz
-# Define las/laz files to be processed
-# inFiles = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz"
-# subsample <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz")
-# unique(subsample@data$Classification)
-
-# inFiles = paste(local,folders, file, "_OutliersRemoved.laz", sep = "" ) # _OutliersRemoved
-# outFile = paste(file, "_GroundClassif_las.laz", sep = "" )
-
-# after retranslation
 inFiles = paste(local,folders, file, "_AnglesandZ_filtered.laz", sep = "" )
 outFile = paste(file, "_lastoolsclassif.laz", sep = "" )
 ```
@@ -336,9 +337,9 @@ laz_GroundClassif <- readLAS(paste(local,folders, file, "_lastoolsclassif.laz", 
 table(laz_GroundClassif@data$Classification) # 2 = sol
 # plot(laz_GroundClassif, color = "Classification") # points sols trop hauts !
 
-range(laz_GroundClassif$Z) # 4.783 63.437
-range(laz_GroundClassif@data[Classification == 2L,]$Z) # Points sol: 4.783 37.96
-range(laz_GroundClassif@data[Classification == 1L,]$Z) # Points vegetation: 5.073 63.437
+range(laz_GroundClassif$Z) # 4.642 65.534
+range(laz_GroundClassif@data[Classification == 2L,]$Z) # Points sol: 4.642 32.813
+range(laz_GroundClassif@data[Classification == 1L,]$Z) # Points vegetation: 4.642 65.534
 
 # presque meme résultat entre lastools et cloudcompare
 ```
@@ -388,9 +389,6 @@ raster::writeRaster(UAV_DEM, file.path(paste(local, folders, file, "_DEM.tif", s
 # UAV_DEM <- raster(paste(local, folders, file, "_DEM.tif", sep = ""))
 
 # Region of Interest (ROI)
-ROI <- terra::vect(paste(root,"users/VincyaneBadouard/Lidar/ALS2023/Plot16_4ha_buffer.shp", sep = "")) # interest zone + 100m buffer
-ROI <- st_as_sf(ROI) # as sf object
-ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 crs(UAV_DEM) <- crs(ROI)
 
 ggplot() + 
@@ -402,7 +400,7 @@ ggplot() +
   theme_classic() +
   coord_sf()
 
-# ggsave(paste(file, "_DEM2_1m.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave(paste(file, "_DEM2_1m.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Crop mnt (9ha)
@@ -439,16 +437,21 @@ ggplot() +
   theme_classic() +
   coord_sf()
 
-# ggsave(paste("ALS-", file, "_2023_DEM_difference2.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave(paste("ALS-", file, "_2023_DEM_difference2.png", sep = ""), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+```{r}
+rm(laz_GroundClassif, mnt, mntROI, matrix1, matrix2, UAV_DEM, UAV_DEMROI, diffmnt) ; gc()
 ```
 
 --------------------------------------------------------------------------------
 # Fusion
+**A faire après les traitements de préparation pour AMAPVox**
 
 ## Merge DEMs
 ```{r}
-mnt_C14C15 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_C14C15_buffer.asc")
-mnt_C19C20 <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_C19C20_buffer.asc")
+mnt_C14C15 <- rast(paste(local,"AMAPVox/MNT/dtm2023_4ha_UAV_C14C15_buffer.asc", sep=""))
+mnt_C19C20 <- rast(paste(local,"AMAPVox/MNT/dtm2023_4ha_UAV_C19C20_buffer.asc", sep=""))
 
 mnt_UAV <- raster::merge(mnt_C14C15, mnt_C19C20, first = T)
 crs(mnt_UAV) <- crs(ROI)
@@ -485,9 +488,9 @@ LAStool <- function(tool, inputFile, ...){
 }
 
 # Define las/laz files to be processed
-inFiles <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ", '/*.laz', sep='') # files
+inFiles <- paste(local, "AMAPVox/LAZ", '/*.laz', sep='') # files
 outFile = "P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz"
-outDir <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ"
+outDir <- paste(local, "AMAPVox/LAZ", sep='')
 
 # Merge files
 LASrun <- LAStool('lasmerge64', inFiles,
@@ -500,12 +503,12 @@ LASrun <- LAStool('lasmerge64', inFiles,
 
 ## Merge trajectories
 ```{r}
-traj_C14C15 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Traj/UAV_C14C15_traj_retranslated.xyz")
-traj_C19C20 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Traj/UAV_C19C20_traj_retranslated.xyz")
+traj_C14C15 <- fread(paste(local,"AMAPVox/Traj/UAV_C14C15_traj_retranslated.xyz", sep=""))
+traj_C19C20 <- fread(paste(local,"AMAPVox/Traj/UAV_C19C20_traj_retranslated.xyz", sep=""))
 
 traj_UAV <- rbind(traj_C14C15, traj_C19C20)
 
-fwrite(traj_UAV, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Traj/UAV_P16_4ha_traj.txt")
+fwrite(traj_UAV, paste(local,"AMAPVox/Traj/UAV_P16_4ha_traj.txt", sep=""))
 ```
 
 
