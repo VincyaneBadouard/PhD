@@ -331,4 +331,35 @@ ggsave("P16_2023_4ha_Mimimum_transmittances_LowInt2m_diff_simulations.png",
        path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
        width = 30, height = 35, units = "cm", dpi=800, bg="white")
 ```
+```{r}
+UTM <- Betters %>% 
+  select(Transect, Id, Xutm.sim, Yutm.sim, Zutm.sim)
+```
 
+```{r}
+write.csv(UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_bettercoord_UTMxyz.csv")
+```
+
+# Coordinates in local positions (use VOP)
+```{r}
+# path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_UTMxyz.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv"
+
+UTM <- as.data.table(UTM)
+# UTM <- as.data.table(read.csv(path))
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+matrix <- as.matrix(UTM[, `:=`(c = 0 , d = 1)][,.(Xutm.sim, Yutm.sim, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- cbind(datalocal,UTM[,Zutm.sim])[, -c(3,4)] # add Zutm
+
+ggplot() +
+  geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.1) 
+
+```
+
+```{r}
+write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_bettercoord_local.csv")
+```
