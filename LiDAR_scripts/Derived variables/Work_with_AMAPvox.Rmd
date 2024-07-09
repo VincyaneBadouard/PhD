@@ -475,6 +475,7 @@ write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 library(AMAPVox)
 
 # For the 1st time
+AMAPVox::run()
 AMAPVox::run(jvm.option = "-Xms16g") # pour allouer 16Go de RAM # 
 
 AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4")  

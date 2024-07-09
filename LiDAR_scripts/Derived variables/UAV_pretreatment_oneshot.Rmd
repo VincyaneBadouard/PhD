@@ -186,6 +186,8 @@ UAV altitude flight: 85m
 # laz_scanAngles <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = ""))
 laz_scanAngles@data <- laz_scanAngles@data[ScanAngleRank<=45,]
 laz_scanAngles@data <- laz_scanAngles@data[Z<=80,]
+laz_scanAngles@data <- laz_scanAngles@data[Range>2,] # enlever le drone
+
 
 
 # laz_angles_filtered <- readLAS(paste(local,folders,file, "_scanAngles.laz", sep = ""),

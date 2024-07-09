@@ -25,16 +25,18 @@ library(tidyterra)
 ```{r, include = F}
 LAI2200_coord <- as.data.frame(read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv")) # LAI2200 sensors coordinates
 # names(LAI2200_coord)
-LAI2200_coord <- LAI2200_coord %>% select(Id, x,y)
+LAI2200_coord <- LAI2200_coord %>% select(Transect, Id, x,y)
 nrow(LAI2200_coord) # 46
 ```
 
 # Generate a grid of 0.5 res and 2m max
 ```{r}
-est <- data.frame(Id=LAI2200_coord$Id,
+est <- data.frame(Transect = LAI2200_coord$Transect,
+                  Id=LAI2200_coord$Id,
                   outer(LAI2200_coord$x, seq(0, 2, by=0.5), FUN = '+'),
                   y=LAI2200_coord$y)
-ouest <- data.frame(Id=LAI2200_coord$Id,
+ouest <- data.frame(Transect = LAI2200_coord$Transect,
+                    Id=LAI2200_coord$Id,
                     outer(LAI2200_coord$x, seq(0, 2, by=0.5), FUN = '-'),
                     y=LAI2200_coord$y)
 
@@ -93,10 +95,6 @@ ggplot() +
 #          width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
-```{r}
-# write.csv(dataUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
-```
-
 # Extract Z coord MNT to Points
 ```{r}
 MNT <- terra::rast("//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/rasters/PARACOU2023_DTM_1m.tif") # MNT
@@ -110,6 +108,10 @@ alt <- extract(MNT, dataUTMsf) %>% # extract z
   mutate(Zutm = Zutm +1) # 1 m above the ground
 
 dataxyz <- dataUTM %>% cbind(alt)
+```
+
+```{r}
+write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_UTMxyz.csv")
 ```
 
 # Coordinates in local positions (use VOP)
@@ -136,6 +138,7 @@ ggplot() +
 write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_local.csv")
 ```
 
+# AMAPVox
 ```{r}
 # library(AMAPVox)
 # 
@@ -172,20 +175,36 @@ LiDAR <- LiDAR %>%
 
 ```
 
-## Local to UTM coord (attention souci coordonnées locales vs UTM)
+## Local to UTM coord
 ```{r}
 # Lecture matrice de transformation
 VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
 
 # Apply inverse of VOP matrix to convert back to UTM
-LiDAR<-setDT(LiDAR)
+LiDAR <- setDT(LiDAR)
 xyz <- tcrossprod(as.matrix(LiDAR[, .(position.x, position.y, position.z, c=1)]), solve(VOP))
 LiDAR[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
-LiDAR <- setDF(LiDAR) %>% rename(Ring= ring) %>%
-  mutate(Xutm = round(Xutm),
-         Yutm = round(Yutm),
-         Zutm = round(Zutm))
+LiDAR <- setDF(LiDAR) %>% rename(Ring = ring) # %>%
+# mutate(Xutm = round(Xutm),
+#        Yutm = round(Yutm),
+#        Zutm = round(Zutm))
 rm(VOP,xyz)
+```
+
+# Add transect and Id info in LiDAR data
+```{r}
+grid <- read.csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_UTMxyz.csv") %>% 
+  select(Xutm,Yutm,Zutm, Transect, Id) %>% 
+  mutate(Xutm = round(as.numeric(Xutm), digits = 1)) %>% 
+  mutate(Yutm = round(as.numeric(Yutm), digits = 1)) %>% 
+  mutate(Zutm = round(as.numeric(Zutm), digits = 1))
+
+
+LiDAR <- LiDAR %>% 
+  mutate(Xutm = round(as.numeric(Xutm), digits = 1)) %>% 
+  mutate(Yutm = round(as.numeric(Yutm), digits = 1)) %>% 
+  mutate(Zutm = round(as.numeric(Zutm), digits = 1)) %>% 
+  left_join(grid, by= c("Xutm","Yutm","Zutm")) 
 ```
 
 ## Load LAI2200 data
@@ -196,11 +215,21 @@ LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") #
 names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
 names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
 
+LAI2200_data <- LAI2200_data %>% 
+  select(Transect, Id, Ring, Transmittance_mean, Transmittance_sd) 
+
 LAI2200 <- LAI2200_coord %>% 
+  select(Transect, Id, Xutm, Yutm, Zutm) %>% 
   left_join(LAI2200_data, by= c("Transect", "Id")) %>% 
-  mutate(Xutm = round(Xutm), 
-         Yutm = round(Yutm),
-         Zutm = round(Zutm))
+  mutate(Ring = case_when(
+    Ring == "Ring1" ~ 1,
+    Ring == "Ring2" ~ 2,
+    Ring == "Ring3" ~ 3,
+    Ring == "Ring4" ~ 4,
+    Ring == "Ring5" ~ 5)) %>% 
+  mutate(Xutm = round(as.numeric(Xutm), digits = 1)) %>% 
+  mutate(Yutm = round(as.numeric(Yutm), digits = 1)) %>% 
+  mutate(Zutm = round(as.numeric(Zutm), digits = 1)) 
 
 nrow(unique(LAI2200 %>% select(Xutm,Yutm,Zutm))) # 45 <- 20+26 LAI2200 dont 1 en commun
 
@@ -213,48 +242,93 @@ LAI2200 <- LAI2200 %>%
   group_by(Transect, Id, Ring) %>%
   mutate(SeTransmittance_LAI2200 = plotrix::std.error(MeanTransmittance_LAI2200)) %>% # standard error
   ungroup() %>% 
-  select(Sensor,Transect,Id, Xutm,Yutm, Zutm, Ring, MeanTransmittance_LAI2200, SeTransmittance_LAI2200) %>% 
+  select(Transect,Id, Xutm,Yutm, Zutm, Ring, MeanTransmittance_LAI2200, Transmittance_sd, SeTransmittance_LAI2200) %>% 
   unique()
 ```
 
 ## Combine LiDAR and LAI2200 data
 ```{r}
-LAI2200_LiDAR <- LAI2200 %>% 
-  mutate(Ring = case_when(
-    Ring == "Ring1" ~ 1,
-    Ring == "Ring2" ~ 2,
-    Ring == "Ring3" ~ 3,
-    Ring == "Ring4" ~ 4,
-    Ring == "Ring5" ~ 5)) %>% 
-  left_join(LiDAR, by= c("Xutm","Yutm","Zutm", "Ring"))
+LAI2200_LiDAR <- LiDAR %>% 
+  left_join(LAI2200, by= c("Transect", "Id", "Ring"), suffix = c(".sim", ".init"))
 
-NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
+# NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
 ```
 
 ```{r}
 rm(NA_table)
 ```
 
-
-
 # Compute differences
 ```{r}
 # names(LAI2200_LiDAR)
 LAI2200_LiDAR <- LAI2200_LiDAR %>% 
-  select(Sensor,Transect,Id, Xutm,Yutm, Ring, MeanTransmittance_LAI2200, Transmittance_sd,
-         MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m) %>%
+  select(-c(position.x, position.y, position.z)) %>%
   unique() %>% 
   # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
   mutate(Transmittance_LowInt2mvsLAI2200 = MeanTransmittance_LowInt2m - MeanTransmittance_LAI2200) 
 ```
 
 ```{r}
-range(LAI2200_LiDAR$Transmittance_HighInt2mvsLAI2200) # -0.54124286  0.06917472
-range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.49684541  0.06841737 : le plus proche du lAI2200
-range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 : le moins proche du lAI2200 (sousestime le plus)
-
-range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
-range(LAI2200_LiDAR$Transmittance_LowEqual2mvsLAI2200) # -0.4410783  0.1079312 : surrestime le plus
-range(LAI2200_LiDAR$Transmittance_LowInt2mvsLowEqual2m) # -0.0703229895 -0.0001377847
-range(LAI2200_LiDAR$Transmittance_HighInt2mvsHighEqual2m) # -0.047436156  0.005860184
+range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.6222959  0.3474904
 ```
+# Difference plots
+```{r}
+P16shp <- st_as_sf(terra::vect("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/Parcelles_Understory.shp"))
+
+LAI2200_LiDAR1 <- LAI2200_LiDAR %>% filter(Ring==1)
+
+LAI2200_LiDARsf <- st_as_sf(LAI2200_LiDAR1, coords = c('Xutm.sim','Yutm.sim'))
+LAI2200_LiDARsf <- st_set_crs(LAI2200_LiDARsf, crs(P16shp))
+
+# LAI2200_LiDARsf <- LAI2200_LiDARsf %>% filter(Ring==1)
+
+ggplot() +
+  # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
+  geom_sf(data = LAI2200_LiDARsf, aes(color = Transmittance_LowInt2mvsLAI2200), size = 0.5) + 
+  scale_color_gradient2(name = "Transmittance LowInt2m vs LAI2200",
+                        low="blue", high="red", mid = "white", midpoint = 0) +
+  theme(title=element_text(size=16),  axis.text=element_text(size=14),
+        legend.title=element_text(size=16), legend.text=element_text(size=16)) +
+  ggtitle("Paracou P16 4ha - Transmittances differences - simulations")
+
+ggsave("P16_2023_4ha_Transmittances_LowInt2m_diff_simulations.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
+       width = 30, height = 35, units = "cm", dpi=800, bg="white")
+```
+
+# Select the coordinates with the minimum difference
+```{r}
+Betters <- LAI2200_LiDAR %>%
+  filter(Ring==1) %>%  
+  group_by(Transect, Id) %>% 
+  # mutate(Better = ifelse(Transmittance_LowInt2mvsLAI2200 == min(Transmittance_LowInt2mvsLAI2200, T, F)))
+  # mutate(Better = sapply(seq_along(Transmittance_LowInt2mvsLAI2200),
+  #                        function(i) Transmittance_LowInt2mvsLAI2200[i] == min(Transmittance_LowInt2mvsLAI2200[-i])
+  # )) %>% 
+  slice(which.min(Transmittance_LowInt2mvsLAI2200)) %>% 
+  ungroup()
+```
+
+```{r}
+range(Betters$Transmittance_LowInt2mvsLAI2200) # -0.6222959  0.3474904 -> -0.622295850  0.005005201
+```
+
+# Difference plots
+```{r}
+Betters_sf <- st_as_sf(Betters, coords = c('Xutm.sim','Yutm.sim'))
+Betters_sf <- st_set_crs(Betters_sf, crs(P16shp))
+
+ggplot() +
+  # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
+  geom_sf(data = Betters_sf, aes(color = Transmittance_LowInt2mvsLAI2200), size = 3) + 
+  scale_color_gradient2(name = "Transmittance LowInt2m vs LAI2200",
+                        low="blue", high="red", mid = "white", midpoint = 0) +
+  theme(title=element_text(size=16),  axis.text=element_text(size=14),
+        legend.title=element_text(size=16), legend.text=element_text(size=16)) +
+  ggtitle("Paracou P16 4ha - Mimimum transmittances differences - simulations")
+
+ggsave("P16_2023_4ha_Mimimum_transmittances_LowInt2m_diff_simulations.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
+       width = 30, height = 35, units = "cm", dpi=800, bg="white")
+```
+
