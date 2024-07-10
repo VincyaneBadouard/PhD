@@ -20,6 +20,8 @@ library(sf)
 library(terra)
 library(data.table)
 library(tidyterra)
+library(corrplot)
+library(RColorBrewer)
 ```
 
 ```{r, include = F}
@@ -254,10 +256,6 @@ LAI2200_LiDAR <- LiDAR %>%
 # NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
 ```
 
-```{r}
-rm(NA_table)
-```
-
 # Compute differences
 ```{r}
 # names(LAI2200_LiDAR)
@@ -295,22 +293,38 @@ ggsave("P16_2023_4ha_Transmittances_LowInt2m_diff_simulations.png",
        path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
        width = 30, height = 35, units = "cm", dpi=800, bg="white")
 ```
+```{r}
+LAI2200_LiDARsf %>% 
+  filter(Transect=="LAY" & Id ==6) %>% 
+  ggplot() +
+  # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
+  geom_sf(aes(color = Transmittance_LowInt2mvsLAI2200), size = 3) + 
+  scale_color_gradient2(name = "Transmittance LowInt2m vs LAI2200",
+                        low="blue", high="red", mid = "white", midpoint = 0) +
+  theme(title=element_text(size=16),  axis.text=element_text(size=14),
+        legend.title=element_text(size=16), legend.text=element_text(size=16)) +
+  ggtitle("Paracou P16 4ha - Transmittances differences - simulations - LAY6")
+
+ggsave("P16_2023_4ha_Transmittances_LowInt2m_diff_simulations_LAY6.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
+       width = 30, height = 35, units = "cm", dpi=800, bg="white")
+```
 
 # Select the coordinates with the minimum difference
 ```{r}
 Betters <- LAI2200_LiDAR %>%
-  filter(Ring==1) %>%  
-  group_by(Transect, Id) %>% 
-  # mutate(Better = ifelse(Transmittance_LowInt2mvsLAI2200 == min(Transmittance_LowInt2mvsLAI2200, T, F)))
-  # mutate(Better = sapply(seq_along(Transmittance_LowInt2mvsLAI2200),
-  #                        function(i) Transmittance_LowInt2mvsLAI2200[i] == min(Transmittance_LowInt2mvsLAI2200[-i])
-  # )) %>% 
-  slice(which.min(Transmittance_LowInt2mvsLAI2200)) %>% 
+  filter(Ring==1 | Ring==2) %>% 
+  group_by(Transect, Id, Xutm.sim, Yutm.sim) %>% 
+  mutate(TransDiffR12 = sum(Transmittance_LowInt2mvsLAI2200)) %>% 
+  ungroup() %>% 
+  group_by(Transect, Id, Ring) %>% 
+  slice(which.min(abs(TransDiffR12))) %>% 
   ungroup()
 ```
 
 ```{r}
-range(Betters$Transmittance_LowInt2mvsLAI2200) # -0.6222959  0.3474904 -> -0.622295850  0.005005201
+range(Betters$Transmittance_LowInt2mvsLAI2200) # -0.6222959  0.3474904 -> -0.249562979  0.005005201 (filtre que Ring1)
+# filtre ring 1 et 2 : -0.24956298  0.06700863
 ```
 
 # Difference plots
@@ -318,26 +332,57 @@ range(Betters$Transmittance_LowInt2mvsLAI2200) # -0.6222959  0.3474904 -> -0.622
 Betters_sf <- st_as_sf(Betters, coords = c('Xutm.sim','Yutm.sim'))
 Betters_sf <- st_set_crs(Betters_sf, crs(P16shp))
 
-ggplot() +
-  # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
-  geom_sf(data = Betters_sf, aes(color = Transmittance_LowInt2mvsLAI2200), size = 3) + 
-  scale_color_gradient2(name = "Transmittance LowInt2m vs LAI2200",
-                        low="blue", high="red", mid = "white", midpoint = 0) +
-  theme(title=element_text(size=16),  axis.text=element_text(size=14),
-        legend.title=element_text(size=16), legend.text=element_text(size=16)) +
-  ggtitle("Paracou P16 4ha - Mimimum transmittances differences - simulations")
-
-ggsave("P16_2023_4ha_Mimimum_transmittances_LowInt2m_diff_simulations.png",
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
-       width = 30, height = 35, units = "cm", dpi=800, bg="white")
+for(R in c(1,2)){
+  print(Betters_sf %>% 
+          filter(Ring==R) %>% 
+          ggplot() +
+          # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
+          geom_sf(aes(color = Transmittance_LowInt2mvsLAI2200), size = 3) + 
+          scale_color_gradient2(name = "Transmittance LowInt2m vs LAI2200",
+                                low="blue", high="red", mid = "white", midpoint = 0) +
+          theme(title=element_text(size=16),  axis.text=element_text(size=14),
+                legend.title=element_text(size=16), legend.text=element_text(size=16)) +
+          ggtitle(paste("Paracou P16 4ha - Mimimum transmittances differences - simulations optR12 Ring",R, sep=""))
+  )
+  
+  ggsave(paste("P16_2023_4ha_Mimimum_transmittances_LowInt2m_diff_simulations_optR12_Ring",R,".png", sep=""),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
+         width = 30, height = 35, units = "cm", dpi=800, bg="white")
+}
 ```
+
 ```{r}
 UTM <- Betters %>% 
-  select(Transect, Id, Xutm.sim, Yutm.sim, Zutm.sim)
+  select(Transect, Id, Xutm.sim, Yutm.sim, Zutm.sim) %>% unique()
 ```
 
 ```{r}
 write.csv(UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_bettercoord_UTMxyz.csv")
+```
+
+```{r}
+LAI2200_LiDAR <-LAI2200_LiDAR %>% 
+  left_join(UTM, by=c("Transect", "Id"), suffix = c("_all", "_best")) %>% 
+  filter(Xutm.sim_all== Xutm.sim_best & Yutm.sim_all== Yutm.sim_best)
+```
+
+```{r}
+LAI2200_LiDAR %>% 
+  st_as_sf(coords = c('Xutm.sim_best','Yutm.sim_best')) %>% 
+  st_set_crs(crs(P16shp)) %>% 
+  filter(Ring==3) %>% 
+  ggplot() +
+  # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
+  geom_sf(aes(color = Transmittance_LowInt2mvsLAI2200), size = 3) + 
+  scale_color_gradient2(name = "Transmittance LowInt2m vs LAI2200",
+                        low="blue", high="red", mid = "white", midpoint = 0) +
+  theme(title=element_text(size=16),  axis.text=element_text(size=14),
+        legend.title=element_text(size=16), legend.text=element_text(size=16)) +
+  ggtitle("Paracou P16 4ha - Mimimum transmittances differences - simulations - Ring 3")
+
+ggsave("P16_2023_4ha_Mimimum_transmittances_LowInt2m_diff_simulations_Ring3.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
+       width = 30, height = 35, units = "cm", dpi=800, bg="white")
 ```
 
 # Coordinates in local positions (use VOP)
@@ -363,3 +408,175 @@ ggplot() +
 ```{r}
 write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_bettercoord_local.csv")
 ```
+
+# Profils en long avec optimisation pour comparer
+
+```{r}
+
+for(t in c("HOBO", "LAY")){
+  for(R in 1:5){
+    
+    idmax = max(LAI2200_LiDAR[LAI2200_LiDAR$Transect==t,]$Id) # last sensor Id
+    
+    print(
+      LAI2200_LiDAR %>% 
+        filter(Transect==t) %>% # LAY # HOBO
+        filter(Ring==R) %>%
+        ggplot(aes(x = Id)) +
+        # Inetnsity
+        geom_point(aes(y = MeanTransmittance_LowInt2m, colour = "Low altitude - Intens - 2m")) +
+        geom_line(aes(y = MeanTransmittance_LowInt2m, colour = "Low altitude - Intens - 2m")) +
+        geom_errorbar(aes(ymin=MeanTransmittance_LowInt2m-SeTransmittance_LowInt2m,
+                          ymax=MeanTransmittance_LowInt2m+SeTransmittance_LowInt2m, colour = "Low altitude - Intens - 2m"), width=.2) +
+       
+      geom_point(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200")) +
+        geom_line(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200"), linewidth = 1.2) +
+        geom_errorbar(aes(ymin=MeanTransmittance_LAI2200-SeTransmittance_LAI2200,
+                          ymax=MeanTransmittance_LAI2200+SeTransmittance_LAI2200, colour = "LAI2200"), width=.2) +
+        
+        scale_colour_manual(values = c("Low altitude - Intens - 2m" = "#56B4E9",
+                                       "LAI2200" = "#D55E00"),
+                            breaks=c("Low altitude - Intens - 2m", 
+                              "LAI2200")) +
+        
+        labs(title = paste(t," transect - Ring ",R), y="Mean transmittance", x="ID", color = "Acquisition") +
+        scale_x_continuous(breaks = seq(1:idmax)) + # 26 # 20
+  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+        theme_minimal()
+    )
+    ggsave(paste("P16_2023_4ha_Long_profile_",t,"_transect_Ring",R,"_se_LowAlt_Intensity2m_Coordoptim.png", sep=""),
+           path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Coord_optimised",
+           width = 25, height = 20, units = "cm", dpi=800, bg="white")
+  }
+}
+
+```
+
+
+# Profils en long (moyennes des Transmittances par acquisition, par ring)
+```{r}
+vars <- c("MeanTransmittance_LowInt2m","MeanTransmittance_LAI2200")
+
+LAI2200_LiDAR_ring <- LAI2200_LiDAR %>%
+  group_by(Ring) %>% # variables selon lesquelles grouper
+  summarise(across(c(all_of(vars)), # Variables à analyser
+                   list(mean = ~mean(.), # les stats
+                        sd = ~sd(.),
+                        se = ~plotrix::std.error(.)),
+                   .names = "{.col}_{.fn}"))
+
+LAI2200_LiDAR_ring %>% 
+  ggplot(aes(x = Ring)) +
+  
+  geom_errorbar(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
+                    ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se,
+                    colour = "LAI2200"), alpha =1, width=.2) +
+  # Intensity
+  geom_errorbar(aes(ymin=MeanTransmittance_LowInt2m_mean-MeanTransmittance_LowInt2m_se,
+                    ymax=MeanTransmittance_LowInt2m_mean+MeanTransmittance_LowInt2m_se,
+                    colour = "Low altitude - Intens - 2m"),alpha =1, width=.2) +
+
+# Intensity
+  geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
+  
+
+geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
+  
+  
+  scale_colour_manual(values = c("Low altitude - Intens - 2m" = "#56B4E9",
+                                 "LAI2200" = "#D55E00"),
+                      breaks=c("Low altitude - Intens - 2m", 
+                        "LAI2200")) +
+  theme_minimal() +
+  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+  labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
+
+ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_LowAlt_Intensity2m_Coordoptim.png", sep=""),
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Coord_optimised",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
+```
+
+# Each transect
+```{r}
+LAI2200_LiDAR_transect <- LAI2200_LiDAR %>%
+  group_by(Transect,Ring) %>% # variables selon lesquelles grouper
+  summarise(across(all_of(vars), # Variables à analyser
+                   list(mean = ~mean(.), # les stats
+                        sd = ~sd(.),
+                        se = ~plotrix::std.error(.)),
+                   .names = "{.col}_{.fn}"))
+
+for(t in c("HOBO", "LAY")){
+  
+  idmax = max(LAI2200_LiDAR[LAI2200_LiDAR$Transect==t,]$Id) # last sensor Id
+  
+  print(
+    LAI2200_LiDAR_transect %>% 
+      filter(Transect==t) %>% # LAY # HOBO
+      ggplot(aes(x = Ring)) +
+      geom_errorbar(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
+                        ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se,
+                        colour = "LAI2200"), alpha =1, width=.2) +
+      # Intensity
+      geom_errorbar(aes(ymin=MeanTransmittance_LowInt2m_mean-MeanTransmittance_LowInt2m_se,
+                        ymax=MeanTransmittance_LowInt2m_mean+MeanTransmittance_LowInt2m_se,
+                        colour = "Low altitude - Intens - 2m"),alpha =1, width=.2) +
+    # Intensity
+      geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
+      geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
+      geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
+      geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
+      
+      scale_colour_manual(values = c("Low altitude - Intens - 2m" = "#56B4E9",
+                                     "LAI2200" = "#D55E00"),
+                          breaks=c("Low altitude - Intens - 2m", 
+                                   "LAI2200")) +
+      theme_minimal() +
+  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+      labs(title = paste(t," transect"), y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
+  )
+  ggsave(paste("Long_profile_",t," transect","_MeanStandardErrorTransmittance_of_the_transect_byRing_LowAlt_Intensity2m_Coordoptim.png", sep=""),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Coord_optimised",
+         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+}
+```
+
+# Correlation trans lidar coord optimisée avec trans lai2200
+```{r}
+DF_cor_LiDARvsLAI2200 <- LAI2200_LiDAR %>% 
+  select(Ring, MeanTransmittance_LAI2200, MeanTransmittance_LowInt2m) %>%  
+  unique() %>% 
+  pivot_wider(names_from = Ring,
+              values_from = c(MeanTransmittance_LAI2200, MeanTransmittance_LowInt2m),
+              values_fn = list,
+              names_glue = "{.value}_Ring{Ring}") %>% 
+  unnest(everything()) # pcq les colonnes sont en listes
+
+names(DF_cor_LiDARvsLAI2200) <- str_remove(names(DF_cor_LiDARvsLAI2200), "MeanTransmittance_") # simplify the var names
+
+nrow(DF_cor_LiDARvsLAI2200)
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor_LiDARvsLAI2200))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Coord_optimised/Correlation_plot_LiDARLowAltInt2m_vs_LAI2200.png",
+    width = 1000, height = 743, pointsize=20)
+
+corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),  
+         type="upper",
+         # order="hclust",
+         addCoef.col = "white", # Add coefficient of correlation
+         tl.col="black", tl.cex = 1, tl.srt=45, #Text label color and rotation
+         number.cex = 1, # values
+         p.mat = Pval_corr, # croix pour pvalue
+         # hide correlation coefficient on the principal diagonal
+         diag=FALSE) 
+
+dev.off()
+```
+# Comparaison correlation avec et sans optimisation

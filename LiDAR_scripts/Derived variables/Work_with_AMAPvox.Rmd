@@ -475,7 +475,7 @@ write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 library(AMAPVox)
 
 # For the 1st time
-AMAPVox::run()
+# AMAPVox::run()
 AMAPVox::run(jvm.option = "-Xms16g") # pour allouer 16Go de RAM # 
 
 AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4")  
@@ -527,6 +527,34 @@ AMAPVox::plot(VX, variable.name = "attenuation_PPL_MLE") # ça a l'air mieux il 
 # 
 # writeVoxelSpace(VX, "//amap-data.cirad.fr/work/users/VincyaneBadouard/ALS2023/AMAVox_output_PAD")
 
+```
+
+# Pour UAV, crop vox and remove drone
+```{r}
+VX2m <- readVoxelSpace(
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox"
+ # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m.vox"
+ )
+View(VX2m@data)
+AMAPVox::plot(VX2m, variable.name = "ground_distance") 
+```
+
+## Remove drone path
+```{r}
+VX2m@data <- VX2m@data[ground_distance<61.52,]
+
+AMAPVox::plot(VX2m, variable.name = "ground_distance") 
+AMAPVox::plot(VX2m, variable.name = "nbSampling") 
+```
+
+## Crop vox
+```{r}
+VX2m <- AMAPVox::crop(VX2m, imin = (-70), imax = 170, jmin = (-150), jmax = 170)
+obj <- c(-70, -150, 0)
+names(obj) <- c("x", "y", "z")
+VX2m@header$mincorner <- obj
+
+AMAPVox::plot(VX2m, variable.name = "nbSampling")  
 ```
 
 # Fill empty voxels
