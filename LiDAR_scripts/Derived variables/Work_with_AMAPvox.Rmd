@@ -529,38 +529,105 @@ AMAPVox::plot(VX, variable.name = "attenuation_PPL_MLE") # ça a l'air mieux il 
 
 ```
 
-# Pour UAV, crop vox and remove drone
+# Pour UAV, crop vox and remove drone path
 ```{r}
-VX2m <- readVoxelSpace(
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox"
- # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m.vox"
+VX <- readVoxelSpace(
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox"
+ "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m.vox"
  )
-View(VX2m@data)
-AMAPVox::plot(VX2m, variable.name = "ground_distance") 
+# View(VX@data)
+AMAPVox::plot(VX, variable.name = "ground_distance") 
 ```
 
-## Remove drone path
 ```{r}
-VX2m@data <- VX2m@data[ground_distance<61.52,]
+# i, j, k = index not coordinates
+VX@data[, c("x", "y", "z") := getPosition(VX)[, .(x, y, z)]]
+# range(VX@data$x) ; range(VX@data$y)
 
-AMAPVox::plot(VX2m, variable.name = "ground_distance") 
-AMAPVox::plot(VX2m, variable.name = "nbSampling") 
+VX@data <- VX@data[x>(-90) & x<190 & y<190,][z<66,]
+
+AMAPVox::plot(VX, variable.name = "ground_distance") 
+AMAPVox::plot(VX, variable.name = "nbSampling") 
+
+VX20 <- VX
+VX20@data <- VX20@data[nbSampling < 20,]
+AMAPVox::plot(VX20, variable.name = "nbSampling")
 ```
 
-## Crop vox
 ```{r}
-VX2m <- AMAPVox::crop(VX2m, imin = (-70), imax = 170, jmin = (-150), jmax = 170)
-obj <- c(-70, -150, 0)
-names(obj) <- c("x", "y", "z")
-VX2m@header$mincorner <- obj
-
-AMAPVox::plot(VX2m, variable.name = "nbSampling")  
+writeVoxelSpace(VX, 
+                # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m_crop.vox"
+ "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
+                )
 ```
+
 
 # Fill empty voxels
 *voir Fill_empty_voxels.Rmd*
 
 Certains voxels (en bas de canopée) ne sont pas échantillonnés du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 27 voisins les plus proches**.
+
+# For UAV, merge UAV and ALS for a complete buffer
+crop vox to 4ha
+```{r}
+VX <- readVoxelSpace(
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_PadHLE_intensity2m.vox"
+ # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_PadHLE_intensity1m.vox"
+ )
+```
+
+```{r}
+vx <- VX@data
+
+vx[, c("X", "Y", "Z") := getPosition(VX)[, .(x, y, z)]]
+
+# Lecture matrice de transformation
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+Relativ2UTM <- function(data, VOP){
+  # Apply inverse of VOP matrix to convert back to UTM
+  xyz <- tcrossprod(as.matrix(data[, .(X, Y, Z, c=1)]), solve(VOP))
+  data[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
+  
+  data <- unique(data)
+  return(data)
+}
+
+vxUTM <- Relativ2UTM(vx, VOP)
+
+zone <- terra::vect("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/Parcelles_Understory.shp") # buffer plus grand pour éviter les effets de bords lors de la voxélisation
+zone <- st_as_sf(zone) # as sf object
+zone <- st_set_crs(zone, 2972)
+
+Crop <- function(data, zone){
+  datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
+  datasf <- st_set_crs(datasf, terra::crs(zone))
+  datacrop <- st_intersection(datasf, zone)
+  # XY <- st_coordinates(datacrop) # stock coordinates
+  # colnames(XY) <- c("Xutm", "Yutm") 
+  # st_geometry(datacrop) <- NULL # no more sf object
+  # datacrop <- cbind(datacrop, XY) # bind XY coord
+  return(datacrop)
+}
+
+vxUTM_crop <- Crop(vxUTM, zone)
+
+ggplot() + 
+  geom_sf(data = vxUTM_crop, col="blue") +
+  theme_classic() +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING"), col ="green")
+```
+
+```{r}
+st_geometry(datacrop) <- NULL
+# VX@data <- 
+
+```
+
+
+```{r}
+
+```
 
 # Generate light maps from a voxel space
 *voir LightMaps.Rmd*

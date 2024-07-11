@@ -136,7 +136,7 @@ Plot_LightUTM(Light_LowUTM, zone, buffer)
 ```{r}
 Crop <- function(data, zone){
   datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
-  datasf <- st_set_crs(datasf, crs(zone))
+  datasf <- st_set_crs(datasf, terra::crs(zone))
   datacrop <- st_intersection(datasf, zone)
   XY <- st_coordinates(datacrop) # stock coordinates
   colnames(XY) <- c("Xutm", "Yutm") 
