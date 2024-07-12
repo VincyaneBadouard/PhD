@@ -89,17 +89,25 @@ HighAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/use
 LowAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_LAI2200sim_intensity2m_test.txt"))
 HighAnnual_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_intensity1m_test.txt"))
 
+## UAV
+UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity2m_test.txt"))
+UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity1m_test.txt"))
+
+
 # Equal echo weighting 
-HighAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Equal_echo_2m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_Equalecho2m_test.txt"))
-LowAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Equal_echo_2m/P16_2023_4ha_buffer_LowAlt_LAI2200sim_equalecho2m_test.txt"))
+# HighAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Equal_echo_2m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_Equalecho2m_test.txt"))
+# LowAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Equal_echo_2m/P16_2023_4ha_buffer_LowAlt_LAI2200sim_equalecho2m_test.txt"))
 ```
 
 ```{r,eval = F}
 nrow(unique(HighAnnual_int2m %>% select(position.x,position.y,position.z))) # 45
 nrow(unique(LowAnnual_int2m %>% select(position.x,position.y,position.z))) # 45
 nrow(unique(HighAnnual_int1m %>% select(position.x,position.y,position.z))) # 45
-nrow(unique(HighAnnual_equal2m %>% select(position.x,position.y,position.z))) # 45
-nrow(unique(LowAnnual_equal2m %>% select(position.x,position.y,position.z))) # 45
+nrow(unique(UAV_int2m %>% select(position.x,position.y,position.z))) # 45
+nrow(unique(UAV_int1m %>% select(position.x,position.y,position.z))) # 45
+
+# nrow(unique(HighAnnual_equal2m %>% select(position.x,position.y,position.z))) # 45
+# nrow(unique(LowAnnual_equal2m %>% select(position.x,position.y,position.z))) # 45
 # 45 <- 20+26 LAI2200 dont 1 en commun
 ```
 
@@ -113,14 +121,21 @@ LiDAR <- LiDAR %>%
   rename(Transmittance_HighInt1m = Transmittance) %>% 
   unique()
 
-EqualEch <- HighAnnual_equal2m %>%
-  left_join(LowAnnual_equal2m, by= c("position.x", "position.y", "position.z", "ring", "azimut"), suffix = c("_HighEqual2m", "_LowEqual2m"))
+UAV <- UAV_int2m %>%
+  left_join(UAV_int1m, by= c("position.x", "position.y", "position.z", "ring", "azimut"), suffix = c("_UAVInt2m", "_UAVInt1m"))
 
 LiDAR <- LiDAR %>%
-  left_join(EqualEch, by= c("position.x", "position.y", "position.z", "ring", "azimut")) %>% 
+  left_join(UAV, by= c("position.x", "position.y", "position.z", "ring", "azimut")) %>% 
   unique()
 
-rm(HighAnnual_int2m, LowAnnual_int2m, HighAnnual_int1m, HighAnnual_equal2m, LowAnnual_equal2m, EqualEch, Read_LAI2200_Transfile)
+# EqualEch <- HighAnnual_equal2m %>%
+#   left_join(LowAnnual_equal2m, by= c("position.x", "position.y", "position.z", "ring", "azimut"), suffix = c("_HighEqual2m", "_LowEqual2m"))
+# 
+# LiDAR <- LiDAR %>%
+#   left_join(EqualEch, by= c("position.x", "position.y", "position.z", "ring", "azimut")) %>% 
+#   unique()
+
+rm(HighAnnual_int2m, LowAnnual_int2m, HighAnnual_int1m, HighAnnual_equal2m, LowAnnual_equal2m, EqualEch, Read_LAI2200_Transfile, UAV_int1m, UAV_int2m)
 ```
 
 # Rings & azimuts
@@ -154,14 +169,24 @@ LiDAR <- LiDAR %>%
   mutate(MeanTransmittance_HighInt1m = mean(Transmittance_HighInt1m)) %>%
   mutate(SdTransmittance_HighInt1m = sd(Transmittance_HighInt1m)) %>%
   mutate(SeTransmittance_HighInt1m = plotrix::std.error(Transmittance_HighInt1m)) %>%
-  # Equal echo
-  mutate(MeanTransmittance_HighEqual2m = mean(Transmittance_HighEqual2m)) %>%
-  mutate(SdTransmittance_HighEqual2m = sd(Transmittance_HighEqual2m)) %>%
-  mutate(SeTransmittance_HighEqual2m = plotrix::std.error(Transmittance_HighEqual2m)) %>%
   
-  mutate(MeanTransmittance_LowEqual2m = mean(Transmittance_LowEqual2m)) %>%
-  mutate(SdTransmittance_LowEqual2m = sd(Transmittance_LowEqual2m)) %>%
-  mutate(SeTransmittance_LowEqual2m = plotrix::std.error(Transmittance_LowEqual2m)) %>%
+  ## UAV
+  mutate(MeanTransmittance_UAVInt2m = mean(Transmittance_UAVInt2m)) %>%
+  mutate(SdTransmittance_UAVInt2m = sd(Transmittance_UAVInt2m)) %>% 
+  mutate(SeTransmittance_UAVInt2m = plotrix::std.error(Transmittance_UAVInt2m)) %>%
+  
+  mutate(MeanTransmittance_UAVInt1m = mean(Transmittance_UAVInt1m)) %>%
+  mutate(SdTransmittance_UAVInt1m = sd(Transmittance_UAVInt1m)) %>%
+  mutate(SeTransmittance_UAVInt1m = plotrix::std.error(Transmittance_UAVInt1m)) %>%
+  
+  # Equal echo
+  # mutate(MeanTransmittance_HighEqual2m = mean(Transmittance_HighEqual2m)) %>%
+  # mutate(SdTransmittance_HighEqual2m = sd(Transmittance_HighEqual2m)) %>%
+  # mutate(SeTransmittance_HighEqual2m = plotrix::std.error(Transmittance_HighEqual2m)) %>%
+  # 
+  # mutate(MeanTransmittance_LowEqual2m = mean(Transmittance_LowEqual2m)) %>%
+  # mutate(SdTransmittance_LowEqual2m = sd(Transmittance_LowEqual2m)) %>%
+  # mutate(SeTransmittance_LowEqual2m = plotrix::std.error(Transmittance_LowEqual2m)) %>%
   
   ungroup()
 ```
@@ -233,10 +258,6 @@ LAI2200_LiDAR <- LAI2200_LiDAR %>%
   group_by(Transect, Id, Ring) %>%
   mutate(MeanTransmittance_LAI2200 = mean(Transmittance_LAI2200)) %>% # mean
   mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance_LAI2200)) %>% # standard error
-  #   mutate(MeanTransmittance_High = mean(Transmittance_High)) %>% 
-  #   # mutate(SeTransmittance_High = plotrix::std.error(Transmittance_High)) %>% 
-  #   mutate(MeanTransmittance_Low = mean(Transmittance_Low)) %>%
-  #   # mutate(SeTransmittance_Low = plotrix::std.error(Transmittance_Low)) %>%
   ungroup()
 ```
 
@@ -247,13 +268,16 @@ LAI2200_LiDAR <- LAI2200_LiDAR %>%
 LAI2200_LiDAR <- LAI2200_LiDAR %>% 
   # select(-c("...1.x","...1.y")) %>% 
   select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,Transmittance_LAI2200, Transmittance_sd,
-         # Transmittance_HighInt2m,Transmittance_LowInt2m, Transmittance_HighInt1m,
-         # Transmittance_HighEqual2m,Transmittance_LowEqual2m,
          MeanTransmittance_HighInt2m, SdTransmittance_HighInt2m, SeTransmittance_HighInt2m,
          MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m,
          MeanTransmittance_HighInt1m, SdTransmittance_HighInt1m, SeTransmittance_HighInt1m,
-         MeanTransmittance_HighEqual2m, SdTransmittance_HighEqual2m, SeTransmittance_HighEqual2m,
-         MeanTransmittance_LowEqual2m, SdTransmittance_LowEqual2m, SeTransmittance_LowEqual2m) %>%
+         
+         MeanTransmittance_UAVInt2m, SdTransmittance_UAVInt2m, SeTransmittance_UAVInt2m,
+         MeanTransmittance_UAVInt1m, SdTransmittance_UAVInt1m, SeTransmittance_UAVInt1m,
+         
+         # MeanTransmittance_HighEqual2m, SdTransmittance_HighEqual2m, SeTransmittance_HighEqual2m,
+         # MeanTransmittance_LowEqual2m, SdTransmittance_LowEqual2m, SeTransmittance_LowEqual2m
+  ) %>%
   unique() %>% 
   # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
   mutate(Transmittance_LowvsHigh_2m =  MeanTransmittance_LowInt2m - MeanTransmittance_HighInt2m) %>% 
@@ -262,10 +286,14 @@ LAI2200_LiDAR <- LAI2200_LiDAR %>%
   mutate(Transmittance_HighInt1mvsLAI2200 = MeanTransmittance_HighInt1m -Transmittance_LAI2200) %>% 
   mutate(Transmittance_HighInt1mvsHigh2m = MeanTransmittance_HighInt1m -MeanTransmittance_HighInt2m) %>% 
   
-  mutate(Transmittance_HighEqual2mvsLAI2200 = MeanTransmittance_HighEqual2m -Transmittance_LAI2200) %>% 
-  mutate(Transmittance_LowEqual2mvsLAI2200 = MeanTransmittance_LowEqual2m - Transmittance_LAI2200) %>% 
-  mutate(Transmittance_LowInt2mvsLowEqual2m =  MeanTransmittance_LowInt2m - MeanTransmittance_LowEqual2m) %>% 
-  mutate(Transmittance_HighInt2mvsHighEqual2m =  MeanTransmittance_HighInt2m - MeanTransmittance_HighEqual2m) 
+  # mutate(Transmittance_HighEqual2mvsLAI2200 = MeanTransmittance_HighEqual2m -Transmittance_LAI2200) %>% 
+  # mutate(Transmittance_LowEqual2mvsLAI2200 = MeanTransmittance_LowEqual2m - Transmittance_LAI2200) %>% 
+  # mutate(Transmittance_LowInt2mvsLowEqual2m = MeanTransmittance_LowInt2m - MeanTransmittance_LowEqual2m) %>% 
+  # mutate(Transmittance_HighInt2mvsHighEqual2m = MeanTransmittance_HighInt2m - MeanTransmittance_HighEqual2m) %>% 
+  mutate(Transmittance_UAVInt2mvsLAI2200 = MeanTransmittance_UAVInt2m - Transmittance_LAI2200) %>% 
+  mutate(Transmittance_UAVInt1mvsLAI2200 = MeanTransmittance_UAVInt1m -Transmittance_LAI2200) %>% 
+  mutate(Transmittance_UAVInt1mvsUAV2m = MeanTransmittance_UAVInt1m -MeanTransmittance_UAVInt2m) 
+
 ```
 
 ```{r}
@@ -273,10 +301,15 @@ range(LAI2200_LiDAR$Transmittance_HighInt2mvsLAI2200) # -0.54124286  0.06917472
 range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.49684541  0.06841737 : le plus proche du lAI2200
 range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 : le moins proche du lAI2200 (sousestime le plus)
 
-range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
-range(LAI2200_LiDAR$Transmittance_LowEqual2mvsLAI2200) # -0.4410783  0.1079312 : surrestime le plus
-range(LAI2200_LiDAR$Transmittance_LowInt2mvsLowEqual2m) # -0.0703229895 -0.0001377847
-range(LAI2200_LiDAR$Transmittance_HighInt2mvsHighEqual2m) # -0.047436156  0.005860184
+range(LAI2200_LiDAR$Transmittance_UAVInt2mvsLAI2200) # 
+range(LAI2200_LiDAR$Transmittance_UAVInt1mvsLAI2200) # 
+range(LAI2200_LiDAR$Transmittance_UAVInt1mvsUAV2m) # 
+
+
+# range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
+# range(LAI2200_LiDAR$Transmittance_LowEqual2mvsLAI2200) # -0.4410783  0.1079312 : surrestime le plus
+# range(LAI2200_LiDAR$Transmittance_LowInt2mvsLowEqual2m) # -0.0703229895 -0.0001377847
+# range(LAI2200_LiDAR$Transmittance_HighInt2mvsHighEqual2m) # -0.047436156  0.005860184
 ```
 
 
@@ -418,7 +451,6 @@ pour chaque ring
 ```
 
 ```{r}
-
 for(t in c("HOBO", "LAY")){
   for(R in 1:5){
     
@@ -429,7 +461,7 @@ for(t in c("HOBO", "LAY")){
         filter(Transect==t) %>% # LAY # HOBO
         filter(Ring==R) %>%
         ggplot(aes(x = Id)) +
-        # Inetnsity
+        # Intensity
         geom_point(aes(y = MeanTransmittance_HighInt2m, colour = "High altitude - Intens - 2m")) +
         geom_line(aes(y = MeanTransmittance_HighInt2m, colour = "High altitude - Intens - 2m")) +
         geom_errorbar(aes(ymin=MeanTransmittance_HighInt2m-SeTransmittance_HighInt2m,
@@ -440,25 +472,36 @@ for(t in c("HOBO", "LAY")){
         geom_line(aes(y = MeanTransmittance_LowInt2m, colour = "Low altitude - Intens - 2m")) +
         geom_errorbar(aes(ymin=MeanTransmittance_LowInt2m-SeTransmittance_LowInt2m,
                           ymax=MeanTransmittance_LowInt2m+SeTransmittance_LowInt2m, colour = "Low altitude - Intens - 2m"), width=.2) +
-        # 
-        # 
-        # geom_point(aes(y = MeanTransmittance_HighInt1m, colour = "High altitude - Intens - 1m")) +
-        # geom_line(aes(y = MeanTransmittance_HighInt1m, colour = "High altitude - Intens - 1m")) +
-        # geom_errorbar(aes(ymin=MeanTransmittance_HighInt1m-SeTransmittance_HighInt1m,
-        #                   ymax=MeanTransmittance_HighInt1m+SeTransmittance_HighInt1m, colour = "High altitude - Intens - 1m"), width=.2) +
+        
+        
+        geom_point(aes(y = MeanTransmittance_HighInt1m, colour = "High altitude - Intens - 1m")) +
+        geom_line(aes(y = MeanTransmittance_HighInt1m, colour = "High altitude - Intens - 1m")) +
+        geom_errorbar(aes(ymin=MeanTransmittance_HighInt1m-SeTransmittance_HighInt1m,
+                          ymax=MeanTransmittance_HighInt1m+SeTransmittance_HighInt1m, colour = "High altitude - Intens - 1m"), width=.2) +
+        
+        # UAV
+        geom_point(aes(y = MeanTransmittance_UAVInt2m, colour = "UAV - Intens - 2m")) +
+        geom_line(aes(y = MeanTransmittance_UAVInt2m, colour = "UAV - Intens - 2m")) +
+        geom_errorbar(aes(ymin=MeanTransmittance_UAVInt2m-SeTransmittance_UAVInt2m,
+                          ymax=MeanTransmittance_UAVInt2m+SeTransmittance_UAVInt2m, colour = "UAV - Intens - 2m"), width=.2) +
+        
+        
+        geom_point(aes(y = MeanTransmittance_UAVInt1m, colour = "UAV - Intens - 1m")) +
+        geom_line(aes(y = MeanTransmittance_UAVInt1m, colour = "UAV - Intens - 1m")) +
+        geom_errorbar(aes(ymin=MeanTransmittance_UAVInt1m-SeTransmittance_UAVInt1m,
+                          ymax=MeanTransmittance_UAVInt1m+SeTransmittance_UAVInt1m, colour = "UAV - Intens - 1m"), width=.2) +
+        
         # # Equal echo
         # geom_point(aes(y = MeanTransmittance_HighEqual2m, colour = "High altitude - Equal - 2m")) +
         # geom_line(aes(y = MeanTransmittance_HighEqual2m, colour = "High altitude - Equal - 2m")) +
         # geom_errorbar(aes(ymin=MeanTransmittance_HighEqual2m-SeTransmittance_HighEqual2m,
         #                   ymax=MeanTransmittance_HighEqual2m+SeTransmittance_HighEqual2m, colour = "High altitude - Equal - 2m"), width=.2) +
-      # 
-      # 
-      # geom_point(aes(y = MeanTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m")) +
-      # geom_line(aes(y = MeanTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m")) +
-      # geom_errorbar(aes(ymin=MeanTransmittance_LowEqual2m-SeTransmittance_LowEqual2m,
+        # 
+        # 
+        # geom_point(aes(y = MeanTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m")) +
+        # geom_line(aes(y = MeanTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m")) +
+        # geom_errorbar(aes(ymin=MeanTransmittance_LowEqual2m-SeTransmittance_LowEqual2m,
       #                   ymax=MeanTransmittance_LowEqual2m+SeTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m"), width=.2) +
-      
-      
       
       geom_point(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200")) +
         geom_line(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200"), linewidth = 1.2) +
@@ -467,24 +510,27 @@ for(t in c("HOBO", "LAY")){
         
         scale_colour_manual(values = c("High altitude - Intens - 2m" = "blue",
                                        "Low altitude - Intens - 2m" = "#56B4E9",
-                                       # "High altitude - Intens - 1m" = "#009E73",
+                                       "High altitude - Intens - 1m" = "#009E73",
+                                       "UAV - Intens - 2m" = "#E69F00",
+                                       "UAV - Intens - 1m" = "#F0E442",  
                                        # "High altitude - Equal - 2m" = "#CC79A7",
                                        # "Low altitude - Equal - 2m" = "#999999",
                                        "LAI2200" = "#D55E00"),
                             breaks=c(
                               "High altitude - Intens - 2m", "Low altitude - Intens - 2m", 
-                              # "High altitude - Intens - 1m",
+                              "High altitude - Intens - 1m",
+                              "UAV - Intens - 2m", "UAV - Intens - 1m", 
                               # "High altitude - Equal - 2m", "Low altitude - Equal - 2m"
                               "LAI2200")) +
         
         labs(title = paste(t," transect - Ring ",R), y="Mean transmittance", x="ID", color = "Acquisition") +
         scale_x_continuous(breaks = seq(1:idmax)) + # 26 # 20
-  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+        theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
         theme_minimal()
     )
-    ggsave(paste("P16_2023_4ha_Long_profile_",t,"_transect_Ring",R,"_se_Intensity2m.png", sep=""),
-           path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_2m",
-           width = 25, height = 20, units = "cm", dpi=800, bg="white")
+    # ggsave(paste("P16_2023_4ha_Long_profile_",t,"_transect_Ring",R,"_se_Intensity2m.png", sep=""),
+    #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_2m",
+    #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
   }
 }
 
@@ -494,7 +540,9 @@ for(t in c("HOBO", "LAY")){
 # Profils en long (moyennes des Transmittances par acquisition, par ring)
 ```{r}
 vars <- c("MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m",
-          # "MeanTransmittance_HighInt1m", "MeanTransmittance_HighEqual2m", "MeanTransmittance_LowEqual2m",
+          "MeanTransmittance_HighInt1m",
+          # "MeanTransmittance_HighEqual2m", "MeanTransmittance_LowEqual2m",
+          "MeanTransmittance_UAVInt2m", "MeanTransmittance_UAVInt1m", 
           "MeanTransmittance_LAI2200")
 
 LAI2200_LiDAR_ring <- LAI2200_LiDAR %>%
@@ -519,9 +567,18 @@ LAI2200_LiDAR_ring %>%
                     ymax=MeanTransmittance_HighInt2m_mean+MeanTransmittance_HighInt2m_se,
                     colour = "High altitude - Intens - 2m"),alpha =1, width=.2) +
   # 1m
-  # geom_errorbar(aes(ymin=MeanTransmittance_HighInt1m_mean-MeanTransmittance_HighInt1m_se,
-  #                   ymax=MeanTransmittance_HighInt1m_mean+MeanTransmittance_HighInt1m_se,
-  #                   colour = "High altitude - Intens - 1m"),alpha =1, width=.2) +
+  geom_errorbar(aes(ymin=MeanTransmittance_HighInt1m_mean-MeanTransmittance_HighInt1m_se,
+                    ymax=MeanTransmittance_HighInt1m_mean+MeanTransmittance_HighInt1m_se,
+                    colour = "High altitude - Intens - 1m"),alpha =1, width=.2) +
+  
+  # UAV
+  geom_errorbar(aes(ymin=MeanTransmittance_UAVInt2m_mean-MeanTransmittance_UAVInt2m_se,
+                    ymax=MeanTransmittance_UAVInt2m_mean+MeanTransmittance_UAVInt2m_se,
+                    colour = "UAV - Intens - 2m"),alpha =1, width=.2) +
+  
+  geom_errorbar(aes(ymin=MeanTransmittance_UAVInt1m_mean-MeanTransmittance_UAVInt1m_se,
+                    ymax=MeanTransmittance_UAVInt1m_mean+MeanTransmittance_UAVInt1m_se,
+                    colour = "UAV - Intens - 1m"),alpha =1, width=.2) +
   # # Equal echo
   # geom_errorbar(aes(ymin=MeanTransmittance_LowEqual2m_mean-MeanTransmittance_LowEqual2m_se,
   #                   ymax=MeanTransmittance_LowEqual2m_mean+MeanTransmittance_LowEqual2m_se,
@@ -529,17 +586,25 @@ LAI2200_LiDAR_ring %>%
   # geom_errorbar(aes(ymin=MeanTransmittance_HighEqual2m_mean-MeanTransmittance_HighEqual2m_se,
   #                   ymax=MeanTransmittance_HighEqual2m_mean+MeanTransmittance_HighEqual2m_se,
   #                   colour = "High altitude - Equal - 2m"),alpha =1, width=.2) +
-
-# Intensity
-geom_point(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - Intens - 2m"),size = 3) +
+  
+  # Intensity
+  geom_point(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - Intens - 2m"),size = 3) +
   geom_line(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - Intens - 2m")) +
   
   geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
   geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
   
   # 1m
-  # geom_point(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m"),size = 3) +
-  # geom_line(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m")) +
+  geom_point(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m")) +
+  
+  # UAV
+  geom_point(aes(y = MeanTransmittance_UAVInt2m_mean, colour = "UAV - Intens - 2m"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_UAVInt2m_mean, colour = "UAV - Intens - 2m")) +
+  
+  geom_point(aes(y = MeanTransmittance_UAVInt1m_mean, colour = "UAV - Intens - 1m"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_UAVInt1m_mean, colour = "UAV - Intens - 1m")) +
+  
   # # Equal echo
   # geom_point(aes(y = MeanTransmittance_HighEqual2m_mean, colour = "High altitude - Equal - 2m"),size = 3) +
   # geom_line(aes(y = MeanTransmittance_HighEqual2m_mean, colour = "High altitude - Equal - 2m")) +
@@ -547,28 +612,31 @@ geom_point(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - I
   # geom_point(aes(y = MeanTransmittance_LowEqual2m_mean, colour = "Low altitude - Equal - 2m"),size = 3) +
   # geom_line(aes(y = MeanTransmittance_LowEqual2m_mean, colour = "Low altitude - Equal - 2m")) +
   
-geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
+  geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
   geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
   
   
   scale_colour_manual(values = c("High altitude - Intens - 2m" = "blue",
                                  "Low altitude - Intens - 2m" = "#56B4E9",
-                                 # "High altitude - Intens - 1m" = "#009E73",
+                                 "High altitude - Intens - 1m" = "#009E73",
+                                 "UAV - Intens - 2m" = "#E69F00",
+                                 "UAV - Intens - 1m" = "#F0E442",  
                                  # "High altitude - Equal - 2m" = "#CC79A7",
                                  # "Low altitude - Equal - 2m" = "#999999",
                                  "LAI2200" = "#D55E00"),
                       breaks=c(
                         "High altitude - Intens - 2m", "Low altitude - Intens - 2m", 
-                        # "High altitude - Intens - 1m",
+                        "High altitude - Intens - 1m",
+                        "UAV - Intens - 2m", "UAV - Intens - 1m", 
                         # "High altitude - Equal - 2m", "Low altitude - Equal - 2m"
                         "LAI2200")) +
   theme_minimal() +
   theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
   labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
 
-ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity2m.png", sep=""),
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_2m",
-       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity2m.png", sep=""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_2m",
+#        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 
@@ -601,54 +669,76 @@ for(t in c("HOBO", "LAY")){
                         ymax=MeanTransmittance_HighInt2m_mean+MeanTransmittance_HighInt2m_se,
                         colour = "High altitude - Intens - 2m"),alpha =1, width=.2) +
       # 1m
-      # geom_errorbar(aes(ymin=MeanTransmittance_HighInt1m_mean-MeanTransmittance_HighInt1m_se,
-      #                   ymax=MeanTransmittance_HighInt1m_mean+MeanTransmittance_HighInt1m_se,
-      #                   colour = "High altitude - Intens - 1m"),alpha =1, width=.2) +
-      # # Equal echo
+      geom_errorbar(aes(ymin=MeanTransmittance_HighInt1m_mean-MeanTransmittance_HighInt1m_se,
+                        ymax=MeanTransmittance_HighInt1m_mean+MeanTransmittance_HighInt1m_se,
+                        colour = "High altitude - Intens - 1m"),alpha =1, width=.2) +
+      
+      # UAV
+      geom_errorbar(aes(ymin=MeanTransmittance_UAVInt2m_mean-MeanTransmittance_UAVInt2m_se,
+                        ymax=MeanTransmittance_UAVInt2m_mean+MeanTransmittance_UAVInt2m_se,
+                        colour = "UAV - Intens - 2m"),alpha =1, width=.2) +
+      
+      geom_errorbar(aes(ymin=MeanTransmittance_UAVInt1m_mean-MeanTransmittance_UAVInt1m_se,
+                        ymax=MeanTransmittance_UAVInt1m_mean+MeanTransmittance_UAVInt1m_se,
+                        colour = "UAV - Intens - 1m"),alpha =1, width=.2) +
+      # Equal echo
       # geom_errorbar(aes(ymin=MeanTransmittance_LowEqual2m_mean-MeanTransmittance_LowEqual2m_se,
       #                   ymax=MeanTransmittance_LowEqual2m_mean+MeanTransmittance_LowEqual2m_se,
       #                   colour = "Low altitude - Equal - 2m"),alpha =1, width=.2) +
       # geom_errorbar(aes(ymin=MeanTransmittance_HighEqual2m_mean-MeanTransmittance_HighEqual2m_se,
       #                   ymax=MeanTransmittance_HighEqual2m_mean+MeanTransmittance_HighEqual2m_se,
       #                   colour = "High altitude - Equal - 2m"),alpha =1, width=.2) +
-    
-    # Intensity
-    geom_point(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - Intens - 2m"),size = 3) +
+      
+      # Intensity
+      geom_point(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - Intens - 2m"),size = 3) +
       geom_line(aes(y = MeanTransmittance_HighInt2m_mean, colour = "High altitude - Intens - 2m")) +
       
       geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
       geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
+      
       # 1m
-      # geom_point(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m"),size = 3) +
-      # geom_line(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m")) +
+      geom_point(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m"),size = 3) +
+      geom_line(aes(y = MeanTransmittance_HighInt1m_mean, colour = "High altitude - Intens - 1m")) +
+      
+      # UAV
+      geom_point(aes(y = MeanTransmittance_UAVInt2m_mean, colour = "UAV - Intens - 2m"),size = 3) +
+      geom_line(aes(y = MeanTransmittance_UAVInt2m_mean, colour = "UAV - Intens - 2m")) +
+      
+      geom_point(aes(y = MeanTransmittance_UAVInt1m_mean, colour = "UAV - Intens - 1m"),size = 3) +
+      geom_line(aes(y = MeanTransmittance_UAVInt1m_mean, colour = "UAV - Intens - 1m")) +
+      
       # # Equal echo
       # geom_point(aes(y = MeanTransmittance_HighEqual2m_mean, colour = "High altitude - Equal - 2m"),size = 3) +
       # geom_line(aes(y = MeanTransmittance_HighEqual2m_mean, colour = "High altitude - Equal - 2m")) +
       # 
       # geom_point(aes(y = MeanTransmittance_LowEqual2m_mean, colour = "Low altitude - Equal - 2m"),size = 3) +
       # geom_line(aes(y = MeanTransmittance_LowEqual2m_mean, colour = "Low altitude - Equal - 2m")) +
-      # 
+      
       geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
       geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
       
+      
       scale_colour_manual(values = c("High altitude - Intens - 2m" = "blue",
                                      "Low altitude - Intens - 2m" = "#56B4E9",
-                                     # "High altitude - Intens - 1m" = "#009E73",
+                                     "High altitude - Intens - 1m" = "#009E73",
+                                     "UAV - Intens - 2m" = "#E69F00",
+                                     "UAV - Intens - 1m" = "#F0E442",  
                                      # "High altitude - Equal - 2m" = "#CC79A7",
                                      # "Low altitude - Equal - 2m" = "#999999",
                                      "LAI2200" = "#D55E00"),
                           breaks=c(
-                                   "High altitude - Intens - 2m", "Low altitude - Intens - 2m", 
-                                   # "High altitude - Intens - 1m",
-                                   # "High altitude - Equal - 2m", "Low altitude - Equal - 2m",
-                                   "LAI2200")) +
+                            "High altitude - Intens - 2m", "Low altitude - Intens - 2m", 
+                            "High altitude - Intens - 1m",
+                            "UAV - Intens - 2m", "UAV - Intens - 1m", 
+                            # "High altitude - Equal - 2m", "Low altitude - Equal - 2m"
+                            "LAI2200")) +
       theme_minimal() +
-  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+      theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
       labs(title = paste(t," transect"), y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
   )
-  ggsave(paste("Long_profile_",t," transect","_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity2m.png", sep=""),
-         path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_2m",
-         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+  # ggsave(paste("Long_profile_",t," transect","_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity2m.png", sep=""),
+  #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_2m",
+  #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 }
 ```
 
@@ -726,11 +816,15 @@ LAI2200_LiDAR %>%
 ### Only LIDAR
 ```{r}
 DF_cor_LiDAR <- LAI2200_LiDAR %>% 
-  select(Ring, MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m, MeanTransmittance_HighInt1m, MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m) %>%  
+  select(Ring, MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m, MeanTransmittance_HighInt1m,
+         # MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m,
+         MeanTransmittance_UAVInt2m, MeanTransmittance_UAVInt1m) %>%  
   unique() %>% 
   pivot_wider(names_from = Ring,
-              values_from = c(MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m, MeanTransmittance_HighInt1m,
-                              MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m),
+              values_from = c(MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m, 
+                              MeanTransmittance_HighInt1m,
+                              # MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m,
+                              MeanTransmittance_UAVInt2m, MeanTransmittance_UAVInt1m),
               values_fn = list,
               names_glue = "{.value}_Ring{Ring}") %>% 
   unnest(cols = everything()) # pcq les colonnes sont en listes
@@ -772,12 +866,15 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
 DF_cor_LiDARvsLAI2200 <- LAI2200_LiDAR %>% 
   select(Ring, Transmittance_LAI2200,
          MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m, MeanTransmittance_HighInt1m,
-         MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m) %>% # `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low 
+         # MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m,
+         MeanTransmittance_UAVInt2m, MeanTransmittance_UAVInt1m) %>% 
   unique() %>% 
   pivot_wider(names_from = Ring,
               values_from = c(Transmittance_LAI2200,
-                              MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m, MeanTransmittance_HighInt1m,
-                              MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m),
+                              MeanTransmittance_HighInt2m, MeanTransmittance_LowInt2m,
+                              MeanTransmittance_HighInt1m,
+                              # MeanTransmittance_HighEqual2m, MeanTransmittance_LowEqual2m,
+                              MeanTransmittance_UAVInt2m, MeanTransmittance_UAVInt1m),
               values_fn = list,
               names_glue = "{.value}_Ring{Ring}") %>% 
   unnest(everything()) # pcq les colonnes sont en listes
@@ -965,7 +1062,9 @@ names(HOBO_LAI2200_LiDAR)
 
 DF_cor <- HOBO_LAI2200_LiDAR %>% 
   # filter(Ring==1) %>%
-  select(Ring, Transmittance_HighInt2m,Transmittance_LowInt2m, Transmittance_HighInt1m, Transmittance_LAI2200,HOBO_Light_october_sum, HOBO_Light_annual_sum) %>% 
+  select(Ring, Transmittance_HighInt2m,Transmittance_LowInt2m, Transmittance_HighInt1m,
+         Transmittance_LAI2200,
+         HOBO_Light_october_sum, HOBO_Light_annual_sum) %>% 
   unique() %>% 
   pivot_wider(names_from = Ring,
               values_from = c(Transmittance_LAI2200,

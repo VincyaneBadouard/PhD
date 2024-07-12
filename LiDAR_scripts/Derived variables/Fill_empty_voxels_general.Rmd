@@ -74,11 +74,12 @@ rm(list=ls())
 # HLE : hierarchical local estimation
 # HLE = bsIntercepted/weightedFreepathLength (default attenuation) (?)
 # HLE max quand rencontre un tronc sur tout un voxel 
+# fullcanopy -> vxsp
 
 HLE <- function (
     vxsp, # espace voxel
-    variable.name1 = bsIntercepted, # nbr de pulses interceptés par l'empreinte du faisceau = surface occluse dans le faisceau
-    variable.name2 = weightedFreepathLength, # longueur des trajets optiques pondérée par l'empreinte du faisceau
+    variable.name1 = "bsIntercepted", # nbr de pulses interceptés par l'empreinte du faisceau = surface occluse dans le faisceau
+    variable.name2 = "weightedFreepathLength", # longueur des trajets optiques pondérée par l'empreinte du faisceau
     variable.min = -Inf, variable.max = Inf, # bornes pas forcément utiles
     variable.fallback, #  valeur d'atténuation si l'algorithme n'en a pas trouvée
     radius = 2, # rayon de voisinage en mètre
@@ -148,7 +149,11 @@ HLE <- function (
   # HLE = bsIntercepted/weightedFreepathLength
   vxsp@data[, HLE := .(get(variable.name1)/get(variable.name2))] # default attenuation
   vxsp@data[neighbors[,1], HLE := fill.value] # modified attenuation
+  na.count <- length(which(is.nan(vxsp@data$HLE)))
   
+   if (na.count > 0) # if any NAs remain
+    warning(paste(na.count, " NA left", "\nSomething went wrong somewhere..."))
+
   return(vxsp)
 }
 ```
@@ -166,8 +171,8 @@ vxsp <-
   
   # UAV intensity 1m & 2m res
   readVoxelSpace(
-    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m_crop.vox"
-    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m_crop.vox"
+    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
   )
 
 
@@ -175,6 +180,8 @@ vxsp <-
 median(vxsp@data$nbSampling) # High Alt : 193 # UAV2m : 1264, UAV1m : 275
 hist(vxsp@data$nbSampling, breaks=100)
 sum(vxsp@data$nbSampling)
+range(vxsp@data$weightedFreepathLength)
+range(vxsp@data$bsIntercepted)
 
 # vxsp
 # summary(vxsp@data)
@@ -214,7 +221,7 @@ data %>%
   ggtitle("P16 - 2023 - 4ha + buffer - extinction profile (intensity) res 2m") +
   labs(y="Number of through pulses", x="Absolute Tree Height", color = "LiDAR acquisition") +
   # scale_y_continuous(breaks = seq(0, max(data$MeanNbsampling), by=200))+
-  scale_x_continuous(breaks = seq(0, max(10), by=2))+
+  scale_x_continuous(breaks = seq(0, max(10), by=2)) +
   coord_flip() #+
 # geom_errorbar(aes(ymin=MeanNbsampling-SdNbsampling, ymax=MeanNbsampling+SdNbsampling), width=.2)
 #   geom_errorbar(aes(ymin=MinNbsampling, ymax=MaxNbsampling), width=.2)
@@ -245,6 +252,8 @@ OnlyVegetation <- function(vxsp){
 }
 
 fullcanopy <- OnlyVegetation(vxsp)
+
+AMAPVox::plot(fullcanopy)
 
 ```
 
@@ -383,6 +392,7 @@ gc()
 range(fullcanopy$HLE) #UAV2m :  0.00000 18.93058 ; UAV1m :  0.00000 211.9542
 
 sum(is.na(fullcanopy@data$HLE)) # 0
+sum(is.nan(fullcanopy@data$HLE)) # 0
 sum(!is.na(fullcanopy@data$HLE))  # 4887658
 all(is.na(fullcanopy@data[is.na(HLE)]$bsIntercepted)|is.na(fullcanopy@data[is.na(HLE)]$weightedFreepathLength)|fullcanopy@data[is.na(HLE)]$bsIntercepted==0) # missing HLE is when bsIntercepted or weightedFreepathLength are missing or equal to 0
 
@@ -452,6 +462,7 @@ vxsp <- Compute_PAD(fullcanopy, vxsp, fbv)
 gc()
 range(vxsp@data$PadBVTotal) # UAV2m : 0.00000 37.86115 ; UAV1m : 0.00000 423.9084
 any(is.na(vxsp@data$PadBVTotal))
+sum(is.na(vxsp@data$HLE))
 ```
 
 # Compute Transmittance from attenuation (pas besoin, ampavox le calcule)
@@ -494,7 +505,10 @@ writeVoxelSpace(vxsp, path)
 # Plot PAD vertical profile (plot)
 
 ```{r}
-vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox")
+vxsp <- readVoxelSpace(
+   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_PadHLE_intensity2m.vox"
+    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_PadHLE_intensity1m.vox"
+)
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
 
@@ -520,13 +534,13 @@ data %>%
   select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD) %>% 
   filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
   unique() %>% 
-  ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
+  ggplot(aes(x= ground_distance_disc, y= MeanPAD)) +
   geom_point() + 
   geom_line() +
   #scale_color_viridis_d() +
   # xlim(0,1) +
   # ylim(0,60) +
-  ggtitle("P16 - 2023 - 4ha + buffer - HighAlt - PAD profile") +
+  ggtitle("P16 - 2023 - 4ha + buffer -  PAD profile") +
   # theme(plot.title = element_text(hjust=0.5)) + 
   labs(y="PAD", x="Absolute Tree Height") +
   coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD

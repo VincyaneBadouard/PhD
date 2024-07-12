@@ -43,7 +43,7 @@ folders <-
 
 file <-
   # "UAV_C14C15"
-"UAV_C19C20"
+  "UAV_C19C20"
 ```
 
 # Load points cloud
@@ -533,8 +533,8 @@ AMAPVox::plot(VX, variable.name = "attenuation_PPL_MLE") # ça a l'air mieux il 
 ```{r}
 VX <- readVoxelSpace(
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox"
- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m.vox"
- )
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m.vox"
+)
 # View(VX@data)
 AMAPVox::plot(VX, variable.name = "ground_distance") 
 ```
@@ -557,8 +557,8 @@ AMAPVox::plot(VX20, variable.name = "nbSampling")
 ```{r}
 writeVoxelSpace(VX, 
                 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m_crop.vox"
- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
-                )
+                "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
+)
 ```
 
 
@@ -568,14 +568,15 @@ writeVoxelSpace(VX,
 Certains voxels (en bas de canopée) ne sont pas échantillonnés du fait de l’occlusion des tirs LiDAR. Ces données manquantes ont été comblées en appliquant la **moyenne des valeurs de transmittance des 27 voisins les plus proches**.
 
 # For UAV, merge UAV and ALS for a complete buffer
-crop vox to 4ha
 ```{r}
+library(AMAPVox); library(sf)
 VX <- readVoxelSpace(
   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_PadHLE_intensity2m.vox"
- # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_PadHLE_intensity1m.vox"
- )
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_PadHLE_intensity1m.vox"
+)
+View(VX@data)
 ```
-
+## Crop vox to 4ha
 ```{r}
 vx <- VX@data
 
@@ -616,17 +617,75 @@ ggplot() +
   geom_sf(data = vxUTM_crop, col="blue") +
   theme_classic() +
   geom_sf(data = sf::st_cast(zone, "LINESTRING"), col ="green")
+
+st_geometry(vxUTM_crop) <- NULL
+
+VX@data <- setDT(vxUTM_crop)
+```
+
+## Merge UAV and ALS buffer
+```{r}
+VXals <- readVoxelSpace(
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity2m.vox"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity1m.vox"
+)
+
+vxals <- VXals@data
+
+vxals[, c("X", "Y", "Z") := getPosition(VXals)[, .(x, y, z)]]
+
+vxalsUTM <- Relativ2UTM(vxals, VOP)
+
+vxalsUTMsf <- st_as_sf(vxalsUTM, coords = c('Xutm','Yutm'))
+vxalsUTMsf <- st_set_crs(vxalsUTMsf, terra::crs(zone))
+vxals_cut <- st_difference(vxalsUTMsf, st_union(zone)) # enlever les 4ha
+
+rm(vx, vxals,vxalsUTM, vxalsUTMsf, vxUTM, vxUTM_crop, Crop, Relativ2UTM, VOP); gc()
+
+ggplot() + 
+  geom_sf(data = vxals_cut, col="blue") +
+  theme_classic() +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING"), col ="green")
+
+st_geometry(vxals_cut) <- NULL
+
+VXals@data <- setDT(vxals_cut)
+
+rm(vxals_cut,zone); gc()
+
+
+VX@data[,Forest := NULL][,Plot := NULL][,SubPlot := NULL][,Projet := NULL][,Protocole := NULL][,SubPlotCon := NULL][,x := NULL][,y := NULL][,z := NULL]
+
+# names(VX@data) == names(VXals@data)
+
+VXals@data[,attenuation_PPL_MLE := NULL] 
+
+VX_PAD <- VX@data[,.(i,j,k,HLE, PadBVTotal)]
+VXals_PAD <- VXals@data[,.(i,j,k,HLE, PadBVTotal)] ; gc()
+
+VX_merge <- merge(VX,VXals)
+#  Discarded from merging.Avis : Variable `HLE`, `PadBVTotal`, `X`, `Y`, `Z`, `Zutm`, does not have predefined merging mode.
+
+VX_merge_a <- merge(setDT(VX_merge@data), setDT(VX_PAD), all.x = TRUE, by= c("i","j","k"))
+VX_merge_b <- merge(VX_merge_a, setDT(VXals_PAD), all.x = TRUE, by= c("i","j","k"))
+
+VX_merge_b[, HLE := ifelse(!is.na(HLE.x), HLE.x, HLE.y)]
+VX_merge_b[, PadBVTotal := ifelse(!is.na(PadBVTotal.x), PadBVTotal.x, PadBVTotal.y)]
+VX_merge_b[, HLE.x := NULL][, HLE.y := NULL][, PadBVTotal.x := NULL][, PadBVTotal.y := NULL] 
+
+VX_merge@data <- setDT(VX_merge_b)
+
+rm(VX,VXals, VX_merge_a, VX_merge_b); gc()
+
+AMAPVox::plot(VX_merge) ; gc()
+
 ```
 
 ```{r}
-st_geometry(datacrop) <- NULL
-# VX@data <- 
-
-```
-
-
-```{r}
-
+writeVoxelSpace(VX_merge, 
+                # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_PadHLE_intensity2m.vox"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_PadHLE_intensity1m.vox"
+)
 ```
 
 # Generate light maps from a voxel space
