@@ -90,8 +90,8 @@ LowAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/user
 HighAnnual_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_intensity1m_test.txt"))
 
 ## UAV
-UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity2m_test.txt"))
-UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity1m_test.txt"))
+UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity2m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
+UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity1m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
 
 
 # Equal echo weighting 
@@ -122,7 +122,7 @@ LiDAR <- LiDAR %>%
   unique()
 
 UAV <- UAV_int2m %>%
-  left_join(UAV_int1m, by= c("position.x", "position.y", "position.z", "ring", "azimut"), suffix = c("_UAVInt2m", "_UAVInt1m"))
+  left_join(UAV_int1m, by= c("position.x", "position.y", "position.z", "ring", "azimut"), suffix = c("_UAVInt2m", "_UAVInt1m")) 
 
 LiDAR <- LiDAR %>%
   left_join(UAV, by= c("position.x", "position.y", "position.z", "ring", "azimut")) %>% 
@@ -139,7 +139,7 @@ rm(HighAnnual_int2m, LowAnnual_int2m, HighAnnual_int1m, HighAnnual_equal2m, LowA
 ```
 
 # Rings & azimuts
-```{reval = F}
+```{R, eval = F}
 RingAzimut <- LiDAR %>% 
   select(ring, azimut) %>% 
   unique()
@@ -171,13 +171,13 @@ LiDAR <- LiDAR %>%
   mutate(SeTransmittance_HighInt1m = plotrix::std.error(Transmittance_HighInt1m)) %>%
   
   ## UAV
-  mutate(MeanTransmittance_UAVInt2m = mean(Transmittance_UAVInt2m)) %>%
-  mutate(SdTransmittance_UAVInt2m = sd(Transmittance_UAVInt2m)) %>% 
-  mutate(SeTransmittance_UAVInt2m = plotrix::std.error(Transmittance_UAVInt2m)) %>%
+  mutate(MeanTransmittance_UAVInt2m = mean(Transmittance_UAVInt2m, na.rm =T)) %>%
+  mutate(SdTransmittance_UAVInt2m = sd(Transmittance_UAVInt2m, na.rm =T)) %>% 
+  mutate(SeTransmittance_UAVInt2m = plotrix::std.error(Transmittance_UAVInt2m, na.rm =T)) %>%
   
-  mutate(MeanTransmittance_UAVInt1m = mean(Transmittance_UAVInt1m)) %>%
-  mutate(SdTransmittance_UAVInt1m = sd(Transmittance_UAVInt1m)) %>%
-  mutate(SeTransmittance_UAVInt1m = plotrix::std.error(Transmittance_UAVInt1m)) %>%
+  mutate(MeanTransmittance_UAVInt1m = mean(Transmittance_UAVInt1m, na.rm =T)) %>%
+  mutate(SdTransmittance_UAVInt1m = sd(Transmittance_UAVInt1m, na.rm =T)) %>%
+  mutate(SeTransmittance_UAVInt1m = plotrix::std.error(Transmittance_UAVInt1m, na.rm =T)) %>%
   
   # Equal echo
   # mutate(MeanTransmittance_HighEqual2m = mean(Transmittance_HighEqual2m)) %>%
@@ -197,7 +197,7 @@ LiDAR <- LiDAR %>%
 VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
 
 # Apply inverse of VOP matrix to convert back to UTM
-LiDAR<-setDT(LiDAR)
+LiDAR <- setDT(LiDAR)
 xyz <- tcrossprod(as.matrix(LiDAR[, .(position.x, position.y, position.z, c=1)]), solve(VOP))
 LiDAR[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
 LiDAR <- setDF(LiDAR) %>% rename(Ring= ring) %>%
@@ -239,6 +239,9 @@ LAI2200_LiDAR <- LAI2200 %>%
   rename(Transmittance_LAI2200 = Transmittance_mean)
 
 NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
+```
+```{r}
+LAI2200_LiDAR %>% filter(!is.nan(MeanTransmittance_UAVInt2m)) %>% select(Transect, Id, Ring) %>% unique()
 ```
 
 ```{r}
@@ -322,7 +325,8 @@ LiDARsf <- st_set_crs(LiDARsf, crs(zone))
 
 LiDARsf <- LiDARsf %>% filter(Ring==1) # %>% filter(azimut==0)
 
-for(acq in c("MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m")){
+for(acq in c("MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m",
+             "MeanTransmittance_UAVInt2m")){
   print(
     LiDARsf %>% 
       select(geometry, acq) %>% #  Transmittance_High,Transmittance_Low, `GAP[1]_High`,`GAP[1]_Low`, LAI_High, LAI_Low
@@ -336,9 +340,9 @@ for(acq in c("MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTr
       ggtitle("Paracou P16 4ha - LiDAR LAI2200 simulations")
   )
   
-  ggsave(paste("P16_2023_4ha_Lidar_simulations_",acq, ".png", sep=""),
-         path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Maps/Intensity_2m",
-         width = 25, height = 25, units = "cm", dpi=800, bg="white")
+  # ggsave(paste("P16_2023_4ha_Lidar_simulations_",acq, ".png", sep=""),
+  #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Maps/Intensity_2m",
+  #        width = 25, height = 25, units = "cm", dpi=800, bg="white")
 }
 
 ```
@@ -1133,3 +1137,23 @@ corrplot(CorMatrix, method="circle", type="lower", diag = F, addCoef.col = 'whit
 
 ```
 
+## Regresion
+```{r}
+options(scipen = 999)
+for(acq in c("Period.1_HighAlt", "Period.1_LowAlt")){
+  print(
+    HOBO_LiDAR %>% 
+      na.omit() %>% 
+      ggplot() +
+      ggtitle("Paracou P16 4ha - LiDAR transmittances vs HOBO light (lux)") +
+      aes(x = get(acq), y = HOBO_Light_annual_sum) +
+      geom_point() +
+      stat_smooth(method = "lm",
+                  formula = y ~ x) +
+      ggpubr::stat_cor(label.x = 0.01, label.y = 40000000) +
+      ggpubr::stat_regline_equation(label.x = 0.01, label.y = 37000000) +
+      scale_y_continuous(labels = scales::comma) +
+      labs(x = acq, y = "HOBO light (lux)", color = "LiDAR acquisition") 
+  )
+}
+```

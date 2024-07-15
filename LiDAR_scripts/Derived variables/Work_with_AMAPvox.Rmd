@@ -576,6 +576,7 @@ VX <- readVoxelSpace(
 )
 View(VX@data)
 ```
+
 ## Crop vox to 4ha
 ```{r}
 vx <- VX@data

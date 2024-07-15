@@ -35,13 +35,9 @@ path_High_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023
 path_Low_Dry <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Dry_intensity2m.txt"
 path_Low_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Wet_intensity2m.txt"
 
-path_High_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_intensity2m.txt"
-path_Low_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_intensity2m.txt"
-
-path_High_Dry_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
-path_High_Wet_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
-path_Low_Dry_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
-path_Low_Wet_grid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
+# UAV
+path_UAV2m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_Light_annual_intensity2m.txt"
+path_UAV1m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_Light_annual_intensity1m.txt"
 
 # Equal echo weight :
 # path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual_equalecho2m.txt"
@@ -73,6 +69,33 @@ Light_High
 Light_Low <- ReadLightFile(path_Low)
 Light_Low
 
+Light_UAV2m <- ReadLightFile(path_UAV2m)
+Light_UAV2m
+Light_UAV1m <- ReadLightFile(path_UAV1m)
+Light_UAV1m
+
+Light_High_Dry <- ReadLightFile(path_High_Dry, skiplines=14)
+Light_High_Wet <- ReadLightFile(path_High_Wet, skiplines=14)
+Light_Low_Dry <- ReadLightFile(path_Low_Dry, skiplines=14)
+Light_Low_Wet <- ReadLightFile(path_Low_Wet, skiplines=14)
+
+
+```
+```{r}
+average_Periods <- function(data){
+  data <- data[, Transmittance := rowMeans(.SD), .SDcols = c("Period 1", "Period 2", "Period 3", "Period 4", "Period 5", "Period 6")]
+}
+
+Light_High_Dry <- average_Periods(Light_High_Dry)
+Light_High_Wet <- average_Periods(Light_High_Wet)
+
+Light_Low_Dry <- average_Periods(Light_Low_Dry)
+Light_Low_Wet <- average_Periods(Light_Low_Wet)
+
+setnames(Light_High, "Period 1", "Transmittance")
+setnames(Light_Low, "Period 1", "Transmittance")
+setnames(Light_UAV2m, "Period 1", "Transmittance")
+setnames(Light_UAV1m, "Period 1", "Transmittance")
 ```
 
 ## Plot with buffer
@@ -81,11 +104,11 @@ Plot_Light <- function(Light, acq){
   # Remove edges
   # Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
   
-  lattice::levelplot(`Period 1` ~ X*Y, data = Light) # Transmittance
+  lattice::levelplot(Transmittance ~ X*Y, data = Light) # Transmittance
   lattice::levelplot(Z~X*Y, data = Light) # Z = Altitude
   
   ggplot() + 
-    geom_raster(data = Light, aes(X, Y, fill = `Period 1`)) + 
+    geom_raster(data = Light, aes(X, Y, fill = Transmittance)) + 
     scale_fill_gradientn(name = "Light intensity (Transmittance)",
                          colors = terrain.colors(30, rev=T),
                          na.value="white") +
@@ -95,6 +118,9 @@ Plot_Light <- function(Light, acq){
 
 Plot_Light(Light_High, "High altitude")
 Plot_Light(Light_Low, "Low altitude")
+
+Plot_Light(Light_UAV2m, "UAV - 2m")
+Plot_Light(Light_UAV1m, "UAV - 1m")
 ```
 
 ## Transformation des coordonnées relatives en UTM
@@ -115,10 +141,19 @@ Relativ2UTM <- function(data, VOP){
 Light_HighUTM <- Relativ2UTM(Light_High, VOP)
 Light_LowUTM <- Relativ2UTM(Light_Low, VOP)
 
+Light_High_DryUTM <- Relativ2UTM(Light_High_Dry, VOP)
+Light_Low_DryUTM <- Relativ2UTM(Light_Low_Dry, VOP)
+Light_High_WetUTM <- Relativ2UTM(Light_High_Wet, VOP)
+Light_Low_WetUTM <- Relativ2UTM(Light_Low_Wet, VOP)
+
+Light_UAV2mUTM <- Relativ2UTM(Light_UAV2m, VOP)
+Light_UAV1mUTM <- Relativ2UTM(Light_UAV1m, VOP)
+
+
 Plot_LightUTM <- function(Light, zone, buffer){
   ggplot() + 
     geom_point(data = Light, size = 1.28,
-               aes(Xutm, Yutm, color = `Period 1`)) + 
+               aes(Xutm, Yutm, color = Transmittance)) + 
     scale_color_gradientn(name = "Light intensity (Transmittance)",
                           colors = terrain.colors(30, rev=T),
                           na.value="white") +
@@ -130,6 +165,9 @@ Plot_LightUTM <- function(Light, zone, buffer){
 
 Plot_LightUTM(Light_HighUTM, zone, buffer)
 Plot_LightUTM(Light_LowUTM, zone, buffer)
+
+Plot_LightUTM(Light_UAV2mUTM, zone, buffer)
+Plot_LightUTM(Light_UAV1mUTM, zone, buffer)
 ```
 
 ## Crop on the interest zone
@@ -148,34 +186,64 @@ Crop <- function(data, zone){
 Light_HighUTM <- Crop(Light_HighUTM, zone)
 Light_LowUTM <- Crop(Light_LowUTM, zone)
 
-Plot_LightUTM <- function(Lightcrop, zone, acq){
+Light_High_DryUTM <- Crop(Light_High_DryUTM, zone)
+Light_Low_DryUTM <- Crop(Light_Low_DryUTM, zone)
+Light_High_WetUTM <- Crop(Light_High_WetUTM, zone)
+Light_Low_WetUTM <- Crop(Light_Low_WetUTM, zone)
+
+
+Light_UAV2mUTM <- Crop(Light_UAV2mUTM, zone)
+Light_UAV1mUTM <- Crop(Light_UAV1mUTM, zone)
+
+
+Plot_LightUTM <- function(Lightcrop, zone, acq, lim){
   ggplot() + 
     geom_point(data = Lightcrop, size = 1.28,
-               aes(Xutm, Yutm, color = `Period.1`)) + 
+               aes(Xutm, Yutm, color = Transmittance)) + 
     
     scale_color_gradientn(name = "Light intensity (Transmittance)",
                           colors = terrain.colors(30, rev=T),
-                          na.value="white", limits = c(0,0.25)) +
+                          na.value="white", limits = c(0,lim)) +
     
     geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
     ggtitle(paste("Paracou P16 4ha -", acq, "- Light map 1m", sep = " ")) +  
+    theme_classic() +
     coord_sf()
+  
+  ggsave(paste("Paracou_P16_4ha_", acq, "_Lightmap_1m_intensity_2m.png", sep = ""),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Maps/Intensity_2m",
+         width = 18, height = 20, units = "cm", dpi=800, bg="white")
 }
 
-Plot_LightUTM(Light_HighUTM, zone, "High altitude")
-Plot_LightUTM(Light_LowUTM, zone, "Low altitude")
+Plot_LightUTM(Light_HighUTM, zone, "High altitude", lim=0.26)
+Plot_LightUTM(Light_LowUTM, zone, "Low altitude", lim=0.26)
+
+Plot_LightUTM(Light_High_DryUTM, zone, "High altitude - Dry season", lim=0.26)
+Plot_LightUTM(Light_Low_DryUTM, zone, "Low altitude - Dry season", lim=0.26)
+Plot_LightUTM(Light_High_WetUTM, zone, "High altitude - Wet season", lim=0.26)
+Plot_LightUTM(Light_Low_WetUTM, zone, "Low altitude - Wet season", lim=0.26)
+
+Plot_LightUTM(Light_UAV2mUTM, zone, "UAV - 2m", lim= max(Light_UAV2mUTM$Transmittance))
+Plot_LightUTM(Light_UAV1mUTM, zone, "UAV - 1m", lim= max(Light_UAV1mUTM$Transmittance))
 ```
 
 ## Write data cropped and in UTM
 ```{r}
 Writedata_txt_csv <- function(data, path){
-  fwrite(data, paste(path, ".txt"), row.names = F, col.names = T)
-  write.csv(data, paste(path, ".csv"))
+  fwrite(data, paste(path, ".txt", sep=""), row.names = F, col.names = T)
+  write.csv(data, paste(path, ".csv", sep=""))
 }
 
-Writedata_txt_csv(Light_HighUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_equalecho2m_UTM")
-Writedata_txt_csv(Light_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_equalecho2m_UTM")
+Writedata_txt_csv(Light_HighUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_annual_intensity2m_UTM")
+Writedata_txt_csv(Light_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_annual_intensity2m_UTM")
 
+Writedata_txt_csv(Light_High_DryUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_Dry_intensity2m_UTM")
+Writedata_txt_csv(Light_Low_DryUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Dry_intensity2m_UTM")
+Writedata_txt_csv(Light_High_WetUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_Wet_intensity2m_UTM")
+Writedata_txt_csv(Light_Low_WetUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Wet_intensity2m_UTM")
+
+Writedata_txt_csv(Light_UAV2mUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_4ha_UAV_Light_annual_intensity2m_UTM")
+Writedata_txt_csv(Light_UAV1mUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_annual_intensity1m_UTM")
 
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
@@ -198,9 +266,13 @@ Writedata_txt_csv(Light_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouar
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
 
-Light_HighUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_equalecho2m_UTM.txt")
+Light_HighUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_annual_intensity2m_UTM.txt")
 
-Light_LowUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_equalecho2m_UTM.txt")
+Light_LowUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_annual_intensity2m_UTM.txt")
+
+Light_UAV2mUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_4ha_UAV_Light_annual_intensity2m_UTM.txt")
+
+Light_UAV1mUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_annual_intensity1m_UTM.txt")
 ```
 
 # Maps
@@ -211,51 +283,76 @@ difference between `Period.1` of the 2 datasets
 ```{r}
 # names(Light_HighUTM) # "X","Y","Z","Period.1","Zutm","SubPlotCon","Forest","Plot","SubPlot","Projet","Protocole","Xutm","Yutm"
 
-ComputeLightDiff <- function(Light_HighUTM, Light_LowUTM){
-  setDT(Light_HighUTM); setDT(Light_LowUTM)
+ComputeLightDiff <- function(data1, data2){
+  setDT(data1); setDT(data2)
   
-  Light <- merge(Light_HighUTM, Light_LowUTM, by=c("Xutm","Yutm","Zutm", "X","Y","Z", "Forest","Plot","SubPlot","Projet","Protocole","SubPlotCon"), all=TRUE, suffixes = c("_HighAlt", "_LowAlt")) # merge datasets
+  Light <- merge(data1, data2, by=c("Xutm","Yutm","Zutm", "X","Y","Z", "Forest","Plot","SubPlot","Projet","Protocole","SubPlotCon"), all=TRUE, suffixes = c("_data1", "_data2")) # merge datasets
   
-  Light[,Lightdiff:=`Period.1_LowAlt`-`Period.1_HighAlt`] # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
+  Light[,Lightdiff:= Transmittance_data1-Transmittance_data2] # compute differences (4-3=1, le rslt informe sur la valeur à laquelle on soustrait)
 }
 
-Light <- ComputeLightDiff(Light_HighUTM, Light_LowUTM)
-Light
+Light_HighvsLow <- ComputeLightDiff(Light_HighUTM, Light_LowUTM)
+Light_HighvsLow
+
+Light_High_DryvsWet <- ComputeLightDiff(Light_High_DryUTM, Light_High_WetUTM)
+Light_Low_DryvsWet <- ComputeLightDiff(Light_Low_DryUTM, Light_Low_WetUTM)
+
+Light_Low_AnnualvsDry <- ComputeLightDiff(Light_LowUTM, Light_Low_DryUTM)
+Light_Low_AnnualvsWet <- ComputeLightDiff(Light_LowUTM, Light_Low_WetUTM)
+
+
+Light_ALShighvsUAV <- ComputeLightDiff(Light_HighUTM, Light_UAV2mUTM)
+Light_ALSlowvsUAV <- ComputeLightDiff(Light_LowUTM, Light_UAV2mUTM)
 ```
 
 ## Light differences maps
 ```{r}
-hist(Light$Lightdiff, breaks = 15)
-Min <- min(Light$Lightdiff)
-Max <- max(Light$Lightdiff)
+for(L in c("Light_HighvsLow", "Light_High_DryvsWet", "Light_Low_DryvsWet", "Light_Low_AnnualvsDry", "Light_Low_AnnualvsWet")){ # "Light_ALShighvsUAV", "Light_ALSlowvsUAV"
+  
+  # hist(L$Lightdiff, breaks = 15)
+  
+  print(
+    ggplot() + 
+      geom_point(data = get(L), size = 1.28,
+                 aes(Xutm, Yutm, color = Lightdiff)) + 
+      scale_colour_gradient2(name = "Light intensity (Transmittance) difference",
+                             low="#000066", high="red", mid = "white", midpoint = 0)+
+      # scale_colour_steps2(name = "Light intensity (Transmittance) difference",
+      #                     low="#000066", high="red", mid = "white", midpoint = 0.00,
+      #                     limits = c(Min, Max),
+      #                     breaks = c(Min, -0.06, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, Max), # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
+      #                     labels = as.character(round(c(Min, -0.06, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, Max), digits = 2))) +
+      geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+      ggtitle(paste("Paracou P16 4ha - ", L," 2023 - Light map difference (1m)", sep="")) +  
+      theme_classic() +
+      theme(legend.title=element_text(size=13), legend.text=element_text(size=13)) +
+      coord_sf()
+  )
+  
+  ggsave(paste("Paracou_P16_4ha_", L, "_2023_Lightmap_difference_1m_intensity_2m.png", sep = ""),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Maps/Intensity_2m",
+         width = 23, height = 25, units = "cm", dpi=800, bg="white")
+}
 
-ggplot() + 
-  geom_point(data = Light, size = 1.28,
-             aes(Xutm, Yutm, color = Lightdiff)) + 
-  scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#000066", high="red", mid = "white", midpoint = 0)+
-  # scale_colour_steps2(name = "Light intensity (Transmittance) difference",
-  #                     low="#000066", high="red", mid = "white", midpoint = 0.00,
-  #                     limits = c(Min, Max),
-  #                     breaks = c(Min, -0.06, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, Max), # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
-  #                     labels = as.character(round(c(Min, -0.06, -0.04, -0.02, -0.01, 0.01, 0.02, 0.04, 0.06, Max), digits = 2))) +
-  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
-  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
-  ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
-  coord_sf()
+Min <- min(get(L)$Lightdiff)
+Max <- max(get(L)$Lightdiff)
 
-ggplot() + 
-  geom_point(data = Light, size = 1.28,
-             aes(Xutm, Yutm, color = Lightdiff)) + 
-  # scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
-  scale_colour_steps2(name = "Light intensity (Transmittance) difference",
-                      low="#000066", high="red", mid = "white", midpoint = 0.00,
-                      limits = c(Min, Max) #,
-                      # breaks = seq(-0.1, 0.1, by = 0.025) # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
-  ) +
-  # geom_sf(data = sf::st_cast(buffer, "LINESTRING")) + # buffer 
-  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
-  ggtitle("Paracou P16 4ha - ALS High vs Low Altitude 2023 - Light map difference (1m)") +  
-  coord_sf()
+print(
+  ggplot() + 
+    geom_point(data = get(L), size = 1.28,
+               aes(Xutm, Yutm, color = Lightdiff)) + 
+    # scale_colour_gradient2(name = "Light intensity (Transmittance) difference", low="#00AFBB", high="#FC4E07", mid = "white", midpoint = 0)+
+    scale_colour_steps2(name = "Light intensity (Transmittance) difference",
+                        low="#000066", high="red", mid = "white", midpoint = 0.00,
+                        limits = c(Min, Max) #,
+                        # breaks = seq(-0.1, 0.1, by = 0.025) # c(Min, -0.08, -0.02, 0.02, 0.06, Max) ; seq(Min, Max, by = 0.02)
+    ) +
+    geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+    ggtitle(paste("Paracou P16 4ha - ", L," 2023 - Light map difference (1m)", sep="")) + 
+    theme_classic() +
+    coord_sf()
+)
+# }
 ```
 
 # Light profiles
@@ -271,8 +368,15 @@ Pathgrid_High_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS
 Pathgrid_Low_Dry <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Dry_Grid10x10m_each1mZ_intensity2m.txt"
 Pathgrid_Low_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_Light_Wet_Grid10x10m_each1mZ_intensity2m.txt"
 
+Pathgrid_UAV2m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_4ha_UAV_Light_Grid10x10m_each1mZ_intensity2m.txt"
+Pathgrid_UAV1m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_Grid10x10m_each1mZ_intensity1m.txt"
+
+
 Lightgrid_HighAlt <- ReadLightFile(Pathgrid_HighAlt)
 Lightgrid_LowAlt <- ReadLightFile(Pathgrid_LowAlt)
+
+Lightgrid_UAV2m <- ReadLightFile(Pathgrid_UAV2m)
+Lightgrid_UAV1m <- ReadLightFile(Pathgrid_UAV1m)
 
 Lightgrid_High_Dry <- ReadLightFile(Pathgrid_High_Dry, skiplines=14)
 Lightgrid_High_Wet <- ReadLightFile(Pathgrid_High_Wet, skiplines=14)
@@ -306,7 +410,9 @@ Lightgrid_Low_Dry <- average_Periods(Lightgrid_Low_Dry)
 Lightgrid_Low_Wet <- average_Periods(Lightgrid_Low_Wet)
 
 setnames(Lightgrid_HighAlt, "Period 1", "Transmittance")
-setnames(Lightgrid_LowAlt, "Period 1", "Transmittance")
+setnames(Lightgrid_LowAlt, "Period 1", "Transmittance") 
+setnames(Lightgrid_UAV2m, "Period 1", "Transmittance")
+setnames(Lightgrid_UAV1m, "Period 1", "Transmittance")
 ```
 
 ## Compute Transmitance by altitude
@@ -328,6 +434,9 @@ compute_Transmitance_byAlt <- function(data){
 Lightgrid_HighAlt <- compute_Transmitance_byAlt(Lightgrid_HighAlt)
 Lightgrid_LowAlt <- compute_Transmitance_byAlt(Lightgrid_LowAlt)
 
+Lightgrid_UAV2m <- compute_Transmitance_byAlt(Lightgrid_UAV2m)
+Lightgrid_UAV1m <- compute_Transmitance_byAlt(Lightgrid_UAV1m)
+
 Lightgrid_High_Dry <- compute_Transmitance_byAlt(Lightgrid_High_Dry)
 Lightgrid_High_Wet <- compute_Transmitance_byAlt(Lightgrid_High_Wet)
 
@@ -338,10 +447,7 @@ Lightgrid_Low_Wet <- compute_Transmitance_byAlt(Lightgrid_Low_Wet)
 
 ## Light profiles plot
 ```{r}
-# data1=Lightgrid_HighAlt ; data2=Lightgrid_LowAlt; Leg1="High altitude"; Leg2="Low altitude"; Title="High vs Low"
-# LegCol= c("High altitude" = "blue","Low altitude" = "#56B4E9")
-
-plotLightProfiles <- function(data1, data2, LegCol, Title){ # Leg1, Leg2,
+plotLightProfiles <- function(data1, data2, data3 = NULL, LegCol, Title){ 
   data1 %>% 
     # filter(Z_disc>=0 & Z_disc<=60) %>% 
     ggplot(aes(x= Z_disc, y= MeanTransmittance)) +
@@ -351,6 +457,11 @@ plotLightProfiles <- function(data1, data2, LegCol, Title){ # Leg1, Leg2,
     
     geom_point(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])) +
     geom_line(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])) +
+    
+    {if(!is.null(data3))
+      list(
+      geom_point(data = data3, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[3])),
+        geom_line(data = data3, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[3])) )} +
     
     # geom_errorbar(data = data2, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "darkgreen", width=.2) +
     # geom_errorbar(data = data1, aes(ymin=MinTransmittance, ymax=MaxTransmittance), colour = "green", width=.2) +
@@ -369,13 +480,23 @@ plotLightProfiles <- function(data1, data2, LegCol, Title){ # Leg1, Leg2,
 }
 
 plotLightProfiles(Lightgrid_HighAlt, Lightgrid_LowAlt,
-                  c("High altitude" = "blue","Low altitude" = "#56B4E9"),
-                  "High vs Low")
-plotLightProfiles(Lightgrid_High_Dry, Lightgrid_High_Wet,
-                  c("Dry season" = "#D55E00","Wet season" = "#56B4E9"),
+                  LegCol = c("High altitude" = "blue","Low altitude" = "#56B4E9"),
+                  Title = "High vs Low")
+
+plotLightProfiles(Lightgrid_HighAlt, Lightgrid_UAV2m,
+                  LegCol = c("High altitude" = "blue","UAV" = "#E69F00"),
+                  Title = "ALS High vs UAV") 
+
+plotLightProfiles(Lightgrid_LowAlt, Lightgrid_UAV2m,
+                  LegCol = c("Low altitude" = "#56B4E9","UAV" = "#E69F00"),
+                  Title = "ALS Low vs UAV") 
+
+plotLightProfiles(Lightgrid_HighAlt, Lightgrid_High_Dry, Lightgrid_High_Wet,
+                  c("High altitude" = "blue", "Dry season" = "#D55E00","Wet season" = "#0072B2"),
                   "High alt Dry vs Wet")
-plotLightProfiles(Lightgrid_Low_Dry, Lightgrid_Low_Wet,
-                  c("Dry season" = "#D55E00","Wet season" = "#56B4E9"),
+
+plotLightProfiles(Lightgrid_LowAlt, Lightgrid_Low_Dry, Lightgrid_Low_Wet,
+                  c("Low altitude" = "#56B4E9", "Dry season" = "#D55E00","Wet season" = "#0072B2"),
                   "Low alt Dry vs Wet")
 ```
 
@@ -384,91 +505,4 @@ plotLightProfiles(Lightgrid_Low_Dry, Lightgrid_Low_Wet,
 
 ```
 
-
-# HOBO
-## Load HOBO data
-```{r, include = F}
-HOBO_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv") %>% filter(Transect=="HOBO") # HOBO sensors coordinates
-HOBO_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/HOBO/HOBO_Light_stats.csv") %>%  # HOBO sensors data
-  rename(Id = HoboID)
-
-names(HOBO_data) # "HoboID" "HOBO_Light_annual_sum" "HOBO_Light_sum_Dry" "HOBO_Light_sum_Wet" "HOBO_Light_october_sum"
-
-HOBO <- HOBO_coord %>% 
-  left_join(HOBO_data, by= "Id") %>% 
-  mutate(Xutm = round(Xutm), 
-         Yutm = round(Yutm),
-         Zutm = round(Zutm)) %>% 
-  select(-c(Sensor,Transect))
-```
-
-## Plot HOBO data
-```{r}
-HOBOUTMsf <- st_as_sf(HOBO, coords = c('Xutm','Yutm'))
-HOBOUTMsf <- st_set_crs(HOBOUTMsf, crs(zone))
-
-ggplot() +
-  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
-  geom_sf(data = HOBOUTMsf, aes(color = HOBO_Light_october_sum), size = 1.5) +
-  scale_colour_gradientn(name =,
-                         colors = terrain.colors(30, rev=T),
-                         na.value="grey", labels = scales::comma) + 
-  ggtitle("Paracou P16 4ha - HOBO Light (lux)")
-```
-
-## Combine LiDAR and HOBO data
-```{r}
-HOBO_LiDAR <- Light %>% 
-  mutate(Xutm = round(Xutm),
-         Yutm = round(Yutm),
-         Zutm = round(Zutm)) %>%
-  left_join(HOBO, by= c("Xutm","Yutm","Zutm")) # coord pas les memes
-
-names(HOBO_LiDAR) # "Period.1_HighAlt" "Period.1_LowAlt" HOBO_Light_annual_sum" "HOBO_Light_sum_Dry"     "HOBO_Light_sum_Wet" "HOBO_Light_october_sum"
-```
-
-## Correlations
-```{r}
-# Transmittance_LAI2200, Transmittance_Low, Transmittance_High, HOBO_Light_october_sum, HOBO_Light_annual_sum
-
-DF_cor <- HOBO_LiDAR %>% 
-  select(Period.1_HighAlt, Period.1_LowAlt, HOBO_Light_annual_sum, HOBO_Light_sum_Dry, HOBO_Light_sum_Wet, HOBO_Light_october_sum) %>% 
-  unique() %>% 
-  na.omit()
-
-
-CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
-CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
-Pval_corr <- CorMatrixS$P # p-values
-
-# Plot de la matrice de corrélation :
-# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlation_plot_HOBOLAI2200vsLiDAR_High_and_Low_altitude_byRing_equalecho2m_test.png", width = 900, height = 800)
-corrplot(CorMatrix, method="circle", type="lower", diag = F, addCoef.col = 'white', 
-         number.cex = 1, col=brewer.pal(n=8, name="PuOr"),
-         tl.col="black", tl.cex = 1, tl.srt=45, p.mat = Pval_corr)
-# dev.off()
-
-
-```
-
-## Regresion
-```{r}
-options(scipen = 999)
-for(acq in c("Period.1_HighAlt", "Period.1_LowAlt")){
-  print(
-    HOBO_LiDAR %>% 
-      na.omit() %>% 
-      ggplot() +
-      ggtitle("Paracou P16 4ha - LiDAR transmittances vs HOBO light (lux)") +
-      aes(x = get(acq), y = HOBO_Light_annual_sum) +
-      geom_point() +
-      stat_smooth(method = "lm",
-                  formula = y ~ x) +
-      ggpubr::stat_cor(label.x = 0.01, label.y = 40000000) +
-      ggpubr::stat_regline_equation(label.x = 0.01, label.y = 37000000) +
-      scale_y_continuous(labels = scales::comma) +
-      labs(x = acq, y = "HOBO light (lux)", color = "LiDAR acquisition") 
-  )
-}
-```
 
