@@ -196,7 +196,7 @@ ggsave("FluxTower_2023_2024_Net_radiation_over_the_seasons.png",
 ## Sensor environnment data
 
 ```{r , include = F}
-HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
+HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")[1:32,] %>% 
   mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory"))
 
 # Set the categorical variable as a factor with the custom order
@@ -241,12 +241,43 @@ df_list <- mapply(function(df, id) {
 #                   locale = locale(decimal_mark = ","), 
 #                   trim_ws = TRUE) # read all the folder files
 
-# bind all the files
-HOBOdata <- bind_rows(df_list)
+# When data is incomplete in the last folder, take in the previous one (after checking the dates)
+prev30 <- read_excel("~/PhD/Microclimate/HOBO/16_10_2023/30 2023-10-16 15_56_54 AST (Data French Guiana Standard Time).xlsx")%>%
+    mutate(HoboID = "30")
 
-unique(HOBOdata$HoboID)
-# 2, 7, 22, 25,26 HS, dernières données 16-10-23 (6 mois et demi de données manquantes !)
-# 2x le 16
+# bind all the files
+HOBOdata <- bind_rows(df_list) %>% bind_rows(prev30)
+
+
+unique(HOBOdata$HoboID) # 30 attendus
+```
+
+Rename variables
+
+```{r}
+HOBOdata <- HOBOdata %>% 
+  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
+  rename(Temp = 'Ch:1 - Température   (°C)') %>%
+  rename(Light = 'Ch:2 - Lumière   (lux)')
+```
+
+```{r}
+# names(HOBOdata)
+# class(HOBOdata$Time) # "POSIXct" "POSIXt" 
+# class(HOBOdata$`Date et heure (AST)`) # "POSIXct" "POSIXt" 
+
+HOBOdata <- HOBOdata %>% 
+  mutate(Time = as.character(Time)) %>% mutate(`Date et heure (AST)` = as.character(`Date et heure (AST)`)) %>% 
+  mutate(Time = ifelse(is.na(Time), `Date et heure (AST)`, Time)) %>% 
+  mutate(Temp = ifelse(is.na(Temp), `Température (°C)`, Temp)) %>% 
+  mutate(Light = ifelse(is.na(Light), `Lumière (lux)`, Light))
+
+HOBOdata <- HOBOdata %>% 
+  mutate(Temp = ifelse(is.na(Temp), `Ch: 1 - Température   (°C)`, Temp)) %>% 
+  mutate(Light = ifelse(is.na(Light), `Ch: 2 - Lumière   (lux)`, Light)) %>% 
+  select(HoboID, Time, Light, Temp)
+
+any(is.na(HOBOdata$Time)); any(is.na(HOBOdata$Temp)) ; any(is.na(HOBOdata$Light))
 ```
 
 # Combine data and environment
@@ -255,7 +286,7 @@ unique(HOBOdata$HoboID)
 HOBOdata <- HOBOdata %>% 
   mutate(HoboID = as.numeric(HoboID)) %>%
   left_join(HOBO_Paracou_env, by = "HoboID") %>%
-  select(-c(`#`,`...1`, Tomst_Material_info_30_03_23, Operator)) %>% 
+  select(-c(`...1`, Tomst_Material_info_30_03_23, Operator)) %>% 
   mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory"))
 ```
 
@@ -266,16 +297,6 @@ des données ce même jour à 18h. Ils collectent bien toutes les 15
 minutes.
 
 # Prepare HOBO data for analysis
-
-Rename variables
-
-```{r}
-# names(HOBOdata)
-HOBOdata <- HOBOdata %>% 
-  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
-  rename(Temp = 'Ch:1 - Température   (°C)') %>%
-  rename(Light = 'Ch:2 - Lumière   (lux)')
-```
 
 ## Manage date and hours
 
@@ -293,6 +314,20 @@ HOBOdata <- HOBOdata %>%
   # filtrer sur les dates d'étude (1 an):
   filter(Time >= mdy_hms("04/01/2023 00:00:00") & Time < mdy_hms("03/31/2024 24:00:00")) 
 
+unique(HOBOdata$HoboID)
+# 22 a ses données dispatchées dans les dossiers 16_10_2023 et 06_05_2024 (je ne sais pas pq) et il manque 12 jours entre les 2 (je ne sais pas pq non plus)
+# 30 aussi mais pas de jours manquants
+
+Incomplete_sensors <- (HOBOdata %>% 
+  group_by(HoboID) %>% 
+  summarise(min = min(Time),
+            max = max(Time)) %>% 
+  filter(max < mdy_hms("03/31/2024 23:45:00") | min > mdy_hms("04/01/2023 00:00:00")))$HoboID # 7 22 23 26 27
+
+HOBOdata <- HOBOdata %>%
+  filter(!HoboID %in% Incomplete_sensors)
+
+unique(HOBOdata$HoboID) 
 ```
 
 ```{r}
@@ -688,7 +723,7 @@ annual_stats <- HOBOdata %>%
                    annual_sd = ~sd(.),
                    annual_se = ~plotrix::std.error(.)),
                    .names = "HOBO_{.col}_{.fn}"))
-  summarise(HOBO_Light_annual_sum = sum(Light)) %>% ungroup()
+  # summarise(HOBO_Light_annual_sum = sum(Light)) %>% ungroup()
 
 October_stats <- HOBOdata %>%
   filter(Month==10) %>% 

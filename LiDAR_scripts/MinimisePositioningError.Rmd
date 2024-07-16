@@ -252,6 +252,8 @@ LAI2200 <- LAI2200 %>%
 ```{r}
 LAI2200_LiDAR <- LiDAR %>% 
   left_join(LAI2200, by= c("Transect", "Id", "Ring"), suffix = c(".sim", ".init"))
+# .init : theorical coordinates used in the study
+# .sim : the simulated coordinates to study the spatialisation error of the sensors
 
 # NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
 ```
@@ -293,6 +295,7 @@ ggsave("P16_2023_4ha_Transmittances_LowInt2m_diff_simulations.png",
        path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
        width = 30, height = 35, units = "cm", dpi=800, bg="white")
 ```
+
 ```{r}
 LAI2200_LiDARsf %>% 
   filter(Transect=="LAY" & Id ==6) %>% 
@@ -361,8 +364,25 @@ write.csv(UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/C
 ```
 
 ```{r}
+LAI2200_LiDAR <- LAI2200_LiDAR %>% 
+  # left_join(UTM, by=c("Transect", "Id"), suffix = c("_all", "_best")) %>% 
+  mutate(Xtest = Xutm.init - Xutm.sim_all) %>% mutate(Ytest = Yutm.init - Yutm.sim_all) %>% 
+  mutate(Xerror = Xutm.init - Xutm.sim_best) %>% mutate(Yerror = Yutm.init - Yutm.sim_best)  
+
+range(LAI2200_LiDAR$Xtest) # -2.5  2.5
+range(LAI2200_LiDAR$Ytest)  # -2.5  2.5
+
+range(LAI2200_LiDAR$Xerror) # -2.5  2.5
+median(LAI2200_LiDAR$Xerror) # -0.6
+hist(LAI2200_LiDAR$Xerror)
+range(LAI2200_LiDAR$Yerror) # -2.2  2.4
+median(LAI2200_LiDAR$Yerror) # 0.8
+hist(LAI2200_LiDAR$Yerror)
+```
+
+
+```{r}
 LAI2200_LiDAR <-LAI2200_LiDAR %>% 
-  left_join(UTM, by=c("Transect", "Id"), suffix = c("_all", "_best")) %>% 
   filter(Xutm.sim_all== Xutm.sim_best & Yutm.sim_all== Yutm.sim_best)
 ```
 
