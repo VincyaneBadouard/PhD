@@ -4,12 +4,20 @@ library(data.table)
 
 options(digits = 22)
 
-local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/"
-# local <- "Y:/"
-
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Returns_and_gpstime_corrected.laz",
-              filter = "-keep_gps_time 1697733343 1697734000")
+# local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/"
+# # local <- "Y:/"
+# 
+# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Returns_and_gpstime_corrected.laz",
+#               filter = "-keep_gps_time 1697733343 1697734000")
 # ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_4ha_buffer_intensitycor_lastools.laz")
+
+
+path <- 
+  # "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_4ha_intensitycor_lastools.laz"
+"Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_intensitycor.laz"
+# "Y:/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_intensitycor.laz"
+
+ST <- readLAS(path)
 
 # ST <- readLAS(paste(local, "HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C19C20_buffer_intensitycor.laz", sep = "")) 
 range(ST@data$gpstime) # C19C20: 1697733342.914306640625 1697734144.802246093750 ; C14C15: 1697736417.1210937500 1697737307.1318359375
@@ -31,6 +39,18 @@ ST
 summary(ST@data)
 lidR::las_check(ST) # lidR checks
 
+# ALS High alt:
+# ⚠ 42721 points are duplicated and share XYZ coordinates with other points
+
+# ALS Low alt:
+# ⚠ 985 points are duplicated and share XYZ coordinates with other points
+
+# UAV processed :
+# ⚠ 185 points are duplicated and share XYZ coordinates with other points
+# ✗ 592218 pulses (points with the same gpstime) have points with identical ReturnNumber
+# NumberOfReturns validity... ✓
+# ReturnNumber vs. NumberOfReturns... ✓
+
 # UAV C14C15:
 # ⚠ 65539 points are duplicated and share XYZ coordinates with other points
 # ✗ 458256 pulses (points with the same gpstime) have points with identical ReturnNumber
@@ -42,7 +62,7 @@ lidR::las_check(ST) # lidR checks
 # ReturnNumber vs. NumberOfReturns... ✓
 
 # crs --------------------------------------------------------------------------
-crs(ST)
+lidR::crs(ST)
 
 # Density ----------------------------------------------------------------------
 mean(grid_density(ST, res=1)[]) 
@@ -61,29 +81,33 @@ h <- 500 # fly heignt in m
 tan(divergence*10^-3)*h # Footprint size in m
 
 # Penetration (proportion de points sol dans le dernier écho) ------------------
-table(ST@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt; UAV : 4
-min(ST@data$Z) # High : -2.34 ; Low : 4.06
-(nrow(ST@data[ReturnNumber==NumberOfReturns & Classification==1,])/nrow(ST@data[ReturnNumber==NumberOfReturns,]))*100 # 2 = sol # High: 1.75% ; Low: 8.70 % ; UAV : 0.4 % of ground points in the last echo
-alt = 25 # 1000 ; 500
-alt-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==1,Z]) # High: 987 ; Low: 487 ; UAV: 11.63975-13.62984 m distance
+table(ST@data$NumberOfReturns) # ALS 2023 LowAlt: 14; HighAlt: 11; UAV : 3 echos
+min(ST@data$Z) # High : 6.24 ; Low : 6.23, UAV : 6.29
+(nrow(ST@data[ReturnNumber==NumberOfReturns & Classification==1,])/nrow(ST@data[ReturnNumber==NumberOfReturns,]))*100
+# 1 = sol # High: 8.17% ; Low: 17.27 % ; UAV :  1.04 % of ground points in the last echo
+alt = 500  # 1000 ; 500 ; 85
+alt-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==1,Z]) # High: 987 ; Low: 487 ; UAV: 72 m distance
+mean(ST@data[ReturnNumber==NumberOfReturns,Z]) # High: 34.8 ; Low: 29.7 ; UAV: 39.1 m average height of the last echo
 
 # Si l'intensité n'est pas déjà la réflectance apparente :
 # ST@data$initial_intensity <- ST@data$Intensity
 # ST@data[, Intensity := as.integer((10^(Reflectance/10))*100)] # Réflectance initialement en decibel (et selon une référence connue)
 
 hist(ST@data[,Intensity])
-range(ST@data[,Intensity]) # High: [1;625] ; Low: [0;29] of intensity
-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==2,Intensity]) # High: 8.49 ; Low:1.3 of intensity in average at the ground
-mean(ST@data[Classification==2,Intensity]) # High: 8.6 ; Low: 1.3 of intensity in average at the ground
-mean(ST@data[ReturnNumber==1,Intensity]) # High: 22.1 ; Low: 5.8 of intensity in average in the first echo
-mean(ST@data[ReturnNumber==1,Intensity])-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==2,Intensity]) # High: 13.6 ; Low: 4.5 of intensity lost
-(mean(ST@data[ReturnNumber==NumberOfReturns & Classification==2,Intensity])/mean(ST@data[ReturnNumber==1,Intensity]))*100 # High: 38.5% ; Low: 22% of intensity lost
+range(ST@data[,Intensity]) # High: [122;12078] ; Low: [4;2754] of intensity ; UAV: [0;338]
+mean(ST@data[ReturnNumber==NumberOfReturns & Classification==1,Intensity]) # High: 894 ; Low:128 ; UAV: 10.8 of intensity in average at the ground
+mean(ST@data[Classification==1,Intensity]) # High: 906 ; Low: 128 ; UAV: 10.8 of intensity in average at the ground
+mean(ST@data[ReturnNumber==1,Intensity]) # High: 2149 ; Low: 562 ; UAV: 18.0 of intensity in average in the first echo
+mean(ST@data[ReturnNumber==1,Intensity])-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==1,Intensity]) # High: 1255 ; Low: 434 of intensity lost
+(mean(ST@data[ReturnNumber==NumberOfReturns & Classification==1,Intensity])/mean(ST@data[ReturnNumber==1,Intensity]))*100
+# High: 41.6% ; Low: 22.8% ; UAV: 7.2% of intensity lost
 
 # gpstime ----------------------------------------------------------------------
 range(ST@data$gpstime) # 354557511 354559330
 
 # Z ----------------------------------------------------------------------------
 range(ST@data$Z)
+# UAV: [6.29;62.98]
 
 # Classification ---------------------------------------------------------------
 table(ST@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5, Unclassified = 1

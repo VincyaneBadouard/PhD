@@ -171,8 +171,8 @@ vxsp <-
   
   # UAV intensity 1m & 2m res
   readVoxelSpace(
-    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m_crop.vox"
-    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
+    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m_crop.vox"
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
   )
 
 
@@ -308,10 +308,10 @@ Poorly_smpld_vxl <- function(fullcanopy, path, thres =20){
 # Poorly_smpld_vxl(fullcanopy_Low, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/Poorly20_smpld_vxl_Proportion2023LowAlt.csv")
 
 path <- 
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/Poorly25_smpld_vxl_Proportion2023HighAlt1m.csv"
+    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/Poorly20_smpld_vxl_Proportion2023UAV2m.csv"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/Poorly25_smpld_vxl_Proportion2023HighAlt1m.csv"
   
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/Poorly20_smpld_vxl_Proportion2023UAV2m.csv"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/Poorly20_smpld_vxl_Proportion2023UAV1m.csv"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/Poorly20_smpld_vxl_Proportion2023UAV1m.csv"
 
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/EmptyVoxelsProportion2023LowAlt.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/EmptyVoxelsProportion2023HighAlt.csv" # 0.37
@@ -393,7 +393,7 @@ range(fullcanopy$HLE) #UAV2m :  0.00000 18.93058 ; UAV1m :  0.00000 211.9542
 
 sum(is.na(fullcanopy@data$HLE)) # 0
 sum(is.nan(fullcanopy@data$HLE)) # 0
-sum(!is.na(fullcanopy@data$HLE))  # 4887658
+sum(!is.na(fullcanopy@data$HLE))  # UAV2m: 388218 ; ; UAV1m: 2960969
 all(is.na(fullcanopy@data[is.na(HLE)]$bsIntercepted)|is.na(fullcanopy@data[is.na(HLE)]$weightedFreepathLength)|fullcanopy@data[is.na(HLE)]$bsIntercepted==0) # missing HLE is when bsIntercepted or weightedFreepathLength are missing or equal to 0
 
 hist(fullcanopy$HLE)
