@@ -612,7 +612,7 @@ I <- range(VX@data[x>X[1] & x<X[2] & y>Y[1] & y<Y[2], i]) # 20 119
 J <- range(VX@data[x>X[1] & x<X[2] & y>Y[1] & y<Y[2], j])  # 51 150
 K <- range(VX@data[x>X[1] & x<X[2] & y>Y[1] & y<Y[2], k]) # 0 33
 
-VXUTM_crop <- crop(VX, imin = I[1], imax = I[2], jmin = J[1], jmax = J[2], kmin = K[1], kmax = K[2])
+VXUTM_crop <- AMAPVox::crop(VX, imin = I[1], imax = I[2], jmin = J[1], jmax = J[2], kmin = K[1], kmax = K[2])
 
 prod(VXUTM_crop@header$dim) == nrow(VXUTM_crop@data) # doit etre cohérent
 
@@ -644,6 +644,28 @@ VXals <- readVoxelSpace(
 
 prod(VXals@header$dim) == nrow(VXals@data) # doit etre cohérent
 
+nrow(VXals_0@data) - nrow(VXals@data) 
+nrow(VX@data)
+```
+
+
+```{r}
+VXUTM_crop@header$mincorner;
+getPosition(VXals)[x>(-49)& x<(-48) & y>(-49)& y<(-48) & z<1][, .(i,j,k)]
+
+VXals@data[, c("x", "y", "z") := getPosition(VXals)[, .(x, y, z)]]
+
+VXals@data[x>(-49)& x<(-48) & y>(-49)& y<(-48) & z<1, .(i,j,k)]
+
+VXUTM_crop@data[, `:=`(i = i+51, j = j+51)]
+VXUTM_crop@header <- VXals@header
+
+plot(VXUTM_crop)
+VXUTM_crop@data[, .(x,y,z,i,j,k)]
+```
+
+
+```{r}
 VXals@data[, c("x", "y", "z") := getPosition(VXals)[, .(x, y, z)]]
 
 VXalsUTM <- Relativ2UTM(VXals, VOP)
@@ -684,7 +706,7 @@ VXUTM_crop@header ; VXals@header
 VX_PAD <- VXUTM_crop@data[,.(i,j,k,HLE, PadBVTotal)]
 VXals_PAD <- VXals@data[,.(i,j,k,HLE, PadBVTotal)] ; gc()
 
-VX_merge@data <- rbind(VXUTM_crop@data,VXals@data)
+# VX_merge@data <- rbind(VXUTM_crop@data,VXals@data)
 
 VX_merge <- merge(VXUTM_crop,VXals)
 VX_merge@header <- VXals@header

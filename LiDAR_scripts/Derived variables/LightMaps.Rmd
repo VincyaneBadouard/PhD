@@ -21,7 +21,6 @@ buffer <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/
 zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 Understory_stakes <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/Understory_stakes_theoretical_UTM.csv") # stakes on the understory 4ha on P16
 
-
 ```
 
 # Process raw data from AMAPVox
@@ -171,6 +170,9 @@ ggsave(paste("Paracou_P16_4ha_buffer_UAV_Lightmap_1m_intensity_2m.png", sep = ""
        width = 18, height = 20, units = "cm", dpi=800, bg="white")
 
 Plot_LightUTM(Light_UAV1mUTM, zone, buffer)
+ggsave(paste("Paracou_P16_4ha_buffer_UAV_Lightmap_1m_intensity_1m.png", sep = ""),
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Maps/Intensity_2m",
+       width = 18, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 ## Crop on the interest zone
@@ -310,7 +312,7 @@ Light_ALSlowvsUAV <- ComputeLightDiff(Light_LowUTM, Light_UAV2mUTM)
 
 ## Light differences maps
 ```{r}
-for(L in c("Light_HighvsLow", "Light_High_DryvsWet", "Light_Low_DryvsWet", "Light_Low_AnnualvsDry", "Light_Low_AnnualvsWet")){ # "Light_ALShighvsUAV", "Light_ALSlowvsUAV"
+for(L in c("Light_HighvsLow", "Light_High_DryvsWet", "Light_Low_DryvsWet", "Light_Low_AnnualvsDry", "Light_Low_AnnualvsWet", "Light_ALShighvsUAV", "Light_ALSlowvsUAV")){ # 
   
   # hist(L$Lightdiff, breaks = 15)
   

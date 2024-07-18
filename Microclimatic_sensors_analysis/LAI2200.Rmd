@@ -160,7 +160,7 @@ path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/"
 
 pattern <- "P16LAY"
 # ou 
-pattern <- "P16HOBO"
+# pattern <- "P16HOBO"
 ```
 
 ```{r}
@@ -452,18 +452,19 @@ hist(Transmittance_data$Transmittance[which(Transmittance_data$Ring=="Ring1")], 
 mean <- Transmittance_data %>% 
   select(-c(Position, Sensor, Index)) %>% 
   group_by(Id, Ring) %>% 
-  mutate(Transmittance_mean = mean(Transmittance)) %>% 
-  mutate(Transmittance_sd = sd(Transmittance))
+  mutate(MeanTransmittance_LAI2200 = mean(Transmittance)) %>% 
+  mutate(SdTransmittance_LAI2200 = sd(Transmittance)) %>% 
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance))
 
 # Mean transmittance by ring for each location 
-ggplot(mean, aes(x = Id, y = Transmittance_mean, col = File_Id)) + 
+ggplot(mean, aes(x = Id, y = MeanTransmittance_LAI2200, col = File_Id)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
 mean %>% 
   filter(Ring=="Ring1") %>% 
   ggplot() + 
-  geom_point(aes(x = factor(Id), y = Transmittance_mean))
+  geom_point(aes(x = factor(Id), y = MeanTransmittance_LAI2200))
 
 
 # agrégéer (mean) à plutot 2 catégories : sous-bois et trouée, ou catégorie par transmittance
@@ -475,10 +476,13 @@ write.csv(mean, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv
 ```{r}
 # For LAY
 LAY <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16LAY_mean.csv")
-
-# LAY <- LAY %>% 
-#   group_by(Id, Ring) %>% 
-#   mutate(Transmittance_sd = sd(Transmittance))
+# names(LAY)
+LAY <- LAY %>%
+  select(-c(`...1`,`...2`, Transmittance_mean)) %>% 
+  group_by(Id, Ring) %>% 
+  mutate(MeanTransmittance_LAI2200 = mean(Transmittance)) %>% 
+  mutate(SdTransmittance_LAI2200 = sd(Transmittance)) %>% 
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance))
 
 LAYenv <- read_csv("~/PhD/Light/LAI-2200/LAI2200_environment.csv")
 
@@ -487,16 +491,19 @@ LAY <- LAY %>%
   mutate(Id = as.factor(Id))  %>% 
   mutate(Plot = as.character(Plot))
 
-ggplot(LAY, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
+ggplot(LAY, aes(x = Id, y = MeanTransmittance_LAI2200, col = LightHabitat)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
 # For HOBO
 HOBO <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
 
-# HOBO <- HOBO %>% 
-#   group_by(Id, Ring) %>% 
-#   mutate(Transmittance_sd = sd(Transmittance))
+HOBO <- HOBO %>%
+  group_by(Id, Ring) %>% 
+  select(-c(`...1`,`...2`, Transmittance_mean)) %>% 
+  mutate(MeanTransmittance_LAI2200 = mean(Transmittance)) %>% 
+  mutate(SdTransmittance_LAI2200 = sd(Transmittance)) %>% 
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance))
 
 HOBOenv <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv") %>% 
   select(Site, Plot, SubPlot, HoboID, LightHabitat, TopoHabitat, LayonEdge) %>% 
@@ -509,7 +516,7 @@ HOBO <- HOBO %>%
   mutate(Plot = "16") %>% 
   mutate(SubPlot = as.character(SubPlot))
 
-ggplot(HOBO, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) + 
+ggplot(HOBO, aes(x = Id, y = MeanTransmittance_LAI2200, col = LightHabitat)) + 
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
@@ -517,7 +524,7 @@ ggplot(HOBO, aes(x = Id, y = Transmittance_mean, col = LightHabitat)) +
 # names(HOBO)[!(names(HOBO) %in% names(LAY))]
 
 # Merge LAY and HOBO data with their environment
-LAI2200 <- bind_rows(LAY, HOBO) %>% select(-c("...1","...2" )) %>%  # 22 col, 765 rows
+LAI2200 <- bind_rows(LAY, HOBO) %>%   # 22 col, 765 rows
   select(c(Site, Plot, Transect, SubPlot, File_Id : LayonEdge)) # reorder columns
 
 write.csv(LAI2200, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv")

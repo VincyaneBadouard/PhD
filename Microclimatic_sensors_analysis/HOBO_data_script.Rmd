@@ -1,38 +1,72 @@
 ---
-title: "HOBO_data_script"
+title: "HOBO data script"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, echo = FALSE, fig.width = 6
+)
+```
+
+**Métriques climatiques** (a traiter) :
+<https://www.worldclim.org/data/bioclim.html> . Ce sont vraiment les
+métriques annuelles les plus utilisées.
+
+Il y a ce package qui semble faire du calcul sur le même type de sensor
+pour calculer des variables journalières puis mensuelles :
+<https://github.com/GregGuerin/microclimate> .
+
+Aussi en regardant rapidement, je viens de voir que Eva a sortie un
+papier sur le sujet dans MEE :
+<https://www.researchgate.net/publication/366841092_Slope_and_equilibrium_A_parsimonious_and_flexible_approach_to_model_microclimate>
+.
+
 **les données très fortes de lumière = sunflex étude sunflecks**
 
-Objectives: 
-- open the HOBO data
-- create a script to open HOBO data in several folders
-- prepare HOBO data for analysis
-- spatialiser tous les capteurs en x,y (trilateration) (A FAIRE)
-- descriptive analysis
+HOBO : variabilité intra-annuelle entre envir lumineux (corriger mon
+horloge), effet de la saison sur la lumière ? qui varie en fct de
+l’ouverture de canopée
+
+Objectives:
+
+\- open the HOBO data
+
+\- create a script to open HOBO data in several folders
+
+\- prepare HOBO data for analysis - spatialiser tous les capteurs en x,y
+(trilateration) (A FAIRE) - descriptive analysis
 
 Problematics:
-- A quelle échelle la variabilité est la plus forte (saison, mois, jour, jour/nuit, 15min) ?
-- La température de l'air et la lumière sont-elles liées à l'ouverture de canopée ? à la topographie ?
 
-Variables à calculer :
-- moyenne de l’année
-- moyenne diurne
-- moyenne nocturne
-- moyenne saison sèche
-    - diurne
-    - nocturne
-- moyenne saison des pluies
-    - diurne
-    - nocturne
-- coefficient variation à ces échelles
+\- A quelle échelle la variabilité est la plus forte (saison, mois,
+jour, jour/nuit, 15min) ?
+
+\- La température de l'air et la lumière sont-elles liées à l'ouverture
+de canopée ? à la topographie ?
+
+Variables à calculer : moyenne, sd, coefficient de variation, min, max :
+
+\- de l'année
+
+\- diurne
+
+\- nocturne
+
+\- saison sèche
+
+\- saison des pluies
 
 # Packages
-```{r echo = T,results = 'hide', message=FALSE}
-library(tidyverse)
+
+```{r, include = F}
 library(readr)
+library(tidyverse)
 library(stringr)
 library(lubridate) # for dates and time
 library(chron) # for dates and time
@@ -40,93 +74,278 @@ library(corrplot)
 library(RColorBrewer)
 ```
 
-# Read 
+# Read
+
+## Flux tower data
+
+Year, Month, jour, heure+min, time, J/N
+
+-   Pluie : Rainfall (mm)
+
+-   Rg : Global radiation (incident) (MJ m-2)
+
+-   CNR4_SW_up : Global radiation (incident) (W m-2) (autre capteur)
+
+-   Rn : Net radiation (W m-2)
+
+-   TempC_Avg_55_CR3000 : Air temperature at 55 m (°C)
+
+-   Temp(2.5) : Air temperature at 2.5 m (capteur HMP155 situé sur la tour, à 2 m de hauteur environ)
+
+**2023-204** :
+Date Year Month Code Day heure+min Time TimeB
+
+- Pluie : Rainfall (mm)
+
+- Rg : Global radiation (W m-2)
+- Rnet_2 : Net radiation (from Rg sensor) (W m-2)      
+- CNR4_SW_up_Avg : Global radiation from CNR4 sensor (W m-2)
+- CNR4_Rn_Avg : Net radiation (from CNR4 sensor) (W m-2)
+
+- Temp(55) : Air Temp at 55m high (°C)
+- Temp(2,0) : Air Temp at 2m high (°C)
+
+Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
+```{r}
+# Données capteurs de mars 2023 à mars 2024
+# FluxTowerData2023 <- readr::read_delim("~/PhD/Microclimate/TourAFlux-2023.csv", 
+#                                        delim = ";", locale = locale(decimal_mark = ","),
+#                                        escape_double = FALSE, trim_ws = TRUE)
+
+TourAFlux_2023_2024 <- readxl::read_excel("~/PhD/Microclimate/TourAFlux-2023-2024.xlsx", 
+                                          sheet = "Gx meteo_2023-2024")
+
+names(TourAFlux_2023_2024)
+
+TourAFlux_2023_2024 <- TourAFlux_2023_2024 %>% 
+  filter(Date >= mdy_hms("04/01/2023 00:00:00") & Date < mdy_hms("03/31/2024 24:00:00")) %>% 
+  rename(Date_Time = Date) %>% 
+  mutate(Date = date(Date_Time)) %>%
+  # mutate(Date = as.Date(Day, origin = "2022-12-31")) %>% # Julian Day to calendar date (pour 2023 data)
+  mutate(Hour =  hms::as_hms(format(Date_Time, format = "%H:%M:%S"))) %>% 
+  # mutate(Hour =  hms::hms(seconds_to_period(`heure+min` * 3600))) # (pour 2023 data)
+  select(Date_Time, Year, Month, Day, Date, Hour, `heure+min`, Time, # 365 days, 12 months
+         Pluie, Rg, CNR4_SW_up_Avg, Rnet_2, CNR4_Rn_Avg, `Temp(55)`, `Temp(2,0)`) %>% 
+  # mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+  #                        "Dry", "Wet")) %>% 
+  group_by(Month) %>%
+  mutate(Rain_sum_Month = sum(Pluie,na.rm = T)) %>% 
+  ungroup() %>%
+  mutate(Season = ifelse(Rain_sum_Month < 100,"Dry", "Wet")) %>% # Dry season: < 100 mm precipitation per month (Bonal et al. 2008)
+  mutate(Month = factor(Month)) %>% 
+  mutate(Pluie = as.numeric(Pluie)) %>% 
+  group_by(Day) %>% 
+  mutate(Rain_day = sum(Pluie)) %>%  # il faut sommer la pluie par jour pour visualiser les saisons
+  ungroup() %>% 
+  rename(Rg_W = Rg) %>%   rename(Rnet_2_W = Rnet_2) %>% 
+  group_by(Day) %>%
+  mutate(Rg = sum(Rg_W *1800 * 10^(-6))) %>% # Rg (MJ m-2 day-1) = Somme de Rg (W m-2) *1800 * 10^(-6)
+  mutate(Rnet_2 = sum(Rnet_2_W *1800 * 10^(-6))) %>% # Rg (MJ m-2 day-1) = Somme de Rg (W m-2) *1800 * 10^(-6)
+  ungroup()
+
+
+for(Y in c(2023,2024)){
+  print(
+    TourAFlux_2023_2024 %>% 
+      # filter(Year==Y) %>%
+      ggplot(aes(x = Month,y = Rain_day)) +
+      geom_boxplot(aes(color = Season)) +
+      theme_minimal() +
+      labs(title= paste("FluxTower ", Y," - Daily rainfall over the seasons"),
+           x ="Month", y = "Daily rainfall (mm)")
+  )
+}
+
+TourAFlux_2023_2024 %>% 
+  filter(`Temp(55)` > 0) %>%
+  ggplot(aes(x = Month,y = `Temp(55)`)) +
+  geom_boxplot(aes(color = Season)) +
+  theme_minimal() +
+  labs(title="FluxTower 2023-2024 - Air temperature (°C) over the seasons",
+       x ="Month", y = "Air temperature at 55 m (°C)")
+
+ggsave("FluxTower_2023_2024_Air_temperature_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+TourAFlux_2023_2024 %>% 
+  filter(Rg > 0) %>%
+  ggplot(aes(x = Month,y = Rg)) + # CNR4_SW_up_Avg
+  geom_boxplot(aes(color = Season)) +
+  theme_minimal() +
+  labs(title="FluxTower 2023-2024 - Global incident radiation (MJ m-2 day-1) over the seasons",
+       x ="Month", y = "Global incident radiation (MJ m-2 day-1)")
+
+ggsave("FluxTower_2023_2024_Global_incident_radiation_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+TourAFlux_2023_2024 %>% 
+  filter(Rnet_2 > 0) %>%
+  ggplot(aes(x = Month,y = Rnet_2)) + # Net radiation (W m-2)
+  geom_boxplot(aes(color = Season)) +
+  theme_minimal() +
+  labs(title="FluxTower 2023-2024 - Net radiation (MJ m-2 day-1) over the seasons",
+       x ="Month", y = "Net radiation (MJ m-2 day-1)")
+
+ggsave("FluxTower_2023_2024_Net_radiation_over_the_seasons.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+## Sensor environnment data
+
 ```{r , include = F}
-HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")
+HOBO_Paracou_env <- read_csv("~/PhD/Microclimate/HOBO_Tomst_environment/Tomst-HOBO sensors - Paracou - Data.csv")[1:32,] %>% 
+  mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory"))
 
+# Set the categorical variable as a factor with the custom order
+HOBO_Paracou_env$TopoHabitat <- factor(HOBO_Paracou_env$TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau"))
+
+env <- HOBO_Paracou_env %>% 
+  select(HoboID,Transect,LightHabitat,TopoHabitat)
+```
+
+## Sensor data
+
+```{r , include = F}
 # catch the name of all the files of the folder
-filenames <- list.files("~/PhD/Microclimate/HOBO/25_05_2023/csv", pattern="*.csv", full.names=TRUE) 
-
+# filenames <- list.files("~/PhD/Microclimate/HOBO/16_10_2023/csv", pattern="*.csv", full.names=TRUE) 
+filenames <- list.files("~/PhD/Microclimate/HOBO/06_05_2024", pattern="*.xlsx", full.names=TRUE)
 # dans l'ordre du numéro des capteurs
 filenames <- gtools::mixedsort(sort(filenames)) 
 
 # read all the files
-df_list <- lapply(filenames, read_delim, 
-                  delim = ";", escape_double = FALSE,
-                  col_types =
-                    cols(`#` = col_character(),
-                         `Ch: 1 - Température   (°C)` = col_number(), 
-                         `Ch: 2 - Lumière   (lux)` = col_number()),
-                  locale = locale(decimal_mark = ","), 
+library(readxl)
+
+df_list <- lapply(filenames, read_excel, 
                   trim_ws = TRUE) # read all the folder files
 
+ID <- str_remove(filenames, "D:/Mes Donnees/PhD/Microclimate/HOBO/06_05_2024/")
+ID <- substring(ID, first=1, last=2)
+ID <- str_remove(ID, " ")
+
+df_list <- mapply(function(df, id) {
+  df <- df %>%
+    mutate(HoboID = ID[id])
+  
+  return(df)
+}, df_list, c(1:length(df_list)), SIMPLIFY = F)
+
+# df_list <- lapply(filenames, read_delim, 
+#                   delim = ";", escape_double = FALSE,
+#                   col_types =
+#                     cols(`#` = col_character(),
+#                          `Ch: 1 - Température   (°C)` = col_number(), 
+#                          `Ch: 2 - Lumière   (lux)` = col_number()),
+#                   locale = locale(decimal_mark = ","), 
+#                   trim_ws = TRUE) # read all the folder files
+
+# When data is incomplete in the last folder, take in the previous one (after checking the dates)
+prev30 <- read_excel("~/PhD/Microclimate/HOBO/16_10_2023/30 2023-10-16 15_56_54 AST (Data French Guiana Standard Time).xlsx")%>%
+    mutate(HoboID = "30")
+
 # bind all the files
-HOBOdata <- bind_rows(df_list, .id = "HoboID")
+HOBOdata <- bind_rows(df_list) %>% bind_rows(prev30)
+
+
+unique(HOBOdata$HoboID) # 30 attendus
 ```
-# Combine data and environnment
+
+Rename variables
+
 ```{r}
 HOBOdata <- HOBOdata %>% 
-  mutate(HoboID = as.numeric(HoboID)) %>% 
-  left_join(HOBO_Paracou_env, by = "HoboID")
+  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
+  rename(Temp = 'Ch:1 - Température   (°C)') %>%
+  rename(Light = 'Ch:2 - Lumière   (lux)')
 ```
 
-# Rename files
-```{r , include = F}
-# truc <- sub("D:/Mes Donnees/PhD/Microclimate/HOBO/25_05_2023", "", filenames)
-# truc2 <- stringr::str_replace(truc, "(Data French Guiana Standard Time)", "")
-# truc3 <- stringr::str_replace(truc2, ".csv", "")
-# truc4 <- stringr::str_replace(truc3, " AST ", "")
-# truc5 <- gsub("[()]", "", truc4)
-# 
-# names(df_list) <- truc5
+```{r}
+# names(HOBOdata)
+# class(HOBOdata$Time) # "POSIXct" "POSIXt" 
+# class(HOBOdata$`Date et heure (AST)`) # "POSIXct" "POSIXt" 
+
+HOBOdata <- HOBOdata %>% 
+  mutate(Time = as.character(Time)) %>% mutate(`Date et heure (AST)` = as.character(`Date et heure (AST)`)) %>% 
+  mutate(Time = ifelse(is.na(Time), `Date et heure (AST)`, Time)) %>% 
+  mutate(Temp = ifelse(is.na(Temp), `Température (°C)`, Temp)) %>% 
+  mutate(Light = ifelse(is.na(Light), `Lumière (lux)`, Light))
+
+HOBOdata <- HOBOdata %>% 
+  mutate(Temp = ifelse(is.na(Temp), `Ch: 1 - Température   (°C)`, Temp)) %>% 
+  mutate(Light = ifelse(is.na(Light), `Ch: 2 - Lumière   (lux)`, Light)) %>% 
+  select(HoboID, Time, Light, Temp)
+
+any(is.na(HOBOdata$Time)); any(is.na(HOBOdata$Temp)) ; any(is.na(HOBOdata$Light))
 ```
 
+# Combine data and environment
+
+```{r}
+HOBOdata <- HOBOdata %>% 
+  mutate(HoboID = as.numeric(HoboID)) %>%
+  left_join(HOBO_Paracou_env, by = "HoboID") %>%
+  select(-c(`...1`, Tomst_Material_info_30_03_23, Operator)) %>% 
+  mutate(LightHabitat = recode(LightHabitat, "Sunfleck" = "Understory"))
+```
 
 # Understand the HOBO file
-Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter des données ce même jour à 18h.
-Ils collectent bien toutes les 15 minutes.
-```{r}
-# str(df_list) # list of 30 data.frames with 5364 obs and 8 columns each
-names(HOBOdata)
-range(HOBOdata$HoboID) # 30 sensors
-range(HOBOdata$`Date et heure (French Guiana Standard Time)`)
-# filter à > "30/03/23 18:00:00"
-```
+
+Les 30 capteurs ont été posés le 30/03/23 et ont commencé à collecter
+des données ce même jour à 18h. Ils collectent bien toutes les 15
+minutes.
 
 # Prepare HOBO data for analysis
-Rename variables
-```{r}
-HOBOdata <- HOBOdata %>% 
-  rename(Index = '#') %>%
-  rename(Time = 'Date et heure (French Guiana Standard Time)') %>%
-  rename(Temp = 'Ch: 1 - Température   (°C)') %>%
-  rename(Light = 'Ch: 2 - Lumière   (lux)')
-
-HOBOdata
-```
 
 ## Manage date and hours
+
 ```{r}
-class(HOBOdata$Time) # the time is in character
+cat("Sensors time range:",as.character(range(HOBOdata$Time)))
+
+class(HOBOdata$Time) # the time is in "POSIXct" "POSIXt" 
 
 HOBOdata <- HOBOdata %>% 
-  separate(Time, sep = " ", into = c("Date", "Hour"), remove = F) %>% 
-  mutate(Date = as_date(Date, format = "%m/%d/%Y")) %>% 
+  mutate(Time = as_datetime(Time)) %>% 
+  mutate(Date = date(Time)) %>% 
+  mutate(Hour = hms::as_hms(Time)) %>% 
   mutate(Month = month(Date)) %>%
-  mutate(Hour = hms::as_hms(Hour)) %>% 
-  mutate(Time = mdy_hms(Time)) %>% # format Date-times: 2023-03-30 18:15:00
-  filter(Time >= mdy_hms("03/30/2023 18:00:00")) 
+  mutate(Month = factor(Month)) %>% 
+  # filtrer sur les dates d'étude (1 an):
+  filter(Time >= mdy_hms("04/01/2023 00:00:00") & Time < mdy_hms("03/31/2024 24:00:00")) 
 
+unique(HOBOdata$HoboID)
+# 22 a ses données dispatchées dans les dossiers 16_10_2023 et 06_05_2024 (je ne sais pas pq) et il manque 12 jours entre les 2 (je ne sais pas pq non plus)
+# 30 aussi mais pas de jours manquants
 
-range(HOBOdata$Time)
-max(HOBOdata$Date) # "2023-05-25" the collect date
-max(HOBOdata$Date) - min(HOBOdata$Date) # 56 days of collect
+Incomplete_sensors <- (HOBOdata %>% 
+  group_by(HoboID) %>% 
+  summarise(min = min(Time),
+            max = max(Time)) %>% 
+  filter(max < mdy_hms("03/31/2024 23:45:00") | min > mdy_hms("04/01/2023 00:00:00")))$HoboID # 7 22 23 26 27
+
+HOBOdata <- HOBOdata %>%
+  filter(!HoboID %in% Incomplete_sensors)
+
+unique(HOBOdata$HoboID) 
+```
+
+```{r}
+cat("Sensors time range:",as.character(range(HOBOdata$Time)), '\n') #  2023-04-01 2024-03-31 23:45:00
+cat(max(HOBOdata$Date) - min(HOBOdata$Date), "days of collect", '\n') # 365  days of collect
+```
+# October ?
+```{r}
+october <- HOBOdata %>% filter(Month==10)
+range(october$Date) # complet
 ```
 
 ## NA ?
+
 ```{r}
 Na_tabble <- HOBOdata %>%
   filter(is.na(Light) | is.na(Temp))
+nrow(Na_tabble)
 # 
 # NA1 <- HOBOdata %>% 
 #   filter(Date == "2023-04-04")
@@ -135,137 +354,458 @@ Na_tabble <- HOBOdata %>%
 # HOBOdata <- HOBOdata %>%
 #   filter(minute(HOBOdata$Time) %in% c("0", "15", "30", "45"))
 ```
-
-
-## Different time steps
 ```{r}
-# Average per day
-HOBO_stats <- HOBOdata %>%
-  group_by(Date) %>%
-  mutate(Mean_Temp = mean(Temp)) %>%
-  mutate(Sd_Temp = sd(Temp)) %>%
-  mutate(Max_Temp = max(Temp)) %>%
-  mutate(Min_Temp = min(Temp)) %>%
-  mutate(Mean_Light = mean(Light)) %>%
-  mutate(Sd_Light = sd(Light)) %>%
-  mutate(Max_Light = max(Light)) %>%
-  mutate(Min_Light = min(Light)) %>%
-  select(-Temp,-Light, -Index,-Time, -Date, -Month, -Hour) %>%
+rm(df_list, Na_tabble, filenames, ID)
+```
+
+# Data checks
+
+-   Maximum values of light and T° of each day are at midday
+-   No light at night
+-   Higher values of each day are for sensors in gaps
+-   Sensors data \< flux tower data
+-   Sensors data follow flux tower data
+
+```{r}
+# Maximum values of light and T° of each day are at midday (!fail!)
+test <- HOBOdata %>% 
+  group_by(Date, HoboID) %>% 
+  mutate(MaxDailyTemp = max(Temp)) %>%
+  mutate(MaxDailyLight = max(Light)) %>%
+  ungroup()
+
+range(as.character(test[test$Temp == test$MaxDailyTemp,]$Hour))
+median(as.character(test[test$Temp == test$MaxDailyTemp,]$Hour))
+range(as.character(test[test$Light == test$MaxDailyLight,]$Hour))
+median(as.character(test[test$Light == test$MaxDailyLight,]$Hour))
+
+
+# No light at night (OK)
+test <- HOBOdata %>%
+  mutate(Phase = ifelse((Hour <= hms::as_hms("19:00:00") &
+                           Hour >= hms::as_hms("06:15:00")),
+                        "Day", "Night"))
+
+range(test[test$Phase == "Night",]$Light)
+test[test$Light == 1.94 & test$Phase == "Night",]
+
+# Higher values of each day are for sensors in gaps (not in understory) (! artefacts !)
+test <- HOBOdata %>%
+  group_by(Date) %>% 
+  mutate(MaxDailyTemp = max(Temp)) %>% 
+  mutate(MaxDailyLight = max(Light)) %>% 
+  ungroup()
+
+test[test$Temp == test$MaxDailyTemp,]$LightHabitat
+test[test$Temp == test$MaxDailyTemp & test$LightHabitat == "Understory",] # ! artefact !
+test[test$Light == test$MaxDailyLight,]$LightHabitat
+test[test$Light == test$MaxDailyLight & test$LightHabitat == "Understory",] # ! artefacts !
+
+
+# Sensors data < flux tower data (le faire avec données tour 2023-2024)
+# Rg : sum Global radiation (incident)	(MJ m-2 day-1)
+# `Temp(55)` : Mean Air temperature at 55 m (°C)
+test0 <- HOBOdata %>%
+  # mutate(Day = day(Date)) %>% # for 2022 tower data
+  mutate(Month = factor(Month)) %>% 
+  group_by(Date) %>% 
+  # mutate(MeanDailyTemp = mean(Temp)) %>% 
+  # mutate(MeanDailyLight = mean(Light)) %>% 
   ungroup() %>% 
+  select(Date, Month, Hour, LightHabitat,Temp, Light) %>% 
+  # left_join(TourAFlux_2023_2024, by= c("Month","Day")) %>% # for 2022 tower data
+  left_join(TourAFlux_2023_2024, by= c("Date", "Month", "Hour")) %>% # for 2023-2024 tower data
+  select(Date, Month, Hour, LightHabitat, `Temp(55)`, Temp, Rg, CNR4_SW_up, Rn, Light) %>% 
+  mutate(Tempdiff = Temp - `Temp(55)`) %>% 
   unique()
+test <- filter(test0, `Temp(55)` > 0)
 
-# By Hour
-HOBO_Hour_stats <- HOBOdata %>%
-  group_by(Hour) %>%
-  mutate(Mean_Temp = mean(Temp)) %>%
-  mutate(Sd_Temp = sd(Temp)) %>%
-  mutate(Max_Temp = max(Temp)) %>%
-  mutate(Min_Temp = min(Temp)) %>%
-  mutate(Mean_Light = mean(Light)) %>%
-  mutate(Sd_Light = sd(Light)) %>%
-  mutate(Max_Light = max(Light)) %>%
-  mutate(Min_Light = min(Light)) %>%
-  select(-Temp,-Light, -Index,-Time, -Date) %>%
-  ungroup() %>% 
-  unique()
+plot(Temp~`Temp(55)` , data=test)
+abline(lm(Temp~`Temp(55)`, data=test), col = "red") # ok, données aberrantes dans les fortes valeurs
+cor(test$Temp, test$`Temp(55)`) # 0.88
+min(test$Tempdiff) # écart à la T° de la tour: 21°C de plus que la tour !!
+test1 <- test[test$Tempdiff>1,] # which sensor T° are higher than tower T°
+test1[order(test1$Tempdiff),]
+
+# Sensors data follow flux tower data 
+test %>% 
+  # unite(Day, Month, col = "Date", sep = "-", remove = F) %>% 
+  # mutate(Date = as.Date(Date,"%d-%m", origin = "2023-03-31")) %>% 
+  filter(`Temp(55)` > Temp) %>%
+  ggplot(aes(x = Month)) +
+  geom_boxplot(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m")) +
+  geom_boxplot(aes(y = Temp, colour = LightHabitat)) + # colour = "HOBO: at 1 m"
+  # scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
+  #                                "HOBO: at 1 m" = "forestgreen")) + 
+  labs(title="HOBO vs Flux Tower data", y = "Air temperature (°C)") +
+  labs(color = "Data")
+
+# pour 1 jour
+test %>% 
+  filter(Date=="2023-03-31") %>% # pour 1 jour
+  # filter(`Temp(55)` > Temp) %>%
+  ggplot(aes(x = Hour)) +
+  geom_line(aes(y = `Temp(55)`, colour = "Flux Tower: at 55 m"))+
+  geom_point(aes(y = Temp, colour = LightHabitat)) + # colour = "HOBO: at 1 m"
+  # scale_colour_manual(values = c("Flux Tower: at 55 m" = "red", 
+  #                                "HOBO: at 1 m" = "forestgreen")) +
+  labs(title="HOBO vs Flux Tower data", y = "Air temperature (°C)") +
+  labs(color = "Data") +
+  scale_x_time(breaks = scales::breaks_width("1 hour"))
 
 
-# Day and night averages (A FAIRE)
-# Night: 19-5h 
-HOBOdata <- HOBOdata %>%
-  mutate(Phase = ifelse((Hour >= hms::as_hms("19:00:00") |
-                           Hour <= hms::as_hms("05:00:00")), 
-                        "Night", "Day"))
+## Light (radiation vs light in lux)
 
-max(as.character(HOBOdata[HOBOdata$Phase == "Day",]$Hour)) # 18:45
-min(as.character(HOBOdata[HOBOdata$Phase == "Day",]$Hour)) # 5:15
-max(HOBOdata[HOBOdata$Phase == "Night",]$Light) # 0.2 lux
-min(HOBOdata[HOBOdata$Phase == "Day",]$Light)
+test <- test0 %>% filter(Rg > 0) %>% filter(Light > 0) %>% filter(LightHabitat=="Gap")
 
+plot(Light~Rg , data=test)
+abline(lm(Light~Rg, data=test), col = "red") # not linked
+cor(test$Light, test$Rg) # 0.19 ; 0.27 if only gaps
 
-HOBO_NightDay_stats <- HOBOdata %>%
-  group_by(Date,Phase) %>%
-  mutate(Mean_Temp = mean(Temp)) %>%
-  mutate(Sd_Temp = sd(Temp)) %>%
-  mutate(Max_Temp = max(Temp)) %>%
-  mutate(Min_Temp = min(Temp)) %>%
-  mutate(Mean_Light = mean(Light)) %>%
-  mutate(Sd_Light = sd(Light)) %>%
-  mutate(Max_Light = max(Light)) %>%
-  mutate(Min_Light = min(Light)) %>%
-  select(-Temp,-Light, -Index,-Time,-Hour) %>%
-  ungroup() %>% 
-  unique()
+test <- test0 %>% filter(CNR4_SW_up > 0) %>% filter(Light > 0) %>% filter(LightHabitat=="Gap")
+
+plot(Light~CNR4_SW_up , data=test)
+abline(lm(Light~CNR4_SW_up, data=test), col = "red") # not linked
+cor(test$Light, test$CNR4_SW_up) # 0.19 ; 0.27 if only gaps
+
+test <- test0 %>% filter(Rn > 0) %>% filter(Light > 0) %>% filter(LightHabitat=="Gap")
+
+plot(Light~Rn , data=test)
+abline(lm(Light~Rn, data=test), col = "red") # not linked
+cor(test$Light, test$Rn) # 0.18 ; 0.26 if only gaps
+
 
 ```
 
-# Quick view of the temperature and light over time (dates)
+# Plot data of each sensor
+
+une ligne d'une couleur pour chaque jour le temps en abscisse la lumière
+en ordonnée
+
 ```{r}
-# over time: dates
-ggplot(HOBOdata, aes(x = Date, y = Temp)) +
-  geom_point() +
-  scale_x_date(date_breaks = "1 week")
+HOBOdata <- test %>% 
+  group_by(Month, Hour) %>% 
+  mutate(Temp_55_mean = mean(`Temp(55)`)) %>%  ungroup()
 
-ggplot(HOBOdata, aes(x = Date, y = Light)) +
-  geom_point() +
-  # scale_y_continuous(limits = c(0, 2000)) +
-  scale_x_date(date_breaks = "1 week")
+HOBOdata$Date[1]
 
-# Over a day
-oneday <- HOBOdata %>% 
-  filter(Date == "2023-04-04")
+n <- length(unique(HOBOdata$HoboID))*length(unique(HOBOdata$Month))
 
-ggplot(oneday, aes(x = Hour,y = Light)) +
+# Define nrow and ncol for the facet
+if(n<4) {i = 1}else{ i = 4}
+
+pdf("HOBO_Temperature.pdf", width = 15, height = 10)
+for(p in 1:(ceiling(n/16))){
+  print(
+    HOBOdata %>% 
+      # filter(Hour > hms("06:00:00") & Hour < hms("19:00:00")) %>%
+      # filter(HoboID == 1) %>%
+      # filter(Month == 4) %>%
+      # filter(Light < 1000) %>%
+      # filter(Date <= ymd("2023-04-15")) %>% # "2023-03-30"
+      ggplot(aes(x = Hour,y = Temp)) +
+      geom_line(aes(color = factor(Date)), show.legend = F) +
+      geom_line(aes(y = Temp_55_mean), color = "black", linewidth = 1, show.legend = F) +
+      scale_x_time(breaks = scales::breaks_width("4 hour")) +
+      ggforce::facet_wrap_paginate(vars(HoboID, Month),
+                                   scales = "free_y",
+                                   ncol = min(n,4), nrow = i, page = p)
+    
+  )
+}
+dev.off() # Close the final graphics device
+```
+
+1)  En mars il a 2 dates, dont la 1ere est celle de pose des capteurs à
+18h
+2)  il s'est passé qqchose le 2023-09-20 tous les capteurs ont une forte
+chute de T° l'après midi
+3)  le mois d'octobre est peu variable en T° entre les jours
+4)  capteurs 9, 10, 23, 24 joli pic à midi -\> gap
+5)  pic de température très forte qui serait du au réchauffement du
+capteur lui meme et non la température réelle de l'air
+
+conseil Sylvain : diff de chaque capteur à la moyenne
+
+```{r}
+unique(HOBOdata[HOBOdata$HoboID%in% c(9, 10, 23, 24),]$LightHabitat) # "Gap border" "Gap"
+
+HOBOdata %>% 
+  filter(HoboID == 1) %>%
+  filter(Month == 3) %>% 
+  ggplot(aes(x = Hour,y = Temp)) +
+  geom_line(aes(color = factor(Date)), show.legend = F) +
+  scale_x_time(breaks = scales::breaks_width("4 hour")) 
+
+HOBOdata %>% 
+  filter(HoboID == 1) %>%
+  filter(Month == 9) %>% 
+  # filter(Date >= ymd("2023-09-17") & Date <= ymd("2023-09-21")) %>% 
+  ggplot(aes(x = Hour,y = Temp, group = Date)) +
   geom_line() +
-  labs(title="Light over a day (2023-04-04)",
+  geom_line(aes(col = (Date==ymd("2023-09-20")))) +
+  scale_x_time(breaks = scales::breaks_width("4 hour")) 
+```
+
+# Relation between light and temperature
+
+```{r}
+HOBOdata %>% 
+  # filter(Light>10) %>% 
+  ggplot() +
+  aes(x = Light, y = Temp) +
+  geom_point(size = 0.2) +
+  stat_smooth(method = "lm",
+              formula = y ~ x) +
+  labs(x ="Light (lux)", y = "Temperature (°C)")
+
+HOBOdata %>% 
+  ggplot() +
+  aes(x = Light, y = Temp) +
+  geom_point(size = 0.2) +
+  geom_smooth(span = 0.75) +
+  labs(x ="Light (lux)", y = "Temperature (°C)")
+
+cat("cor:",cor(HOBOdata$Light, HOBOdata$Temp)) # 0.44
+```
+
+# Day/night
+
+See when it's the night. Objective : when light = 0 lux it's the night
+Ne pas considérer que tout ce qui est \>0 lux c'est du jour, pcq ya du
+\>0 en pleine nuit trade-off : la journée ne pas être à 0 lux, la nuit
+est à des heures évidentes
+
+```{r}
+# For the Flux Tower
+# range(as.character(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Hour)) # "06:30:00" "19:00:00"
+# min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Rg) # 5.02
+# range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$Rg) # -4.10  4.99
+# min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$Rn) # -96.08
+# range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$Rn) # -100.09    7.80
+# min(FluxTowerData2023[FluxTowerData2023$`J/N` == "J",]$CNR4_SW_up, na.rm = T) # 4
+# range(FluxTowerData2023[FluxTowerData2023$`J/N` == "N",]$CNR4_SW_up, na.rm = T) # -6.17 83.65
+
+TourAFlux_2023_2024 %>% 
+  group_by(Hour) %>%
+  mutate(Rg_W_max = max(Rg_W)) %>% ungroup() %>%
+  select(Hour, Rg_W_max) %>% 
+  unique() %>% 
+  ggplot(aes(x = Hour,y = Rg_W_max)) +
+  geom_line() +
+  # geom_col(aes(x = Hour,y = Rg_W_max)) +
+  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
+  theme_minimal() +
+  labs(title="Maximum global incident radiation (W m-2) over the hours",
+       x ="Hour", y = "Maximum lobal incident radiation (W m-2)")
+
+ggsave("FluxTower_2023_2024_Maximum_global_incident_radiation_over_the_hours.png",
+       path = "D:/Mes Donnees/PhD/Figures/Macroclimate",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+# ggplot(FluxTowerData2023, aes(x = `J/N`,y = Rg)) + # Rg, Rn, CNR4_SW_up
+#   geom_boxplot(aes(color = `J/N`)) +
+#   labs(title="Light over a day",
+#        y = "Global incident radiation (MJ m-2 day-1)")
+
+# For the HOBOs
+ggplot(HOBOdata, aes(x = Hour,y = Light)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title="Light over a day",
        x ="Hour", y = "Light (lux)")
 
-ggplot(oneday, aes(x = Hour,y = Temp)) +
-  geom_line() +
-  labs(title="Temperature over a day (2023-04-04)",
-       x ="Hour", y = "Temperature (°C)")
+cat("Day: 06:00 - 19:00")
 
-# together
-mean(max(oneday$Light)/max(oneday$Temp))
-coeff <- 96
-ggplot(oneday, aes(x = Hour)) +
-  geom_line(aes(y = Temp), col = "red") +
-  geom_line(aes(y = Light/coeff), col = "orange") +
-  scale_y_continuous(
-    # Features of the first axis
-    name = "Temperature (°C)",
-    # Add a second axis and specify its features
-    sec.axis = sec_axis(~.*coeff, name="Light (lux)")
-  ) +
-  theme(
-    axis.title.y = element_text(color = "red"),
-    axis.title.y.right = element_text(color = "orange")
-  ) +
-  labs(title="Temperature and light over a day (2023-04-04)")
+HOBOdata <- HOBOdata %>%
+  # mutate(Phase = ifelse((Hour <= hms::as_hms("18:30:00") &
+  #                          Hour >= hms::as_hms("06:30:00")),
+  #                       "Day", "Night"))
+  mutate(Phase = ifelse(Light == 0, "Night", "Day")) %>%  # pas seulment pcq ya du >0 en pleine nuit
+  mutate(Phase = ifelse((Hour > hms::as_hms("19:00:00") & Hour <= hms::as_hms("23:45:00") |
+                           Hour >= hms::as_hms("00:00:00") & Hour < hms::as_hms("06:00:00")),
+                        "Night", Phase)) # heures évidentes de nuit
+
+ggplot(HOBOdata, aes(x = Hour,y = Light)) +
+  geom_point(aes(color = Phase)) +
+  theme_minimal() +
+  labs(title="Light over a day",
+       x ="Hour", y = "Light (lux)") # dès que les points dépassent le 0 -> jour
+
+ggsave("HOBO_Light_DayNight.png",
+       path = "D:/Mes Donnees/PhD/Figures/HOBO",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+
+ggplot(HOBOdata[HOBOdata$Phase=="Night",], aes(x = Hour,y = Light)) +
+  geom_point() +
+  theme_minimal() +
+  labs(title="Night over a day",
+       x ="Hour", y = "Light (lux)")
+
+ggplot(HOBOdata, aes(x = Phase,y = Light)) + 
+  geom_boxplot(aes(color = Phase)) +
+  theme_minimal() +
+  labs(title="Light over a day",
+       y = "Light (lux)")
+
+cat("Maximum light by night:", max(HOBOdata[HOBOdata$Phase == "Night",]$Light)) # 0.42 lux
+cat("Minimum light by day:", min(HOBOdata[HOBOdata$Phase == "Day",]$Light)) # 0 lux
+test <- HOBOdata[HOBOdata$Phase == "Day" & HOBOdata$Light ==0,] # 0 obs
+test <- HOBOdata[HOBOdata$Phase == "Night" & HOBOdata$Light >0,] # 1651 obs
 
 ```
 
-# Descriptive analysis
+# Seasons (a refaire avec 2024)
 
-## Descriptive stats
+2023 : 04-12 2024 : 01-03
+Définition saison sèche au mois : < 100 mm par mois (Bonal et al. 2008)
 ```{r}
-# for full data
-mean(HOBOdata$Light) # 150 lux
-sd(HOBOdata$Light) # 529 lux
-min(HOBOdata$Light) # 0 lux
-max(HOBOdata$Light) # 21944 lux
+HOBOdata <- HOBOdata %>%
+  mutate(Season = ifelse(Month  %in% c(2,3, 8:11), # mars, aout-nov = dry season
+                         "Dry", "Wet"))
 
-mean(HOBOdata$Temp) # 25 °C
-sd(HOBOdata$Temp) # 1 °C
-min(HOBOdata$Temp) # 21 °C
-max(HOBOdata$Temp) # 31 °C
+# A replotter avec données complètes
+ggplot(HOBOdata, aes(x = as.character(Month),y = Temp)) +
+  geom_boxplot(aes(color = Season)) +
+  labs(title= "Temperature (°C) over the seasons",
+       x ="Month", y = "Temperature (°C)")
 
+HOBOdata %>% 
+  filter(Light>0) %>%
+  # filter(LightHabitat=="Gap") %>% 
+  group_by(Month, LightHabitat) %>%  mutate(Sum_Light = sum(Light)) %>% ungroup() %>% 
+  select(Month, Season, LightHabitat, Sum_Light) %>% unique() %>% 
+  ggplot(aes(x = as.factor(Month),y = Sum_Light)) +
+  geom_point(aes(colour = Season, shape = LightHabitat)) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(title= "Light (lux) over the seasons",
+       x ="Month", y = "Light (lux)")
 ```
+
 # Variables à calculer
+
+à l'échelle du capteur :
+
+-   Lumière : somme
+
+-   de l'année
+
+-   saison sèche
+
+-   saison des pluies
+
+-   T° : moyenne, max, min
+
+-   de l'année
+
+-   diurne
+
+-   nocturne
+
+-   saison sèche
+
+-   saison des pluies
+
+\- coefficient variation à ces échelles
+
+## Light stats
+Lumière : somme
+-   de l'année
+-   saison sèche
+-   saison des pluies
 ```{r}
 annual_stats <- HOBOdata %>%
   group_by(HoboID) %>%
-  summarise(across(c("Temp", "Light"),
+  summarise(across("Light",
+                   list(annual_sum = ~sum(.), # annual
+                   annual_mean = ~mean(.),
+                   annual_sd = ~sd(.),
+                   annual_se = ~plotrix::std.error(.)),
+                   .names = "HOBO_{.col}_{.fn}"))
+  # summarise(HOBO_Light_annual_sum = sum(Light)) %>% ungroup()
+
+October_stats <- HOBOdata %>%
+  filter(Month==10) %>% 
+  group_by(HoboID) %>%
+  summarise(across("Light",
+                   list(october_sum = ~sum(.), # october
+                   october_mean = ~mean(.), 
+                   october_sd = ~sd(.),
+                   october_se = ~plotrix::std.error(.)),
+            .names = "HOBO_{.col}_{.fn}"))
+
+season_stats <- HOBOdata %>%
+  group_by(HoboID,Season) %>% # Season
+  summarise(across("Light",
+                   list(sum = ~sum(.), # october
+                   mean = ~mean(.), 
+                   sd = ~sd(.),
+                   se = ~plotrix::std.error(.)),
+                   .names = "HOBO_{.col}_{.fn}"))
+
+season_stats <- pivot_wider(season_stats, names_from = Season,
+                            values_from = names(season_stats)[-c(1:2)],
+                            names_glue = "{.value}_{Season}")
+
+Light_stats <- annual_stats %>% 
+  left_join(season_stats, by="HoboID") %>% left_join(October_stats, by="HoboID")
+names(Light_stats) # "Light_annual_sum" "Light_sum_Dry" "Light_sum_Wet" "Light_october_sum"
+
+write.csv(Light_stats, "~/PhD/Microclimate/HOBO/HOBO_Light_stats.csv")
+
+stats <- left_join(Light_stats, env, by="HoboID")
+
+```
+
+# Some plots
+
+```{r}
+# TopoHabitat
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = HOBO_Light_annual_sum) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Sum annual light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = HOBO_Light_sum_Dry) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Sum dry season light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = HOBO_Light_sum_Wet) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Sum wet season light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = HOBO_Light_october_sum) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Sum October light (lux)") +
+  theme_minimal()
+```
+
+## Temperature stats
+T° : moyenne, max, min
+-   de l'année
+-   diurne
+-   nocturne
+-   saison sèche
+-   saison des pluies
+```{r}
+annual_stats <- HOBOdata %>%
+  group_by(HoboID) %>%
+  summarise(across("Temp",
                    list(annual_mean = ~mean(.),
                         annual_sd = ~sd(.),
                         annual_varcoef = ~(sd(.) / mean(.)) * 100,
@@ -275,7 +815,7 @@ annual_stats <- HOBOdata %>%
 
 phase_stats <- HOBOdata %>%
   group_by(HoboID,Phase) %>%
-  summarise(across(c("Temp", "Light"),
+  summarise(across("Temp",
                    list(mean = ~mean(.),
                         sd = ~sd(.),
                         varcoef = ~(sd(.) / mean(.)) * 100,
@@ -284,13 +824,13 @@ phase_stats <- HOBOdata %>%
                    .names = "{.col}_{.fn}")) %>% 
   # "Phase" variable as an index for the computed variables
   pivot_wider(names_from = Phase,
-              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min","Light_mean", "Light_sd", "Light_varcoef", "Light_max", "Light_min"),
+              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min"),
               names_glue = "{.value}_{Phase}")
 
 
 season_stats <- HOBOdata %>%
   group_by(HoboID,Season) %>%
-  summarise(across(c("Temp", "Light"),
+  summarise(across("Temp",
                    list(mean = ~mean(.),
                         sd = ~sd(.),
                         varcoef = ~(sd(.) / mean(.)) * 100,
@@ -300,7 +840,7 @@ season_stats <- HOBOdata %>%
   
   # "Season" variable as an index for the computed variables
   pivot_wider(names_from = Season,
-              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min","Light_mean", "Light_sd", "Light_varcoef", "Light_max", "Light_min"),
+              values_from = c("Temp_mean", "Temp_sd", "Temp_varcoef", "Temp_max", "Temp_min"),
               names_glue = "{.value}_{Season}")
 
 ```
@@ -319,163 +859,153 @@ stats <- stats[,colSums(stats)>0] # remove column with only 0 (min light)
 stats <- left_join(stats, env, by="HoboID")
 ```
 
-## Corrélations
-```{r}
-cor(HOBOdata$Light,HOBOdata$Temp) # 0.34
-plot(HOBOdata$Temp,HOBOdata$Light) 
-plot(HOBOdata$Temp[HOBOdata$Light<1000],HOBOdata$Light[HOBOdata$Light<1000]) 
-cor(HOBOdata$Light,as.numeric(HOBOdata$Hour)) # 0.023
-cor(HOBOdata$Temp,as.numeric(HOBOdata$Hour)) # 0.31
-# corrélation entre température et lumière
-# corrélation entre l'heure de la journée et la température 
-# pas de corrélation entre l'heure de la journée et la lumière
+# Some plots
 
-DF_cor <- HOBOdata %>% 
-  select(- Index, -Time) %>% 
-  mutate(Hour = as.numeric(Hour)) %>% 
-  mutate(Date = as.numeric(Date)) %>% 
-  select(-Phase)
+```{r}
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_annual_mean) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Average annual light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_annual_max) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Maximum annual light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_mean_Wet) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Average wet season light (lux)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(LightHabitat)) %>%
+  ggplot() +
+  aes(x = LightHabitat, y = Light_max_Day) +
+  geom_boxplot(fill = "#FFAE00") +
+  labs(x ="Light Habitat", y = "Maximum daily light (lux)") +
+  theme_minimal()
+
+cat("Les gaps sont bien les zones les plus lumineuses. Le sous-bois connait des variations de lumière importantes au cours de la journée")
+
+
+stats %>%
+  filter(!is.na(TopoHabitat)) %>%
+  ggplot() +
+  aes(x = TopoHabitat, y = Temp_annual_mean) +
+  geom_boxplot(fill = "#DA2217") +
+  labs(x ="Topographic Habitat", y = "Average annual temperature (°C)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(TopoHabitat)) %>%
+  ggplot() +
+  aes(x = TopoHabitat, y = Temp_mean_Wet) +
+  geom_boxplot(fill = "#DA2217") +
+  labs(x ="Topographic Habitat", y = "Average wet season temperature (°C)") +
+  theme_minimal()
+
+stats %>%
+  filter(!is.na(TopoHabitat)) %>%
+  ggplot() +
+  aes(x = TopoHabitat, y = Temp_mean_Day) +
+  geom_boxplot(fill = "#DA2217") +
+  labs(x ="Topographic Habitat", y = "Average daily temperature (°C)") +
+  theme_minimal()
+
+cat("La température augmente avec la topographie")
+```
+
+# Correlation test
+
+```{r, fig.height = 10}
+DF_cor <- stats %>% 
+  mutate(TopoHabitat = as.numeric(factor(TopoHabitat, levels = c("Bottomland", "Lower slope", "Mid slope", "Upper slope", "Plateau")))) %>% 
+  mutate(LightHabitat = as.numeric(factor(LightHabitat, levels = c("Understory", "Sunfleck", "Gap border", "Gap")))) %>% 
+  mutate(Transect = as.numeric(factor(Transect, levels = c("Topo", "Gap")))) %>% 
+  na.omit()
 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
 CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
+# png("D:/Mes Donnees/PhD/Figures/Corplot_pedo_chimie.png", width = 900, height = 800)
 corrplot(CorMatrix, method="circle", type="lower",
-         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.srt=45)
-#, p.mat = Pval_corr, sig.level = 0.05) #avec une croix pour les p-value > 0.05.
+         col=brewer.pal(n=8, name="PuOr"), tl.col="black", tl.cex = 0.5, tl.srt=45)
 
+# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlation_plot_HOBOLAI2200vsLiDAR_High_and_Low_altitude_byRing_equalecho2m_test.png", width = 900, height = 800)
+corrplot(CorMatrix, method="circle", type="lower", diag = F,
+         addCoef.col = 'white', number.cex = 1.5, 
+         col=brewer.pal(n=8, name="PuOr"),
+         tl.col="black", tl.cex = 2, tl.srt=30,
+         p.mat = Pval_corr
+)
+# dev.off()
+# dev.off()
 ```
 
+Ces métriques de lumière et de température ne semblent pas être
+fortement reliées à la topographie. Pourtant les boxplots laissent à
+penser que la température augmente du bas-fond vers le plateau.
 
-## Descriptive plots
-Plot evolution of the light (lux) and temperature (°C)
-between the "2023-03-30" and the "2023-05-24"
-```{r}
-mean(max(HOBOdata$Light)/max(HOBOdata$Temp))
-coeff <- 715
-ggplot(HOBOdata, aes(x = Date)) +
-  geom_point(aes(y = Temp), col = "red") +
-  geom_point(aes(y = Light/coeff), col = "orange") +
-  scale_y_continuous(
-    # Features of the first axis
-    name = "Temperature (°C)",
-    # Add a second axis and specify its features
-    sec.axis = sec_axis(~.*coeff, name="Light (lux)")
-  ) +
-  theme(
-    axis.title.y = element_text(color = "red"),
-    axis.title.y.right = element_text(color = "orange")
-  ) +
-  scale_x_date(date_breaks = "1 week")
+Les relations à la topographie les plus importantes cor entre 0.25 et
+0.5 :
 
-```
+-   Average annual, dry, wet, day temperature
+
+-   Maximum night temperature
+
+-   Minimum day light
+
+Sont lié à l'habitat lumineux : tout sauf les coefficient de variation
+et la température maximum nocturne.
+
+# Sensors coordinates (mis de côté, à continuer)
 
 ```{r}
-ggplot(HOBOdata, aes(x = as.character(Date), y = Light)) +
-  geom_boxplot() +
-  labs(y = "Light (lux)") +
-  scale_y_continuous(limits = c(0, 1000))
-```
-Bon par date c'est pas une bonne manière d'observer le comportement des variables lumière et température
+# jeux de données test : 
 
-### Per day:
-```{r}
-HOBObis <- HOBOdata %>% 
-  mutate(Date = as.character(Date)) %>% mutate(Time = as.character(Time)) # %>% mutate(Hour = format(Hour, as.POSIXct("%H:%M")))
-
-ggplot(HOBObis) +
-  aes(x = Hour, y = Temp) +
-  geom_point(shape = "circle", size = 1.5, colour = "#112446") +
-  theme_minimal() +
-  facet_wrap(vars(Date), scales="free_y") +
-  labs(y = "Temperature (°C)") +
-  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))+
-  labs(title = "HOBO 1 : Temperature over the day for each date")
-
-HOBObis %>%
-  ggplot() +
-  aes(x = Hour, y = Light) +
-  geom_col(fill = "#112446") +
-  theme_minimal() +
-  facet_wrap(vars(Date), scales="free_y") +
-  labs(y = "Light (lux)")+
-  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 12)))+
-  labs(title = "HOBO 1 : Light over the day for each date")
-
-```
-
-### Average per day (pas intéressant, ça fluctue au cours de la journée)
-```{r}
-coeff <- 700
-ggplot(HOBO_stats, aes(x = Date)) +
-  geom_line(aes(y = Mean_Temp), col = "red", linewidth=2) +
-  geom_errorbar(aes(ymin= Min_Temp, ymax= Max_Temp), col = "red") +
-  geom_line(aes(y = Mean_Light/coeff), col = "orange", linewidth=2) +
-  geom_errorbar(aes(ymin=Min_Light/coeff, ymax=Max_Light/coeff), col = "orange") +
-  scale_y_continuous(
-    # Features of the first axis
-    name = "Average daily temperature (°C)",
-    # Add a second axis and specify its features
-    sec.axis = sec_axis(~.*coeff, name=" Average daily light (lux)")
-  ) +
-  theme(
-    axis.title.y = element_text(color = "red"),
-    axis.title.y.right = element_text(color = "orange")
-  ) +
-  scale_x_date(date_labels = "%b %d", date_breaks = "1 week")
-```
-
-### Night/Day
-```{r}
-# Over a day
-oneday <- HOBOdata %>% 
-  filter(Date == "2023-04-04")
-
-ggplot(oneday, aes(x = Hour,y = Light)) +
-  geom_line() +
-  labs(title="Light over a day (2023-04-04)",
-       x ="Hour", y = "Light (lux)")
-
-ggplot(oneday, aes(x = Hour,y = Temp)) +
-  geom_line() +
-  labs(title="Temperature over a day (2023-04-04)",
-       x ="Hour", y = "Temperature (°C)")
-
-HOBO_Hour_stats %>%
-  filter(Max_Light <= 5000) %>%
-  ggplot(aes(x = Hour, y = Mean_Light)) +
-  geom_errorbar(aes(ymin=Min_Light, ymax=Max_Light, color = "Min and max value of Light"))+
-  geom_line(linewidth=2, aes(color = "Mean of Light (lux)")) +
-  scale_color_manual(name = "Legend",values=c('black', "grey"))+
-  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
-  labs(y = "Light (lux)",
-       title ="HOBO 1: Average light for all dates over the day for (maximum light <= 5000 lux)")
-
-ggplot(HOBO_Hour_stats, aes(x = Hour, y = Mean_Temp)) +
-  geom_errorbar(aes(ymin=Min_Temp, ymax=Max_Temp, color = "Min and max value of temperature"))+
-  geom_line(linewidth=2, aes(color = "Mean of temperature (C°)")) +
-  scale_color_manual(name = "Legend",values=c('black', "grey"))+
-  scale_x_time(breaks = hms::hms(hours = seq(0, 24, 4))) +
-  labs(y = "Temperature (C°)",
-       title ="HOBO 1: Average temperatures for all dates over the day")
-
-```
-
-
-# Sensors coordinates (mis de côté, à continuer, attente script Sylvain)
-```{r}
 coord_table <- HOBO_Paracou_env %>% 
   select(HoboID, SubPlot,
          TreeNum1, TreeNum2, TreeNum3, # IDs of neighbouring trees
-         DTree1, DTree2, DTree3) # distances to neighbouring trees
+         DTree1, DTree2, DTree3) %>% # distances to neighbouring trees
+  na.omit() %>% 
+  mutate(TreeNum2 = ifelse(HoboID == "2", "410", TreeNum2)) %>% # just for test
+  mutate(TreeNum3 = ifelse(HoboID == "2", "411", TreeNum2))
 
 idTrees <- unique(c(coord_table$TreeNum1, coord_table$TreeNum2, coord_table$TreeNum3))
 
 Paracou16_2020 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
   filter(TreeFieldNum %in% idTrees) %>% 
   filter(SubPlot %in% unique(coord_table$SubPlot)) %>% 
-  select(SubPlot, TreeFieldNum, Xfield, Yfield, Xutm, Yutm)
+  select(SubPlot, TreeFieldNum, Xutm, Yutm) %>%  # Xfield, Yfield, 
+  distinct()
 
-stop("Sensors coordinates: mis de côté, à continuer")
+RefTrees <- Paracou16_2020
+Target <- coord_table %>% rename(ID_measure = HoboID) 
+# stop("Sensors coordinates: mis de côté, à continuer")
+
+```
+
+## Trilateration
+
+```{r}
+source("~/PhD/R_codes/PhD/trilateration_code.R", echo=TRUE)
+
+coord_table <- trilateration(Target, RefTrees)
+```
+
+# Save the stats dataset
+
+```{r}
+# write.csv(stats, "~/PhD/Microclimate/HOBO/HOBO_stats.csv")
 ```
