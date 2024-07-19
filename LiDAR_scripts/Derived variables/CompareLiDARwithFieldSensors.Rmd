@@ -1011,7 +1011,7 @@ ggplot() +
   ggtitle("Paracou P16 4ha - HOBO Light (lux)")
 ```
 
-# Profils en long (Transmittances le long du transect)
+# Profils en long (Lux le long du transect)
 Lux le long du transect
 
 ```{r}
@@ -1075,7 +1075,7 @@ ggsave("P16_2023_4ha_HOBO_light_lux_mean_se.png",
 
 ```
 
-## Combine HOBO with LiDAR and LAI2200 data
+## Combine HOBO with LiDAR and LAI2200 data (transmittance angulaire)
 ```{r}
 HOBO_LAI2200_LiDAR <- LAI2200_LiDAR %>% # LAI2200_LiDAR
   select(-c("Sensor")) %>% 
@@ -1085,6 +1085,7 @@ HOBO_LAI2200_LiDAR <- LAI2200_LiDAR %>% # LAI2200_LiDAR
 names(HOBO_LAI2200_LiDAR)
 ```
 
+## Correlations
 ```{r}
 # MeanTransmittance_LAI2200, Transmittance_Low, Transmittance_High, HOBO_Light_october_sum, HOBO_Light_annual_sum
 
@@ -1129,7 +1130,7 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
 dev.off()
 ```
 
-# Version seulement corr >0.5
+### Version seulement corr >0.5
 ```{r}
 # inspired by the function of Catherine Williams
 onlySignCorr <- function(df, file){
