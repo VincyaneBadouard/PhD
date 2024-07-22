@@ -214,8 +214,16 @@ rm(VOP,xyz)
 ## Load LAI2200 data
 ```{r, include = F}
 LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
-LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") %>%  # LAI2200 sensors data
-  select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200)) %>% 
+LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+
+LAI2200_data <- LAI2200_data %>% 
+  group_by(File_Id, Id) %>% 
+  mutate(Transmittance_integrated = sum(BELOW)/sum(ABOVE)) %>% # transmittance integrated over all the rings (to validate with HOBOs)
+  ungroup() %>% 
+  group_by(Id) %>% 
+  mutate(MeanTransmittance_integrated = mean(Transmittance_integrated)) %>% 
+  ungroup() %>% 
+  select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
   unique()
 
 names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
@@ -264,7 +272,7 @@ test %>% filter(Xutm == 285517 & Yutm==581503) # c'est 6 du LAY et le 10 du HOBO
 LAI2200_LiDAR <- LAI2200_LiDAR %>% 
   # select(-c("...1.x","...1.y")) %>% 
   select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,
-         MeanTransmittance_LAI2200, SdTransmittance_LAI2200,SeTransmittance_LAI2200,
+         MeanTransmittance_LAI2200, SdTransmittance_LAI2200,SeTransmittance_LAI2200, MeanTransmittance_integrated,
          MeanTransmittance_HighInt2m, SdTransmittance_HighInt2m, SeTransmittance_HighInt2m,
          MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m,
          MeanTransmittance_HighInt1m, SdTransmittance_HighInt1m, SeTransmittance_HighInt1m,
@@ -654,6 +662,63 @@ ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_
        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
+# Calibration
+```{r}
+multiplicateur <- median((LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean/LAI2200_LiDAR_ring$MeanTransmittance_LowInt2m_mean)[1:4])
+# pour 2x=a :
+puissance <- median(1/(log(LAI2200_LiDAR_ring$MeanTransmittance_LowInt2m_mean)/log(LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean))[1:4])
+
+LAI2200_LiDAR_ring %>% 
+  mutate(Calib_multiplicateur = MeanTransmittance_LowInt2m_mean*multiplicateur) %>% # 1.8
+  mutate(Calib_puissance = MeanTransmittance_LowInt2m_mean^puissance) %>% # 1.8
+  ggplot(aes(x = Ring)) +
+  
+  geom_linerange(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
+                     ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se, colour = "Standard error")) +
+  
+  geom_linerange(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
+                     ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se,
+                     colour = "LAI2200"), alpha =1) +
+  # Intensity
+  geom_linerange(aes(ymin=MeanTransmittance_LowInt2m_mean-MeanTransmittance_LowInt2m_se,
+                     ymax=MeanTransmittance_LowInt2m_mean+MeanTransmittance_LowInt2m_se,
+                     colour = "Low altitude - Intens - 2m"),alpha =1) +
+  
+  geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
+  
+  geom_point(aes(y = Calib_multiplicateur, colour = "Calibration multiplicateur: 1.8709"),size = 3) +
+  geom_line(aes(y = Calib_multiplicateur, colour = "Calibration multiplicateur: 1.8709")) +
+  
+  geom_point(aes(y = Calib_puissance, colour = "Calibration puissance: 0.823865"),size = 3) +
+  geom_line(aes(y = Calib_puissance, colour = "Calibration puissance: 0.823865")) +
+  
+  geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
+  geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
+  
+  
+  scale_colour_manual(values = c("Low altitude - Intens - 2m" = "#56B4E9",
+                                 "Calibration puissance: 0.823865" = "#009E73",
+                                 "Calibration multiplicateur: 1.8709" = "#CC79A7",
+                                 "LAI2200" = "#D55E00", 
+                                 "Standard error" = "#666666"),
+                      breaks=c("Low altitude - Intens - 2m",
+                               "Calibration multiplicateur: 1.8709",
+                               "Calibration puissance: 0.823865",
+                               "LAI2200", 
+                               "Standard error")) +
+  
+  guides(colour = guide_legend(
+    override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
+                        linewidth = 0.4))) + 
+  theme_minimal() +
+  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+  labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
+
+ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_calibration_puissance_multiplicative.png", sep=""),
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+```
 
 # Each transect
 ```{r}
@@ -867,7 +932,7 @@ Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
 png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_ALSvsUAV_Acquisitions.png",
-     width = 1000, height = 743, pointsize=20)
+    width = 1000, height = 743, pointsize=20)
 
 corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),  
          type="upper",
@@ -1086,11 +1151,57 @@ names(HOBO_LAI2200_LiDAR)
 ```
 
 ## Correlations
+
+### LAI2200 vs HOBO
+```{r}
+DF_cor_HOBO_LAI2200 <- HOBO_LAI2200_LiDAR %>% 
+  filter(Transect=="HOBO") %>% 
+  select(Ring, 
+         MeanTransmittance_LAI2200, MeanTransmittance_integrated,
+         HOBO_Light_annual_mean, HOBO_Light_mean_Dry, HOBO_Light_mean_Wet, HOBO_Light_october_mean) %>% 
+  unique() %>% 
+  pivot_wider(names_from = Ring,
+              values_from = MeanTransmittance_LAI2200,
+              values_fn = list,
+              names_glue = "{.value}_Ring{Ring}") #%>% 
+# unnest(cols = everything()) # pcq les colonnes sont en listes
+DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200[-7,]) # remove HOBO without values
+
+DF_cor_HOBO_LAI2200 <- sapply(DF_cor_HOBO_LAI2200, as.numeric)
+DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200)
+
+names(DF_cor_HOBO_LAI2200) <- str_remove(names(DF_cor_HOBO_LAI2200), "MeanTransmittance_") # simplify the var names
+names(DF_cor_HOBO_LAI2200) <- str_remove(names(DF_cor_HOBO_LAI2200), "_Light") # simplify the var names
+names(DF_cor_HOBO_LAI2200) <- str_remove(names(DF_cor_HOBO_LAI2200), "_mean") # simplify the var names
+
+DF_cor_HOBO_LAI2200 <- DF_cor_HOBO_LAI2200 %>% rename(LAI2200_integrated = integrated)
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor_HOBO_LAI2200))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+# Plot de la matrice de corrélation :
+png("D:/Mes Donnees/PhD/Figures/Sensors/Correlation_plot_HOBOvsLAI2200.png", width = 1000, height = 743, pointsize=20)
+
+corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),  
+         type="upper",
+         # order="hclust",
+         tl.col="black", tl.cex = 0.8, #Text label color
+         addCoef.col = "white", # Add coefficient of correlation
+         number.cex = 0.8, # values
+         # hide correlation coefficient on the principal diagonal
+         diag=FALSE) 
+
+dev.off()
+```
+
+
+### HOBO vs LiDAR
 ```{r}
 # MeanTransmittance_LAI2200, Transmittance_Low, Transmittance_High, HOBO_Light_october_sum, HOBO_Light_annual_sum
 
 DF_cor_HOBO_LAI2200_LiDAR <- HOBO_LAI2200_LiDAR %>% 
-  # filter(Ring==1) %>%
+  filter(Transect=="HOBO") %>%
   select(Ring, MeanTransmittance_HighInt2m,MeanTransmittance_LowInt2m, MeanTransmittance_HighInt1m,
          MeanTransmittance_UAVInt2m, MeanTransmittance_UAVInt1m, 
          MeanTransmittance_LAI2200,
@@ -1106,6 +1217,7 @@ DF_cor_HOBO_LAI2200_LiDAR <- HOBO_LAI2200_LiDAR %>%
 DF_cor_HOBO_LAI2200_LiDAR <- as.data.frame(DF_cor_HOBO_LAI2200_LiDAR[-7,]) # remove HOBO without values
 
 DF_cor_HOBO_LAI2200_LiDAR <- sapply(DF_cor_HOBO_LAI2200_LiDAR, as.numeric)
+DF_cor_HOBO_LAI2200_LiDAR <- as.data.frame(DF_cor_HOBO_LAI2200_LiDAR)
 
 names(DF_cor_HOBO_LAI2200_LiDAR) <- str_remove(names(DF_cor_HOBO_LAI2200_LiDAR), "MeanTransmittance_") # simplify the var names
 names(DF_cor_HOBO_LAI2200_LiDAR) <- str_remove(names(DF_cor_HOBO_LAI2200_LiDAR), "_Light") # simplify the var names
@@ -1122,7 +1234,7 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
          type="upper",
          # order="hclust",
          tl.col="black", tl.cex = 0.8, #Text label color
-         addCoef.col = "white", number.digits = 1, # Add coefficient of correlation
+         addCoef.col = "white", # number.digits = 1, # Add coefficient of correlation
          number.cex = 0.5, # values
          # hide correlation coefficient on the principal diagonal
          diag=FALSE) 
@@ -1164,7 +1276,7 @@ onlySignCorr <- function(df, file){
            # order="hclust",
            addCoef.col = "white", # Add coefficient of correlation
            tl.col="black", tl.cex = 0.8, #Text label color and rotation
-           number.cex = 0.5, number.digits = 1,# values
+           number.cex = 0.5, # number.digits = 1,# values
            # hide correlation coefficient on the principal diagonal
            diag=FALSE, na.label=" ") 
   
