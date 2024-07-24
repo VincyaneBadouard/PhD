@@ -29,10 +29,6 @@ LAI2200_coord <- as.data.frame(read_csv("//amap-data.cirad.fr/work/users/Vincyan
 # names(LAI2200_coord)
 LAI2200_coord <- LAI2200_coord %>% select(Transect, Id, x,y)
 nrow(LAI2200_coord) # 46
-
-datalocal <- as.data.frame(datalocal) # after shift 3 on Qgis
-names(datalocal) <- c("x","y","z")
-LAI2200_coord <- cbind(Optimised_coord_globalshift_qgis[3:4], datalocal)
 ```
 
 # Generate a grid of 0.5 res and 2m max
@@ -91,9 +87,6 @@ dataUTMsf <- st_set_crs(dataUTMsf, terra::crs(P16shp))
 ```
 
 ```{r}
-dataUTMsf <- st_as_sf(Optimised_coord_globalshift_qgis, coords = c('Xutm','Yutm'))
-dataUTMsf <- st_set_crs(dataUTMsf, terra::crs(P16shp))
-
 ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
   geom_sf(data = dataUTMsf, col = "red", size = 0.1) +
@@ -123,20 +116,6 @@ dataxyz <- dataUTM %>% cbind(alt)
 write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_gridsimulation_UTMxyz.csv")
 ```
 
-# Global shift according to the layon visible on the DEM in Qgis
-```{r}
-Optimised_coord_globalshift_qgis <- st_as_sf(terra::vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Optimised_coord_globalshift_qgis8.shp"))
-plot(Optimised_coord_globalshift_qgis)
-
-# from sf to df with original coordinates
-XY <- st_coordinates(Optimised_coord_globalshift_qgis) # stock coordinates
-st_geometry(Optimised_coord_globalshift_qgis) <- NULL # no more sf object
-Optimised_coord_globalshift_qgis <- cbind(Optimised_coord_globalshift_qgis, XY) # bind XY coord
-
-Optimised_coord_globalshift_qgis <- Optimised_coord_globalshift_qgis %>% 
-  rename(Xutm_init = Xutm) %>% rename(Yutm_init = Yutm) %>%
-  rename(Xutm = X) %>% rename(Yutm = Y)
-```
 
 # Coordinates in local positions (use VOP)
 ```{r}
@@ -152,10 +131,13 @@ matrix <- as.matrix(dataxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as m
 
 datalocal <- matrix %*% t(VOP) # same dimensions
 
-datalocal <- cbind(datalocal,dataxyz[,Zutm])[, -c(3,4)] # add Zutm
+datalocal <- cbind(dataxyz[,.(Transect, Id, Xutm, Yutm, Zutm)], datalocal)[, -c("V3","V4")] # add Zutm
+
+datalocal <-datalocal %>% 
+  rename(x = V1) %>% rename(y = V2) %>% select(Transect, Id, x,y, Xutm,Yutm,Zutm)
 
 ggplot() +
-  geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.1) 
+  geom_point(data=as.data.frame(datalocal), aes(x = x, y = y), col = "red", size = 0.1) 
 
 ```
 

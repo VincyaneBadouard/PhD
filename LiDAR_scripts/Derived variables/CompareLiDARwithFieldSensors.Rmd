@@ -89,13 +89,13 @@ Read_LAI2200_Transfile <- function(path){
 }
 
 # Weighted by intensity 
-HighAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_intensity2m_test.txt"))
-LowAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_LAI2200sim_intensity2m_test.txt"))
-HighAnnual_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_intensity1m_test.txt"))
+HighAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_coordshiftQgis_intensity2m_test.txt"))
+LowAnnual_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_LAI2200sim_coordshiftQgis_intensity2m_test.txt"))
+HighAnnual_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_coordshiftQgis_intensity1m_test.txt"))
 
 ## UAV
-UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity2m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
-UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_intensity1m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
+UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_coordshiftQgis_intensity2m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
+UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_coordshiftQgis_intensity1m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
 
 
 # Equal echo weighting 
@@ -213,7 +213,7 @@ rm(VOP,xyz)
 
 ## Load LAI2200 data
 ```{r, include = F}
-LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv") # LAI2200 sensors coordinates
+LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_coordshift_Qgis_local.csv") # LAI2200 sensors coordinates
 LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
 
 LAI2200_data <- LAI2200_data %>% 
@@ -271,7 +271,7 @@ test %>% filter(Xutm == 285517 & Yutm==581503) # c'est 6 du LAY et le 10 du HOBO
 # names(LAI2200_LiDAR)
 LAI2200_LiDAR <- LAI2200_LiDAR %>% 
   # select(-c("...1.x","...1.y")) %>% 
-  select(Sensor,Transect,Id, Xutm,Yutm, Ring,azimut,
+  select(Transect,Id, Xutm,Yutm, Ring,azimut,
          MeanTransmittance_LAI2200, SdTransmittance_LAI2200,SeTransmittance_LAI2200, MeanTransmittance_integrated,
          MeanTransmittance_HighInt2m, SdTransmittance_HighInt2m, SeTransmittance_HighInt2m,
          MeanTransmittance_LowInt2m, SdTransmittance_LowInt2m, SeTransmittance_LowInt2m,
@@ -309,6 +309,13 @@ range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 
 range(LAI2200_LiDAR$Transmittance_UAVInt2mvsLAI2200) # -0.54234975 0.07404788
 range(LAI2200_LiDAR$Transmittance_UAVInt1mvsLAI2200) # -0.5614362  0.1175349
 range(LAI2200_LiDAR$Transmittance_UAVInt1mvsUAV2m) # -0.07240207  0.07948355
+# 
+# [1] -0.3387766  0.1292664
+# [1] -0.4079501  0.1057501
+# [1] -0.1127091  0.1031367
+# [1] -0.4109734  0.1555615
+# [1] -0.17299133  0.08368958
+# [1] -0.1081554  0.2379820
 
 
 # range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
@@ -362,9 +369,9 @@ ggplot() +
   theme(title=element_text(size=16), axis.text=element_text(size=16), legend.title=element_text(size=16), legend.text=element_text(size=16)) +
   ggtitle("Paracou P16 4ha - LAI2200 Transmittances")
 
-ggsave(paste("P16_2023_4ha_LAI2200_Transmittances.png", sep=""),
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Maps",
-       width = 25, height = 25, units = "cm", dpi=800, bg="white")
+# ggsave(paste("P16_2023_4ha_LAI2200_Transmittances.png", sep=""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Maps",
+#        width = 25, height = 25, units = "cm", dpi=800, bg="white")
 ```
 
 
@@ -390,9 +397,9 @@ for(v in c("Transmittance_LowvsHigh_2m", "Transmittance_HighInt2mvsLAI2200", "Tr
       ggtitle("Paracou P16 4ha - Transmittances differences") +
       labs(color = v)
   )
-  ggsave(paste("P16_2023_4ha_Transmittances_diff_",v, ".png", sep=""),
-         path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Maps/Intensity_2m",
-         width = 25, height = 25, units = "cm", dpi=800, bg="white")
+  # ggsave(paste("P16_2023_4ha_Transmittances_diff_",v, ".png", sep=""),
+  #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Maps/Intensity_2m",
+  #        width = 25, height = 25, units = "cm", dpi=800, bg="white")
 }
 ```
 
@@ -469,6 +476,11 @@ for(t in c("HOBO", "LAY")){
         geom_linerange(aes(ymin=MeanTransmittance_LAI2200-SeTransmittance_LAI2200,
                            ymax=MeanTransmittance_LAI2200+SeTransmittance_LAI2200, colour = "Standard error")) +
         
+        # Validation data
+        geom_point(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200")) +
+        geom_line(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200"), linewidth = 1.2) +
+        geom_linerange(aes(ymin=MeanTransmittance_LAI2200-SeTransmittance_LAI2200,
+                           ymax=MeanTransmittance_LAI2200+SeTransmittance_LAI2200, colour = "LAI2200")) +
         # Intensity
         geom_point(aes(y = MeanTransmittance_HighInt2m, colour = "High altitude - Intens - 2m")) +
         geom_line(aes(y = MeanTransmittance_HighInt2m, colour = "High altitude - Intens - 2m")) +
@@ -509,11 +521,6 @@ for(t in c("HOBO", "LAY")){
         # geom_line(aes(y = MeanTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m")) +
         # geom_linerange(aes(ymin=MeanTransmittance_LowEqual2m-SeTransmittance_LowEqual2m,
       #                   ymax=MeanTransmittance_LowEqual2m+SeTransmittance_LowEqual2m, colour = "Low altitude - Equal - 2m")) +
-      
-      geom_point(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200")) +
-        geom_line(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200"), linewidth = 1.2) +
-        geom_linerange(aes(ymin=MeanTransmittance_LAI2200-SeTransmittance_LAI2200,
-                           ymax=MeanTransmittance_LAI2200+SeTransmittance_LAI2200, colour = "LAI2200")) +
         
         scale_colour_manual(values = c("High altitude - Intens - 2m" = "blue",
                                        "Low altitude - Intens - 2m" = "#56B4E9",
@@ -542,9 +549,9 @@ for(t in c("HOBO", "LAY")){
         theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
         theme_minimal()
     )
-    ggsave(paste("P16_2023_4ha_Long_profile_",t,"_transect_Ring",R,"_se_Intensity1m.png", sep=""),
-           path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
-           width = 25, height = 20, units = "cm", dpi=800, bg="white")
+    # ggsave(paste("P16_2023_4ha_Long_profile_",t,"_transect_Ring",R,"_se_Intensity1m.png", sep=""),
+    #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
+    #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
   }
 }
 
@@ -657,9 +664,9 @@ LAI2200_LiDAR_ring %>%
   theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
   labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
 
-ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity1m.png", sep=""),
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
-       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity1m.png", sep=""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
+#        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 # Calibration
@@ -828,9 +835,9 @@ for(t in c("HOBO", "LAY")){
       theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
       labs(title = paste(t," transect"), y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
   )
-  ggsave(paste("Long_profile_",t," transect","_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity1m.png", sep=""),
-         path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
-         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+  # ggsave(paste("Long_profile_",t," transect","_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity1m.png", sep=""),
+  #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
+  #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 }
 ```
 
