@@ -168,8 +168,6 @@ Read_LAI2200_Transfile <- function(path){
 ```
 
 ```{r}
-LiDAR <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_LAI2200sim_coordshiftQgis_intensity2m_test_test.txt"))
-
 LiDAR <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_LAI2200sim_coordsimulations_intensity2m_test.txt"))
 ```
 

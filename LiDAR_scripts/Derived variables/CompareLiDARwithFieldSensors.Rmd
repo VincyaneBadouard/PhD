@@ -214,7 +214,7 @@ rm(VOP,xyz)
 ## Load LAI2200 data
 ```{r, include = F}
 LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_coordshift_Qgis_local.csv") # LAI2200 sensors coordinates
-LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
 
 LAI2200_data <- LAI2200_data %>% 
   group_by(File_Id, Id) %>% 
@@ -252,6 +252,15 @@ LAI2200_LiDAR <- LAI2200 %>%
 
 NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
 ```
+
+```{r}
+unique(setDT(LAI2200_LiDAR)[Transmittance_HighInt2m ==0, .(Transect, Id, Ring)]) # 9 id : Ring 4-5
+unique(setDT(LAI2200_LiDAR)[Transmittance_LowInt2m ==0, .(Transect, Id, Ring)]) # 7 id : Ring 4-5
+unique(setDT(LAI2200_LiDAR)[Transmittance_HighInt1m ==0, .(Transect, Id, Ring)]) # 0
+unique(setDT(LAI2200_LiDAR)[Transmittance_UAVInt2m ==0, .(Transect, Id, Ring)]) # 6 id : Ring 5
+unique(setDT(LAI2200_LiDAR)[Transmittance_UAVInt1m ==0, .(Transect, Id, Ring)]) # HOBO 14 : Ring 3,4,5
+```
+
 ```{r}
 LAI2200_LiDAR %>% filter(is.nan(MeanTransmittance_UAVInt2m)) %>% select(Transect, Id, Ring) %>% unique()
 ```
@@ -309,13 +318,13 @@ range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 
 range(LAI2200_LiDAR$Transmittance_UAVInt2mvsLAI2200) # -0.54234975 0.07404788
 range(LAI2200_LiDAR$Transmittance_UAVInt1mvsLAI2200) # -0.5614362  0.1175349
 range(LAI2200_LiDAR$Transmittance_UAVInt1mvsUAV2m) # -0.07240207  0.07948355
-# 
-# [1] -0.3387766  0.1292664
-# [1] -0.4079501  0.1057501
-# [1] -0.1127091  0.1031367
-# [1] -0.4109734  0.1555615
-# [1] -0.17299133  0.08368958
-# [1] -0.1081554  0.2379820
+# New coord after shift:
+# [1] -0.2934849  0.1277295
+# [1] -0.3875990  0.1006225
+# [1] -0.09805637  0.13728262
+# [1] -0.3962160  0.1515244
+# [1] -0.1791319  0.1193880
+# [1] -0.1053409  0.2170841
 
 
 # range(LAI2200_LiDAR$Transmittance_HighEqual2mvsLAI2200) # -0.4999787  0.0849005 : eqEch sous-estime moins que le avec intensity, mais surrestime
@@ -938,8 +947,8 @@ CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
-png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_ALSvsUAV_Acquisitions.png",
-    width = 1000, height = 743, pointsize=20)
+# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_ALSvsUAV_Acquisitions.png",
+#     width = 1000, height = 743, pointsize=20)
 
 corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),  
          type="upper",
@@ -950,7 +959,7 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
          # hide correlation coefficient on the principal diagonal
          diag=FALSE 
 )
-dev.off()
+# dev.off()
 ```
 
 ### LiDAR vs LAI2200
@@ -984,8 +993,8 @@ CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # Plot de la matrice de corrélation :
-png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_ALS_UAV_vs_LAI2200_sig.png",
-    width = 1000, height = 743, pointsize=20)
+# png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_ALS_UAV_vs_LAI2200_sig.png",
+#     width = 1000, height = 743, pointsize=20)
 
 corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),  
          type="upper",
@@ -996,7 +1005,7 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
          # hide correlation coefficient on the principal diagonal
          diag=FALSE) 
 
-dev.off()
+# dev.off()
 
 
 ```
@@ -1027,19 +1036,19 @@ onlySignCorr <- function(df, file){
   
   # file <- "LiDAR_vs_LAI2200"
   # file <- "LiDAR_Acquisitions"
-  png(paste("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_",file,"_sup0_5.png", sep=""),
-      width = 1000, height = 743, pointsize=20)
-  
+  # png(paste("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_",file,"_sup0_5.png", sep=""),
+  #     width = 1000, height = 743, pointsize=20)
+  # 
   corrplot(mtx_corr, method="color", col=brewer.pal(n=8, name="PuOr"),  
            type="upper",
            # order="hclust",
            addCoef.col = "white", # Add coefficient of correlation
            tl.col="black", tl.cex = 0.8, #Text label color and rotation
-           number.cex = 0.55, # values
+           number.cex = 0.5, # values
            # hide correlation coefficient on the principal diagonal
            diag=FALSE, na.label=" ") 
   
-  dev.off()
+  # dev.off()
 }
 
 onlySignCorr(DF_cor_LiDARvsLAI2200, "LiDAR_ALS_UAV_vs_LAI2200")
