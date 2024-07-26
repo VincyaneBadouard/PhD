@@ -12,7 +12,7 @@ To solve:
 - gpstime are not unique
 
 
-```{r, include = F, packages}
+```{r Setup, include = F, packages}
 library(lidR)
 library(data.table)
 library(parallel)

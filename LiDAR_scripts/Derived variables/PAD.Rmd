@@ -26,7 +26,7 @@ et génère une variable du même nom précédé du préfixe "pad\_"*
 
 # Packages
 
-```{r, include = F}
+```{r Setup, include = F}
 library(AMAPVox)
 library(rgl)
 library(lattice)

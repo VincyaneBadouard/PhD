@@ -14,7 +14,7 @@ output: html_document
 2) Faire une carte de leur position théorique :  piquets espacés de 10x10
 
 # Packages
-```{r, include = F}
+```{r Setup, include = F}
 library(readr)
 library(tidyverse)
 library(terra)

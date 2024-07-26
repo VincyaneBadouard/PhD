@@ -8,7 +8,7 @@ output: html_document
 Le rééchantillonnage du MNT à une maille plus grossière (5m, 10m, 20m, 50m) permet de lisser les micro-variations du relief dues au bruit dans les coordonnées en z (altitude).
 
 
-```{r, include=FALSE}
+```{r Setup, include=FALSE}
 knitr::opts_chunk$set(
   message = FALSE, echo = FALSE, fig.width = 6
 )

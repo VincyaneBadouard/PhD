@@ -55,7 +55,7 @@ weightedFreepathLength: longueur des trajets optiques pondérée par l'empreinte
 
 # Packages
 
-```{r, include = F}
+```{r Setup, include = F}
 library(AMAPVox)
 library(rgl)
 library(lattice)

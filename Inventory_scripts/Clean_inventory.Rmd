@@ -17,7 +17,7 @@ Pour les  4 1ers ha les arbres CIRAD n'ont pas été mesurés par l'équipe ALT,
 Pour les autres subplots, les DBH des arbres CIRAD ont été mesuré par l'équipe ALT.
 
 # Packages
-```{r, include = F}
+```{r Setup, include = F}
 library(tidyverse)
 library(data.table)
 library(readr)

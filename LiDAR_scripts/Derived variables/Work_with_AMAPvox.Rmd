@@ -20,7 +20,7 @@ remotes::install_github('umr-amap/AMAPVox')
 ```
 
 # Packages
-```{r, include = F}
+```{r Setup, include = F}
 library(tidyverse)
 library(lidR)
 library(data.table)

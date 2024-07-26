@@ -13,7 +13,7 @@ For HovermapST-X data:
 - Ground point classification
 - Create MNT
 
-```{r, include = F}
+```{r Setup, include = F}
 library(lidR)
 library(sf)
 library(terra)

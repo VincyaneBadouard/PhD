@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 # Packages
-```{r, include = F}
+```{r Setup, include = F}
 # remotes::install_github("EcoFoG/EcoFoG", build_vignettes = TRUE)
 # library(EcoFoG)
 

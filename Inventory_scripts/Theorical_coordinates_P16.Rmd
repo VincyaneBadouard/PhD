@@ -7,7 +7,7 @@ output: html_document
 P16 : 25 ha
 Coordonnées SO de la P16: (0;0)
 
-```{r, include = F}
+```{r Setup, include = F}
 library(tidyverse)
 library(sf)
 library(terra)
