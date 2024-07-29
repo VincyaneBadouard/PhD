@@ -89,8 +89,8 @@ ggplot() +
   ggtitle("LAI2200 sensor theoretical coordinates")
 
 ggsave("Paracou_P16_LAI2200_sensor_theoretical_positions.png",
-         path = "D:/Mes Donnees/PhD/Figures/Sensors",
-         width = 15, height = 15, units = "cm", dpi=800, bg="white")
+       path = "D:/Mes Donnees/PhD/Figures/Sensors",
+       width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 # Tomst sensors theorical coordinates
 - transect Jérome : 22 (20 HOBO) capteurs espacés de *10m* : start =(390;110)  ; end = (390;300)
@@ -145,8 +145,8 @@ ggplot() +
   ggtitle("Tomst sensors theoretical coordinates")
 
 ggsave("Paracou_P16_Tomst_sensors_theoretical_positions.png",
-         path = "D:/Mes Donnees/PhD/Figures/Sensors",
-         width = 15, height = 15, units = "cm", dpi=800, bg="white")
+       path = "D:/Mes Donnees/PhD/Figures/Sensors",
+       width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 
@@ -158,7 +158,7 @@ SE (285680; 581343)
 SO (285201; 581199)
 
 ```{r}
-data <-  Tomst # Tomst # LAI2200 # grid # ALT # Und
+data <- Und # Tomst # LAI2200 # grid # ALT # Und
 
 tab <- read_delim("D:/Mes Donnees/PhD/R_codes/PhD/local2UTM/CoordCoinsP1_16.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
@@ -179,9 +179,9 @@ ggplot() +
   geom_sf(data = dataUTMsf, col = "red", size = 0.4) +
   ggtitle("Paracou P16 - Tomst sensors positions")
 
-ggsave("Paracou_P16_Tomst_sensors_theoretical_UTM_positions.png",
-         path = "D:/Mes Donnees/PhD/Figures/Sensors",
-         width = 15, height = 15, units = "cm", dpi=800, bg="white")
+# ggsave("Paracou_P16_Tomst_sensors_theoretical_UTM_positions.png",
+#          path = "D:/Mes Donnees/PhD/Figures/Sensors",
+#          width = 15, height = 15, units = "cm", dpi=800, bg="white")
 
 # write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/ALT_stakes_theoretical_UTM.csv")
 # write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/Understory_stakes_theoretical_UTM.csv")
@@ -201,6 +201,7 @@ ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
   geom_point(data = ALT_stakes, size = 0.5,
              aes(Xutm, Yutm)) +
+  theme_classic() +
   ggtitle("Paracou P16 4ha - ALS Low Altitude - Light map 1m") +  
   coord_sf()
 ```
@@ -223,7 +224,7 @@ dataxyz <- dataUTM %>% cbind(alt)
 # write.csv(alt, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_UTMxyz.csv")
 
 
-generate_new_rows <- function(df) {
+generate_new_rows <- function(df, by = 1) {
   new_rows <- data.frame()
   for (i in 1:nrow(df)) {
     new <- data.frame( # pour chaque x;y créer 59 incrémentations de Zutm
@@ -231,14 +232,16 @@ generate_new_rows <- function(df) {
       y = df[i, "y"],
       Xutm = df[i, "Xutm"],
       Yutm = df[i, "Yutm"],
-      Zutm = df[i, "Zutm"]:(df[i, "Zutm"] + 59)
+      Zutm = seq(from = df[i, "Zutm"], to = (df[i, "Zutm"] + 59), by = by)
+      # Zutm = df[i, "Zutm"]:(df[i, "Zutm"] + 59) # 
     )
     new_rows <- rbind(new_rows, new)
   }
   return(new_rows)
 }
-dataxyz <- generate_new_rows(dataxyz)
+dataxyz <- generate_new_rows(dataxyz, by= 5) # 1
 
+# write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_4ha_10x10m_each5mZ_UTMxyz.csv")
 # write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_UTMxyz.csv")
 # write.csv(dataxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid10x10m_each1mZ_UTMxyz.csv")
 ```
@@ -260,6 +263,8 @@ datalocal <- cbind(datalocal,dataxyz[,Zutm])[, -c(3,4)] # add Zutm
 
 ggplot() +
   geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.3) 
+
+# write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_4ha_10x10m_each5mZ_local.csv")
 
 # write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_local.csv")
 # write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")

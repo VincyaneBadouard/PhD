@@ -13,6 +13,16 @@ library(sf)
 library(terra)
 library(corrplot)
 library(RColorBrewer)
+
+ReadLightFile <- function(path, skiplines=10){
+  Light <- fread(path, skip=skiplines) # skip the 10 1st lines of header
+  Light <- Light[Y != "MEAN"] # enlever les 2 lignes mean
+  Light <- janitor::remove_empty(Light,"cols")
+  
+  Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))] # all as numeric
+  Light <- Light[!is.na(X)] 
+  return(Light)
+}
 ```
 
 # Spatial objects
@@ -38,6 +48,11 @@ path_Low_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/
 path_UAV2m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_Light_annual_intensity2m.txt"
 path_UAV1m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_Light_annual_intensity1m.txt"
 
+# 1m (intensity corrected):
+path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_Light_annual_intensity1m.txt"
+
+
+
 # Equal echo weight :
 # path_High <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_buffer_Light_annual_equalecho2m.txt"
 # path_Low <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_Light_annual_equalecho2m.txt"
@@ -53,16 +68,6 @@ path_UAV1m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUA
 ```
 
 ```{r}
-ReadLightFile <- function(path, skiplines=10){
-  Light <- fread(path, skip=skiplines) # skip the 10 1st lines of header
-  Light <- Light[Y != "MEAN"] # enlever les 2 lignes mean
-  Light <- janitor::remove_empty(Light,"cols")
-  
-  Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))] # all as numeric
-  Light <- Light[!is.na(X)] 
-  return(Light)
-}
-
 Light_High <- ReadLightFile(path_High)
 Light_High
 Light_Low <- ReadLightFile(path_Low)
@@ -213,19 +218,19 @@ Plot_LightUTM <- function(Lightcrop, zone, acq, lim){
     
     scale_color_gradientn(name = "Transmittance",
                           colors = terrain.colors(30, rev=T),
-                          na.value="white", limits = c(0,lim)) +
+                          na.value="white", limits = c(0,lim)) + # 
     
     geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
     ggtitle(paste("Paracou P16 4ha -", acq, "- Light map 1m", sep = " ")) +  
     theme_classic() +
     coord_sf()
   
-  ggsave(paste("Paracou_P16_4ha_", acq, "_Lightmap_1m_intensity_2m.png", sep = ""),
-         path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Maps/Intensity_2m",
+  ggsave(paste("Paracou_P16_4ha_", acq, "_Lightmap_1m_intensity_1m.png", sep = ""),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Maps/Intensity_1m",
          width = 18, height = 20, units = "cm", dpi=800, bg="white")
 }
 
-Plot_LightUTM(Light_HighUTM, zone, "High altitude", lim=Lim)
+Plot_LightUTM(Light_HighUTM, zone, "High altitude", lim=lim)
 Plot_LightUTM(Light_LowUTM, zone, "Low altitude", lim=Lim)
 
 Plot_LightUTM(Light_High_DryUTM, zone, "High altitude - Dry season", lim=Lim)
@@ -513,6 +518,81 @@ plotLightProfiles(Lightgrid_LowAlt, Lightgrid_Low_Dry, Lightgrid_Low_Wet,
 ```{r}
 rm(Light_ALShighvsUAV, Light_ALSlowvsUAV, Light_High_DryvsWet, Light_HighvsLow, Light_Low_AnnualvsDry,
    Light_Low_AnnualvsWet, Light_Low_DryvsWet)
+```
+
+# Vertical Light correlations between LiDAR acquisitions
+```{r}
+# Pathgrid_HighAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_Light_Grid10x10m_each1mZ_equalecho2m.txt"
+# Pathgrid_LowAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_Grid10x10m_each1mZ_equalecho2m.txt"
+
+Pathgrid_HighAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_4ha_HighAlt_Light_Grid10x10m_each5mZ_intensity1m.txt"
+Pathgrid_LowAlt <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_4ha_LowAlt_Light_Grid10x10m_each5mZ_intensity1m.txt"
+Pathgrid_UAV <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_Grid10x10m_each5mZ_intensity1m.txt"
+
+
+Lightgrid_HighAlt <- ReadLightFile(Pathgrid_HighAlt)
+Lightgrid_LowAlt <- ReadLightFile(Pathgrid_LowAlt)
+Lightgrid_UAV <- ReadLightFile(Pathgrid_UAV)
+
+names(Lightgrid_High_Dry)
+```
+```{r}
+setnames(Lightgrid_HighAlt, "Period 1", "Transmittance")
+setnames(Lightgrid_LowAlt, "Period 1", "Transmittance") 
+setnames(Lightgrid_UAV, "Period 1", "Transmittance")
+```
+
+```{r}
+LiDAR <- Lightgrid_HighAlt %>%
+  left_join(Lightgrid_LowAlt, by= c("X", "Y", "Z"), suffix = c("_High", "_Low")) %>% 
+  left_join(Lightgrid_UAV, by= c("X", "Y", "Z")) %>% 
+  rename(Transmittance_UAV = Transmittance)
+```
+
+```{r}
+LiDAR <- LiDAR %>% 
+  group_by(X,Y) %>% 
+  mutate(Level = 1:n()) %>% ungroup()
+
+range((LiDAR %>% filter(Level==1))$Z) # 7.385 21.875
+range((LiDAR %>% filter(Level==10))$Z) # 52.385 66.875
+```
+
+## Correlations
+```{r}
+DF_cor <- LiDAR %>% 
+  select(-c(X,Y,Z)) %>% 
+  filter(Level!=11 & Level != 12) %>% 
+  pivot_wider(names_from = Level,
+              values_from = c(Transmittance_High, Transmittance_Low, Transmittance_UAV),
+              values_fn = list,
+              names_glue = "{.value}_Level{Level}") %>% 
+  unnest(everything()) # pcq les colonnes sont en listes
+
+names(DF_cor) <- str_remove(names(DF_cor), "Transmittance_") # simplify the var names
+
+
+CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
+CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
+Pval_corr <- CorMatrixS$P # p-values
+
+
+png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_Vertical Light.png",
+    width = 1600, height = 1200, pointsize=20) # width = 1000, height = 743
+
+corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),  
+         type="upper",
+         # order="hclust",
+         tl.col="black", tl.cex = 0.9, #Text label color and rotation
+         addCoef.col = "white", # Add coefficient of correlation
+         number.cex = 0.6, # values
+         # hide correlation coefficient on the principal diagonal
+         cl.pos = "b", cl.cex =0.45, # legend
+         # sig.level = 0.0000001,
+         p.mat = Pval_corr, #avec une croix pour les p-value > 0.05.
+         diag=FALSE) 
+
+dev.off()
 ```
 
 # HOBO
