@@ -534,7 +534,7 @@ Lightgrid_HighAlt <- ReadLightFile(Pathgrid_HighAlt)
 Lightgrid_LowAlt <- ReadLightFile(Pathgrid_LowAlt)
 Lightgrid_UAV <- ReadLightFile(Pathgrid_UAV)
 
-names(Lightgrid_High_Dry)
+names(Lightgrid_HighAlt)
 ```
 ```{r}
 setnames(Lightgrid_HighAlt, "Period 1", "Transmittance")
@@ -552,21 +552,29 @@ LiDAR <- Lightgrid_HighAlt %>%
 ```{r}
 LiDAR <- LiDAR %>% 
   group_by(X,Y) %>% 
-  mutate(Level = 1:n()) %>% ungroup()
+  mutate(Height = seq(1,56, by=5)) %>% ungroup() %>% 
+  mutate()
 
-range((LiDAR %>% filter(Level==1))$Z) # 7.385 21.875
-range((LiDAR %>% filter(Level==10))$Z) # 52.385 66.875
+LiDAR %>%
+  group_by(Height) %>% # variables selon lesquelles grouper
+  summarise(across("Transmittance_High", "Transmittance_Low", "Transmittance_UAV"), cor(.))
+# summarise_at(vars(c(Transmittance_High, Transmittance_Low, Transmittance_UAV), # Variables à analyser
+#                  ~cor))
+
+range((LiDAR %>% filter(Height==1))$Z) # 7.385 21.875
+range((LiDAR %>% filter(Height==5))$Z) # 12.385 26.875
+range((LiDAR %>% filter(Height==56))$Z) # 52.385 66.875
 ```
 
 ## Correlations
 ```{r}
 DF_cor <- LiDAR %>% 
   select(-c(X,Y,Z)) %>% 
-  filter(Level!=11 & Level != 12) %>% 
-  pivot_wider(names_from = Level,
+  filter(Height<=36) %>%
+  pivot_wider(names_from = Height,
               values_from = c(Transmittance_High, Transmittance_Low, Transmittance_UAV),
               values_fn = list,
-              names_glue = "{.value}_Level{Level}") %>% 
+              names_glue = "{.value}{Height}") %>% 
   unnest(everything()) # pcq les colonnes sont en listes
 
 names(DF_cor) <- str_remove(names(DF_cor), "Transmittance_") # simplify the var names
@@ -575,8 +583,140 @@ names(DF_cor) <- str_remove(names(DF_cor), "Transmittance_") # simplify the var 
 CorMatrixS <- Hmisc::rcorr(as.matrix(DF_cor))
 CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
+```
 
 
+```{r}
+datacor <- as.data.frame(cor(DF_cor))
+
+datacor <- datacor %>% 
+  mutate(Var1 = rownames(datacor)) %>% 
+  pivot_longer(cols = High1:UAV36, names_to = "Var2", values_to = "Correlation") %>%
+  mutate(Height1 = readr::parse_number(Var1)) %>% 
+  mutate(Height2 = readr::parse_number(Var2)) %>% 
+  mutate(Var1 = gsub('[[:digit:]]+', '', Var1)) %>% 
+  mutate(Var2 = gsub('[[:digit:]]+', '', Var2)) %>% 
+  filter(Var1 != Var2) %>% filter(Height1 == Height2) %>%
+  select(-Height2) %>% rename(Height = Height1) %>%
+  unite(VS, Var1, Var2, sep = "_vs_") %>% 
+  na.omit() %>% 
+  filter(VS!="Low_vs_High", VS!="UAV_vs_High", VS!="UAV_vs_Low")
+```
+
+```{r}
+ggplot(datacor, aes(x= Height, y= Correlation, col =VS)) +
+  geom_point()+
+  geom_line() +
+  scale_color_manual(values=c("#00AFBB", "#FC4E07", "#E7B800")) +
+  scale_x_continuous(limits = c(1, 36), breaks = seq(1, 51, by=5)) +
+  theme_minimal() +
+  # theme(legend.title=element_blank()) +
+  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_blank(), legend.text= element_text(size=14)) +
+  labs(title="Vertical light correlations between LiDAR acquisitions", x ="Height above the ground (m)")
+
+ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_Light_10m_intensity_1m.png", sep = ""),
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
+       width = 25, height = 25, units = "cm", dpi=800, bg="white")
+```
+
+# Vertical structure heterogeneity
+```{r}
+datacor <- as.data.frame(cor(DF_cor))
+datacor[lower.tri(datacor, diag = T)] <- NA
+
+datacor <-  datacor %>%
+  mutate(across(everything(), ~ {
+    last_non_na_idx <- max(which(!is.na(.)), na.rm = TRUE)
+    # Replace all values with NA except the last non-NA value
+    ifelse(seq_along(.) == last_non_na_idx, .[last_non_na_idx], NA)
+  }))
+
+datacor <- datacor %>% 
+  mutate(Var1 = rownames(datacor)) %>% 
+  pivot_longer(cols = High1:UAV36, names_to = "Var2", values_to = "Correlation") %>%
+  mutate(Height1 = readr::parse_number(Var1)) %>% 
+  mutate(Height2 = readr::parse_number(Var2)) %>% 
+  mutate(Var1 = gsub('[[:digit:]]+', '', Var1)) %>% 
+  mutate(Var2 = gsub('[[:digit:]]+', '', Var2)) %>% 
+  filter(Var1 == Var2) %>% filter(Height1 != Height2) %>%
+  select(-Var2) %>% rename(Acquisition = Var1) %>%
+  unite(Height, Height1, Height2, sep = " vs ")  %>% 
+  unique() %>% 
+  na.omit()
+```
+
+
+```{r}
+datacor %>% 
+  group_by(Acquisition) %>% 
+  mutate(Level = 1:n()) %>%  ungroup() %>% 
+ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
+  geom_point()+
+  geom_line() +
+  scale_color_manual(values=c("blue", "#56B4E9", "#E69F00")) +
+  scale_x_continuous(breaks = 1:length(unique(datacor$Height)), 
+       labels = unique(datacor$Height)) +
+  # scale_y_continuous(limits = c(0.6, 0.85), breaks = seq(0.6, 0.9, by=0.025)) +
+  theme_minimal() +
+  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
+  labs(title="Vertical structure heterogeneity", x ="Height above the ground (m)")
+# Correlation of the spatial distribution of light between two consecutive forest strata for each LiDAR acquisitions
+
+ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10m_intensity_1m.png", sep = ""),
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
+       width = 20, height = 25, units = "cm", dpi=1000, bg="white")
+```
+# comp between each layer
+```{r}
+datacor <- as.data.frame(cor(DF_cor))
+# datacor[lower.tri(datacor, diag = T)] <- NA
+# datacor <-  datacor[1,(-1)] #  datacor[1:7,2:8]
+
+# datacor <-  datacor %>%
+#   mutate(across(everything(), ~ {
+#     last_non_na_idx <- max(which(!is.na(.)), na.rm = TRUE)
+#     # Replace all values with NA except the last non-NA value
+#     ifelse(seq_along(.) == last_non_na_idx, .[last_non_na_idx], NA)
+#   }))
+
+datacor <- datacor %>% 
+  mutate(Var1 = rownames(datacor)) %>% 
+  pivot_longer(cols = High6:UAV36 , names_to = "Var2", values_to = "Correlation") %>%
+  mutate(Height1 = readr::parse_number(Var1)) %>% 
+  mutate(Height2 = readr::parse_number(Var2)) %>% 
+  mutate(Var1 = gsub('[[:digit:]]+', '', Var1)) %>% 
+  mutate(Var2 = gsub('[[:digit:]]+', '', Var2)) %>% 
+  filter(Var1 == Var2) %>% filter(Height1 != Height2) %>%
+  select(-Var2) %>% rename(Acquisition = Var1) %>%
+  unite(Height, Height1, Height2, sep = " vs ")  %>% 
+  filter(startsWith(Height,"1 ")) %>% 
+  unique() %>% 
+  na.omit()
+```
+
+```{r}
+datacor %>% 
+  group_by(Acquisition) %>% 
+  mutate(Level = 1:n()) %>%  ungroup() %>% 
+ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
+  geom_point()+
+  geom_line() +
+  scale_color_manual(values=c("blue", "#56B4E9", "#E69F00")) +
+  scale_x_continuous(breaks = 1:length(unique(datacor$Height)), 
+       labels = unique(datacor$Height)) +
+  # scale_y_continuous(limits = c(0.6, 0.85), breaks = seq(0.6, 0.9, by=0.025)) +
+  theme_minimal() +
+  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
+  labs(title="Vertical structure heterogeneity", x ="Height above the ground (m)")
+# Correlation of the spatial distribution of light between two consecutive forest strata for each LiDAR acquisitions
+
+ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10m_intensity_1m_compeachstrata fith the1st.png", sep = ""),
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
+       width = 20, height = 25, units = "cm", dpi=1000, bg="white")
+```
+
+# Corrplot
+```{r}
 png("D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_LiDAR_Vertical Light.png",
     width = 1600, height = 1200, pointsize=20) # width = 1000, height = 743
 
@@ -593,6 +733,10 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
          diag=FALSE) 
 
 dev.off()
+```
+
+
+```{r}
 ```
 
 # HOBO

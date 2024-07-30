@@ -32,10 +32,7 @@ library(readr)
 library(data.table)
 library(tidyverse)
 library(ggrepel)
-```
 
-# Functions
-```{r}
 # names(data)
 readLAI2200 <- function(path){
   data <- fread(path,
@@ -156,7 +153,7 @@ P16LAY : data (26 locations) from the plot 16 of Paracou, at the edge between 14
 P16HOBO : data (30 locations) from the plot 16 of Paracou, on the HOBO sensors gradient, over the 14 et 19 subplots. 10 m between each location.  
 ```{r}
 # rm(list = ls()) # Vider l'envrmt
-path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/"
+path <- "D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/DATA/"
 
 pattern <- "P16LAY"
 # ou 
