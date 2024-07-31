@@ -7,13 +7,6 @@ output: html_document
 
 Le rééchantillonnage du MNT à une maille plus grossière (5m, 10m, 20m, 50m) permet de lisser les micro-variations du relief dues au bruit dans les coordonnées en z (altitude).
 
-
-```{r Setup, include=FALSE}
-knitr::opts_chunk$set(
-  message = FALSE, echo = FALSE, fig.width = 6
-)
-```
-
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(terra)
@@ -29,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Load LAS data
 ```{r}
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_HighAlt_buffer.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 ```
 
 # CHM & DSM from LAS
@@ -44,20 +37,37 @@ ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
 
 CHM <- rasterize_canopy(normalize_height(ST, mnt), res = 1, algorithm = p2r())
 #p2r() : for each pixel of the output raster the function attributes the height of the highest point found
-CHM_mean <- mean(CHM[], na.rm = T) # average CHM
+mean(CHM[], na.rm = T) # average height # 31.3
+median(CHM[], na.rm = T) # median # 32.2
 plot(CHM, col = height.colors(25))
 
 DSM <- rasterize_canopy(ST, res = 0.5, algorithm = dsmtin())
 # dsmtin() : algorithm for digital surface model computation using a Delaunay triangulation of first returns with a linear interpolation within each triangle.
+mean(DSM[], na.rm = T) # average height # 43.2
+median(DSM[], na.rm = T) # median # 44.3
 
-ggplot() + 
-  geom_spatraster(data = CHM, aes(fill = Z)) +
-  scale_fill_gradientn(name = "Canopy height (m)",
-                       colors = height.colors(25), na.value="white") + 
-  geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
-  ggtitle("Paracou P16 4ha - CHM ALS 2023 - 1m res") + 
-  theme_classic() +
-  coord_sf()
+plotRaster <- function(raster, res){
+  print(
+    ggplot() + 
+      geom_spatraster(data = raster, aes(fill = Z)) +
+      scale_fill_gradientn(name = "Canopy height (m)",
+                           colors = height.colors(25), na.value="white") + 
+      geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+      ggtitle(paste("Paracou P16 4ha - ", deparse(substitute(raster)), " ALS 2023 - 1m res", sep="")) + 
+      theme_classic() +
+      theme(title=element_text(size=18), axis.text=element_text(size=18), legend.title=element_text(size=20), legend.text=element_text(size=20), legend.key.size = unit(1, 'cm')) +
+      coord_sf()
+  )
+  ggsave(paste("P16_2023_4ha_ALS_", deparse(substitute(raster)), "_",res,"m.png", sep=""),
+         path = "D:/Mes Donnees/PhD/Figures/lidar/CHM-DSM",
+         width = 30, height = 25, units = "cm", dpi=800, bg="white")
+}
+
+plotRaster(CHM, "1")
+plotRaster(DSM, "0.5")
+
+raster <- CHM
+res = "1"
 ```
 
 
@@ -361,17 +371,17 @@ st_write(ALT, "D:/Mes Donnees/PhD/SIG_data/ALT.shp", driver = "ESRI Shapefile") 
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Clip_raster.R")
 
 Paracou_ALT_mnt <- Rslt <- Clip_raster(file_to_clip = "test/Paracou_MNT_cor.tif",
-                               mask = ALT, 
-                               outpout = "test/Paracou_ALT_mnt.tif")
+                                       mask = ALT, 
+                                       outpout = "test/Paracou_ALT_mnt.tif")
 
 
 Paracou_ALT_TWI <- Clip_raster(file_to_clip = "test/Paracou_TWI_5m.tif",
-                       mask = ALT, 
-                       outpout = "test/Paracou_ALT_TWI_5m.tif")
+                               mask = ALT, 
+                               outpout = "test/Paracou_ALT_TWI_5m.tif")
 
 Paracou_ALT_RE <- Clip_raster(file_to_clip = "test/re.tif",
-                      mask = ALT, 
-                      outpout = "test/Paracou_ALT_RelativeElev.tif")
+                              mask = ALT, 
+                              outpout = "test/Paracou_ALT_RelativeElev.tif")
 ```
 
 ## Plot the ALT rasters
