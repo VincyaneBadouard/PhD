@@ -250,15 +250,15 @@ Writedata_txt_csv <- function(data, path){
   write.csv(data, paste(path, ".csv", sep=""))
 }
 
-Writedata_txt_csv(Light_HighUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_annual_intensity2m_UTM")
-Writedata_txt_csv(Light_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_annual_intensity2m_UTM")
+Writedata_txt_csv(Light_HighUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_Light_annual_intensity1m_UTM")
+Writedata_txt_csv(Light_LowUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_1m/P16_2023_4ha_LowAlt_Light_annual_intensity1m_UTM")
 
-Writedata_txt_csv(Light_High_DryUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_Dry_intensity2m_UTM")
-Writedata_txt_csv(Light_Low_DryUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Dry_intensity2m_UTM")
-Writedata_txt_csv(Light_High_WetUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_Wet_intensity2m_UTM")
-Writedata_txt_csv(Light_Low_WetUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_Wet_intensity2m_UTM")
+Writedata_txt_csv(Light_High_DryUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_Light_Dry_intensity1m_UTM")
+Writedata_txt_csv(Light_Low_DryUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_1m/P16_2023_4ha_LowAlt_Light_Dry_intensity1m_UTM")
+Writedata_txt_csv(Light_High_WetUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_Light_Wet_intensity1m_UTM")
+Writedata_txt_csv(Light_Low_WetUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_1m/P16_2023_4ha_LowAlt_Light_Wet_intensity1m_UTM")
 
-Writedata_txt_csv(Light_UAV2mUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_4ha_UAV_Light_annual_intensity2m_UTM")
+Writedata_txt_csv(Light_UAV2mUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_annual_intensity1m_UTM")
 Writedata_txt_csv(Light_UAV1mUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_annual_intensity1m_UTM")
 
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_LowAlt_Light_annual_1m_UTM.txt"
@@ -282,13 +282,97 @@ Writedata_txt_csv(Light_UAV1mUTM, "//amap-data.cirad.fr/work/users/VincyaneBadou
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_annual_1m_UTM.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_4ha_Light_Dry_1m_UTM.txt"
 
-Light_HighUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_Light_annual_intensity2m_UTM.txt")
+Light_HighUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_Light_annual_intensity1m_UTM.txt")
 
-Light_LowUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_2m/P16_2023_4ha_LowAlt_Light_annual_intensity2m_UTM.txt")
+Light_LowUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_1m/P16_2023_4ha_LowAlt_Light_annual_intensity1m_UTM.txt")
 
-Light_UAV2mUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_4ha_UAV_Light_annual_intensity2m_UTM.txt")
+Light_UAV2mUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_annual_intensity1m_UTM.txt")
 
 Light_UAV1mUTM <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_annual_intensity1m_UTM.txt")
+```
+
+# Comparaison transmittance and CHM
+```{r}
+CHM <- rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha_ALS_CHM.tif")
+CHM
+CHMdf <- as.data.frame(CHM, xy=TRUE) %>% 
+  rename(Xutm = x) %>% rename(Yutm = y) %>% rename(Zmax = Z)  %>% 
+  mutate(Xutm = ceiling(Xutm)) %>% mutate(Yutm = ceiling(Yutm))
+
+# Trans_height <- Light_HighUTM %>% 
+#   mutate(Xutm = round(Xutm)) %>% mutate(Yutm = round(Yutm)) %>%
+#   left_join(CHMdf, by= c('Xutm', 'Yutm'))
+
+Light <- Light_HighUTM %>% 
+  mutate(Xutm = round(Xutm)) %>% mutate(Yutm = round(Yutm)) %>% 
+  select(Xutm, Yutm, Transmittance)
+
+Trans_height <- CHMdf %>% 
+  left_join(Light, by= c('Xutm', 'Yutm')) %>% 
+  mutate(Zmaxint = round(Zmax)) %>% 
+  group_by(Zmaxint) %>% 
+  mutate(Transmax = max(Transmittance, na.rm = T)) %>% 
+  mutate(Transmin = min(Transmittance, na.rm = T)) %>%
+  mutate(Transmed = median(Transmittance, na.rm = T)) %>% 
+  ungroup()
+
+cor(na.omit(Trans_height)$Transmittance, na.omit(Trans_height)$Zmax) # -0.19
+cor(na.omit(Trans_height)$Transmax, na.omit(Trans_height)$Zmax) # -0.49
+cor(na.omit(Trans_height)$Transmin, na.omit(Trans_height)$Zmax) # -0.23
+
+max <- ggplot(na.omit(Trans_height), aes(x= Zmaxint, y= Transmax)) +
+  geom_point(col="red") +
+  labs(y = "Maximum transmittance") +
+  geom_smooth(method = "lm", col="grey", size=0.8) +
+  ggpubr::stat_cor(label.x = 35, label.y = 0.25, na.rm=T, size=6) +
+  theme_minimal() +
+  theme(axis.title.x= element_blank(), axis.text.x= element_blank(),
+        axis.title.y= element_text(size=16), axis.text.y= element_text(size=16))
+
+med <- ggplot(na.omit(Trans_height), aes(x= Zmaxint, y= Transmed)) +
+  geom_point(col="darkgreen") +
+  labs(y = "Median transmittance") +
+  geom_smooth(data = Trans_height[Trans_height$Zmaxint<=10,],
+              method = "lm", col="grey", size=0.8) +
+  ggpubr::stat_cor(data = Trans_height[Trans_height$Zmaxint<=10,],
+                   label.x = 35, label.y = 0.2, na.rm=T, size=6) +
+  theme_minimal() +
+  theme(axis.title.x= element_blank(), axis.text.x= element_blank(),
+        axis.title.y= element_text(size=16), axis.text.y= element_text(size=16))
+
+min <- ggplot(na.omit(Trans_height), aes(x= Zmaxint, y= Transmin)) +
+  geom_point(col="lightblue") +
+  geom_smooth(data = Trans_height[Trans_height$Zmaxint<=10,],
+              method = "lm", col="grey", size=0.8) +
+  ggpubr::stat_cor(data = Trans_height[Trans_height$Zmaxint<=10,],
+                   label.x = 35, label.y = 0.03, na.rm=T, size=6) +
+  theme_minimal() +
+  theme(axis.title= element_text(size=16), axis.text= element_text(size=16)) +
+  labs(x ="Canopy height (m)", y = "Minimum transmittance")
+
+ggpubr::ggarrange(max, med, min, ncol=1, nrow=3)
+
+ggsave("P16_2023_4ha_ALS_CHM_vs_Transmittance_maxmedmin.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/CHM-DSM",
+       width = 30, height = 25, units = "cm", dpi=800, bg="white")
+
+
+ggplot(na.omit(Trans_height), aes(x= as.factor(Zmaxint), y= Transmittance)) +
+  geom_boxplot() +
+  # scale_x_discrete(limits = as.character(seq(1, 48, by= 2))) +
+  geom_smooth(data = Trans_height[Trans_height$Zmaxint<=12,],
+              method = "lm", col="grey", aes(group=1)) +
+  ggpubr::stat_cor(data = Trans_height[Trans_height$Zmaxint<=12,],
+                   label.x = 33, label.y = 0.25, na.rm=T, aes(group=1), size=6) +
+  theme(axis.title= element_text(size=20), axis.text= element_text(size=20)) +
+  theme_minimal() +
+  labs(x ="Canopy height (m)")
+
+ggsave("P16_2023_4ha_ALS_CHM_vs_Transmittance_boxplot.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/CHM-DSM",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
+
 ```
 
 # Maps
@@ -610,6 +694,7 @@ ggplot(datacor, aes(x= Height, y= Correlation, col =VS)) +
   geom_line() +
   scale_color_manual(values=c("#00AFBB", "#FC4E07", "#E7B800")) +
   scale_x_continuous(limits = c(1, 36), breaks = seq(1, 51, by=5)) +
+  # scale_y_continuous(limits = c(0, 1), breaks = c(0, 0.95, 1)) + # corr on 0-1
   theme_minimal() +
   # theme(legend.title=element_blank()) +
   theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_blank(), legend.text= element_text(size=14)) +
@@ -651,12 +736,12 @@ datacor <- datacor %>%
 datacor %>% 
   group_by(Acquisition) %>% 
   mutate(Level = 1:n()) %>%  ungroup() %>% 
-ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
+  ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
   geom_point()+
   geom_line() +
   scale_color_manual(values=c("blue", "#56B4E9", "#E69F00")) +
   scale_x_continuous(breaks = 1:length(unique(datacor$Height)), 
-       labels = unique(datacor$Height)) +
+                     labels = unique(datacor$Height)) +
   # scale_y_continuous(limits = c(0.6, 0.85), breaks = seq(0.6, 0.9, by=0.025)) +
   theme_minimal() +
   theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
@@ -667,7 +752,7 @@ ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneit
        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
        width = 20, height = 25, units = "cm", dpi=1000, bg="white")
 ```
-# comp between each layer
+# Comp between each layer
 ```{r}
 datacor <- as.data.frame(cor(DF_cor))
 # datacor[lower.tri(datacor, diag = T)] <- NA
@@ -699,12 +784,12 @@ datacor <- datacor %>%
 datacor %>% 
   group_by(Acquisition) %>% 
   mutate(Level = 1:n()) %>%  ungroup() %>% 
-ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
+  ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
   geom_point()+
   geom_line() +
   scale_color_manual(values=c("blue", "#56B4E9", "#E69F00")) +
   scale_x_continuous(breaks = 1:length(unique(datacor$Height)), 
-       labels = unique(datacor$Height)) +
+                     labels = unique(datacor$Height)) +
   # scale_y_continuous(limits = c(0.6, 0.85), breaks = seq(0.6, 0.9, by=0.025)) +
   theme_minimal() +
   theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_text(size=14), legend.text= element_text(size=14)) +

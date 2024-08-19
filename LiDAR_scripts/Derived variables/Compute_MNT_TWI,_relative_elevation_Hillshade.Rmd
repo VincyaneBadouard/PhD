@@ -69,6 +69,10 @@ plotRaster(DSM, "0.5")
 raster <- CHM
 res = "1"
 ```
+```{r}
+writeRaster(CHM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha_ALS_CHM.tif")
+writeRaster(DSM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha_ALS_DSM.tif")
+```
 
 
 # DEM from LAS
