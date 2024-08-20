@@ -362,6 +362,8 @@ ggplot(na.omit(Trans_height), aes(x= as.factor(Zmaxint), y= Transmittance)) +
   # scale_x_discrete(limits = as.character(seq(1, 48, by= 2))) +
   geom_smooth(data = Trans_height[Trans_height$Zmaxint<=12,],
               method = "lm", col="grey", aes(group=1)) +
+  # geom_smooth(aes(group = 1), method = "glm", formula = y ~ exp(-0.4 * x),
+  #             col="grey") +
   ggpubr::stat_cor(data = Trans_height[Trans_height$Zmaxint<=12,],
                    label.x = 33, label.y = 0.25, na.rm=T, aes(group=1), size=6) +
   theme(axis.title= element_text(size=20), axis.text= element_text(size=20)) +
