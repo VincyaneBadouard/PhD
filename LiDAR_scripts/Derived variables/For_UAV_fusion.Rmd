@@ -24,6 +24,8 @@ library(raster)
 ## ALS
 ```{r}
 ALS <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
+# ALS <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz")
+#  <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz")
 ```
 
 ## UAV
@@ -48,7 +50,7 @@ range(UAV_C14C15$Intensity) # 1 255
 
 # Crop the ALS in 2 parts as the UAV data
 ```{r}
-ROI <- st_as_sf(vect("Y:/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) 
 
@@ -68,8 +70,11 @@ ALS_C14C15 ; ALS_C19C20
 ```
 
 ```{r}
-writeLAS(ALS_C14C15, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C14C15.laz")
-writeLAS(ALS_C19C20, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C19C20.laz")
+writeLAS(ALS_C14C15, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_HighAlt_C14C15.laz")
+# writeLAS(ALS_C14C15, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_LowAlt_C14C15.laz")
+# writeLAS(ALS_C14C15, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_intensitycor.laz")
+
+writeLAS(ALS_C19C20, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_HighAlt_C19C20.laz")
 ```
 
 # Crop UAV with the trajectory

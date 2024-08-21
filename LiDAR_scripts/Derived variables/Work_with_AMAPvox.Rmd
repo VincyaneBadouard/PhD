@@ -54,13 +54,14 @@ ctg : catalog of laz files
 
 # Si 1 fichier
 # ST <- readLAS(paste(local,"P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_lastoolsclassif.laz", sep="") # décimé
-ST <- readLAS(paste(local,folders, "Returns_and_gpstime_corrected_lastoolsclassif.laz", sep=""))
+ST <- readLAS(
+  # paste(local,folders, "Returns_and_gpstime_corrected_lastoolsclassif.laz", sep=""))
 # UAV_C19C20_retranslated_lastoolsclassif
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_retranslated_lastoolsclassif.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz")
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
 # ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
-
+hist(ST$Intensity, breaks=1000)
 crs(ST) # no crs
 ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
 lidR::crs(ST)
@@ -251,7 +252,7 @@ On enlève tout le sol, on garde que les tirs qui atteignent la végétation
 # rm(GS)
 ```
 
-# Calculer la moyenne de réflectance (appelée intensité) par écho (Greg l'a déjà mis dans les laz bruts)
+# Calculer la réflectance apparente (appelée intensité) par écho (Greg l'a déjà mis dans les laz bruts)
 
 On utilise la réflectance pour calculer l'intensité
 en calculant la réflectance apparente en ratio (albedo)

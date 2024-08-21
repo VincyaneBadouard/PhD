@@ -13,10 +13,12 @@ options(digits = 22)
 
 
 path <- 
-  # "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_4ha_intensitycor_lastools.laz"
-"Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_intensitycor.laz"
-# "Y:/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_intensitycor.laz"
+  #C14C15
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_HighAlt_C14C15.laz"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_LowAlt_C14C15.laz"
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_intensitycor.laz"
 
+ -------------------------------------------------------------------------------
 ST <- readLAS(path)
 
 # ST <- readLAS(paste(local, "HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C19C20_buffer_intensitycor.laz", sep = "")) 
@@ -77,17 +79,18 @@ mean(pls[][which(pls[]>0)]) # pulses/m2
 
 # Footprint size ---------------------------------------------------------------
 divergence <- 0.25 # mRAD divergence du lazer
-h <- 500 # fly heignt in m
+h <- 500 # 1000 # 500 # fly heignt in m
 tan(divergence*10^-3)*h # Footprint size in m
 
 # Penetration (proportion de points sol dans le dernier écho) ------------------
 table(ST@data$NumberOfReturns) # ALS 2023 LowAlt: 14; HighAlt: 11; UAV : 3 echos
+mean(ST@data$NumberOfReturns) # ALS 2023 HighAlt: 2.8 ; LowAlt: 4.0; UAV 1.70: Average number of echoes per shot
 min(ST@data$Z) # High : 6.24 ; Low : 6.23, UAV : 6.29
 (nrow(ST@data[ReturnNumber==NumberOfReturns & Classification==1,])/nrow(ST@data[ReturnNumber==NumberOfReturns,]))*100
-# 1 = sol # High: 8.17% ; Low: 17.27 % ; UAV :  1.04 % of ground points in the last echo
+# 1 = sol # High: 9.6% ; Low: 18.9 % ; UAV :  1.24 % of ground points in the last echo
 alt = 500  # 1000 ; 500 ; 85
 alt-mean(ST@data[ReturnNumber==NumberOfReturns & Classification==1,Z]) # High: 987 ; Low: 487 ; UAV: 72 m distance
-mean(ST@data[ReturnNumber==NumberOfReturns,Z]) # High: 34.8 ; Low: 29.7 ; UAV: 39.1 m average height of the last echo
+mean(ST@data[ReturnNumber==NumberOfReturns,Z]) # High: 31.2 ; Low: 26.1 ; UAV: 35.2 m average height of the last echo
 
 # Si l'intensité n'est pas déjà la réflectance apparente :
 # ST@data$initial_intensity <- ST@data$Intensity
