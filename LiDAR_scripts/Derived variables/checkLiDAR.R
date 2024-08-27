@@ -84,7 +84,7 @@ tan(divergence*10^-3)*h # Footprint size in m
 
 # Penetration (proportion de points sol dans le dernier écho) ------------------
 table(ST@data$NumberOfReturns) # ALS 2023 LowAlt: 14; HighAlt: 11; UAV : 3 echos
-mean(ST@data$NumberOfReturns) # ALS 2023 HighAlt: 2.8 ; LowAlt: 4.0; UAV 1.70: Average number of echoes per shot
+mean(ST@data[ReturnNumber==NumberOfReturns]$NumberOfReturns) # ALS 2023 HighAlt: 2.8 ; LowAlt: 4.0; UAV 1.70: Average number of echoes per shot
 min(ST@data$Z) # High : 6.24 ; Low : 6.23, UAV : 6.29
 (nrow(ST@data[ReturnNumber==NumberOfReturns & Classification==1,])/nrow(ST@data[ReturnNumber==NumberOfReturns,]))*100
 # 1 = sol # High: 9.6% ; Low: 18.9 % ; UAV :  1.24 % of ground points in the last echo
