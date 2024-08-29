@@ -63,6 +63,10 @@ LowAnnual_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/user
 UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_coordshiftQgis_intensity2m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
 UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_coordshiftQgis_intensity1m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
 
+# DZ
+DZ <- (Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/Paracou_2023_HighAlt_DZ_buffer_LAI2200sim_intensity1m_test.txt")) %>% 
+  # group_by(position.x, position.y) %>% 
+  mutate(ID = as.factor((group_indices(., position.x, position.y))))
 
 # Equal echo weighting 
 # HighAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Equal_echo_2m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_Equalecho2m_test.txt"))
@@ -157,6 +161,34 @@ LiDAR <- LiDAR %>%
   ungroup()
 ```
 
+```{r, include = F}
+
+ggplot(DZ, aes(x = ID, y= Transmittance, col = azimut)) +
+  geom_point() +
+  # theme_minimal() +
+  scale_colour_gradient2(name = "Azimut", low="grey", high="grey", mid = "red", midpoint = 0) +
+  facet_grid(vars(as.factor(ring)), scales = "free")
+
+ggsave("DZ_transmittances.png",
+         path = "D:/Mes Donnees/PhD/Figures/lidar/",
+         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
+
+
+LiDAR <- DZ %>% 
+  group_by(`position.x`, `position.y`, `position.z`, ring) %>%
+  mutate(MeanTransmittance = mean(Transmittance)) %>%
+  mutate(SdTransmittance = sd(Transmittance)) %>% 
+  mutate(SeTransmittance = plotrix::std.error(Transmittance)) %>%
+  ungroup() %>% 
+  select(!c(azimut, Transmittance, `position.x`, `position.y`, `position.z`,)) %>% 
+  unique()
+
+hist(DZ$Transmittance)
+hist(LiDAR$MeanTransmittance)
+
+```
+
 ## Local to UTM coord
 ```{r}
 # Lecture matrice de transformation
@@ -179,12 +211,26 @@ LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
 
 LAI2200_data <- LAI2200_data %>% 
+  mutate(Ring = case_when(
+    Ring == "Ring1" ~ 1,
+    Ring == "Ring2" ~ 2,
+    Ring == "Ring3" ~ 3,
+    Ring == "Ring4" ~ 4,
+    Ring == "Ring5" ~ 5)) %>% 
   group_by(File_Id, Id) %>% 
   mutate(Transmittance_integrated = sum(BELOW)/sum(ABOVE)) %>% # transmittance integrated over all the rings (to validate with HOBOs)
   ungroup() %>% 
   group_by(Id) %>% 
   mutate(MeanTransmittance_integrated = mean(Transmittance_integrated)) %>% 
   ungroup() %>% 
+  # select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
+  unique()
+
+DZ <- LAI2200_data %>%
+  select(c(Date,TimeA,Ring,ABOVE)) %>%
+  unique()
+
+LAI2200_data <- LAI2200_data %>% 
   select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
   unique()
 
@@ -211,12 +257,6 @@ nrow(unique(LAI2200 %>% select(Xutm,Yutm,Zutm))) # 45 <- 20+26 LAI2200 dont 1 en
 ## Combine LiDAR and LAI2200 data
 ```{r}
 LAI2200_LiDAR <- LAI2200 %>% 
-  mutate(Ring = case_when(
-    Ring == "Ring1" ~ 1,
-    Ring == "Ring2" ~ 2,
-    Ring == "Ring3" ~ 3,
-    Ring == "Ring4" ~ 4,
-    Ring == "Ring5" ~ 5)) %>% 
   left_join(LiDAR, by= c("Xutm","Yutm","Zutm", "Ring"))
 
 # NA_table <- LAI2200_LiDAR[rowSums(is.na(LAI2200_LiDAR[, c(25, 34:36)])) > 0,] # NA ?
@@ -347,7 +387,7 @@ for(acq in c("MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTr
 LAI2200UTMsf <- st_as_sf(LAI2200, coords = c('Xutm','Yutm'))
 LAI2200UTMsf <- st_set_crs(LAI2200UTMsf, crs(zone))
 
-LAI2200UTMsf <- LAI2200UTMsf %>% filter(Ring=="Ring1")
+LAI2200UTMsf <- LAI2200UTMsf %>% filter(Ring==1)
 
 ggplot() +
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
@@ -1062,6 +1102,35 @@ onlySignCorr(DF_cor_LiDAR, "LiDAR_ALSvsUAV_Acquisitions")
 ```{r}
 rm(corr, CorMatrix, CorMatrixS, DF_cor, DF_cor_LiDAR, DF_cor_LiDARvsLAI2200, LAI2200, mtx_corr, Pval_corr, LAI2200_LiDAR_transect, LAI2200_LiDAR_ring, LiDAR)
 ```
+# DZ
+```{r}
+DZmean <- DZ %>% 
+  group_by(Ring) %>% 
+  mutate(MedianAbove_LAI2200 = median(ABOVE)) %>%
+  mutate(MeanAbove_LAI2200 = mean(ABOVE)) %>%
+  mutate(SdAbove_LAI2200 = sd(ABOVE)) %>%
+  mutate(SeAbove_LAI2200 = plotrix::std.error(ABOVE)) %>%
+  ungroup() %>% 
+  select(Ring, MedianAbove_LAI2200, MeanAbove_LAI2200, SdAbove_LAI2200, SeAbove_LAI2200) %>% 
+  unique()
+
+ggplot(DZ, aes(x = TimeA, y = ABOVE)) + 
+  geom_point(aes(col = as.factor(Date))) +
+  scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5))) +
+  facet_grid(vars(Ring), scales = "free") +
+  geom_hline(data = DZmean, aes(yintercept = MeanAbove_LAI2200, linetype='Mean')) +
+  geom_text(data = DZmean,
+            mapping = aes(x= hms::as_hms("17:15:00"), y = MeanAbove_LAI2200+30,
+                          label= as.character(round(MeanAbove_LAI2200))),
+            size = 3) +
+  scale_linetype_manual(name = "", values = "solid") +
+  labs(color= "Date", y = "DZ light")
+
+ggsave("LAI2200_DZ(A)_mean.png",
+       path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
+```
 
 # HOBO
 ## LAI2200 data with HOBO 10
@@ -1071,12 +1140,6 @@ LAI2200_LiDAR <- LAI2200_coord %>%
   mutate(Xutm = round(Xutm), 
          Yutm = round(Yutm),
          Zutm = round(Zutm)) %>% 
-  mutate(Ring = case_when(
-    Ring == "Ring1" ~ 1,
-    Ring == "Ring2" ~ 2,
-    Ring == "Ring3" ~ 3,
-    Ring == "Ring4" ~ 4,
-    Ring == "Ring5" ~ 5)) %>% 
   left_join(LiDAR, by= c("Xutm","Yutm","Zutm", "Ring"))
 ```
 

@@ -208,14 +208,19 @@ ggplot() +
 
 # Extract Z coord MNT to Points
 ```{r}
-MNT <- terra::rast("//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/rasters/PARACOU2023_DTM_1m.tif") # MNT
+MNT <- terra::rast(
+  # "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/rasters/PARACOU2023_DTM_1m.tif" # MNT
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/MNT/dtm2023_HighAlt_DZ_buffer.asc" # DZ
+)
 
 crs(MNT) <- crs(P16shp)
 
+# dataUTMsf <- st_as_sf(data.frame(Xutm = c(286536.53, 286541.3), Yutm = c(582611.45, 582605.2)), coords = c('Xutm','Yutm')) # DZ
+
 alt <- extract(MNT, dataUTMsf) %>% # extract z
   rename(Zutm = MNT_0.5m_IRD_500m_Paracou_284000_579500) %>% 
-  select(-ID) %>% 
+  # select(-ID) %>% 
   mutate(Zutm = Zutm +1) # 1 m above the ground
 
 dataxyz <- dataUTM %>% cbind(alt)
@@ -255,20 +260,26 @@ dataxyz <- as.data.table(dataxyz)
 # dataxyz <- as.data.table(read.csv(path))
 VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
 
+# matrix <- as.matrix(data.frame(Xutm = c(286536.53, 286541.3), Yutm = c(582611.45, 582605.2), c = 0, d = 1)) # DZ
+
 matrix <- as.matrix(dataxyz[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
 
 datalocal <- matrix %*% t(VOP) # same dimensions
 
 datalocal <- cbind(datalocal,dataxyz[,Zutm])[, -c(3,4)] # add Zutm
 
+# datalocal <- cbind(datalocal,data.frame(Zutm=39.3))[, -c(3,4)] # add DZ Zutm
+
 ggplot() +
   geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.3) 
 
-# write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_4ha_10x10m_each5mZ_local.csv")
-
-# write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_local.csv")
-# write.csv(LAI2200local, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv")
-# write.csv(datalocal, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_local.csv")
+write.csv(datalocal,
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_4ha_10x10m_each5mZ_local.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Grid_4ha_10x10m_each1mZ_local.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_local.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_local.csv"
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/DZ_centre_local.csv"
+)
 
 ```
 

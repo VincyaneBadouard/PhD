@@ -155,9 +155,9 @@ P16HOBO : data (30 locations) from the plot 16 of Paracou, on the HOBO sensors g
 # rm(list = ls()) # Vider l'envrmt
 path <- "D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/DATA/"
 
-pattern <- "P16LAY"
+# pattern <- "P16LAY"
 # ou 
-# pattern <- "P16HOBO"
+pattern <- "P16HOBO"
 ```
 
 ```{r}
@@ -237,6 +237,10 @@ ggplot(data_long, aes(x = Time, y = Value, col = Position, shape = File_Id)) +
   geom_point() +
   facet_grid(vars(Ring), scales = "free")
 
+ggsave(paste("LAI2200_AB",pattern, ".png", sep=""),
+         path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
+         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
 data_long_B <- data_long %>% 
   filter(Position != "ABOVE") %>%
   mutate(Time = hms::as_hms(Time))
@@ -246,7 +250,12 @@ data_long_B %>%
   ggplot(aes(x = Time, y = Value, col = File_Id)) + 
   geom_point() +
   scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5))) +
+  # theme_minimal() +
   facet_grid(vars(Ring), scales = "free")
+
+ggsave(paste("LAI2200_B_repet",pattern, ".png", sep=""),
+         path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
+         width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 ## Attribute an Above measurement to a Below measurement 
@@ -451,7 +460,8 @@ mean <- Transmittance_data %>%
   group_by(Id, Ring) %>% 
   mutate(MeanTransmittance_LAI2200 = mean(Transmittance)) %>% 
   mutate(SdTransmittance_LAI2200 = sd(Transmittance)) %>% 
-  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance))
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance)) %>%
+  ungroup()
 
 # Mean transmittance by ring for each location 
 ggplot(mean, aes(x = Id, y = MeanTransmittance_LAI2200, col = File_Id)) + 
