@@ -64,9 +64,9 @@ UAV_int2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/Vinc
 UAV_int1m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_LAI2200sim_coordshiftQgis_intensity1m_test.txt")) %>% mutate(Transmittance = as.numeric(Transmittance))
 
 # DZ
-DZ <- (Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/Paracou_2023_HighAlt_DZ_buffer_LAI2200sim_intensity1m_test.txt")) %>% 
-  # group_by(position.x, position.y) %>% 
-  mutate(ID = as.factor((group_indices(., position.x, position.y))))
+# DZ <- (Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/Paracou_2023_HighAlt_DZ_buffer_LAI2200sim_intensity1m_test.txt")) %>%
+#   # group_by(position.x, position.y) %>%
+#   mutate(ID = as.factor((group_indices(., position.x, position.y))))
 
 # Equal echo weighting 
 # HighAnnual_equal2m <- unique(Read_LAI2200_Transfile("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Equal_echo_2m/P16_2023_HighAlt_4ha_buffer_LAI2200sim_Equalecho2m_test.txt"))
@@ -161,32 +161,40 @@ LiDAR <- LiDAR %>%
   ungroup()
 ```
 
+# DZ
 ```{r, include = F}
-
-ggplot(DZ, aes(x = ID, y= Transmittance, col = azimut)) +
-  geom_point() +
-  # theme_minimal() +
-  scale_colour_gradient2(name = "Azimut", low="grey", high="grey", mid = "red", midpoint = 0) +
-  facet_grid(vars(as.factor(ring)), scales = "free")
-
-ggsave("DZ_transmittances.png",
-         path = "D:/Mes Donnees/PhD/Figures/lidar/",
-         width = 25, height = 20, units = "cm", dpi=800, bg="white")
-
-
-
-LiDAR <- DZ %>% 
+LiDAR <- DZ %>%
+  filter(ID==2) %>% 
   group_by(`position.x`, `position.y`, `position.z`, ring) %>%
   mutate(MeanTransmittance = mean(Transmittance)) %>%
-  mutate(SdTransmittance = sd(Transmittance)) %>% 
+  mutate(SdTransmittance = sd(Transmittance)) %>%
   mutate(SeTransmittance = plotrix::std.error(Transmittance)) %>%
-  ungroup() %>% 
-  select(!c(azimut, Transmittance, `position.x`, `position.y`, `position.z`,)) %>% 
+  ungroup() %>%
+  select(!c(azimut, Transmittance, `position.x`, `position.y`, `position.z`,)) %>%
   unique()
 
-hist(DZ$Transmittance)
-hist(LiDAR$MeanTransmittance)
+DZ %>% filter(ID==2) %>%# mutate(azimut= sort(abs(azimut), decreasing = T)) %>% 
+  ggplot(aes(x = ID, y= Transmittance)) +
+  geom_point(aes(col = azimut)) +
+  # theme_minimal() +
+  scale_colour_gradient2(name = "Azimut (°)", low=scales::muted("lightblue"), high=scales::muted("lightblue"), mid = "red", midpoint = 0, space = "Lab") +
+  facet_grid(vars(as.factor(ring)), scales = "free_y") +
+  geom_hline(data = LiDAR, aes(yintercept = MeanTransmittance, linetype='Mean')) +
+  geom_text(data = LiDAR,
+            mapping = aes(y = MeanTransmittance,
+                          label= as.character(round(MeanTransmittance, 2))),
+            hjust = -1, vjust = 1.3, size = 3) +
+  scale_linetype_manual(name = "", values = "dashed") +
+  scale_y_continuous(labels = scales::label_number(accuracy = 0.01)) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(),
+        # axis.title.y= element_text(size=14), axis.text.y= element_text(size=14),
+        # legend.title= element_text(size=14), legend.text= element_text(size=14),
+        plot.margin = unit(c(0.2,3,0.2,3),"cm")) +
+  labs(y = "Transmittance")
 
+ggsave("DZ_transmittances_mean.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/",
+       width = 15, height = 22, units = "cm", dpi=800, bg="white")
 ```
 
 ## Local to UTM coord
@@ -223,12 +231,12 @@ LAI2200_data <- LAI2200_data %>%
   group_by(Id) %>% 
   mutate(MeanTransmittance_integrated = mean(Transmittance_integrated)) %>% 
   ungroup() %>% 
-  # select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
+  select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
   unique()
 
-DZ <- LAI2200_data %>%
-  select(c(Date,TimeA,Ring,ABOVE)) %>%
-  unique()
+# DZ <- LAI2200_data %>%
+#   select(c(Date,TimeA,Ring,ABOVE)) %>%
+#   unique()
 
 LAI2200_data <- LAI2200_data %>% 
   select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
@@ -636,7 +644,13 @@ LAI2200_LiDAR_ring <- LAI2200_LiDAR %>%
                    list(mean = ~mean(.), # les stats
                         sd = ~sd(.),
                         se = ~plotrix::std.error(.)),
-                   .names = "{.col}_{.fn}"))
+                   .names = "{.col}_{.fn}")) %>% 
+  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
+  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==4, MeanTransmittance_LAI2200_mean*0.96,
+                                                 MeanTransmittance_LAI2200_mean)) %>% 
+  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
+                                                 MeanTransmittance_LAI2200_mean)) 
+
 
 LAI2200_LiDAR_ring %>% 
   ggplot(aes(x = Ring)) +
@@ -721,67 +735,67 @@ LAI2200_LiDAR_ring %>%
   theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
   labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
 
-ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity1m_only.png", sep=""),
+ggsave(paste("Long_profile_The2_transects_Transmittance_of_the_transect_byRing_Intensity1m_ring45corr.png", sep=""),
        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 # Calibration
 ```{r}
-multiplicateur <- median((LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean/LAI2200_LiDAR_ring$MeanTransmittance_LowInt2m_mean)[1:4])
-# pour 2x=a :
-puissance <- median(1/(log(LAI2200_LiDAR_ring$MeanTransmittance_LowInt2m_mean)/log(LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean))[1:4])
-
-LAI2200_LiDAR_ring %>% 
-  mutate(Calib_multiplicateur = MeanTransmittance_LowInt2m_mean*multiplicateur) %>% # 1.8
-  mutate(Calib_puissance = MeanTransmittance_LowInt2m_mean^puissance) %>% # 1.8
-  ggplot(aes(x = Ring)) +
-  
-  geom_linerange(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
-                     ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se, colour = "Standard error")) +
-  
-  geom_linerange(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
-                     ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se,
-                     colour = "LAI2200"), alpha =1) +
-  # Intensity
-  geom_linerange(aes(ymin=MeanTransmittance_LowInt2m_mean-MeanTransmittance_LowInt2m_se,
-                     ymax=MeanTransmittance_LowInt2m_mean+MeanTransmittance_LowInt2m_se,
-                     colour = "Low altitude - Intens - 2m"),alpha =1) +
-  
-  geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
-  geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
-  
-  geom_point(aes(y = Calib_multiplicateur, colour = "Calibration multiplicateur: 1.8709"),size = 3) +
-  geom_line(aes(y = Calib_multiplicateur, colour = "Calibration multiplicateur: 1.8709")) +
-  
-  geom_point(aes(y = Calib_puissance, colour = "Calibration puissance: 0.823865"),size = 3) +
-  geom_line(aes(y = Calib_puissance, colour = "Calibration puissance: 0.823865")) +
-  
-  geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
-  geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
-  
-  
-  scale_colour_manual(values = c("Low altitude - Intens - 2m" = "#56B4E9",
-                                 "Calibration puissance: 0.823865" = "#009E73",
-                                 "Calibration multiplicateur: 1.8709" = "#CC79A7",
-                                 "LAI2200" = "#D55E00", 
-                                 "Standard error" = "#666666"),
-                      breaks=c("Low altitude - Intens - 2m",
-                               "Calibration multiplicateur: 1.8709",
-                               "Calibration puissance: 0.823865",
-                               "LAI2200", 
-                               "Standard error")) +
-  
-  guides(colour = guide_legend(
-    override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
-                        linewidth = 0.4))) + 
-  theme_minimal() +
-  theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
-  labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
-
-ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_calibration_puissance_multiplicative.png", sep=""),
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
-       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# multiplicateur <- median((LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean/LAI2200_LiDAR_ring$MeanTransmittance_LowInt2m_mean)[1:4])
+# # pour 2x=a :
+# puissance <- median(1/(log(LAI2200_LiDAR_ring$MeanTransmittance_LowInt2m_mean)/log(LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean))[1:4])
+# 
+# LAI2200_LiDAR_ring %>% 
+#   mutate(Calib_multiplicateur = MeanTransmittance_LowInt2m_mean*multiplicateur) %>% # 1.8
+#   mutate(Calib_puissance = MeanTransmittance_LowInt2m_mean^puissance) %>% # 1.8
+#   ggplot(aes(x = Ring)) +
+#   
+#   geom_linerange(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
+#                      ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se, colour = "Standard error")) +
+#   
+#   geom_linerange(aes(ymin=MeanTransmittance_LAI2200_mean-MeanTransmittance_LAI2200_se,
+#                      ymax=MeanTransmittance_LAI2200_mean+MeanTransmittance_LAI2200_se,
+#                      colour = "LAI2200"), alpha =1) +
+#   # Intensity
+#   geom_linerange(aes(ymin=MeanTransmittance_LowInt2m_mean-MeanTransmittance_LowInt2m_se,
+#                      ymax=MeanTransmittance_LowInt2m_mean+MeanTransmittance_LowInt2m_se,
+#                      colour = "Low altitude - Intens - 2m"),alpha =1) +
+#   
+#   geom_point(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m"),size = 3) +
+#   geom_line(aes(y = MeanTransmittance_LowInt2m_mean, colour = "Low altitude - Intens - 2m")) +
+#   
+#   geom_point(aes(y = Calib_multiplicateur, colour = "Calibration multiplicateur: 1.8709"),size = 3) +
+#   geom_line(aes(y = Calib_multiplicateur, colour = "Calibration multiplicateur: 1.8709")) +
+#   
+#   geom_point(aes(y = Calib_puissance, colour = "Calibration puissance: 0.823865"),size = 3) +
+#   geom_line(aes(y = Calib_puissance, colour = "Calibration puissance: 0.823865")) +
+#   
+#   geom_point(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200"),size = 3) +
+#   geom_line(aes(y = MeanTransmittance_LAI2200_mean, colour = "LAI2200")) +
+#   
+#   
+#   scale_colour_manual(values = c("Low altitude - Intens - 2m" = "#56B4E9",
+#                                  "Calibration puissance: 0.823865" = "#009E73",
+#                                  "Calibration multiplicateur: 1.8709" = "#CC79A7",
+#                                  "LAI2200" = "#D55E00", 
+#                                  "Standard error" = "#666666"),
+#                       breaks=c("Low altitude - Intens - 2m",
+#                                "Calibration multiplicateur: 1.8709",
+#                                "Calibration puissance: 0.823865",
+#                                "LAI2200", 
+#                                "Standard error")) +
+#   
+#   guides(colour = guide_legend(
+#     override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
+#                         linewidth = 0.4))) + 
+#   theme_minimal() +
+#   theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
+#   labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
+# 
+# ggsave(paste("Long_profile_The2_transects_MeanStandardErrorTransmittance_of_the_transect_byRing_calibration_puissance_multiplicative.png", sep=""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
+#        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 # Each transect
@@ -792,7 +806,13 @@ LAI2200_LiDAR_transect <- LAI2200_LiDAR %>%
                    list(mean = ~mean(.), # les stats
                         sd = ~sd(.),
                         se = ~plotrix::std.error(.)),
-                   .names = "{.col}_{.fn}"))
+                   .names = "{.col}_{.fn}")) %>% 
+  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
+  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==4, MeanTransmittance_LAI2200_mean*0.96,
+                                                 MeanTransmittance_LAI2200_mean)) %>% 
+  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
+                                                 MeanTransmittance_LAI2200_mean)) 
+
 
 for(t in c("HOBO", "LAY")){
   
@@ -883,7 +903,7 @@ for(t in c("HOBO", "LAY")){
       theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
       labs(title = paste(t," transect"), y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
   )
-  ggsave(paste("Long_profile_",t," transect","_MeanStandardErrorTransmittance_of_the_transect_byRing_Intensity1m_only.png", sep=""),
+  ggsave(paste("Long_profile_",t," transect","_Transmittance_of_the_transect_byRing_Intensity1m_ring45corr.png", sep=""),
          path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m",
          width = 25, height = 20, units = "cm", dpi=800, bg="white")
 }
@@ -1296,12 +1316,18 @@ DF_cor_HOBO_LAI2200 <- HOBO_LAI2200_LiDAR %>%
   pivot_wider(names_from = Ring,
               values_from = MeanTransmittance_LAI2200,
               values_fn = list,
-              names_glue = "{.value}_Ring{Ring}") #%>% 
+              names_glue = "{.value}_Ring{Ring}")  #%>% 
 # unnest(cols = everything()) # pcq les colonnes sont en listes
+  
+  
 DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200) # remove HOBO without values
 
 DF_cor_HOBO_LAI2200 <- sapply(DF_cor_HOBO_LAI2200, as.numeric)
-DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200)
+DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200) %>% 
+  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
+  mutate(MeanTransmittance_LAI2200_Ring4 = MeanTransmittance_LAI2200_Ring4*0.96) %>% 
+  mutate(MeanTransmittance_LAI2200_Ring5 = MeanTransmittance_LAI2200_Ring5*0.23) 
+
 
 names(DF_cor_HOBO_LAI2200) <- str_remove(names(DF_cor_HOBO_LAI2200), "MeanTransmittance_") # simplify the var names
 names(DF_cor_HOBO_LAI2200) <- str_remove(names(DF_cor_HOBO_LAI2200), "_Light") # simplify the var names

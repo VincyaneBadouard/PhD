@@ -6,7 +6,7 @@ output: pdf_document
 ---
 On cherche à minimiser l'écart entre les transmittances dérivées du LiDAR et celles de capteurs LAI2200 (données de validation).
 
-1) Générer une grille dans R : res 0.5, max 2m (discret).
+1) Générer une grille dans R : res 0.5, max 1m (discret).
 ) Calculer les transmittances à ces coordonnées dans AMAPVox (xml LAI2200)
 
 Décaller
