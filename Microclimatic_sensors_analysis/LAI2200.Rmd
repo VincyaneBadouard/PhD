@@ -20,13 +20,6 @@ Sensibility analyses:
 If low, measurement are sufficient and we can take the mean for each location.  
 If strong, measurement are insufficient.  
 
-
-```{r, include=FALSE}
-knitr::opts_chunk$set(
-  message = FALSE, echo = FALSE, fig.width = 6
-)
-```
-
 ```{r, include = F}
 library(readr)
 library(data.table)
@@ -61,7 +54,7 @@ readLAI2200 <- function(path){
 # Calibration between both sensors
 Protocol: Take data with the two sensors in the same location and in the same time to check the difference of measurement and correct it.  
 ```{r}
-path <- "D:/Mes Donnees/PhD/Light/LAI-2200/DATA/TEST.TXT"
+path <- "D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/DATA/TEST.TXT"
 
 data <- readLAI2200(path)
 ```
@@ -79,8 +72,13 @@ data_long <- data %>%
 # Plot with all rings
 ggplot(data_long, aes(x = Time, y = Value, col = Position)) + 
   geom_point() +
-  facet_grid(vars(Ring), scales = "free") #+
-# scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
+  facet_grid(vars(Ring), scales = "free") +
+  # scale_x_time(breaks = hms::hms(minutes = seq(0, 3600, 5)))
+  scale_x_discrete(breaks = c("09:53:54", "10:07:22", "10:18:47", "10:21:48"))
+
+ggsave("LAI2200_calibration_data.png",
+       path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 Faire la régression entre les données des 2 capteurs  
@@ -238,8 +236,8 @@ ggplot(data_long, aes(x = Time, y = Value, col = Position, shape = File_Id)) +
   facet_grid(vars(Ring), scales = "free")
 
 ggsave(paste("LAI2200_AB",pattern, ".png", sep=""),
-         path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
-         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+       path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
 data_long_B <- data_long %>% 
   filter(Position != "ABOVE") %>%
@@ -254,8 +252,8 @@ data_long_B %>%
   facet_grid(vars(Ring), scales = "free")
 
 ggsave(paste("LAI2200_B_repet",pattern, ".png", sep=""),
-         path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
-         width = 25, height = 20, units = "cm", dpi=800, bg="white")
+       path = "D:/Mes Donnees/PhD/Figures/Sensors/LAI2200",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 ## Attribute an Above measurement to a Below measurement 
@@ -482,7 +480,7 @@ write.csv(mean, "D:/Mes Donnees/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv
 # Add environment data
 ```{r}
 # For LAY
-LAY <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16LAY_mean.csv")
+LAY <- read_csv("~/PhD/Microclimate/Light/LAI-2200/LAI2200_data_P16LAY_mean.csv")
 # names(LAY)
 LAY <- LAY %>%
   select(-c(`...1`,`...2`, Transmittance_mean)) %>% 
@@ -503,7 +501,7 @@ ggplot(LAY, aes(x = Id, y = MeanTransmittance_LAI2200, col = LightHabitat)) +
   facet_grid(vars(Ring), scales = "free")
 
 # For HOBO
-HOBO <- read_csv("~/PhD/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
+HOBO <- read_csv("~/PhD/Microclimate/Light/LAI-2200/LAI2200_data_P16HOBO_mean.csv")
 
 HOBO <- HOBO %>%
   group_by(Id, Ring) %>% 
