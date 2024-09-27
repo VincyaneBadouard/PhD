@@ -7,14 +7,16 @@ output: pdf_document
 Début de l’inventaire :  novembre 2020
 Fin de l'inventaire : décembre 2023
 
-**Cibler les priorités d’identification botanique**
-
+Paracou - P16:
 4 ha : 19,20,14,15 
 9 ha : 13,14,15,18,19,20,23,24,25
 
 Pour les  4 1ers ha les arbres CIRAD n'ont pas été mesurés par l'équipe ALT, ce sont les DBH du dataset CIRAD 2020.
 
 Pour les autres subplots, les DBH des arbres CIRAD ont été mesuré par l'équipe ALT.
+
+Nouragues - Petit Plateau:
+202,203,204,212,213,214
 
 # Packages
 ```{r Setup, include = F}
@@ -28,17 +30,52 @@ library(EcoFoG)
 ```
 
 # Import inventory data
-Plot 16, SubPlot X
-```{r,include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20240430.csv")
-
-# Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020")
+Paracou Plot 16
+Nouragues Petit Plateau
+```{r}
+# Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16'") #  AND CensusYear=2020
 # write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
-
-Adults <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
-  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9 ha
+# rm(Adults)
+# Adults <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Nouragues'AND Plot='Petit_Plateau' AND CensusYear=2022")
+# write.csv(Adults, "D:/Mes Donnees/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
+# rm(Adults)
 ```
-# Strategy data
+
+
+```{r,include = F, message=F}
+UnderstoryP <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20240906F.csv")
+UnderstoryN <- read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_ALT_20240910.csv")
+
+AdultsP <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9 ha
+AdultsN <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv") %>% 
+  filter(SubPlot %in% c(202,203,204,212,213,214)) # 6 ha
+```
+
+# Manage names
+```{r}
+# to detect differences in column names between datasets
+names(UnderstoryN)[!names(UnderstoryN) %in% names(UnderstoryP)]
+names(UnderstoryP)[!names(UnderstoryP) %in% names(UnderstoryN)]
+
+names(UnderstoryN) <- str_to_sentence(names(UnderstoryN)) # start by uppercase
+UnderstoryN <- UnderstoryN %>% 
+  rename_at(c("Pom", "Dbh"), # uppercase
+            .funs = toupper) %>% 
+  rename(TreeID = Treeid, StemID = Stemid,
+         CensusYear = Censusyear, CensusDate = Censusdate,
+         BotaCertainty = Botacertainty, ScientificName = Scientificname, Dead = Mort, Subplot=Plot) %>% 
+  mutate(Site = "Nouragues") %>% 
+  mutate(Plot = "Petit_Plateau") %>% 
+  mutate(ProjectArea = 6)
+
+UnderstoryP <- UnderstoryP %>% 
+  mutate(Plot = "16") %>% 
+  mutate(ProjectArea = 9)
+
+```
+
+# Strategy data (canopy vs understory species)
 ```{r}
 strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
                        delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
@@ -48,27 +85,49 @@ strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv",
   mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
   unique()
 
-Understory <- Understory %>% left_join(strategy, by="ScientificName")
+Understory <- list(UnderstoryP, UnderstoryN)
+Understory <- lapply(Understory, function(x) left_join(x, strategy, by="ScientificName"))
 ```
 
 
 # Plot size distribution
 ```{r}
-Understory %>% 
-  filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
-  ggplot(aes(x=DBH)) +
-  geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
-  scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
-  scale_y_continuous(breaks = seq(0,35000, by=5000)) +
-  theme_minimal() +
-  labs(title="ALT Paracou P16 - Size distribution", x ="DBH (cm)", y = "Individuals number")
+for(d in c(1, 2)){
+  print(
+    Understory[[d]] %>% 
+      filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
+      ggplot(aes(x=DBH)) +
+      geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
+      scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
+      scale_y_continuous(breaks = seq(0,35000, by=5000)/unique(Understory[[d]]$ProjectArea)) +
+      theme_minimal() +
+      labs(title= paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
+  )
+  # ggsave(paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
+}
+```
 
-ggsave("ALT_Paracou_P16_9ha_Size_distribution.png", path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
+# divide by hectares (à faire)
+```{r}
+for(d in c(1, 2)){
+  print(
+    Understory[[d]] %>% 
+      filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
+      ggplot(aes(x=DBH)) +
+      geom_bar(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
+      scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
+      scale_y_continuous(breaks = seq(0,35000, by=5000)/unique(Understory[[d]]$ProjectArea)) +
+      theme_minimal() +
+      labs(title= paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
+  )
+  # ggsave(paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
+}
+```
 
+```{r}
 nrow(Understory[Understory$DBH<10,])/nrow(Understory) # 0.88 : les moins de 10 cm
 nrow(Understory[Understory$Strategy=="Understory species",])/nrow(Understory) # 0.35 : espèces de sous-bois
 nrow(Understory[Understory$DBH<10 & Understory$Strategy=="Canopy species",])/nrow(Understory) # 0.78 : juvéniles de canopée
-
 ```
 
 Vérifications :
