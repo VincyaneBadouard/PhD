@@ -649,8 +649,20 @@ LAI2200_LiDAR_ring <- LAI2200_LiDAR %>%
   mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==4, MeanTransmittance_LAI2200_mean*0.96,
                                                  MeanTransmittance_LAI2200_mean)) %>% 
   mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
-                                                 MeanTransmittance_LAI2200_mean)) 
+                                                 MeanTransmittance_LAI2200_mean))
+label <- LAI2200_LiDAR_ring %>%
+  group_by(Ring) %>%
+  mutate(across(all_of(c("MeanTransmittance_HighInt1m_mean", "MeanTransmittance_LowInt1m_mean","MeanTransmittance_UAVInt1m_mean")),
+                                   ~ (.x - across("MeanTransmittance_LAI2200_mean"))/across("MeanTransmittance_LAI2200_mean"),
+             .names = "{col}_RD")) # calcul écart relative (écart entre ce qui est mesuré et estimé) sur le mesuré
 
+label <- label %>% select(Ring, MeanTransmittance_HighInt1m_mean_RD, MeanTransmittance_LowInt1m_mean_RD, MeanTransmittance_UAVInt1m_mean_RD) %>% as.data.frame() %>% 
+  mutate(High_RD = round(as.vector(unlist(MeanTransmittance_HighInt1m_mean_RD)),2)) %>% 
+  mutate(Low_RD = round(as.vector(unlist(MeanTransmittance_LowInt1m_mean_RD)),2)) %>% 
+  mutate(UAV_RD = round(as.vector(unlist(MeanTransmittance_UAVInt1m_mean_RD)),2)) %>% 
+  select(Ring, High_RD, Low_RD, UAV_RD)
+  
+write.csv(label, "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/Relative_differences_byRing.csv")
 
 LAI2200_LiDAR_ring %>% 
   ggplot(aes(x = Ring)) +
@@ -732,6 +744,9 @@ LAI2200_LiDAR_ring %>%
     override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
                         linewidth = 0.4))) + 
   theme_minimal() +
+  
+  geom_text(data = label, aes(label = label), show.legend = F) +
+
   theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
   labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
 
@@ -1318,8 +1333,8 @@ DF_cor_HOBO_LAI2200 <- HOBO_LAI2200_LiDAR %>%
               values_fn = list,
               names_glue = "{.value}_Ring{Ring}")  #%>% 
 # unnest(cols = everything()) # pcq les colonnes sont en listes
-  
-  
+
+
 DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200) # remove HOBO without values
 
 DF_cor_HOBO_LAI2200 <- sapply(DF_cor_HOBO_LAI2200, as.numeric)
