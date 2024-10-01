@@ -160,12 +160,18 @@ HLE <- function (
 # vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_HighAlt_4ha_buffer_intensity2m.vox")
 # vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_LowAlt_4ha_buffer_intensity2m.vox")
 
-# High Alt intensity 1m res
+# ALS intensity 1m res
 vxsp_High <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_intensity1m.vox")
-
+vxsp_Low <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_4ha_buffer_intensity1m.vox")
 # UAV intensity 1m & 2m res
-vxsp_UAV1m <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m.vox")
-vxsp_UAV2m <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox")
+vxsp_UAV <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox")
+# vxsp_UAV2m <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox")
+
+# All only on the 4ha
+vxsp_High <- Crop_vox_with_shapefile(vxsp_High, zone, VOP)
+vxsp_Low <- Crop_vox_with_shapefile(vxsp_Low, zone, VOP)
+vxsp_UAV <- Crop_vox_with_shapefile(vxsp_UAV, zone, VOP)
+AMAPVox::plot(vxsp_UAV)
 
 median(vxsp_UAV1m@data$nbSampling)
 median(vxsp_UAV2m@data$nbSampling)
@@ -202,9 +208,9 @@ OnlyVegetation <- function(vxsp){
 }
 
 fullcanopy_High <- OnlyVegetation(vxsp_High)
-# fullcanopy_Low <- OnlyVegetation(vxsp_Low)
-fullcanopy_UAV1m <- OnlyVegetation(vxsp_UAV1m)
-fullcanopy_UAV2m <- OnlyVegetation(vxsp_UAV2m)
+fullcanopy_Low <- OnlyVegetation(vxsp_Low)
+fullcanopy_UAV <- OnlyVegetation(vxsp_UAV)
+# fullcanopy_UAV2m <- OnlyVegetation(vxsp_UAV2m)
 
 
 # fullcanopy_LowI <- OnlyVegetation(vxsp_LowI)
@@ -268,7 +274,6 @@ fbv_UAV2m <-  pulsemin_fbv_UAV2m$fbv #
 ```
 
 # Poorly sampled voxels
-
 ```{r}
 Poorly_smpld_vxl <- function(fullcanopy, path, thres =25){
   na <- nrow(fullcanopy@data[nbSampling<thres])/nrow(fullcanopy@data) # proportion of voxels below sampling threshold level (à garder pour comparer entre les différentes méthodes d'acquisition lidar)
@@ -296,6 +301,7 @@ Poorly_sampled_voxels_per_altitude <- function(fullcanopy, nbSampling_threshold=
   data <- setDF(fullcanopy@data) 
   data <- data %>% 
     mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
+    select(ground_distance_disc, nbSampling) %>% 
     group_by(ground_distance_disc) %>% 
     mutate(Poor = ifelse(nbSampling < nbSampling_threshold, 1, 0)) %>%
     mutate(N_empty_voxels = sum(Poor)) %>% # nbr
@@ -306,37 +312,53 @@ Poorly_sampled_voxels_per_altitude <- function(fullcanopy, nbSampling_threshold=
     # mutate(`%_empty_voxels` = ifelse(Poor==0, 0, `%_empty_voxels`)) %>% 
     dplyr::select(c(ground_distance_disc, N_empty_voxels,`%_empty_voxels`)) %>% 
     filter(ground_distance_disc>=0 & ground_distance_disc<=45) %>% 
-    filter(ground_distance_disc %% 2 == F) %>% # de 2 en 2 m d'altitude if res = 2m
+    # filter(ground_distance_disc %% 2 == F) %>% # de 2 en 2 m d'altitude if res = 2m
     unique()
   
 }
 
-dataHigh <- Poorly_sampled_voxels_per_altitude(fullcanopy_High)
-# dataLow <- Poorly_sampled_voxels_per_altitude(fullcanopy_Low)
+dataHigh_1 <- Poorly_sampled_voxels_per_altitude(fullcanopy_High, 1) %>% mutate(threshold=1)
+dataHigh_10 <- Poorly_sampled_voxels_per_altitude(fullcanopy_High, 10) %>% mutate(threshold=10)
+dataHigh_20 <- Poorly_sampled_voxels_per_altitude(fullcanopy_High, 20) %>% mutate(threshold=20)
+dataHigh <- rbind(dataHigh_1, dataHigh_10, dataHigh_20)
+rm(dataHigh_1, dataHigh_10, dataHigh_20, vxsp_High, vxsp_Low, vxsp_UAV)
 
-dataUAV1m <- Poorly_sampled_voxels_per_altitude(fullcanopy_UAV1m)
-dataUAV2m <- Poorly_sampled_voxels_per_altitude(fullcanopy_UAV2m)
+dataLow_1 <- Poorly_sampled_voxels_per_altitude(fullcanopy_Low, 1) %>% mutate(threshold=1)
+dataLow_10 <- Poorly_sampled_voxels_per_altitude(fullcanopy_Low, 10) %>% mutate(threshold=10)
+dataLow_20 <- Poorly_sampled_voxels_per_altitude(fullcanopy_Low, 20) %>% mutate(threshold=20)
+dataLow <- rbind(dataLow_1, dataLow_10, dataLow_20)
+rm(dataLow_1, dataLow_10, dataLow_20)
+
+dataUAV_1 <- Poorly_sampled_voxels_per_altitude(fullcanopy_UAV, 1) %>% mutate(threshold=1)
+dataUAV_10 <- Poorly_sampled_voxels_per_altitude(fullcanopy_UAV, 10) %>% mutate(threshold=10)
+dataUAV_20 <- Poorly_sampled_voxels_per_altitude(fullcanopy_UAV, 20) %>% mutate(threshold=20)
+dataUAV <- rbind(dataUAV_1, dataUAV_10, dataUAV_20)
+rm(dataUAV_1, dataUAV_10, dataUAV_20)
 
 gc()
 
-data1 <- dataUAV1m ; acq1 <- "UAV1m" # "High altitude"
-data2 <- dataUAV2m ; acq2 <- "UAV2m" # "Low altitude"
+# data1 <- dataUAV1m ; acq1 <- "UAV1m" # "High altitude"
+# data2 <- dataUAV2m ; acq2 <- "UAV2m" # "Low altitude"
+
+ggplot(dataLow, aes(x= ground_distance_disc, y= `%_empty_voxels`, group = as.factor(threshold))) +
+  geom_point(data = dataHigh, aes(colour = "High", shape= as.factor(threshold), alpha=as.factor(threshold))) +
+  geom_line(data = dataHigh, aes(colour = "High")) +
+  geom_point(data = dataLow, aes(colour = "Low", shape= as.factor(threshold), alpha=as.factor(threshold))) +
+  geom_line(data = dataLow, aes(colour = "Low")) +
+  geom_point(data = dataUAV, aes(colour = "UAV", shape= as.factor(threshold), alpha=as.factor(threshold))) +
+  geom_line(data = dataUAV, aes(colour = "UAV")) +
   
-ggplot(dataLow, aes(x= ground_distance_disc, y= `%_empty_voxels`)) +
-  geom_point(data = data1, aes(colour = acq1)) +
-  geom_line(data = data1, aes(colour = acq1)) +
-  geom_point(data = data2, aes(colour = acq2)) +
-  geom_line(data = data2, aes(colour = acq2)) +
-  scale_colour_manual(values = c(acq1 = "blue",
-                                 acq2 = "#56B4E9")) +
+  scale_colour_manual(values = c("High" = "blue",
+                                 "Low" = "#56B4E9", 
+                                 "UAV" = "#E69F00")) +
   theme_minimal() +
-  ggtitle("P16-2023-4ha+buffer - Proportion of poorly sampled voxels per altitude - res 1m") +
-  labs(y="% of poorly sampled voxels (<25 pulses)", x="Ground distance", color = "LiDAR acquisition") +
+  ggtitle("P16-2023-4ha - Proportion of poorly sampled voxels per altitude - res 1m") +
+  labs(y="% of poorly sampled voxels", x="Canopy height (m)", color = "LiDAR acquisition", shape= "Sampling number threshold", alpha= "Sampling number threshold") +
   coord_flip() +
   xlim(0,45)
 # scale_x_continuous(breaks = seq(0,160615, by= 25000))
 
-ggsave("P16_2023_4ha_buffer_UAV_1vs2m_res_Poorly_sampled_voxels_25sampling_per_altitude_intensity.png",
+ggsave("P16_2023_4ha_intensity1m_res_Poorly_sampled_voxels_nbsampling_per_altitude.png",
        path = "D:/Mes Donnees/PhD/Figures/lidar/Voxélisation/Empty_voxels_profil",
        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 # "P16_2023_4ha_buffer_HighvsLow_Poorly_sampled_voxels_20sampling_per_altitude_intensity2m.png"
@@ -362,16 +384,16 @@ fullcanopy_High <- HLE(fullcanopy_High, # voxel space (only vegetation)
 
 
 fullcanopy_UAV1m <- HLE(fullcanopy_UAV1m, # voxel space (only vegetation)
-                       variable.name1 = "bsIntercepted",
-                       variable.name2 = "weightedFreepathLength",
-                       variable.min = -Inf, variable.max = Inf, 
-                       variable.fallback = fbv_UAV1m, radius = 2, pulse.min = pulsemin_UAV1m)
+                        variable.name1 = "bsIntercepted",
+                        variable.name2 = "weightedFreepathLength",
+                        variable.min = -Inf, variable.max = Inf, 
+                        variable.fallback = fbv_UAV1m, radius = 2, pulse.min = pulsemin_UAV1m)
 
 fullcanopy_UAV2m <- HLE(fullcanopy_UAV1m, # voxel space (only vegetation)
-                       variable.name1 = "bsIntercepted",
-                       variable.name2 = "weightedFreepathLength",
-                       variable.min = -Inf, variable.max = Inf, 
-                       variable.fallback = fbv_UAV2m, radius = 2, pulse.min = pulsemin_UAV2m)
+                        variable.name1 = "bsIntercepted",
+                        variable.name2 = "weightedFreepathLength",
+                        variable.min = -Inf, variable.max = Inf, 
+                        variable.fallback = fbv_UAV2m, radius = 2, pulse.min = pulsemin_UAV2m)
 
 gc()
 
