@@ -23,7 +23,7 @@ Clip_raster <- function(
   raster <- terra::rast(file_to_clip)
   
   mask <- st_set_crs(mask, 2972) # attribuer le crs
-  crs(raster) <- crs(mask) # attribuer le crs
+  raster::crs(raster) <- st_set_crs(mask) # attribuer le crs
   
   cro <- terra::crop(raster, mask)
   Rslt <- terra::mask(cro, mask)

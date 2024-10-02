@@ -168,10 +168,11 @@ vxsp_UAV <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lid
 # vxsp_UAV2m <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_intensity2m.vox")
 
 # All only on the 4ha
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Crop_vox_with_shapefile.R")
 vxsp_High <- Crop_vox_with_shapefile(vxsp_High, zone, VOP)
 vxsp_Low <- Crop_vox_with_shapefile(vxsp_Low, zone, VOP)
 vxsp_UAV <- Crop_vox_with_shapefile(vxsp_UAV, zone, VOP)
-AMAPVox::plot(vxsp_UAV)
+# AMAPVox::plot(vxsp_UAV)
 
 median(vxsp_UAV1m@data$nbSampling)
 median(vxsp_UAV2m@data$nbSampling)
@@ -301,7 +302,6 @@ Poorly_sampled_voxels_per_altitude <- function(fullcanopy, nbSampling_threshold=
   data <- setDF(fullcanopy@data) 
   data <- data %>% 
     mutate(ground_distance_disc = as.integer(ground_distance)) %>% 
-    select(ground_distance_disc, nbSampling) %>% 
     group_by(ground_distance_disc) %>% 
     mutate(Poor = ifelse(nbSampling < nbSampling_threshold, 1, 0)) %>%
     mutate(N_empty_voxels = sum(Poor)) %>% # nbr
@@ -355,7 +355,7 @@ ggplot(dataLow, aes(x= ground_distance_disc, y= `%_empty_voxels`, group = as.fac
   ggtitle("P16-2023-4ha - Proportion of poorly sampled voxels per altitude - res 1m") +
   labs(y="% of poorly sampled voxels", x="Canopy height (m)", color = "LiDAR acquisition", shape= "Sampling number threshold", alpha= "Sampling number threshold") +
   coord_flip() +
-  xlim(0,45)
+  xlim(1,45)
 # scale_x_continuous(breaks = seq(0,160615, by= 25000))
 
 ggsave("P16_2023_4ha_intensity1m_res_Poorly_sampled_voxels_nbsampling_per_altitude.png",

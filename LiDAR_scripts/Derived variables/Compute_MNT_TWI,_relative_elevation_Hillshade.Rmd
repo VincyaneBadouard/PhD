@@ -10,6 +10,7 @@ Le rééchantillonnage du MNT à une maille plus grossière (5m, 10m, 20m, 50m) 
 ```{r setup, include=FALSE}
 library(tidyverse)
 library(terra)
+library(raster)
 library(lidR)
 library(foreach)
 library(tidyterra)
@@ -27,13 +28,20 @@ ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Hi
 
 # CHM & DSM from LAS
 ```{r}
-ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI4 <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer50m.shp")) # 4 carrés + 50m buffer
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) 
-mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+mnt <- raster::raster("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
 ST <- lidR::clip_roi(las = ST, geometry = ROI)
 ST
 ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
+
+raster::crs(mnt) <- st_crs(ROI) # attribuer le crs
+
+cro <- terra::crop(mnt, ROI)
+MNT_buffer50m <- terra::mask(cro, ROI)
+
 
 CHM <- rasterize_canopy(normalize_height(ST, mnt), res = 1, algorithm = p2r())
 #p2r() : for each pixel of the output raster the function attributes the height of the highest point found
@@ -41,7 +49,7 @@ mean(CHM[], na.rm = T) # average height # 31.3
 median(CHM[], na.rm = T) # median # 32.2
 plot(CHM, col = height.colors(25))
 
-DSM <- rasterize_canopy(ST, res = 0.5, algorithm = dsmtin())
+DSM <- rasterize_canopy(ST, res = 1, algorithm = dsmtin())
 # dsmtin() : algorithm for digital surface model computation using a Delaunay triangulation of first returns with a linear interpolation within each triangle.
 mean(DSM[], na.rm = T) # average height # 43.2
 median(DSM[], na.rm = T) # median # 44.3
@@ -50,28 +58,30 @@ plotRaster <- function(raster, res){
   print(
     ggplot() + 
       geom_spatraster(data = raster, aes(fill = Z)) +
-      scale_fill_gradientn(name = "Canopy height (m)",
+      scale_fill_gradientn(name = "Height (m)",
                            colors = height.colors(25), na.value="white") + 
-      geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+      geom_sf(data = sf::st_cast(ROI4, "LINESTRING")) +
       ggtitle(paste("Paracou P16 4ha - ", deparse(substitute(raster)), " ALS 2023 - 1m res", sep="")) + 
       theme_classic() +
       theme(title=element_text(size=18), axis.text=element_text(size=18), legend.title=element_text(size=20), legend.text=element_text(size=20), legend.key.size = unit(1, 'cm')) +
       coord_sf()
   )
-  ggsave(paste("P16_2023_4ha_ALS_", deparse(substitute(raster)), "_",res,"m.png", sep=""),
+  ggsave(paste("P16_2023_4ha+buffer_ALS_", deparse(substitute(raster)), "_",res,"m.png", sep=""),
          path = "D:/Mes Donnees/PhD/Figures/lidar/CHM-DSM",
          width = 30, height = 25, units = "cm", dpi=800, bg="white")
 }
 
 plotRaster(CHM, "1")
-plotRaster(DSM, "0.5")
+plotRaster(DSM, "1")
 
 raster <- CHM
 res = "1"
 ```
+
 ```{r}
-writeRaster(CHM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha_ALS_CHM.tif")
-writeRaster(DSM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha_ALS_DSM.tif")
+writeRaster(CHM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_CHM_1mres.tif")
+writeRaster(DSM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DSM_1mres.tif")
+writeRaster(MNT_buffer50m, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DEM_1mres.tif", overwrite=T)
 ```
 
 

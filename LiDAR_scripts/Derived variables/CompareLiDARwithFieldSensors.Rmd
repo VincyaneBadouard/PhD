@@ -475,11 +475,11 @@ pour chaque ring
 ## 1m
 ```{r}
 LAI2200_LiDAR_corr <- LAI2200_LiDAR %>% 
-# Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
+  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
   mutate(MeanTransmittance_LAI2200 = ifelse(Ring==4, MeanTransmittance_LAI2200 * 0.96,
-                                                 MeanTransmittance_LAI2200)) %>% 
+                                            MeanTransmittance_LAI2200)) %>% 
   mutate(MeanTransmittance_LAI2200 = ifelse(Ring==5, MeanTransmittance_LAI2200 * 0.23,
-                                                 MeanTransmittance_LAI2200))
+                                            MeanTransmittance_LAI2200))
 
 for(t in c("HOBO", "LAY")){
   for(R in 1:5){
@@ -658,19 +658,31 @@ LAI2200_LiDAR_ring <- LAI2200_LiDAR %>%
                                                  MeanTransmittance_LAI2200_mean)) %>% 
   mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
                                                  MeanTransmittance_LAI2200_mean))
+
+measuredTranmittance_mean <- mean(LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean) # 0.032
+
+# Relative differences in percent (i.e. (estimated-measured)/mean(measured)*100)
 label <- LAI2200_LiDAR_ring %>%
   group_by(Ring) %>%
-  mutate(across(all_of(c("MeanTransmittance_HighInt1m_mean", "MeanTransmittance_LowInt1m_mean","MeanTransmittance_UAVInt1m_mean")),
-                                   ~ (.x - across("MeanTransmittance_LAI2200_mean"))/across("MeanTransmittance_LAI2200_mean"),
-             .names = "{col}_RD")) # calcul écart relative (estimé-mesuré)/mesuré
+  mutate(across(all_of(
+    c("MeanTransmittance_HighInt1m_mean", "MeanTransmittance_LowInt1m_mean","MeanTransmittance_UAVInt1m_mean")),
+    ~ ((.x - across("MeanTransmittance_LAI2200_mean"))/measuredTranmittance_mean)*100,
+    .names = "{col}_RD")) 
+
+(LAI2200_LiDAR_ring$MeanTransmittance_HighInt1m_mean[1] - LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean[1])/measuredTranmittance_mean
+
+mean(label$MeanTransmittance_HighInt1m_mean-label$MeanTransmittance_LAI2200_mean)/measuredTranmittance_mean
+mean(label$MeanTransmittance_LowInt1m_mean-label$MeanTransmittance_LAI2200_mean)/measuredTranmittance_mean
+mean(label$MeanTransmittance_UAVInt1m_mean-label$MeanTransmittance_LAI2200_mean)/measuredTranmittance_mean
+
 
 label <- label %>% select(Ring, MeanTransmittance_HighInt1m_mean_RD, MeanTransmittance_LowInt1m_mean_RD, MeanTransmittance_UAVInt1m_mean_RD) %>% as.data.frame() %>% 
   mutate(High_RD = round(as.vector(unlist(MeanTransmittance_HighInt1m_mean_RD)),2)) %>% 
   mutate(Low_RD = round(as.vector(unlist(MeanTransmittance_LowInt1m_mean_RD)),2)) %>% 
   mutate(UAV_RD = round(as.vector(unlist(MeanTransmittance_UAVInt1m_mean_RD)),2)) %>% 
   select(Ring, High_RD, Low_RD, UAV_RD)
-  
-write.csv(label, "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/Relative_differences_byRing.csv")
+
+write.csv(label, "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/Relative_differences_byRing_(estimated-measured)divmean(measured)x100.csv")
 
 LAI2200_LiDAR_ring %>% 
   ggplot(aes(x = Ring)) +
@@ -754,7 +766,7 @@ LAI2200_LiDAR_ring %>%
   theme_minimal() +
   
   geom_text(data = label, aes(label = label), show.legend = F) +
-
+  
   theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.title= element_text(size=18), legend.text= element_text(size=18)) +
   labs(title = "Both transect", y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
 

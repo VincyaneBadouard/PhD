@@ -170,10 +170,15 @@ dataUTM <- data %>%
   mutate(Xutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so x`+(x/limx)*(1-y/limy)*tab[P,]$`se x`+(y/limy)*(1-x/limx)*tab[P,]$`no x`+((x*y)/(limx*limy))*tab[P,]$`ne x`) %>% 
   mutate(Yutm = (1-x/limx)*(1-y/limy)*tab[P,]$`so y`+(x/limx)*(1-y/limy)*tab[P,]$`se y`+(y/limy)*(1-x/limx)*tab[P,]$`no y`+((x*y)/(limx*limy))*tab[P,]$`ne y`)
 
-P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
+# P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
 
-P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/Parcelles_Understory.shp"))
-CHM <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha_ALS_CHM.tif")
+P16shp <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp"))
+CHM <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_CHM_1mres.tif")
+DSM <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DSM_1mres.tif")
+
+dataUTMsf <- st_as_sf(dataUTM, coords = c('Xutm','Yutm'))
+dataUTMsf <- st_set_crs(dataUTMsf, st_crs(P16shp)) 
+
 
 ggplot() +
   geom_spatraster(data = CHM, aes(fill = Z)) +
@@ -181,20 +186,40 @@ ggplot() +
   #                      colors = terrain.colors(30, rev=T),
   #                      na.value="white") +
   scale_fill_gradientn(name = "Canopy height (m)",
-                       colors = height.colors(25), na.value="white") +
+                       colors = lidR::height.colors(25), na.value="white") +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING"), col = "white") +
-  geom_sf(data = dataUTMsf, col = "black", size = 0.5) +
+  geom_sf(data = dataUTMsf, col = "black", size = 0.25) +
   theme_classic() +
   ggtitle("Paracou P16 - sensors positions")
 
-ggsave("Paracou_P16_sensors_theoretical_UTM_positions_onCHM.png",
+ggsave("Paracou_P16_sensors_theoretical_UTM_positions_onCHM+50mbuffer.png",
        path = "D:/Mes Donnees/PhD/Figures/Sensors",
-       width = 15, height = 15, units = "cm", dpi=800, bg="white")
+       width = 18, height = 17, units = "cm", dpi=800, bg="white")
 
 # write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/ALT_stakes_theoretical_UTM.csv")
 # write.csv(dataUTM, "D:/Mes Donnees/PhD/SIG_data/Understory/Understory_stakes_theoretical_UTM.csv")
 # write.csv(LAI2200UTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTM.csv")
 # write.csv(dataUTM, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_UTM.csv")
+```
+
+```{r}
+MNT <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DEM_1mres.tif")
+
+ggplot() +
+  geom_spatraster(data = MNT, aes(fill = `Paracou_P16_2023_4ha+50mbuffer_ALS_DEM_1mres`)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  # scale_fill_gradientn(name = "Height (m)",
+  #                      colors = lidR::height.colors(25), na.value="white") +
+  geom_sf(data = sf::st_cast(P16shp, "LINESTRING"), col = "white") +
+  geom_sf(data = dataUTMsf, col = "black", size = 0.25) +
+  theme_classic() +
+  ggtitle("Paracou P16 - sensors positions")
+
+ggsave("Paracou_P16_sensors_theoretical_UTM_positions_onDEM+50mbuffer.png",
+       path = "D:/Mes Donnees/PhD/Figures/Sensors",
+       width = 17, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
