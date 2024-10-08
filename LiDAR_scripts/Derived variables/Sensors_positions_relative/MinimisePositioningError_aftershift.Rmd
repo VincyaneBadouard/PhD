@@ -503,16 +503,16 @@ best_sf <- st_as_sf(best, coords = c('Xutm.sim_all','Yutm.sim_all'))
 best_sf <- st_set_crs(best_sf, st_crs(P16shp))
 
 
-
 ggplot() +
-  # geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) + # zone of interest
-  geom_sf(data= init_sf, aes(col = "red"), size = 3) + 
-  geom_sf(data= best_sf, aes(col = "green"), size = 3) + 
-  theme(title=element_text(size=16),  axis.text=element_text(size=6),
-        legend.title=element_text(size=16), legend.text=element_text(size=16)) +
-  ggtitle("Initial and optimised coordinates")
+  geom_sf(data= init_sf, aes(col = "Initial"), size = 1) + 
+  geom_sf(data= best_sf, aes(col = "Optimised"), size = 1) + 
+  scale_colour_manual(values = c("Initial" = "red", 
+                                 "Optimised" = "forestgreen"),
+                      breaks=c("Initial", "Optimised")) +
+  theme(title=element_blank(),  axis.text=element_text(size=6),
+        legend.title=element_blank(), legend.text=element_text(size=14))
 
-ggsave(paste("P16_2023_4ha_Init_and_optimisedcoordinates_simulations_optR12_Ring",R,".png", sep=""),
+ggsave("P16_2023_4ha_Init_and_optimisedcoordinates_simulations_optR12_Ring.png",
        path = "D:/Mes Donnees/PhD/Figures/lidar/Coordinates_simulations",
        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
