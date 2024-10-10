@@ -4,52 +4,41 @@ author: "Vincyane"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-- distributions d’abondances par espèces
-- distrib diamétrique par espèce
+- distributions d’abondances des espèces
+- distrib diamétrique par espèce : DBH_distributions_by_sp.Rmd
 - carte env - espèce, DBH
 - relations env -distrib : density plot ( x : env, y abondances par espèce)
 - ou points en couleur selon le diamètre
 
-# Size distribution
-```{r}
-for(d in c(1, 2)){
-  print(
-    Understory[[d]] %>% 
-      filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
-      ggplot(aes(x=DBH)) +
-      geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
-      scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
-      scale_y_continuous(breaks = seq(0,35000, by=5000)/unique(Understory[[d]]$ProjectArea)) +
-      theme_minimal() +
-      labs(title= paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
-  )
-  # ggsave(paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
-}
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+library(data.table)
 ```
 
-## divide by hectares (à faire)
-```{r}
-for(d in c(1, 2)){
-  print(
-    Understory[[d]] %>% 
-      filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
-      ggplot(aes(x=DBH)) +
-      geom_bar(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
-      scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
-      scale_y_continuous(breaks = seq(0,35000, by=5000)/unique(Understory[[d]]$ProjectArea)) +
-      theme_minimal() +
-      labs(title= paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
-  )
-  # ggsave(paste("ALT", unique(Understory[[d]]$Site), unique(Understory[[d]]$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
-}
+# Load cleaned data
+```{r, include = F}
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
 ```
 
-
+# Distributions d’abondances des espèces
 ```{r}
-nrow(Understory[Understory$DBH<10,])/nrow(Understory) # 0.88 : les moins de 10 cm
-nrow(Understory[Understory$Strategy=="Understory species",])/nrow(Understory) # 0.35 : espèces de sous-bois
-nrow(Understory[Understory$DBH<10 & Understory$Strategy=="Canopy species",])/nrow(Understory) # 0.78 : juvéniles de canopée
-```
+length(unique(Understory$All_ScientificName)) # 200
+population[order(population$age),]
 
-# DBH_distributions_by_sp.Rmd
+Understory %>%
+  select(All_ScientificName, N, Strategy) %>% 
+  # group_by(All_ScientificName) %>% 
+  # summarise(N = n()) %>% 
+  arrange(desc(N)) %>% 
+  mutate(All_ScientificName = factor(All_ScientificName, levels= unique(All_ScientificName))) %>% 
+  ggplot(aes(x= All_ScientificName, fill = Strategy)) + # fill = as.factor(Strategy)
+  geom_bar(alpha=0.9) + # fill="#69b3a2", color="#e9ecef"
+  theme(axis.title.x=element_blank(), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=7)) +
+  labs(y = "Abundances")
+
+ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_sup30ind.png", sep="_"),
+       path = "D:/Mes Donnees/PhD/Figures/inventory", width = 50, height = 10, units = "cm", dpi=800, bg="white")
+```
 
