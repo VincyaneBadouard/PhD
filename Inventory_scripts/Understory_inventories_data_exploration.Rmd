@@ -4,7 +4,7 @@ author: "Vincyane"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-- distributions d’abondances des espèces
+- distributions d’abondances des espèces (pas sure de savoir quoi ploter) (voir Clean_inventory.Rmd)
 - distrib diamétrique par espèce : DBH_distributions_by_sp.Rmd
 - carte env - espèce, DBH
 - relations env -distrib : density plot ( x : env, y abondances par espèce)

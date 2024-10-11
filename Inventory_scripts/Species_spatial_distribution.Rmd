@@ -8,9 +8,15 @@ faire une carte par sp ? et gradient de couleurs par DBH ?
 - with X-Yutm coordinates
 - Scientific names (done)
 
-carte env - espèce, DBH
-- relations env -distrib : density plot ( x : env, y abondances par espèce)
+- carte env - espèce, DBH
+- relations env - distrib : density plot (x : env, y abondances par espèce)
 - ou points en couleur selon le diamètre
+
+Environnment (à partir de l'ALS low alt ?) :
+- topographie (DTM)
+- drainage du sol (TWI)
+- relative elevation
+- light ( (à générer sur les 9 ha + 100 m buffer))
 
 # Packages
 ```{r Setup, include = F}
@@ -28,72 +34,222 @@ library(tidyterra)
 Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
 ```
 
-## On the MNT of the ALT zone 
-!! ATTENTION !! les individus sont en UTM et le mnt est en latitude/longitude
+# Import environmental data
+```{r}
+# Zone
+ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp"))
+
+# Topography
+MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+
+# TWI
+TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
+
+# Relative elevation
+elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
+
+# Light (à faire)
+
+```
+
+# On the MNT 
+
+conseillerai la topo en nuance de gris et le dbh en taille de point ou en viridis pour mieux voir
 ```{r}
 data <- Understory %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
-  filter(All_ScientificName=="Ocotea nigra") 
-
-ggplot(data, mapping = aes(x = Xutm, y = Yutm)) +
-  geom_point(aes(col=All_ScientificName))
-
-ALTmnt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
-ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp"))
-
+  filter(All_ScientificName=="Ocotea_nigra") %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
 
 ggplot() + 
-  geom_spatraster(data = ALTmnt, aes(fill = Z)) +
+  geom_spatraster(data = MNT, aes(fill = Z)) +
+  # scale_fill_gradientn(name = "Elevation (m)",
+  #                      colors = terrain.colors(30, rev=T, alpha = 0.9),
+  #                      na.value="white") +
   scale_fill_gradientn(name = "Elevation (m)",
-                       colors = terrain.colors(30, rev=T, alpha = 0.9),
+                       colors = gray.colors(4, start = 0.9, end = 0),
                        na.value="white") +
   geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-  geom_point(data, mapping = aes(x = Xutm, y = Yutm, colour = DBH)) +
-  scale_colour_gradient(name = "DBH (cm)",
-                        low = "#56B1F7", high = "#132B43", n.breaks = 4) +
+  geom_sf(data, mapping = aes(colour = DBH)) +
+  viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, trans = "log", labels=round) + 
+  # scale_colour_gradient(name = "DBH (cm)",
+  #                       low = "#56B1F7", high = "#132B43") +
+  
   theme_classic() +
   coord_sf()
 
 ```
-Plot for each species
+
+## For each species
 ```{r}
-Understory <- Understory %>% 
+data <- Understory %>% 
+  select(StemID, All_ScientificName, DBH, Xutm, Yutm) %>% 
+  filter(All_ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
+                                   "Oxandra_asbeckii", "Hymenopus_heteromorphus", "Unonopsis_stipitata")) %>%
   filter(!is.na(Xutm)) %>% 
-  filter(!is.na(Yutm))
-
-sp <- Understory$All_ScientificName
-
-# Define nrow and ncol for the facet
-n <- length(unique(sp))
-if(n<4) {i = 1}else{ i = 4}
+  filter(!is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
 
 
-pdf("Spatial distribution_of_each_species.pdf", width = 15, height = 10)
-for(p in 1:(ceiling(length(unique(sp))/16))){
-  print(
-    
-    ggplot(Understory) + 
-      geom_spatraster(data = ALTmnt, aes(fill = Z)) +
+plist <- vector('list', length(unique(data$All_ScientificName)))
+
+for(p in 1:length(unique(data$All_ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+   data <- data %>% 
+      filter(All_ScientificName==unique(data$All_ScientificName)[p]) 
+   
+      ggplot(data) + 
+      geom_spatraster(data = MNT, aes(fill = Z)) +
+      # scale_fill_gradientn(name = "Elevation (m)",
+      #                      colors = terrain.colors(30, rev=T, alpha = 0.9),
+      #                      na.value="white") +
+      # geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+      # 
+      # geom_sf(mapping = aes(colour = DBH)) +
+      # scale_colour_gradient(name = "DBH (cm)",
+      #                       low = "#56B1F7", high = "#132B43") +
       scale_fill_gradientn(name = "Elevation (m)",
-                           colors = terrain.colors(30, rev=T, alpha = 0.9),
+                           colors = gray.colors(4, start = 0.9, end = 0),
+                           na.value="white") +
+      geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+      geom_sf(mapping = aes(colour = DBH)) +
+      viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) +
+      theme_classic() +
+      guides(fill="none") +
+      # geom_text(label = max(data$DBH), position ="top")
+      annotate(geom = 'text', label = paste("DBH max: ",round(max(data$DBH),0),"cm"), x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
+      coord_sf() +
+      labs(title = unique(data$All_ScientificName))
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+
+ggsave("Spatial_distribution_of_each_species_on_MNT_notlog.pdf", plots, width = 15, height = 10) 
+```
+
+
+
+# On the TWI 
+```{r}
+data <- Understory %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  filter(All_ScientificName=="Ocotea_nigra") %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
+
+ggplot() + 
+  geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T),
+                       na.value="white") + 
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  geom_sf(data, mapping = aes(colour = DBH)) +
+  scale_colour_gradient(name = "DBH (cm)",
+                        low = "#E7B800", high = "#FC4E07") +
+  theme_classic() +
+  coord_sf()
+
+```
+
+## For each species
+```{r}
+plist <- vector('list', length(unique(data$All_ScientificName)))
+
+for(p in 1:length(unique(data$All_ScientificName))){
+  message(s)
+  plist[[p]] <- local({
+    # s <- s
+    data %>% 
+      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      ggplot() + 
+      geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+      scale_fill_gradientn(name = "TWI",
+                           colors =  hcl.colors(12, "Blues", rev = T),
                            na.value="white") +
       geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
       
-      geom_point(Understory, mapping = aes(x = Xutm, y = Yutm, colour = DBH)) +
+      geom_sf(mapping = aes(colour = DBH)) +
       scale_colour_gradient(name = "DBH (cm)",
-                            low = "#56B1F7", high = "#132B43") +
+                            low = "#E7B800", high = "#FC4E07") + 
       theme_classic() +
+      guides(fill="none") +
       coord_sf() +
-      facet_wrap(~All_ScientificName)
-    # ggforce::facet_wrap_paginate(vars(All_ScientificName, N),
-    #                              scales = "free",
-    #                              ncol = min(n,4), nrow = i, page = p)
-    
-  )
+      labs(title = unique(data$All_ScientificName)[p])
+  })
 }
-dev.off() # Close the final graphics device
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+
+ggsave("Spatial_distribution_of_each_species_on_TWI.pdf", plots, width = 15, height = 10) 
+
 ```
+
+# On the relative elevation 
+```{r}
+data <- Understory %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  filter(All_ScientificName=="Ocotea_nigra") %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
+
+
+ggplot(data, mapping = aes(x = Xutm, y = Yutm)) +
+  geom_point(aes(col=All_ScientificName))
+
+ggplot() + 
+  geom_spatraster(data = elev, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(45, "Blues"),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  geom_sf(data, mapping = aes(colour = DBH)) +
+  scale_colour_gradient(name = "DBH (cm)",
+                        low = "#E7B800", high = "#FC4E07") +
+  theme_classic() +
+  coord_sf()
+
+```
+
+## For each species
+```{r}
+plist <- vector('list', length(unique(data$All_ScientificName)))
+
+for(p in 1:length(unique(data$All_ScientificName))){
+  message(s)
+  plist[[p]] <- local({
+    # s <- s
+    data %>% 
+      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      ggplot() + 
+      geom_spatraster(data = elev, aes(fill = re)) +
+      scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                           colors = hcl.colors(45, "Blues"),
+                           na.value="white") +
+      geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+      
+      geom_sf(mapping = aes(colour = DBH)) +
+      scale_colour_gradient(name = "DBH (cm)",
+                            low = "#E7B800", high = "#FC4E07") + 
+      theme_classic() +
+      guides(fill="none") +
+      coord_sf() +
+      labs(title = unique(data$All_ScientificName)[p])
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+
+ggsave("Spatial_distribution_of_each_species_on_relativeelevation.pdf", plots, width = 15, height = 10) 
+```
+
 
 ## On the light map of the ALT zone 
 

@@ -23,6 +23,7 @@ Nouragues - Petit Plateau:
 library(tidyverse)
 library(data.table)
 library(readr)
+library(sf)
 # library() # TreeData
 
 # remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
@@ -204,8 +205,6 @@ all(na.omit(data$CIRADplot == data$Subplot)) # il ya des erreurs dans les n° de
 data %>% filter(CIRADplot != Subplot)
 all(na.omit(data$suplot == data$Subplot)) # il ya des erreurs dans les n° de subplots les TreeID
 
-# -------------- Arréte là
-
 Adults <- Adults %>% 
   filter(CodeAlive == T) %>%
   unite(col = "CIRAD", c("TreeFieldNum", "SubPlot"),
@@ -235,6 +234,49 @@ stem1 <- data[data$Guyafor.nb %in% stems & data$Stem.nb==1,]$Guyafor.nb # cirad 
 #!! ATTENTION cirad trees without stem 1 !! (plus maintenant)
 stems[!stems %in% stem1] # cirad with multiple stems but without a stem 1
 ```
+# Positions
+```{r}
+data_sf <- data %>% 
+  mutate(CIRAD = ifelse(!is.na(Guyafor.nb), T, F)) %>% 
+  select(StemID, CIRAD, Subplot, Xutm, Yutm) %>% na.omit() %>% 
+  mutate(Subplot = as.factor(Subplot)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm"))
+
+missingCIRAD_sf <- MissingCirad %>% 
+  # select(StemID, CIRAD, Subplot, Xutm, Yutm) %>% na.omit() %>% 
+  # mutate(Subplot = as.factor(SubPlot)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm"))
+
+
+ggplot() +
+  geom_sf(data=missingCIRAD_sf, aes(fill="missingCIRAD"), size = 0.5) +
+  geom_sf(data=data_sf, aes(col=Subplot), size = 0.5) +
+  scale_fill_manual(name = "Missing CIRAD trees",
+                      values = c("missingCIRAD" = "black")) +
+  theme_classic()
+
+ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"missingCIRAD.png", sep="_"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 30, height = 20, units = "cm", dpi=800, bg="white")
+
+
+for(p in c(13,14,15,18,19,20,23,24,25)){
+  
+  missing <- missingCIRAD_sf %>% 
+    filter(SubPlot== as.character(p))
+  
+  print(
+    data_sf %>% 
+      filter(Subplot== as.character(p)) %>% 
+      ggplot() +
+      geom_sf(data=missing, col="black", size = 1) +
+      geom_sf(aes(col=CIRAD),size = 1.5) +
+      theme_classic() +
+    labs(title = paste("Plot",p))
+  )
+}
+
+
+```
+
 # Stem number
 ```{r}
 all(data[!is.na(data$TreeID),]$Stem.nb==1) # cirad stem id
@@ -320,13 +362,64 @@ data %>%
   stat_ecdf(aes(y = (1 - after_stat(y))), geom = "step") +
   scale_y_continuous("Density", position = "right",
                      sec.axis = sec_axis(name = "Decumulative species number", trans = ~.x*732, breaks = seq(1,732, by=25))) +
-
+  
   geom_vline(xintercept = 30, col="red") +
   scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,200, by=10))) +
-    labs(x ="Individuals number")
+  labs(x ="Individuals number")
 
-ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
-       path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+```
+# Species rank abundance
+```{r}
+data %>%
+  filter(!is.na(All_ScientificName)) %>% 
+  filter(All_ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", All_ScientificName)) %>% 
+  filter(!grepl("Indet", All_ScientificName)) %>% 
+  filter(!grepl("aceae", All_ScientificName)) %>% 
+  group_by(All_ScientificName) %>%
+  summarise(N = n()) %>%
+  ungroup() %>% 
+  group_by(N) %>%
+  summarise(n_sp = n()) %>%
+  mutate(N = sort(N, decreasing = T)) %>% 
+  mutate(n_sp_cum = cumsum(n_sp)) %>% 
+  
+  ggplot(aes(x= N)) +
+  geom_col(aes(y=n_sp_cum)) +
+  geom_vline(xintercept = 30, col="red") +
+  scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,220, by=10))) + #  2500
+  scale_y_continuous(breaks = seq(0,732, by=25)) +
+  labs(x ="Individuals number", y="Decumulative species number")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+```
+
+```{r}
+data %>%
+  filter(!is.na(All_ScientificName)) %>% 
+  filter(All_ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", All_ScientificName)) %>% 
+  filter(!grepl("Indet", All_ScientificName)) %>% 
+  filter(!grepl("aceae", All_ScientificName)) %>% 
+  group_by(All_ScientificName) %>%
+  summarise(Anbundances = n()) %>%
+  ungroup() %>% 
+  mutate(Anbundances = sort(Anbundances, decreasing = T)) %>% 
+  # filter(Anbundances >=30) %>% 
+  mutate(rank = 1:n()) %>%  
+  ggplot(aes(x= rank, y=Anbundances)) +
+  geom_point(size=1) +
+  geom_line() +
+  geom_hline(yintercept = 30, col="red") +
+  # scale_x_continuous(limits = c(1, 732), breaks =  c(seq(10,100, by=25), seq(200,732, by=100))) +
+  scale_y_continuous(limits = c(1, 2500), breaks =  c(1, seq(100,2500, by=100))) + #  2500
+  labs(x="Species rank")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 
@@ -347,6 +440,8 @@ data %>%
   # scale_x_continuous(limits = c(0, 2500), breaks =  c(0, 30, 50, 100, 2500)) +
   scale_y_continuous(breaks = seq(0,550, by=100))
 ```
+
+
 
 # Filters for my analyses
 DBH>=1
