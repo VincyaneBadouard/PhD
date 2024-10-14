@@ -4,10 +4,6 @@ author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
 output: pdf_document
 ---
-faire une carte par sp ? et gradient de couleurs par DBH ?
-- with X-Yutm coordinates
-- Scientific names (done)
-
 - carte env - espèce, DBH
 - relations env - distrib : density plot (x : env, y abondances par espèce)
 - ou points en couleur selon le diamètre
@@ -16,7 +12,7 @@ Environnment (à partir de l'ALS low alt ?) :
 - topographie (DTM)
 - drainage du sol (TWI)
 - relative elevation
-- light ( (à générer sur les 9 ha + 100 m buffer))
+- light (à générer sur les 9 ha + 100 m buffer) (au-dessus (de combien) de chaque arbre, quelle résolution ?)
 
 # Packages
 ```{r Setup, include = F}
@@ -50,11 +46,33 @@ elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeEle
 
 # Light (à faire)
 
+ggplot() + 
+  geom_spatraster(data = MNT, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T, alpha = 0.9),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  theme_classic()
+
+ggplot() + 
+  geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  theme_classic()
+
+ggplot() + 
+  geom_spatraster(data = elev, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(45, "Blues"),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  theme_classic()
+
 ```
 
 # On the MNT 
-
-conseillerai la topo en nuance de gris et le dbh en taille de point ou en viridis pour mieux voir
 ```{r}
 data <- Understory %>% 
   filter(!is.na(Xutm)) %>% 
@@ -100,10 +118,10 @@ for(p in 1:length(unique(data$All_ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
-   data <- data %>% 
+    data <- data %>% 
       filter(All_ScientificName==unique(data$All_ScientificName)[p]) 
-   
-      ggplot(data) + 
+    
+    ggplot(data) + 
       geom_spatraster(data = MNT, aes(fill = Z)) +
       # scale_fill_gradientn(name = "Elevation (m)",
       #                      colors = terrain.colors(30, rev=T, alpha = 0.9),
@@ -251,5 +269,82 @@ ggsave("Spatial_distribution_of_each_species_on_relativeelevation.pdf", plots, w
 ```
 
 
-## On the light map of the ALT zone 
+## On the light map 
+
+# Niches
+relations env - distrib : density plot (x : env, y abondances par espèce)
+- ou points en couleur selon le diamètre
+
+## Env
+```{r}
+data %>% filter(is.na(geometry))
+alt <- extract(MNT, data) %>% # extract z from MNT
+  rename(Elevation = Z) %>% 
+  select(-ID)
+
+data <- data %>% cbind(alt)
+```
+
+## Age
+```{r}
+data <- data %>%
+  mutate(Size = case_when(
+    DBH < 5 ~ "1-5",
+    DBH >= 5 & DBH < 10 ~ "5-10",
+    DBH >= 10 & DBH < 20 ~ "10-20",
+    DBH >= 20 ~ ">20") 
+  )
+```
+
+Computes and draws kernel density estimate, which is a smoothed version of the histogram
+```{r}
+data %>% 
+  na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+  group_by(Size) %>% 
+  mutate(Elev_med=median(Elevation)) %>% 
+  ungroup() %>% 
+  
+  ggplot(aes(x= Elevation, color= Size, fill= Size)) +
+  geom_histogram(aes(y=..density..), alpha=0.1, 
+                 position="identity")+
+  geom_density(alpha=0.4) + # aes(y = after_stat(count)), 
+  geom_vline(aes(xintercept=Elev_med, color=Size), linetype="dashed", size=0.8) +
+  theme_classic() +
+  guides(fill = FALSE) +
+  labs(x= "Elevation (m)", y="Density", color= "DBH (cm)") # Abundances
+```
+
+```{r}
+plist <- vector('list', length(unique(data$All_ScientificName)))
+
+for(p in 1:length(unique(data$All_ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    data <- data %>% 
+      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      group_by(Size) %>% 
+      mutate(Elev_med=median(Elevation)) %>% 
+      ungroup() 
+    
+    ggplot(data, aes(x= Elevation, color= Size, fill= Size)) +
+      geom_histogram(aes(y=..density..), alpha=0.1, 
+                     position="identity")+
+      # geom_density(alpha=0.4) + # aes(y = after_stat(count)), 
+      geom_vline(aes(xintercept=Elev_med, color=Size), linetype="dashed", size=0.8) +
+      theme_classic() +
+      guides(fill = FALSE) +
+      labs(title = unique(data$All_ScientificName),
+           x= "Elevation (m)", y="Density", color= "DBH (cm)") # Abundances
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+plots
+
+# ggsave("Species_MNT_niche.pdf", plots, width = 15, height = 10) 
+
+```
 

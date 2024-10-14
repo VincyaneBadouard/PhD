@@ -78,16 +78,6 @@ UnderstoryP <- UnderstoryP %>%
 # "Diam_cirad"
 ```
 
-# Remove duplicated rows
-```{r}
-DuplicatedID <- unique(UnderstoryP[duplicated(UnderstoryP),]$StemID)
-
-UnderstoryP[UnderstoryP$StemID%in%DuplicatedID,]
-
-UnderstoryP <- UnderstoryP[!duplicated(UnderstoryP),] # 42524 -> 42366 (158 rows removed)
-UnderstoryN <- UnderstoryN[!duplicated(UnderstoryN),] # 29370 -> 29363 (7 rows removed)
-```
-
 # Strategy data (canopy vs understory species)
 ```{r}
 strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
@@ -106,7 +96,7 @@ UnderstoryP <- Understory[[1]]
 UnderstoryN <- Understory[[2]]
 
 sum(is.na(UnderstoryP$Strategy)) # 6875
-sum(is.na(UnderstoryN$Strategy)) # 20005
+sum(is.na(UnderstoryN$Strategy)) # 20000
 ```
 
 # Checks
@@ -139,15 +129,33 @@ data %>%
   filter(DBH==0)
 
 data <- data %>% # UnderstoryP
-  filter(DBH>=1) # P : 41763, N : 29010
+  filter(DBH>=1 | is.na(DBH)) # P : 41763, N : 29010
 # names(data)[sapply(data, anyNA)]
 
-mycols <- data %>% select("TreeID","StemID",
-                          "DBH","Xutm","Yutm", "ScientificName") # "ScientificName" "X", "Y"
+mycols <- data %>% select("TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName") # "ScientificName" "X", "Y"
 
 mycols[!complete.cases(mycols), ] # with NA
 # P: 3,688, 177 rows  en enlevant le scientifname
 # N: 12,746, 6 rows en enlevant le scientifname
+
+# Missing DBH
+data %>% filter(is.na(DBH) & is.na(Guyafor.nb)) %>% select("Guyafor.nb", "TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName") #  31 ALT
+data %>% filter(is.na(DBH) & !is.na(Guyafor.nb)) %>% select("Guyafor.nb", "TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName") #  92 cirad
+
+# Missing ID
+data %>% filter((is.na(TreeID) | is.na(StemID)) & is.na(Guyafor.nb)) %>% select("Guyafor.nb", "TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName") # 0
+
+data %>% filter((is.na(TreeID) | is.na(StemID)) & !is.na(Guyafor.nb)) %>% select("Guyafor.nb", "TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName") # 13
+# Missing coordinates
+data %>% filter(((is.na(Xutm) | is.na(Yutm)) & (is.na(X) | is.na(Y))) & is.na(Guyafor.nb)) %>% select("Guyafor.nb", "TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName")
+data %>% filter(((is.na(Xutm) | is.na(Yutm)) & (is.na(X) & is.na(Y))) & !is.na(Guyafor.nb)) %>% select("Guyafor.nb", "TreeID","StemID", 
+                          "DBH","Xutm","Yutm", "X", "Y", "All_ScientificName")
 
 ```
 # Unique IdStem
@@ -158,11 +166,19 @@ mycols[!complete.cases(mycols), ] # with NA
 # Check duplicated StemID
 data[!is.na(data$StemID) & duplicated(data$StemID),] # oui il y a des StemID dupliqués
 
-source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/TreesIDErrorsDetection.R")
+source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/GeneralErrorsDetection.R")
 
-Data <- data %>% rename(IdStem = StemID, IdTree = TreeID, Year = CensusYear, XTreeUTM=Xutm, YTreeUTM=Yutm)
+# rename columns for the function
+Data <- data %>%
+  rename(IdStem = StemID, IdTree = TreeID,
+         Year = CensusYear,
+         XTreeUTM=Xutm, YTreeUTM=Yutm, Diameter=DBH)
 
-TreesIDErrorsDetection(Data)
+Data <- GeneralErrorsDetection(Data)
+
+unique(Data$Comment)
+Data %>% filter(Comment!="") %>% select(Comment, IdTree, IdStem, XTreeUTM, YTreeUTM, Family, Genus, Species, ScientificName, Diameter)
+
 ```
 
 # Bota
@@ -173,7 +189,7 @@ Data <- BotanicalCorrection(Data, DetectOnly = T)
 unique(Data$Comment)
 Data %>% filter(Comment!="") %>% select(Comment, IdTree, IdStem, Family, Genus, Species, ScientificName)
 Data %>% filter(Comment=="Different botanical informations (Family, ScientificName) for a same IdTree") %>%
-  select(Comment, IdTree, IdStem, Family, Genus, Species, ScientificName)
+  select(Comment, IdTree, IdStem, Guyafor.nb, DBH, Family, Genus, Species, ScientificName)
 
 # Check the scientific names list
 sort(unique(data$ScientificName))
@@ -193,6 +209,14 @@ TreeID
 Subplot
 
 - tous les arbres cirad
+
+## Guyafor.nb
+```{r}
+guyafor <- data %>% filter(!is.na(Guyafor.nb)) %>% filter(DBH < 10)
+# %>% select(StemID) %>% unique()
+range(guyafor$DBH) # 1.1 - 9.8
+```
+
 ```{r}
 data <- data %>% 
   mutate(CIRADid= tstrsplit(Guyafor.nb, split = "_")[[1]]) %>% #1er elmt  
@@ -226,6 +250,7 @@ MissingCirad <- Adults %>%
 length(unique(MissingCirad$CIRAD)) # 315 cirad trees oubliés
 unique(MissingCirad$SubPlot) %in% c(13,14,15,18,19,20,23,24,25)
 length(unique(data$CIRAD)); length(unique(Adults$CIRAD))- length(unique(data$Guyafor.nb))
+MissingCirad %>% filter(CodeAlive==F)
 
 all(data[!is.na(data$Guyafor.nb),]$Stem.nb==1) # cirad stem id
 stems <- data[!is.na(data$Guyafor.nb) & data$Stem.nb!=1,]$Guyafor.nb # cirad stem id >1
@@ -450,6 +475,17 @@ Only the principal stem
 Only measured trees
 Only botanical identified
 Take only sp >= 30 ind
+
+# Remove duplicated rows
+```{r}
+DuplicatedID <- unique(UnderstoryP[duplicated(UnderstoryP),]$StemID)
+
+UnderstoryP[UnderstoryP$StemID%in%DuplicatedID,]
+
+UnderstoryP <- UnderstoryP[!duplicated(UnderstoryP),] # 42524 -> 42366 (158 rows removed)
+UnderstoryN <- UnderstoryN[!duplicated(UnderstoryN),] # 29370 -> 29363 (7 rows removed)
+```
+
 ```{r}
 data <- data %>% 
   filter(DBH>=1) %>% 

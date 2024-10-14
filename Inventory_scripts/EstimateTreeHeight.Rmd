@@ -1,0 +1,66 @@
+---
+title: "Estimate tree height"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(readr)
+library(BIOMASS)
+```
+
+# Import cleaned inventory data
+```{r,include = F, message=F}
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+```
+
+# Import allometry data
+```{r}
+# Claudia data
+
+# Giacomo FTH data
+FTH <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Allometry_FTH_GSellan_Paracou_20240125.csv")
+```
+
+# BIOMASS
+voir D:\VSC ManagFores\Codes_Draft\Tree height exploration.rmd
+```{r}
+TreeheightGuyafordata <- read_delim("D:/VSC ManagFores/DATA/TreeheightGuyafordata.csv", 
+                                    ";", escape_double = FALSE, col_types = cols(Circ = col_number(), 
+                                                                                 CircCorr = col_number(), Hauteur = col_number()), 
+                                    locale = locale(encoding = "Latin1"), 
+                                    trim_ws = TRUE) %>% 
+  unite(Genus, Species, col = "ScientificName", sep = "_", remove = F) %>% 
+  mutate(DBH = ifelse(is.na(CircCorr), Circ/pi, CircCorr/pi)) %>% 
+  mutate(HeightHow = recode(HeightHow, 'Visual estimate' = 'Visual Estimate'))
+
+any(is.na(TreeheightGuyafordata$DBH)) # all the DBH have been computed?
+unique(TreeheightGuyafordata$Forest)
+```
+
+```{r}
+# exp(0.07359191 + 1.34241216*log(DBH) + -0.12282344*log(DBH)^2)
+
+ModelsresultGuiana <-modelHD(
+  D = TreeheightGuyafordata$DBH,
+  H = TreeheightGuyafordata$Hauteur,
+  useWeight = TRUE
+)
+knitr::kable(ModelsresultGuiana) #log2 has the lowest RSE (4.699261 with all data, 4.316927 without "Visual E/estimate", 3.059860 with just "Sine Method")
+#Don't forget, you have the model form, and its parameters, and there are different according to the data.
+
+HDmodelGuiana <- modelHD(
+  D = TreeheightGuyafordata$DBH,
+  H = TreeheightGuyafordata$Hauteur,
+  method = "log2", # Compute the H-D model with the lowest RSE.
+  useWeight = TRUE
+)
+
+Understory %>% 
+ mutate(TreeHeight = retrieveH(D= DBH, model = HDmodelGuiana, region = GuianaShield)$H)
+```
+

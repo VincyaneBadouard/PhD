@@ -130,8 +130,7 @@ BotanicalCorrection <- function(
   
   
   #### Function ####
-  source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/GenerateComment.R")
-  
+
   setDT(Data) # data.frame to data.table
   
   Data[, IdTree := as.character(IdTree)]
