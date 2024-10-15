@@ -27,7 +27,7 @@ library(sf)
 # library() # TreeData
 
 # remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
-library(EcoFoG)
+# library(EcoFoG)
 ```
 
 # Import inventory data
@@ -418,8 +418,8 @@ data %>%
   scale_y_continuous(breaks = seq(0,732, by=25)) +
   labs(x ="Individuals number", y="Decumulative species number")
 
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
-#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr_geomcol.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 30, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
@@ -443,7 +443,7 @@ data %>%
   scale_y_continuous(limits = c(1, 2500), breaks =  c(1, seq(100,2500, by=100))) + #  2500
   labs(x="Species rank")
 
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_rank.png", sep="_"),
 #        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
@@ -463,7 +463,11 @@ data %>%
   geom_histogram(stat= "count",fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   geom_vline(xintercept = 30) +
   # scale_x_continuous(limits = c(0, 2500), breaks =  c(0, 30, 50, 100, 2500)) +
-  scale_y_continuous(breaks = seq(0,550, by=100))
+  scale_y_continuous(breaks = seq(0,550, by=100)) +
+  labs(x= "Individuals number",y= "Species number")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_class.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 

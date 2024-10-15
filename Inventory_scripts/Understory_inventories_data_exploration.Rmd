@@ -25,7 +25,7 @@ Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9h
 # Distributions d’abondances des espèces
 ```{r}
 length(unique(Understory$All_ScientificName)) # 200
-population[order(population$age),]
+# population[order(population$age),]
 
 Understory %>%
   select(All_ScientificName, N, Strategy) %>% 
@@ -35,10 +35,15 @@ Understory %>%
   mutate(All_ScientificName = factor(All_ScientificName, levels= unique(All_ScientificName))) %>% 
   ggplot(aes(x= All_ScientificName, fill = Strategy)) + # fill = as.factor(Strategy)
   geom_bar(alpha=0.9) + # fill="#69b3a2", color="#e9ecef"
-  theme(axis.title.x=element_blank(), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=7)) +
+  
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size=7),
+        axis.title.y = element_text(size=14), axis.text.y = element_text(size=16),
+        legend.position="bottom", legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+
   labs(y = "Abundances")
 
-ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_sup30ind.png", sep="_"),
+ggsave(paste("ALT", unique(Understory$Site), unique(Understory$Plot),"Species_abundances_sup30ind.png", sep="_"),
        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 50, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
