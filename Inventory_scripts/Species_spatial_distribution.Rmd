@@ -120,9 +120,7 @@ data <- Understory %>%
 plist <- vector('list', length(unique(data$All_ScientificName)))
 
 for(p in 1:length(unique(data$All_ScientificName))){
-  # message(s)
   plist[[p]] <- local({
-    # s <- s
     data <- data %>% 
       filter(All_ScientificName==unique(data$All_ScientificName)[p]) 
     
