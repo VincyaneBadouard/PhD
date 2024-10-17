@@ -37,6 +37,12 @@ data(NouraguesHD) # on 2ha, >10 cm DBH (Réjou-Méchain et al., 2015))
 # region = GuianaShield (Vertex hypsometers, laser range-finders, mechanical clinometers, climbing + tape, or destructive methods)
 
 # Guyafor data (ref : ?)
+# - dispositifs Gentry (2010-2019) de Chris Baraloto and co (Bridge (2007,2011), AmaLin (2010), Diadema (2013-2019)) : cbaralot@fiu.edu
+# - Guyaflux Paracou (2006), Damien Bonal : damien.bonal@inrae.fr
+# - Nouragues, Jérôme Chave : jerome.chave@univ-tlse3.fr
+# - Paracou : Géraldine, Ervan Rutishauser (er.rutishauser@gmail.com), Greg Vincent (2011-2012) (gregoire.vincent@ird.fr), Maxime Rejou-Méchain. 2012
+# - ONF (2003-2015)
+
 TreeheightGuyafordata <- read_delim("D:/VSC ManagFores/DATA/TreeheightGuyafordata.csv", 
                                     ";", escape_double = FALSE, col_types = cols(Circ = col_number(), 
                                                                                  CircCorr = col_number(), Hauteur = col_number()), 
@@ -47,7 +53,7 @@ TreeheightGuyafordata <- read_delim("D:/VSC ManagFores/DATA/TreeheightGuyafordat
   mutate(HeightHow = recode(HeightHow, 'Visual estimate' = 'Visual Estimate')) %>% 
   mutate(ScientificName = recode(ScientificName, 'Couepia_guianensis' = 'Couepia_guianensis subsp. glandulosa')) %>% 
     mutate(ScientificName = recode(ScientificName, 'Hirtella_bicornis' = 'Hirtella_bicornis var. bicornis')) %>% 
-  mutate(ScientificName = recode(ScientificName, 'Micropholis_guyanensis' = 'Micropholis_guyanensis subsp. duckeana')) %>% 
+  mutate(ScientificName = recode(ScientificName, 'Micropholis_guyanensis' = 'Micropholis_guyanensis subsp. duckeana'))
  # enlever ce qu"il y a après l'espace
   
   # Lacunaria_crenata subsp. crenata
@@ -55,6 +61,7 @@ TreeheightGuyafordata <- read_delim("D:/VSC ManagFores/DATA/TreeheightGuyafordat
 
 
 # 
+TreeheightGuyafordata %>% select(Forest, Protocole, Project, HeightWho) %>% unique() # Protocole, Project, CensusYear
 
 any(is.na(TreeheightGuyafordata$DBH)) # all the DBH have been computed?
 unique(TreeheightGuyafordata$Forest) # on prend que Paracou ?

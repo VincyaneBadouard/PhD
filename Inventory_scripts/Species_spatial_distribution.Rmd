@@ -27,7 +27,8 @@ library(tidyterra)
 
 # Import cleaned inventory data
 ```{r, include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+  arrange(DBH)
 ```
 
 # Import environmental data
@@ -107,8 +108,8 @@ ggplot() +
 ```{r}
 data <- Understory %>% 
   select(StemID, All_ScientificName, DBH, Xutm, Yutm) %>% 
-  filter(All_ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
-                                   "Oxandra_asbeckii", "Hymenopus_heteromorphus", "Unonopsis_stipitata")) %>%
+  # filter(All_ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
+  #                                  "Oxandra_asbeckii", "Hymenopus_heteromorphus", "Unonopsis_stipitata")) %>%
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
@@ -129,29 +130,28 @@ for(p in 1:length(unique(data$All_ScientificName))){
       # scale_fill_gradientn(name = "Elevation (m)",
       #                      colors = terrain.colors(30, rev=T, alpha = 0.9),
       #                      na.value="white") +
-      # geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-      # 
-      # geom_sf(mapping = aes(colour = DBH)) +
       # scale_colour_gradient(name = "DBH (cm)",
       #                       low = "#56B1F7", high = "#132B43") +
       scale_fill_gradientn(name = "Elevation (m)",
                            colors = gray.colors(4, start = 0.9, end = 0),
                            na.value="white") +
       geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-      geom_sf(mapping = aes(colour = DBH)) +
-      viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) +
+      geom_sf(mapping = aes(colour = DBH), alpha = 0.7) +
+      viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # , trans = "log"
       theme_classic() +
       guides(fill="none") +
       # geom_text(label = max(data$DBH), position ="top")
-      annotate(geom = 'text', label = paste("DBH max: ",round(max(data$DBH),0),"cm"), x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
+      annotate(geom = 'text', label = paste("DBH max: ",round(max(data$DBH),0),"cm"),
+               x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
       coord_sf() +
       labs(title = unique(data$All_ScientificName))
   })
 }
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+# plots
 
-ggsave("Spatial_distribution_of_each_species_on_MNT_notlog.pdf", plots, width = 15, height = 10) 
+# ggsave("Spatial_distribution_of_each_species_on_MNT_notlog.pdf", plots, width = 15, height = 10)
 ```
 
 
@@ -208,7 +208,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 
-ggsave("Spatial_distribution_of_each_species_on_TWI.pdf", plots, width = 15, height = 10) 
+# ggsave("Spatial_distribution_of_each_species_on_TWI.pdf", plots, width = 15, height = 10) 
 
 ```
 
@@ -268,7 +268,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 
-ggsave("Spatial_distribution_of_each_species_on_relativeelevation.pdf", plots, width = 15, height = 10) 
+# ggsave("Spatial_distribution_of_each_species_on_relativeelevation.pdf", plots, width = 15, height = 10) 
 ```
 
 
@@ -292,21 +292,20 @@ data <- data %>% cbind(alt)
 ```{r}
 data <- data %>%
   mutate(Size = factor(case_when(
-    DBH < 10 ~ "1-10",
-    DBH >= 10 ~ ">10"), levels = c("1-10",">10")) 
-    # DBH < 5 ~ "1-5",
-    # DBH >= 5 & DBH < 10 ~ "5-10",
-    # DBH >= 10 & DBH < 20 ~ "10-20",
-    # DBH >= 20 ~ ">20"), levels = c("1-5","5-10","10-20",">20")) 
+    # DBH < 10 ~ "1-10",
+    # DBH >= 10 ~ ">10"), levels = c("1-10",">10")) 
+    DBH < 5 ~ "1-5",
+    DBH >= 5 & DBH < 10 ~ "5-10",
+    DBH >= 10 & DBH < 20 ~ "10-20",
+    DBH >= 20 ~ ">20"), levels = c("1-5","5-10","10-20",">20"))
   )
 ```
 
-Computes and draws kernel density estimate, which is a smoothed version of the histogram
-```{r}
+```{r, eval=F}
 data %>% 
   na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-  filter(All_ScientificName == "Maytenus_oblongata")
-group_by(Size) %>% 
+  filter(All_ScientificName == "Maytenus_oblongata") %>% 
+  group_by(Size) %>% 
   mutate(Elev_med=median(Elevation)) %>% 
   ungroup() %>% 
   
@@ -314,11 +313,12 @@ group_by(Size) %>%
   geom_histogram(binwidth=1,alpha=0.2) +
   geom_vline(aes(xintercept=Elev_med, color=Size), linetype="dashed", size=0.8) +
   theme_classic() +
+  facet_wrap(~ Size, scales = "free_y", ncol=1) +
   guides(fill = FALSE) +
-  labs(x= "Elevation (m)", y="Density", color= "DBH (cm)") # Abundances
+  labs(x= "Elevation (m)", y="Abundances", color= "DBH (cm)") # Abundances
 ```
 
-## Density plot
+## Density plot (without ontogeny)
 ```{r}
 plist <- vector('list', length(unique(data$All_ScientificName)))
 
@@ -353,12 +353,12 @@ for(p in 1:length(unique(data$All_ScientificName))){
 }
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-plots
+# plots
 
-ggsave("Species_MNT_niche_density_without_ontogeny.pdf", plots, width = 15, height = 10)
+# ggsave("Species_MNT_niche_density_without_ontogeny.pdf", plots, width = 15, height = 10)
 ```
-
-# Hist
+## With ontogeny
+### Hist per size class
 ```{r}
 plist <- vector('list', length(unique(data$All_ScientificName)))
 
@@ -379,9 +379,8 @@ for(p in 1:length(unique(data$All_ScientificName))){
     
     
     ggplot(data, aes(x= Elevation)) +
-      geom_histogram(binwidth=1 , aes(y=..density.., color= Size, fill= Size),
-                     alpha=0.2) + #  binwidth=1, aes(y=..density..), 
-      # geom_density(alpha=0.4) + # aes(y = after_stat(count)),
+      geom_histogram(binwidth=1 , aes(color= Size, fill= Size),
+                     alpha=0.2) + 
       geom_vline(aes(xintercept=Elev_med, color=Size), linetype="dashed", size=0.8) +
       
       scale_color_manual(values = c("1-5" = "#00AFBB",
@@ -395,6 +394,8 @@ for(p in 1:length(unique(data$All_ScientificName))){
                                    "10-20"= "#E7B800",
                                    ">20" = "#FC4E07"),
                         breaks=c("1-5","5-10","10-20",">20")) +
+      
+      facet_wrap(~ Size, scales = "free_y", ncol=1) +
       
       geom_text(data = label, aes(label = N, color=Size),
                 x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, show.legend = F) +
@@ -402,135 +403,18 @@ for(p in 1:length(unique(data$All_ScientificName))){
       theme_classic() +
       guides(fill = FALSE) +
       labs(title = unique(data$All_ScientificName),
-           x= "Elevation (m)", y="Density") # Density
+           x= "Elevation (m)", y="Abundances") # Density
     
   })
 }
 
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-plots
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
 
-ggsave("Species_MNT_niche_density_hist.pdf", plots, width = 15, height = 10)
+# ggsave("Species_MNT_niche_hist.pdf", plots, width = 15, height = 10)
 ```
 
-### With ontogeny
-```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
-
-for(p in 1:length(unique(data$All_ScientificName))){
-  # message(s)
-  plist[[p]] <- local({
-    # s <- s
-    data <- data %>% 
-      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
-      group_by(Size) %>% 
-      mutate(Elev_med=median(Elevation)) %>% 
-      ungroup() 
-    
-    label <- data %>% 
-      group_by(Size) %>% 
-      summarise(N = paste("N: ", n()))
-    
-    
-    ggplot(data, aes(x= Elevation, color= Size, fill= Size)) +
-      # geom_histogram(aes(y=..density..), alpha=0.1, 
-      #                position="identity")+
-      geom_density(alpha=0.4) + # aes(y = after_stat(count)),
-      geom_vline(aes(xintercept=Elev_med, color=Size), linetype="dashed", size=0.8) +
-      
-      geom_text(data = label, aes(label = N),
-                x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, show.legend = F) +
-      # annotate(geom = 'text', label = paste("N: ",round(max(data$DBH),0),"cm"),
-      #          x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
-      
-      scale_color_manual(values = c("1-5" = "#00AFBB",
-                                    "5-10"= "#CC79A7",
-                                    "10-20"= "#E7B800",
-                                    ">20" = "#FC4E07"),
-                         breaks=c("1-5","5-10","10-20",">20")) + 
-      
-      scale_fill_manual(values = c("1-5" = "#00AFBB",
-                                   "5-10"= "#CC79A7",
-                                   "10-20"= "#E7B800",
-                                   ">20" = "#FC4E07"),
-                        breaks=c("1-5","5-10","10-20",">20")) +
-      
-      theme_classic() +
-      guides(fill = FALSE) +
-      labs(title = unique(data$All_ScientificName),
-           x= "Elevation (m)", y="Density", color= "DBH (cm)") # Abundances
-    
-  })
-}
-
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-plots
-
-ggsave("Species_MNT_niche_density.pdf", plots, width = 15, height = 10)
-
-```
-
-## Frequency polygons plot
-```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
-
-for(p in 1:length(unique(data$All_ScientificName))){
-  # message(s)
-  plist[[p]] <- local({
-    # s <- s
-    data <- data %>% 
-      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
-      group_by(Size) %>% 
-      mutate(Elev_med=median(Elevation)) %>% 
-      ungroup() 
-    
-    label <- data %>% 
-      group_by(Size) %>% 
-      summarise(N = paste("N: ", n()))
-    
-    
-    ggplot(data, aes(x= Elevation, color= Size, fill= Size)) +
-      geom_freqpoly(binwidth=1, aes(y=..density..)) + # frequency polygons display the counts with lines.
-      # geom_point(aes(y=..density..)) +
-      # geom_histogram(binwidth=1, aes(y=..density..), alpha=0.1,
-      #                position="identity")+
-      # geom_density(alpha=0.4) + # aes(y = after_stat(count)),
-      geom_vline(aes(xintercept=Elev_med, color=Size), linetype="dashed", size=0.8) +
-      
-      geom_text(data = label, aes(label = N),
-                x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5, show.legend = F) +
-      # annotate(geom = 'text', label = paste("N: ",round(max(data$DBH),0),"cm"),
-      #          x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
-      
-      scale_color_manual(values = c("1-5" = "#00AFBB",
-                                    "5-10"= "#CC79A7",
-                                    "10-20"= "#E7B800",
-                                    ">20" = "#FC4E07"),
-                         breaks=c("1-5","5-10","10-20",">20")) + 
-      
-      scale_fill_manual(values = c("1-5" = "#00AFBB",
-                                   "5-10"= "#CC79A7",
-                                   "10-20"= "#E7B800",
-                                   ">20" = "#FC4E07"),
-                        breaks=c("1-5","5-10","10-20",">20")) +
-      
-      theme_classic() +
-      guides(fill = FALSE) +
-      labs(title = unique(data$All_ScientificName),
-           x= "Elevation (m)", y="Density", color= "DBH (cm)") # Abundances
-    
-  })
-}
-
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-plots
-
-ggsave("Species_MNT_niche_freqpol.pdf", plots, width = 15, height = 10)
-
-```
-
+### Box-plots
 ```{r}
 plist <- vector('list', length(unique(data$All_ScientificName)))
 
@@ -571,17 +455,39 @@ for(p in 1:length(unique(data$All_ScientificName))){
 }
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-plots
+# plots
 
-# ggsave("Species_MNT_niche_boxplot_test.pdf", plots, width = 15, height = 10)
+# ggsave("Species_MNT_niche_boxplot.pdf", plots, width = 15, height = 10)
 
 ```
-
+### Point plot
 ```{r}
-data %>% 
-  filter(All_ScientificName=="Hymenopus_heteromorphus") %>% 
-  ggplot(aes(y= Elevation, x= DBH, color= DBH)) +
-  geom_point()
+plist <- vector('list', length(unique(data$All_ScientificName)))
+
+for(p in 1:length(unique(data$All_ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    data <- data %>% 
+      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      mutate(Elev_med=median(Elevation))
+    
+    ggplot(data, aes(y= Elevation, x= DBH, color= DBH)) +
+      geom_point() +
+      geom_hline(aes(yintercept=Elev_med), linetype="dashed", size=0.8) +
+      theme_classic() +
+      guides(fill = FALSE) +
+      labs(title = unique(data$All_ScientificName),
+           y= "Elevation (m)", color= "DBH (cm)") # Abundances
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+# plots
+
+# ggsave("Species_MNT_niche_points.pdf", plots, width = 15, height = 10)
 
 ```
 
