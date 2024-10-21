@@ -249,6 +249,7 @@ saga="/d/Program/SAGA/saga_cmd.exe"
 dem="test/Paracou_MNT_cor.tif"
 re="test/re.srgd"
 $saga ta_morphometry 14 -DEM $dem -SH $re
+# SH : Standardized Height
 ```
 translate in .tif
 ```{r, eval=FALSE}

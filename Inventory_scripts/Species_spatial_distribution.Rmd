@@ -32,11 +32,17 @@ Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9h
 ```
 
 # Import environmental data
+HAND : Height Above the Nearest Drainage
 ```{r}
 # Zone
-ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp"))
+ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")) %>% 
+  st_intersection(ALT)
 
-# Topography
+# Classes topo (4 classes)
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
+
+# Elevation
 MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
 
 # TWI
@@ -46,10 +52,19 @@ TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
 elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
 
 # Light (à faire)
-
 ```
 
 ```{r, eval = F}
+ggplot(TopoLevels) +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  labs(fill= "Topography")
+
 ggplot() + 
   geom_spatraster(data = MNT, aes(fill = Z)) +
   scale_fill_gradientn(name = "Elevation (m)",

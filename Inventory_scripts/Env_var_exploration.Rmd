@@ -1,0 +1,155 @@
+---
+title: "Environmental variables exploration"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+Environnment (à partir de l'ALS low alt ?) :
+- classes topo (4 classes)
+- topographie (DTM)
+- drainage du sol (TWI)
+- relative elevation to the nearest stream
+- light (à générer sur les 9 ha + 100 m buffer) (au-dessus (de combien) de chaque arbre, quelle résolution ?)
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(ggforce)
+library(sf)
+library(raster)
+library(terra)
+library(tidyterra)
+```
+
+# Import environmental data
+HAND : Height Above the Nearest Drainage
+```{r}
+# Topography
+MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+
+# TWI
+TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
+
+# Relative elevation
+elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
+
+# Zone
+ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")) %>% 
+  st_set_crs(st_crs(MNT))
+
+# Classes topo (4 classes)
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn)) %>% 
+  st_intersection(ALT) %>% 
+  st_set_crs(st_crs(MNT))
+
+# Light (à faire)
+
+crs(MNT) == crs(TWI); crs(MNT) == crs(elev); crs(MNT) == crs(TopoLevels)
+```
+
+```{r, eval = F}
+
+ggplot(TopoLevels) +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  labs(fill= "Topography")
+  
+  
+  ggplot() + 
+  geom_spatraster(data = MNT, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T, alpha = 0.9),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  theme_classic()
+
+ggplot() + 
+  geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  theme_classic()
+
+ggplot() + 
+  geom_spatraster(data = elev, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(45, "Blues"),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  theme_classic()
+```
+
+# Distribution
+```{r}
+# Elevation
+MNT$Z # 6.39 - 23.80
+hist(MNT$Z)
+
+# TWI
+TWI$Paracou_TWI_5m
+hist(TWI$Paracou_TWI_5m) # 4.729557 - 11.025112
+
+# Relative elevation
+elev$re
+hist(elev$re) # -0.3905195 - 23.3439674
+```
+
+
+```{r}
+TWI_1m <- resample(TWI, MNT, method="bilinear") # 5m to 1m TWI
+plot(TWI); plot(TWI_1m)
+TWI_1m ; MNT
+
+# raster to data.frame
+MNT_df <- as.data.frame(MNT, xy=T)
+TWI_df <- as.data.frame(TWI_1m, xy=T)
+elev_df <- as.data.frame(elev, xy=T)
+
+# join data.frame
+topo <- MNT_df %>% left_join(elev_df, by=c("x", "y")) %>% left_join(TWI_df, by=c("x", "y"))
+```
+
+https://luisdva.github.io/rstats/GIS-with-R/
+```{r}
+ terra::extract(x= MNT, y= TopoLevels, fun=table) # extract z from MNT
+# xy=T, bind=T
+```
+
+# Relations
+```{r}
+ggplot(topo) +
+  geom_point(aes(x= Z, y= re)) +
+  theme_minimal() +
+  labs(x= "Elevation (m)", y= "Relative elevation to the nearest stream (m)")
+
+ggsave("Elevation_VS_relative_elevation.png", path = "D:/Mes Donnees/PhD/Figures/Topography", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(topo) +
+  geom_point(aes(x= Z, y= Paracou_TWI_5m)) +
+  theme_minimal() +
+  labs(x= "Elevation (m)", y= "TWI")
+
+ggsave("Elevation_VS_TWI.png", path = "D:/Mes Donnees/PhD/Figures/Topography", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(topo) +
+  geom_point(aes(x= re, y= Paracou_TWI_5m)) +
+  theme_minimal() +
+  labs(x= "Relative elevation to the nearest stream (m)", y= "TWI")
+
+ggsave("Relative_elevation_VS_TWI.png", path = "D:/Mes Donnees/PhD/Figures/Topography", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+# Correlations
+```{r}
+
+```
+

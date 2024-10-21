@@ -491,8 +491,8 @@ comp <- init %>% left_join(best, by=c("Transect", "Id", "Ring"), suffix = c("_in
 range(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best) # -0.26753640  0.06314267; aftershift : -0.24461143  0.06133353. Res 1m : -0.07772691  0.05452369
 median(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best) #  -0.0002733797; aftershift : -7.201415e-06. Res 1m : -0.0009259017
 mean(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best) #  -0.009024111; aftershift : -0.002866147. Res 1m : -0.0007919723
-quantile(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best, .95) # 0.007983491; aftershift : 0.006590541. Res 1m : 0.03518973
-quantile(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best, .05) # -0.0634546; aftershift : -0.01607339. Res 1m : -0.02763386 
+quantile(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best, .95) # 0.007983491; aftershift : 0.006590541. Res 1m : 0.03464978
+quantile(comp$MeanTransmittance_LowInt1m_init - comp$MeanTransmittance_LowInt1m_best, .05) # -0.0634546; aftershift : -0.01607339. Res 1m : -0.02661183  
 
 ```
 
