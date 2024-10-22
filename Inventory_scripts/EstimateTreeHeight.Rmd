@@ -8,6 +8,11 @@ faire un modèle par espèce, puis genre, puis famille, puis peuplement
 
 voir D:\VSC ManagFores\Codes_Draft\Tree height exploration.rmd
 
+en attente de données de :
+- Stéphane Traissac : Paracou Régénération et JuvénilesBlocSud.
+- Des hauteurs issues d’un Canopy Height Model d’un passage Lidar fait par Altoa en 2013 sous l’égide de Greg Vincent et Mélaine Aubry-Kientz.
+- ervan.rutishauser@infoflora.ch : Sine Method (Larjavaara & Muller-Landau 2013) with Laser rangefinder Nikon Forestry
+
 # Packages
 ```{r Setup, include = F}
 library(tidyverse)
