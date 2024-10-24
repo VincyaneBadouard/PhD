@@ -100,7 +100,8 @@ label <- data.frame(
   # Transmittance = c(0.08, 0.075, 0.07, 0.065, 0.06, 0.055), 
   Transmittance = c(0.078, 0.075, 0.07, 0.068, 0.065, 0.06), 
   LIDF = unique(long$LIDF),
-  error = c(paste("ME = ",round(unique(long$ME),2)), paste("RE = ",round(unique(long$`Relative biases`),3)))
+  error = c(paste("ME = ",round(unique(long$ME)*100,0), "%", sep=""),
+            paste("RE = ",round(unique(long$`Relative biases`*100),1), "%", sep=""))
 ) %>% filter(LIDF != "Planophile") 
 
 library(ggplot2)
