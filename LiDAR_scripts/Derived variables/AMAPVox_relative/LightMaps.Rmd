@@ -13,6 +13,7 @@ library(sf)
 library(terra)
 library(corrplot)
 library(RColorBrewer)
+library(patchwork)
 
 ReadLightFile <- function(path, skiplines=10){
   Light <- fread(path, skip=skiplines) # skip the 10 1st lines of header
@@ -623,6 +624,7 @@ Lightgrid_UAV <- ReadLightFile(Pathgrid_UAV)
 
 names(Lightgrid_HighAlt)
 ```
+
 ```{r}
 setnames(Lightgrid_HighAlt, "Period 1", "Transmittance")
 setnames(Lightgrid_LowAlt, "Period 1", "Transmittance") 
@@ -642,15 +644,15 @@ LiDAR <- LiDAR %>%
   mutate(Height = seq(1,56, by=5)) %>% ungroup() %>% 
   mutate()
 
-LiDAR %>%
-  group_by(Height) %>% # variables selon lesquelles grouper
-  summarise(across("Transmittance_High", "Transmittance_Low", "Transmittance_UAV"), cor(.))
+# LiDAR %>%
+#   group_by(Height) %>% # variables selon lesquelles grouper
+#   summarise(across("Transmittance_High", "Transmittance_Low", "Transmittance_UAV"), cor(.))
 # summarise_at(vars(c(Transmittance_High, Transmittance_Low, Transmittance_UAV), # Variables à analyser
 #                  ~cor))
 
 range((LiDAR %>% filter(Height==1))$Z) # 7.385 21.875
-range((LiDAR %>% filter(Height==5))$Z) # 12.385 26.875
-range((LiDAR %>% filter(Height==56))$Z) # 52.385 66.875
+range((LiDAR %>% filter(Height==6))$Z) # 12.385 26.875
+range((LiDAR %>% filter(Height==56))$Z) # 62.385 76.875
 ```
 
 ## Correlations
@@ -702,9 +704,9 @@ ggplot(datacor, aes(x= Height, y= Correlation, col =VS)) +
   theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_blank(), legend.text= element_text(size=14)) +
   labs(title="Vertical light correlations between LiDAR acquisitions", x ="Height above the ground (m)")
 
-ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_Light_10m_intensity_1m.png", sep = ""),
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
-       width = 25, height = 25, units = "cm", dpi=800, bg="white")
+# ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_Light_10m_intensity_1m.png", sep = ""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
+#        width = 25, height = 25, units = "cm", dpi=800, bg="white")
 ```
 
 # Vertical structure heterogeneity
@@ -735,7 +737,7 @@ datacor <- datacor %>%
 
 
 ```{r}
-datacor %>% 
+b <- datacor %>% 
   group_by(Acquisition) %>% 
   mutate(Level = 1:n()) %>%  ungroup() %>% 
   ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
@@ -746,14 +748,15 @@ datacor %>%
                      labels = unique(datacor$Height)) +
   # scale_y_continuous(limits = c(0.6, 0.85), breaks = seq(0.6, 0.9, by=0.025)) +
   theme_minimal() +
-  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
+  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=12), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
   labs(title="Vertical structure heterogeneity", x ="Height above the ground (m)")
 # Correlation of the spatial distribution of light between two consecutive forest strata for each LiDAR acquisitions
 
-ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10m_intensity_1m.png", sep = ""),
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
-       width = 20, height = 25, units = "cm", dpi=1000, bg="white")
+# ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10m_intensity_1m.png", sep = ""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
+#        width = 20, height = 25, units = "cm", dpi=1000, bg="white")
 ```
+
 # Comp between each layer
 ```{r}
 datacor <- as.data.frame(cor(DF_cor))
@@ -783,7 +786,7 @@ datacor <- datacor %>%
 ```
 
 ```{r}
-datacor %>% 
+a <- datacor %>% 
   group_by(Acquisition) %>% 
   mutate(Level = 1:n()) %>%  ungroup() %>% 
   ggplot(aes(x= Level, y= Correlation, col =Acquisition)) +
@@ -794,13 +797,24 @@ datacor %>%
                      labels = unique(datacor$Height)) +
   # scale_y_continuous(limits = c(0.6, 0.85), breaks = seq(0.6, 0.9, by=0.025)) +
   theme_minimal() +
-  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=14), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
+  theme(title= element_text(size=14), axis.title= element_text(size=14), axis.text= element_text(size=12), legend.title= element_text(size=14), legend.text= element_text(size=14)) +
   labs(title="Vertical structure heterogeneity", x ="Height above the ground (m)")
 # Correlation of the spatial distribution of light between two consecutive forest strata for each LiDAR acquisitions
 
-ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10m_intensity_1m_compeachstrata fith the1st.png", sep = ""),
+# ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10m_intensity_1m_compeachstrata fith the1st.png", sep = ""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
+#        width = 20, height = 25, units = "cm", dpi=1000, bg="white")
+```
+
+# Bind plots
+```{r}
+a <- a + guides(color = F) + theme(title= element_blank())
+b <- b + guides(color = F) + theme(title= element_blank())
+a+b
+
+ggsave(paste("Paracou_P16_4ha_buffer_Correlation_Vertical_structure_heterogeneity_10mH_5mV_intensity_1m_both.png", sep = ""),
        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m",
-       width = 20, height = 25, units = "cm", dpi=1000, bg="white")
+       width = 30, height = 20, units = "cm", dpi=1000, bg="white")
 ```
 
 # Corrplot
@@ -823,9 +837,6 @@ corrplot(CorMatrix, method="color", col=brewer.pal(n=8, name="PuOr"),
 dev.off()
 ```
 
-
-```{r}
-```
 
 # HOBO
 ## Load HOBO data
