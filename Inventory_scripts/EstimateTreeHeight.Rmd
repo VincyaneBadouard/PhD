@@ -183,9 +183,9 @@ HDmodelGuiana <- modelHD(
 Understory <- Understory %>%
   mutate(TreeHeight = NA)
 
-# slist <- vector('list', length(unique(Understory$All_ScientificName)) )
+# slist <- vector('list', length(unique(Understory$ScientificName)) )
 
-for(s in unique(Understory$All_ScientificName)){
+for(s in unique(Understory$ScientificName)){
   
   print(s)
   if(s =="Oenocarpus_bataua") next()
@@ -213,7 +213,7 @@ for(s in unique(Understory$All_ScientificName)){
     )
     
     Understory <- Understory %>%
-      mutate(TreeHeight = ifelse(All_ScientificName == s,
+      mutate(TreeHeight = ifelse(ScientificName == s,
                                  (retrieveH(D = DBH, model = model))$H,
                                  TreeHeight)) # , region = GuianaShield
   } else(next())
@@ -230,7 +230,7 @@ for(s in unique(Understory$All_ScientificName)){
 ```
 
 ```{r}
-unique((Understory %>% filter(is.na(TreeHeight)) %>% select(All_ScientificName, Strategy))) # 6,005 ind, 68 sp, 1-51 cm DBH
+unique((Understory %>% filter(is.na(TreeHeight)) %>% select(ScientificName, Strategy))) # 6,005 ind, 68 sp, 1-51 cm DBH
 # Pas assez de données de hauteur (<15)
 # "Maytenus_oblongata"
 ```

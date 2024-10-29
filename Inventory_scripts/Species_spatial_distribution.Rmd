@@ -96,7 +96,7 @@ ggplot() +
 data <- Understory %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
-  filter(All_ScientificName=="Ocotea_nigra") %>% 
+  filter(ScientificName=="Ocotea_nigra") %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 
@@ -122,8 +122,8 @@ ggplot() +
 ## For each species
 ```{r}
 data <- Understory %>% 
-  select(StemID, All_ScientificName, DBH, Xutm, Yutm) %>% 
-  # filter(All_ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
+  select(StemID, ScientificName, DBH, Xutm, Yutm) %>% 
+  # filter(ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
   #                                  "Oxandra_asbeckii", "Hymenopus_heteromorphus", "Unonopsis_stipitata")) %>%
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
@@ -133,12 +133,12 @@ data <- Understory %>%
 ```
 
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   plist[[p]] <- local({
     data <- data %>% 
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) 
+      filter(ScientificName==unique(data$ScientificName)[p]) 
     
     ggplot(data) + 
       geom_spatraster(data = MNT, aes(fill = Z)) +
@@ -159,7 +159,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       annotate(geom = 'text', label = paste("DBH max: ",round(max(data$DBH),0),"cm"),
                x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
       coord_sf() +
-      labs(title = unique(data$All_ScientificName))
+      labs(title = unique(data$ScientificName))
   })
 }
 
@@ -176,7 +176,7 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 data <- Understory %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
-  filter(All_ScientificName=="Ocotea_nigra") %>% 
+  filter(ScientificName=="Ocotea_nigra") %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 
@@ -196,14 +196,14 @@ ggplot() +
 
 ## For each species
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   message(s)
   plist[[p]] <- local({
     # s <- s
     data %>% 
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       ggplot() + 
       geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
       scale_fill_gradientn(name = "TWI",
@@ -217,7 +217,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       theme_classic() +
       guides(fill="none") +
       coord_sf() +
-      labs(title = unique(data$All_ScientificName)[p])
+      labs(title = unique(data$ScientificName)[p])
   })
 }
 
@@ -232,13 +232,13 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 data <- Understory %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
-  filter(All_ScientificName=="Ocotea_nigra") %>% 
+  filter(ScientificName=="Ocotea_nigra") %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 
 
 ggplot(data, mapping = aes(x = Xutm, y = Yutm)) +
-  geom_point(aes(col=All_ScientificName))
+  geom_point(aes(col=ScientificName))
 
 ggplot() + 
   geom_spatraster(data = elev, aes(fill = re)) +
@@ -256,14 +256,14 @@ ggplot() +
 
 ## For each species
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   message(s)
   plist[[p]] <- local({
     # s <- s
     data %>% 
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       ggplot() + 
       geom_spatraster(data = elev, aes(fill = re)) +
       scale_fill_gradientn(name = "Relative elevation to the creek (m)",
@@ -277,7 +277,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       theme_classic() +
       guides(fill="none") +
       coord_sf() +
-      labs(title = unique(data$All_ScientificName)[p])
+      labs(title = unique(data$ScientificName)[p])
   })
 }
 
@@ -319,7 +319,7 @@ data <- data %>%
 ```{r, eval=F}
 data %>% 
   na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-  filter(All_ScientificName == "Maytenus_oblongata") %>% 
+  filter(ScientificName == "Maytenus_oblongata") %>% 
   group_by(Size) %>% 
   mutate(Elev_med=median(Elevation)) %>% 
   ungroup() %>% 
@@ -335,15 +335,15 @@ data %>%
 
 ## Density plot (without ontogeny)
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
     data <- data %>% 
       na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       mutate(Elev_med=median(Elevation)) %>% 
       ungroup() 
     
@@ -361,7 +361,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       
       theme_classic() +
       guides(fill = FALSE) +
-      labs(title = unique(data$All_ScientificName),
+      labs(title = unique(data$ScientificName),
            x= "Elevation (m)", y="Abundances") # Density
     
   })
@@ -375,15 +375,15 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 ## With ontogeny
 ### Hist per size class
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
     data <- data %>% 
       na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       group_by(Size) %>% 
       mutate(Elev_med=median(Elevation)) %>% 
       ungroup() 
@@ -417,7 +417,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       
       theme_classic() +
       guides(fill = FALSE) +
-      labs(title = unique(data$All_ScientificName),
+      labs(title = unique(data$ScientificName),
            x= "Elevation (m)", y="Abundances") # Density
     
   })
@@ -431,15 +431,15 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
 
 ### Box-plots
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
     data <- data %>% 
       na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       group_by(Size) %>% 
       mutate(Elev_med=median(Elevation)) %>% 
       ungroup() 
@@ -463,7 +463,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       
       theme_classic() +
       guides(fill = FALSE) +
-      labs(title = unique(data$All_ScientificName),
+      labs(title = unique(data$ScientificName),
            y= "Elevation (m)", color= "DBH (cm)") # Abundances
     
   })
@@ -477,15 +477,15 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 ```
 ### Point plot
 ```{r}
-plist <- vector('list', length(unique(data$All_ScientificName)))
+plist <- vector('list', length(unique(data$ScientificName)))
 
-for(p in 1:length(unique(data$All_ScientificName))){
+for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
     data <- data %>% 
       na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
-      filter(All_ScientificName==unique(data$All_ScientificName)[p]) %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       mutate(Elev_med=median(Elevation))
     
     ggplot(data, aes(y= Elevation, x= DBH, color= DBH)) +
@@ -493,7 +493,7 @@ for(p in 1:length(unique(data$All_ScientificName))){
       geom_hline(aes(yintercept=Elev_med), linetype="dashed", size=0.8) +
       theme_classic() +
       guides(fill = FALSE) +
-      labs(title = unique(data$All_ScientificName),
+      labs(title = unique(data$ScientificName),
            y= "Elevation (m)", color= "DBH (cm)") # Abundances
     
   })

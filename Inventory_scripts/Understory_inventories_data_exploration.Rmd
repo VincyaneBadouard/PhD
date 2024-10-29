@@ -24,16 +24,16 @@ Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9h
 
 # Distributions d’abondances des espèces
 ```{r}
-length(unique(Understory$All_ScientificName)) # 200
+length(unique(Understory$ScientificName)) # 200
 # population[order(population$age),]
 
 Understory %>%
-  select(All_ScientificName, N, Strategy) %>% 
-  # group_by(All_ScientificName) %>% 
+  select(ScientificName, N, Strategy) %>% 
+  # group_by(ScientificName) %>% 
   # summarise(N = n()) %>% 
   arrange(desc(N)) %>% 
-  mutate(All_ScientificName = factor(All_ScientificName, levels= unique(All_ScientificName))) %>% 
-  ggplot(aes(x= All_ScientificName, fill = Strategy)) + # fill = as.factor(Strategy)
+  mutate(ScientificName = factor(ScientificName, levels= unique(ScientificName))) %>% 
+  ggplot(aes(x= ScientificName, fill = Strategy)) + # fill = as.factor(Strategy)
   geom_bar(alpha=0.9) + # fill="#69b3a2", color="#e9ecef"
   
   theme(axis.title.x = element_blank(),

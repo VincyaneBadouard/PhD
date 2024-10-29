@@ -32,7 +32,7 @@ ne prendre que :
 - les vivants
 - les mesures les plus récentes des arbres cirad 
 ```{r}
-sort(unique(Understory$All_ScientificName))
+sort(unique(Understory$ScientificName))
 
 data <- Understory %>%
   filter(Genus=="Xylopia"|Genus=="Parkia"| Genus=="Ocotea")
@@ -40,12 +40,12 @@ data <- Understory %>%
 
 ggplot(data, aes(x=DBH)) +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  facet_wrap(vars(All_ScientificName, N, Strategy), scales = "free") +
+  facet_wrap(vars(ScientificName, N, Strategy), scales = "free") +
   labs(x ="DBH (cm)", y = "Number of individuals")
 ```
 
 ```{r}
-sp <- Understory$All_ScientificName
+sp <- Understory$ScientificName
 
 # Define nrow and ncol for the facet
 n <- length(unique(sp))
@@ -58,7 +58,7 @@ for(p in 1:(ceiling(length(unique(sp))/16))){
     ggplot(Understory, aes(x=DBH)) +
       geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
       
-      ggforce::facet_wrap_paginate(vars(All_ScientificName, N, Strategy),
+      ggforce::facet_wrap_paginate(vars(ScientificName, N, Strategy),
                                    scales = "free",
                                    ncol = min(n,4), nrow = i, page = p) +
       
