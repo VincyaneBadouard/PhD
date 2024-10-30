@@ -225,9 +225,9 @@ sp_abundances <- data %>%
   filter(!grepl("indet", ScientificName)) %>%
   filter(!grepl("Indet", ScientificName)) %>%
   filter(!grepl("aceae", ScientificName)) %>%
-  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>%
-  filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
-  filter(!grepl("_cf_", ScientificName)) %>%
+  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # only genus
+  filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>% # identif not sure
+  filter(!grepl("_cf_", ScientificName)) %>% # identif not sure
   mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>% 
   mutate(SubSpecies = str_extract(ScientificName,"(?<=\\.).*")) %>% 
   rename(ScientificName_old = ScientificName,

@@ -503,7 +503,3 @@ LASrun <- LAStool('LAS2dem', inFiles,
                   '-o', outFile # -o out.laz
 )
 ```
-
-
-# Fusion
-# Buffer d’ALS
