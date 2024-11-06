@@ -369,6 +369,19 @@ ggplot() +
 
 ## Correction des coordonées des arbres selon les piquets S-O corrigés
 ```{r}
+install.packages("remotes")
+remotes::install_github('umr-amap/BIOMASS')
+library(BIOMASS)
+?bilinearInterpolation
 
+fromCornerCoord <- expand.grid(X = c(0, 100), Y = c(0, 50)) # coord relatives des coins de parcelle
+rot_mat <- matrix(c(cos(-pi/6),sin(-pi/6),-sin(-pi/6),cos(-pi/6)),nrow=2)
+toCornerCoord <- as.matrix(fromCornerCoord) %*% rot_mat 
+toCornerCoord <- sweep(toCornerCoord, 2, c(50,100), FUN = "+") # coord de référence des coins de parcelle
+coord <- expand.grid(X = seq(0,100,10), Y = seq(0,50,5)) # coord relatives à transformer
+
+projCoord <- bilinearInterpolation(coord = coord, fromCornerCoord = fromCornerCoord, toCornerCoord = toCornerCoord)
+
+plot(coord, xlim=c(-10,150),ylim=c(-5,200), col="blue") ; points(fromCornerCoord) ; points(projCoord , col="purple") ; points(toCornerCoord, col="red")
 ```
 
