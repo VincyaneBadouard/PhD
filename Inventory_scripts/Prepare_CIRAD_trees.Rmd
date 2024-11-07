@@ -1,0 +1,140 @@
+---
+title: "Prepare_CIRAD_trees"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(readr)
+library(sf)
+# library() # TreeData
+
+# remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
+# library(EcoFoG)
+```
+
+```{r}
+AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% # all P16 (25 ha)
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+  # Scientific name
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>% 
+  # idTree as character
+  mutate(idTree = as.character(idTree)) %>% 
+  # Circ to DBH
+  mutate(Diameter = CircCorr/pi)
+
+
+# AdultsPP <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
+```
+
+# Env data
+```{r}
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
+
+P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/OverallPlots.shp")) %>% 
+  filter(Plot == "16") %>% 
+  st_set_crs(st_crs(TopoLevels))
+```
+
+```{r}
+# adultes sur pinotière ?
+AdultsP16_plot <- AdultsP16 %>% 
+  filter(VernName != "pinot") %>% 
+  filter(Family != "Arecaceae") %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(TopoLevels))
+
+ggplot() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = AdultsP16_plot, size = 0.1) + # , aes(col= Genus)
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  labs(fill= "Topography")
+```
+
+```{r}
+adults_BF <- st_intersection(AdultsP16_plot, TopoLevels[TopoLevels$TopoTypeEn == "Bottomland",])
+adults_BF <- st_intersection(adults_BF, P16[P16$Subplot %in% c("11","12","16","17","21","22"),])
+
+
+ggplot() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = adults_BF, size = 1, aes(col= Genus)) + # , aes(col= Genus)
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  guides(fill = FALSE) +
+  labs(fill= "Topography")
+
+unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
+```
+
+# Apply taper correction if measured HOM
+```{r}
+# use "Diameter" and "HOM" columns to create -> "TaperDBH_TreeDataCor"
+
+TaperCorrection(
+  AdultsP16,
+  DefaultHOM = 1.3,
+
+  TaperParameter = function(DAB, HOM) 0.156 - 0.023 * log(DAB) - 0.021 * log(HOM),
+  TaperFormula = function(DAB, HOM, TaperParameter, DefaultHOM) DAB / (exp(- TaperParameter*(HOM - DefaultHOM))),
+
+  DetectOnly = FALSE
+)
+```
+
+# My filters
+```{r}
+ AdultsP16 %>%
+  # Only spatialised trees
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
+
+  filter(DBH>=10) %>% 
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+
+  # Only measured trees
+  filter(!is.na(DBH)) %>%
+  
+  # Only botanical identified
+  filter(!is.na(ScientificName)) %>%
+  filter(!grepl("indet", ScientificName)) %>%
+  filter(!grepl("Indet", ScientificName)) %>%
+  filter(!grepl("aceae", ScientificName)) %>%
+  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>%
+  filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
+  filter(!grepl("_cf_", ScientificName)) %>%
+  mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>% 
+  mutate(SubSpecies = str_extract(ScientificName,"(?<=\\.).*")) %>% 
+  rename(ScientificName_old = ScientificName,
+         ScientificName = ScientificName_c) %>% 
+  
+  # Count individuals by species
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+```
+
+# Estimate tree height
+```{r}
+
+```
+

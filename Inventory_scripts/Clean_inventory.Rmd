@@ -48,7 +48,7 @@ UnderstoryN <- read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_A
 
 AdultsP <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9 ha
-AdultsN <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv") %>% 
+AdultsN <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv") %>%
   filter(SubPlot %in% c(202,203,204,212,213,214)) # 6 ha
 ```
 
@@ -59,15 +59,15 @@ names(UnderstoryN)[!names(UnderstoryN) %in% names(UnderstoryP)]
 names(UnderstoryP)[!names(UnderstoryP) %in% names(UnderstoryN)]
 
 names(UnderstoryN) <- str_to_sentence(names(UnderstoryN)) # start by uppercase
-UnderstoryN <- UnderstoryN %>% 
-  select(- "...1") %>% 
+UnderstoryN <- UnderstoryN %>%
+  select(- "...1") %>%
   rename_at(c("Pom", "Dbh"), # uppercase
-            .funs = toupper) %>% 
+            .funs = toupper) %>%
   rename(TreeID = Treeid, StemID = Stemid, Subplot=Plot,
-         CensusYear = Censusyear, CensusDate = Censusdate, Dead = Mort, 
-         BotaCertainty = Botacertainty, ScientificName = Scientificname, Cod.CTFS=Codctfs) %>% 
-  mutate(Site = "Nouragues") %>% 
-  mutate(Plot = "Petit_Plateau") %>% 
+         CensusYear = Censusyear, CensusDate = Censusdate, Dead = Mort,
+         BotaCertainty = Botacertainty, ScientificName = Scientificname, Cod.CTFS=Codctfs) %>%
+  mutate(Site = "Nouragues") %>%
+  mutate(Plot = "Petit_Plateau") %>%
   mutate(ProjectArea = 6)
 
 UnderstoryP <- UnderstoryP %>% 
@@ -96,7 +96,7 @@ UnderstoryP <- Understory[[1]]
 UnderstoryN <- Understory[[2]]
 
 sum(is.na(UnderstoryP$Strategy)) # 6875
-sum(is.na(UnderstoryN$Strategy)) # 20000
+sum(is.na(UnderstoryN$Strategy)) # 20005
 ```
 
 # Checks
@@ -180,7 +180,7 @@ unique(Data$Comment)
 Data %>% filter(Comment!="") %>% select(Comment, IdTree, IdStem, XTreeUTM, YTreeUTM, Family, Genus, Species, ScientificName, Diameter) 
 
 multistems <- Data %>% filter(!is.na(IdStem)) %>% filter(grepl("Duplicated 'IdStem'", Comment)) %>%
-  select(Comment, IdTree, IdStem, Guyafor.nb, Diameter)
+  select(Comment, IdTree, IdStem, Guyafor.nb, Diameter, Genus, ScientificName, XTreeUTM, YTreeUTM, Probleme)
 
 dupli <- unique((multistems %>% filter(grepl("Duplicated row", Comment)))$IdStem)
 
@@ -364,16 +364,48 @@ stem1 <- data[data$TreeID %in% stems & data$Stem.nb==1,]$TreeID # cirad stem id 
 #!! ATTENTION trees without stem 1 !!
 stems[!stems %in% stem1] # trees with multiple stems but without a stem 1
 
-stems <- data[!is.na(data$Stem.nb) & data$Stem.nb!=1,]
+stems <- data[!is.na(data$Stem.nb) & data$Stem.nb!=1,] # multistems identifiées
 (nrow(stems) + (nrow(multistems)-length(unique(multistems$IdStem))))/nrow(data)*100 # 0.09 % que stems,  1.5 % avec les stems mal codées
 
-multistems <- multistems %>% rename(StemID = IdStem, TreeID = IdTree, DBH=Diameter)
+multistems <- multistems %>% rename(StemID = IdStem, TreeID = IdTree, DBH=Diameter, Xutm = XTreeUTM, Yutm = YTreeUTM) # multistems probables
 
-totalmultistems <- stems %>% bind_rows(multistems)
-length(unique(totalmultistems$TreeID))/length(unique(data$TreeID))*100 # 579 trees; 1.4%
-nrow(totalmultistems %>% filter(is.na(Guyafor.nb)) %>% select(TreeID) %>% unique())/length(unique(data$TreeID))*100 # 533; 1.3%
-nrow(totalmultistems %>% filter(!is.na(Guyafor.nb)) %>% select(TreeID) %>% unique())/length(unique(data$TreeID))*100 # 46; 0.1 %
+totalmultistems <- stems %>% bind_rows(multistems) %>% filter(!is.na(ScientificName))
+length(unique(totalmultistems$TreeID))/length(unique(data$TreeID))*100 # 1299 trees; 1.4%
 
+nrow(totalmultistems %>% filter(is.na(Guyafor.nb)) %>% select(TreeID) %>% unique())/length(unique(data$TreeID))*100 # 433; 1.2% ALT
+
+nrow(totalmultistems %>% filter(!is.na(Guyafor.nb)) %>% select(TreeID) %>% unique())/length(unique(data$TreeID))*100 # 46; 0.1 % Cirad
+
+Multistems_sp <- multistems %>%  # sans stems pcq il sont apparemment dupliqué (Probleme)
+  select(TreeID, ScientificName) %>%  unique() %>% 
+  group_by(ScientificName) %>%
+  summarise(N = n()) %>% # mutate
+  # select(ScientificName,Strategy, DBH, N) %>% 
+  arrange(desc(N))
+
+write.csv(Multistems_sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_sp.csv")
+
+# On bottomlands ?
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
+
+multistems_plot <- multistems %>% 
+  select(TreeID, ScientificName, Xutm, Yutm) %>%  unique() %>% 
+  filter(ScientificName=="Guarea_costata") %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(TopoLevels))
+
+ggplot() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = multistems_plot) + # , aes(col= Genus)
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  labs(fill= "Topography")
 
 ```
 
@@ -475,76 +507,107 @@ data %>%
   ungroup() %>% 
   group_by(N) %>%
   summarise(n_sp = n()) %>%
-  mutate(N = arrange(desc(N)) %>% 
-           mutate(n_sp_cum = cumsum(n_sp)) %>% 
-           
-           ggplot(aes(x= N)) +
-           geom_col(aes(y=n_sp_cum)) +
-           geom_vline(xintercept = 30, col="red") +
-           scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,220, by=10))) + #  2500
-           scale_y_continuous(breaks = seq(0,732, by=25)) +
-           labs(x ="Individuals number", y="Decumulative species number")
-         
-         # ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr_geomcol.png", sep="_"),
-         #        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 30, height = 20, units = "cm", dpi=800, bg="white")
+  mutate(N = arrange(desc(N))) %>% 
+  mutate(n_sp_cum = cumsum(n_sp)) %>% 
+  
+  ggplot(aes(x= N)) +
+  geom_col(aes(y=n_sp_cum)) +
+  geom_vline(xintercept = 30, col="red") +
+  scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,220, by=10))) + #  2500
+  scale_y_continuous(breaks = seq(0,732, by=25)) +
+  labs(x ="Individuals number", y="Decumulative species number")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr_geomcol.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 30, height = 20, units = "cm", dpi=800, bg="white")
 ```
-         
+
+
 ```{r, eval = F}
-         data %>%
-           filter(!is.na(ScientificName)) %>% 
-           filter(ScientificName!="Tres haut") %>% 
-           filter(!grepl("indet", ScientificName)) %>% 
-           filter(!grepl("Indet", ScientificName)) %>% 
-           filter(!grepl("aceae", ScientificName)) %>% 
-           group_by(ScientificName) %>%
-           summarise(Anbundances = n()) %>%
-           ungroup() %>% 
-           mutate(Anbundances = sort(Anbundances, decreasing = T)) %>% 
-           # filter(Anbundances >=30) %>% 
-           mutate(rank = 1:n()) %>%  
-           ggplot(aes(x= rank, y=Anbundances)) +
-           geom_point(size=1) +
-           geom_line() +
-           geom_hline(yintercept = 30, col="red") +
-           # scale_x_continuous(limits = c(1, 732), breaks =  c(seq(10,100, by=25), seq(200,732, by=100))) +
-           scale_y_continuous(limits = c(1, 2500), breaks =  c(1, seq(100,2500, by=100))) + #  2500
-           labs(x="Species rank")
-         
-         # ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_rank.png", sep="_"),
-         #        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+data %>%
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  filter(!grepl("aceae", ScientificName)) %>% 
+  group_by(ScientificName) %>%
+  summarise(Anbundances = n()) %>%
+  ungroup() %>% 
+  mutate(Anbundances = sort(Anbundances, decreasing = T)) %>% 
+  # filter(Anbundances >=30) %>% 
+  mutate(rank = 1:n()) %>%  
+  ggplot(aes(x= rank, y=Anbundances)) +
+  geom_point(size=1) +
+  geom_line() +
+  geom_hline(yintercept = 30, col="red") +
+  # scale_x_continuous(limits = c(1, 732), breaks =  c(seq(10,100, by=25), seq(200,732, by=100))) +
+  scale_y_continuous(limits = c(1, 2500), breaks =  c(1, seq(100,2500, by=100))) + #  2500
+  labs(x="Species rank")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_rank.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 # Filters for my analyses
-         DBH>=1
-         Only alive trees
-         Only the principal stem
-         Only measured trees
-         Only botanical identified
-         Take only sp >= 30 ind
-         
+DBH>=1
+Only alive trees
+Only the principal stem
+Only measured trees
+Only botanical identified
+Take only sp >= 30 ind
+
 # Remove duplicated rows
 ```{r}
-DuplicatedID <- unique(data[duplicated(data),]$StemID)
-
-data[data$StemID%in%DuplicatedID,]
-
-data <- data[!duplicated(data),]
+# DuplicatedID <- unique(data[duplicated(data),]$StemID)
+# 
+# data[data$StemID%in%DuplicatedID,]
+# 
+# data <- data[!duplicated(data),]
 # P: 42524 -> 42366 (158 rows removed)
 # N: 29370 -> 29363 (7 rows removed)
 ```
-         
+
 ```{r}
-data <- data %>% 
-  filter(DBH>=1) %>% 
+data <- Data %>% 
+  rename(StemID = IdStem, TreeID = IdTree, DBH=Diameter, Xutm = XTreeUTM, Yutm = YTreeUTM) %>%
+  
+  filter(DBH>=1) %>%
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
-  # Only the principal stem
-  filter(Stem.nb == 1) %>% 
-  
   # Only measured trees
-  filter(!is.na(DBH)) %>%
+  filter(!is.na(DBH))
   
-  # Only botanical identified
+```
+
+# Manage multistems (sum the diameters, and keep only 1 stem)
+```{r}
+unique(data$Comment) 
+unique(data$Comments)
+
+test <- data %>% 
+  filter(grepl("Duplicated 'IdStem' in the census", Comment)) %>% 
+    filter(grepl("Missing value in XTreeUTM", Comment)) %>% 
+  group_by(TreeID) %>% 
+  arrange(desc(DBH)) %>% 
+  mutate(Stem.nb = 1:n()) %>% # numérote les stems par ordre décroissant de DBH
+  mutate(DBHcor = sum(DBH)) %>% 
+  arrange(desc(DBHcor)) %>% 
+  ungroup() %>% 
+  mutate(DBHcor = ifelse(grepl("False pas double tige", Comments), DBH, DBHcor)) %>% 
+  select(TreeID, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
+  
+unique(test$Comment)
+# Different botanical informations (Family, ScientificName) for a same IdTree"
+# Missing value in XTreeUTM
+# Missing value in Species
+unique(test$Comments) # attention "False pas double tige" (traité)
+
+
+ # Only the principal stem
+filter(Stem.nb == 1) %>%
+# Only spatialised trees
+filter(!is.na(Xutm) & !is.na(Yutm)) %>%
+  # & DBH<10 only ALT data ?
+# Only botanical identified
   filter(!is.na(ScientificName)) %>%
   filter(ScientificName!="Tres haut") %>%
   filter(!grepl("indet", ScientificName)) %>%
@@ -567,111 +630,111 @@ data <- data %>%
   # Take only sp >= 30 ind
   filter(N >= 30)
 
-nrow(data) # 33337
-length(unique(data$ScientificName)) # 197
 ```
-         
+
 # Write cleaned data
 ```{r}
+nrow(data) # 33337
+length(unique(data$ScientificName)) # 197
+
 # write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
 ```
-         
+
 # Mis de coté pour l'instant (gestion noms scientifiques)
 ```{r, eval = F}
 Understory <- Understory %>% 
-           mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
-           mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
-           mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName))
-         
-         Adults <- Adults %>% 
-           # add a column identifying the two datasets
-           add_column(Dataset = "Standard") %>%
-           # idTree as character
-           mutate(idTree = as.character(idTree)) %>% 
-           # Circ to DBH
-           mutate(DBH = CircCorr/pi) %>% 
-           select(Dataset, idTree, Family, Genus, Species, DBH, MeasCode, CodeAlive, Xutm, Yutm)
-         
-         
-         # Join the 2 datasets
-         Total_inv <- bind_rows(Understory, Adults) %>% 
-           # Only alive trees
-           filter(CodeAlive == T) %>%
-           # Create the ScientificName column
-           unite(col = "ScientificName", c("Genus", "Species"),
-                 sep = " ", na.rm = TRUE, remove = F) %>%
-           mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
-           mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
-           mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
-           mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName))
-         
-         # unique individuals
-         length(Total_inv$idTree) # 45997
-         unique(length(Total_inv$idTree)) # 45997
-         
-         # Conceveiba  guianensis
-         # unique(Total_inv$ScientificName)
-         
+  mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
+  mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName))
+
+Adults <- Adults %>% 
+  # add a column identifying the two datasets
+  add_column(Dataset = "Standard") %>%
+  # idTree as character
+  mutate(idTree = as.character(idTree)) %>% 
+  # Circ to DBH
+  mutate(DBH = CircCorr/pi) %>% 
+  select(Dataset, idTree, Family, Genus, Species, DBH, MeasCode, CodeAlive, Xutm, Yutm)
+
+
+# Join the 2 datasets
+Total_inv <- bind_rows(Understory, Adults) %>% 
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+  # Create the ScientificName column
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
+  mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
+  mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName))
+
+# unique individuals
+length(Total_inv$idTree) # 45997
+unique(length(Total_inv$idTree)) # 45997
+
+# Conceveiba  guianensis
+# unique(Total_inv$ScientificName)
+
 ```
-         
+
 # Obsolete
 ```{r, eval = F}
-         # Understory <- Understory %>% 
-         #   select(-"...1" ) %>% 
-         #   unique() %>% 
-         #   
-         #   # Standardise columns names
-         #   rename(idTree = TreeID) %>% 
-         #   rename(Species = species) %>% 
-         #   rename(SubPlot = subplot) %>%
-         #   rename(CIRAD1 = CIRAD.BigTreeID) %>%
-         #   mutate(CodeAlive = as.logical(recode(Dead,
-         #                                        "FALSE" = "TRUE",
-         #                                        "FAUX" = "TRUE",
-         #                                        "(false)" = "TRUE",
-         #                                        "TRUE" = "FALSE",
-         #                                        "VRAI" = "FALSE"))) %>% 
-         #   # remove parentheses
-         #   mutate(Genus = gsub("[()]", "", Genus)) %>% 
-         #   mutate(Family = gsub("[()]", "", Family)) %>% 
-         #   
-         #   # add a column identifying the two datasets
-         #   add_column(Dataset = "ALT") %>% 
-         #   
-         #   # Create the ScientificName column
-         #   unite(col = "ScientificName", c("Genus", "Species"),
-         #         sep = " ", na.rm = TRUE, remove = F) %>%
-         #   mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
-         #   mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
-         #   mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
-         #   mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName)) %>% 
-         #   
-         #   # Only the needed columns
-         #   select(Dataset, SubPlot, Stem.number, idTree, CIRAD1, ScientificName, Family, Genus, Species, DBH, POM, CodeAlive, Xutm, Yutm)
+# Understory <- Understory %>% 
+#   select(-"...1" ) %>% 
+#   unique() %>% 
+#   
+#   # Standardise columns names
+#   rename(idTree = TreeID) %>% 
+#   rename(Species = species) %>% 
+#   rename(SubPlot = subplot) %>%
+#   rename(CIRAD1 = CIRAD.BigTreeID) %>%
+#   mutate(CodeAlive = as.logical(recode(Dead,
+#                                        "FALSE" = "TRUE",
+#                                        "FAUX" = "TRUE",
+#                                        "(false)" = "TRUE",
+#                                        "TRUE" = "FALSE",
+#                                        "VRAI" = "FALSE"))) %>% 
+#   # remove parentheses
+#   mutate(Genus = gsub("[()]", "", Genus)) %>% 
+#   mutate(Family = gsub("[()]", "", Family)) %>% 
+#   
+#   # add a column identifying the two datasets
+#   add_column(Dataset = "ALT") %>% 
+#   
+#   # Create the ScientificName column
+#   unite(col = "ScientificName", c("Genus", "Species"),
+#         sep = " ", na.rm = TRUE, remove = F) %>%
+#   mutate(ScientificName = ifelse(ScientificName=="", NA, ScientificName)) %>% 
+#   mutate(ScientificName = str_squish(ScientificName)) %>% # remove double spaces
+#   mutate(ScientificName = ifelse(ScientificName=="Astrocaryum sciophylum", "Astrocaryum sciophilum", ScientificName)) %>% 
+#   mutate(ScientificName = ifelse(ScientificName=="Micropholis guyanensis subsp.Duckeana", "Micropholis guyanensis_subsp.duckeana", ScientificName)) %>% 
+#   
+#   # Only the needed columns
+#   select(Dataset, SubPlot, Stem.number, idTree, CIRAD1, ScientificName, Family, Genus, Species, DBH, POM, CodeAlive, Xutm, Yutm)
 ```
-         
+
 !! ATTENTION !! il y a des dupliqués : différents DBH pour le meme idTree et la meme stem
 ```{r, eval = F}
-         # unique(Understory$Dead)
-         # 
-         # Understory <- Understory %>% 
-         #   select(-"...1" ) %>% 
-         #   unique() %>%
-         #   filter(DBH>=1) %>% 
-         #   rename(idTree = TreeID) %>% 
-         #   rename(Species = species) %>% 
-         #   rename(SubPlot = subplot) %>% 
-         #   # rename(CodeAlive = Dead) %>% 
-         #   mutate(CodeAlive = as.logical(recode(Dead,
-         #                                        "FALSE" = "TRUE",
-         #                                        "FAUX" = "TRUE",
-         #                                        "(false)" = "TRUE",
-         #                                        "TRUE" = "FALSE",
-         #                                        "VRAI" = "FALSE"))) %>% 
-         #   # remove parentheses
-         #   mutate(Genus = gsub("[()]", "", Genus)) %>% 
-         #   mutate(Family = gsub("[()]", "", Family))
-         
-         # test <- select(Understory, Dead, CodeAlive)
+# unique(Understory$Dead)
+# 
+# Understory <- Understory %>% 
+#   select(-"...1" ) %>% 
+#   unique() %>%
+#   filter(DBH>=1) %>% 
+#   rename(idTree = TreeID) %>% 
+#   rename(Species = species) %>% 
+#   rename(SubPlot = subplot) %>% 
+#   # rename(CodeAlive = Dead) %>% 
+#   mutate(CodeAlive = as.logical(recode(Dead,
+#                                        "FALSE" = "TRUE",
+#                                        "FAUX" = "TRUE",
+#                                        "(false)" = "TRUE",
+#                                        "TRUE" = "FALSE",
+#                                        "VRAI" = "FALSE"))) %>% 
+#   # remove parentheses
+#   mutate(Genus = gsub("[()]", "", Genus)) %>% 
+#   mutate(Family = gsub("[()]", "", Family))
+
+# test <- select(Understory, Dead, CodeAlive)
 ```
-         
