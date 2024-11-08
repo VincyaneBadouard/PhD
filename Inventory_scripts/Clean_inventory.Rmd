@@ -197,7 +197,7 @@ Data <- BotanicalCorrection(Data, DetectOnly = T)
 unique(Data$Comment)
 Data %>% filter(Comment!="") %>% select(Comment, IdTree, IdStem, Family, Genus, Species, ScientificName)
 Data %>% filter(Comment=="Different botanical informations (Family, ScientificName) for a same IdTree") %>%
-  select(Comment, IdTree, IdStem, Guyafor.nb, DBH, Family, Genus, Species, ScientificName)
+  select(Comment, IdTree, IdStem, Guyafor.nb, Diameter, Family, Genus, Species, ScientificName)
 
 # Check the scientific names list
 sort(unique(data$ScientificName))
@@ -578,22 +578,26 @@ data <- Data %>%
   
 ```
 
-# Manage multistems (sum the diameters, and keep only 1 stem)
+# Manage multistems (sum the diameters, and keep only 1 stem) (Stem.nb pas codé)
 ```{r}
+# pas codé si Stem.nb bien codé (1, 2, n)
 unique(data$Comment) 
 unique(data$Comments)
 
 test <- data %>% 
-  filter(grepl("Duplicated 'IdStem' in the census", Comment)) %>% 
-    filter(grepl("Missing value in XTreeUTM", Comment)) %>% 
+  filter(grepl("Duplicated 'IdStem' in the census", Comment)) %>% # seulement les dupliqués
   group_by(TreeID) %>% 
   arrange(desc(DBH)) %>% 
   mutate(Stem.nb = 1:n()) %>% # numérote les stems par ordre décroissant de DBH
   mutate(DBHcor = sum(DBH)) %>% 
   arrange(desc(DBHcor)) %>% 
+  fill(Xutm, Yutm, X, Y,
+       Guyafor.nb,
+       ScientificName, Genus, Species, Family,
+       .direction = "downup") %>% 
   ungroup() %>% 
-  mutate(DBHcor = ifelse(grepl("False pas double tige", Comments), DBH, DBHcor)) %>% 
-  select(TreeID, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
+  mutate(DBHcor = ifelse(grepl("False pas double tige", Comments), DBH, DBHcor)) #%>% 
+  # select(TreeID, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
   
 unique(test$Comment)
 # Different botanical informations (Family, ScientificName) for a same IdTree"
@@ -601,6 +605,11 @@ unique(test$Comment)
 # Missing value in Species
 unique(test$Comments) # attention "False pas double tige" (traité)
 
+# write.csv(test, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_DBHcor.csv")
+
+data <- data %>% 
+  filter(!grepl("Duplicated 'IdStem' in the census", Comment)) %>% # supprimer les dupliqués
+  bind_rows(test)
 
  # Only the principal stem
 filter(Stem.nb == 1) %>%

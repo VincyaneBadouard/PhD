@@ -11,14 +11,17 @@ library(tidyverse)
 library(data.table)
 library(readr)
 library(sf)
-# library() # TreeData
+library(TreeData)
 
 # remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
 # library(EcoFoG)
 ```
 
 ```{r}
-AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% # all P16 (25 ha)
+# read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
+
+AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
+  filter(CensusYear == 2020) %>% # last year
   # Only alive trees
   filter(CodeAlive == T) %>%
   # Scientific name
@@ -27,7 +30,7 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% # 
   # idTree as character
   mutate(idTree = as.character(idTree)) %>% 
   # Circ to DBH
-  mutate(Diameter = CircCorr/pi)
+  mutate(Diameter = CircCorr/pi) # 12489
 
 
 # AdultsPP <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
@@ -87,28 +90,37 @@ unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
 # Apply taper correction if measured HOM
 ```{r}
 # use "Diameter" and "HOM" columns to create -> "TaperDBH_TreeDataCor"
+# POMCertainty = 0: deduced ; 1: measured
 
-TaperCorrection(
-  AdultsP16,
-  DefaultHOM = 1.3,
+cortrees <- AdultsP16 %>% 
+  filter(POMCertainty == 1) %>%
+  mutate(HOM = POM/100) %>% # in m
+  TaperCorrection(
+    DefaultHOM = 1.3,
+    
+    TaperParameter = function(DAB, HOM) 0.156 - 0.023 * log(DAB) - 0.021 * log(HOM),
+    TaperFormula = function(DAB, HOM, TaperParameter, DefaultHOM) DAB / (exp(- TaperParameter*(HOM - DefaultHOM))),
+    
+    DetectOnly = F
+  )
 
-  TaperParameter = function(DAB, HOM) 0.156 - 0.023 * log(DAB) - 0.021 * log(HOM),
-  TaperFormula = function(DAB, HOM, TaperParameter, DefaultHOM) DAB / (exp(- TaperParameter*(HOM - DefaultHOM))),
+range(cortrees$Diameter - cortrees$TaperDBH_TreeDataCor) # -4.31897  0.00000
 
-  DetectOnly = FALSE
-)
+AdultsP16 <- AdultsP16 %>% 
+  filter(POMCertainty!=1) %>% 
+  bind_rows(cortrees) # 12489
 ```
 
 # My filters
 ```{r}
- AdultsP16 %>%
+AdultsP16 %>%
   # Only spatialised trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
-
+  
   filter(DBH>=10) %>% 
   # Only alive trees
   filter(CodeAlive == T) %>%
-
+  
   # Only measured trees
   filter(!is.na(DBH)) %>%
   
