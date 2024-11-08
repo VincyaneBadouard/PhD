@@ -102,9 +102,10 @@ cortrees <- AdultsP16 %>%
     TaperFormula = function(DAB, HOM, TaperParameter, DefaultHOM) DAB / (exp(- TaperParameter*(HOM - DefaultHOM))),
     
     DetectOnly = F
-  )
+  ) %>% 
+  rename(DBHcor = TaperDBH_TreeDataCor)
 
-range(cortrees$Diameter - cortrees$TaperDBH_TreeDataCor) # -4.31897  0.00000
+range(cortrees$Diameter - cortrees$DBHcor) # -4.31897  0.00000 cm DBH
 
 AdultsP16 <- AdultsP16 %>% 
   filter(POMCertainty!=1) %>% 
