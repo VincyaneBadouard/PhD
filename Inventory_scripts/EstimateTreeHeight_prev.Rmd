@@ -1,0 +1,237 @@
+---
+title: "Estimate tree height"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+faire un modèle par espèce, puis genre, puis famille, puis peuplement
+
+voir D:\VSC ManagFores\Codes_Draft\Tree height exploration.rmd
+
+en attente de données de :
+- Stéphane Traissac : Paracou Régénération et JuvénilesBlocSud.
+- Des hauteurs issues d’un Canopy Height Model d’un passage Lidar fait par Altoa en 2013 sous l’égide de Greg Vincent et Mélaine Aubry-Kientz.
+- ervan.rutishauser@infoflora.ch : Sine Method (Larjavaara & Muller-Landau 2013) with Laser rangefinder Nikon Forestry
+er.rutishauser@gmail.com
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(readr)
+library(BIOMASS)
+```
+
+# Import cleaned inventory data
+```{r,include = F, message=F}
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+```
+
+# Import allometry data
+```{r, include = F}
+# Claudia data 
+
+# Giacomo FTH data
+FTH <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Allometry_FTH_GSellan_Paracou_20240125.csv")
+range(na.omit(FTH$DBH)) # 0.90 96.12959
+# petits arbres mesurés, grands: mesure angle au clinomètre entre le haut et le bas de la plante -W trigonométrie
+
+
+# Data Nouragues from BIOMASS package
+data(NouraguesHD) # on 2ha, >10 cm DBH (Réjou-Méchain et al., 2015))
+
+# region = GuianaShield (Vertex hypsometers, laser range-finders, mechanical clinometers, climbing + tape, or destructive methods)
+
+# Guyafor data (ref : ?)
+# - dispositifs Gentry (2010-2019) de Chris Baraloto and co (Bridge (2007,2011), AmaLin (2010), Diadema (2013-2019)) : cbaralot@fiu.edu
+# - Guyaflux Paracou (2006), Damien Bonal : damien.bonal@inrae.fr
+# - Nouragues, Jérôme Chave : jerome.chave@univ-tlse3.fr
+# - Paracou : Géraldine, Ervan Rutishauser (er.rutishauser@gmail.com), Greg Vincent (2011-2012) (gregoire.vincent@ird.fr), Maxime Rejou-Méchain. 2012
+# - ONF (2003-2015)
+
+TreeheightGuyafordata <- read_delim("D:/VSC ManagFores/DATA/TreeheightGuyafordata.csv", 
+                                    ";", escape_double = FALSE, col_types = cols(Circ = col_number(), 
+                                                                                 CircCorr = col_number(), Hauteur = col_number()), 
+                                    locale = locale(encoding = "Latin1"), 
+                                    trim_ws = TRUE) %>% 
+  unite(Genus, Species, col = "ScientificName", sep = "_", remove = F) %>% 
+  mutate(DBH = ifelse(is.na(CircCorr), Circ/pi, CircCorr/pi)) %>% 
+  mutate(HeightHow = recode(HeightHow, 'Visual estimate' = 'Visual Estimate')) %>% 
+  mutate(ScientificName = recode(ScientificName, 'Couepia_guianensis' = 'Couepia_guianensis subsp. glandulosa')) %>% 
+    mutate(ScientificName = recode(ScientificName, 'Hirtella_bicornis' = 'Hirtella_bicornis var. bicornis')) %>% 
+  mutate(ScientificName = recode(ScientificName, 'Micropholis_guyanensis' = 'Micropholis_guyanensis subsp. duckeana'))
+ # enlever ce qu"il y a après l'espace
+  
+  # Lacunaria_crenata subsp. crenata
+	
+
+
+# 
+TreeheightGuyafordata %>% select(Forest, Protocole, Project, HeightWho) %>% unique() # Protocole, Project, CensusYear
+
+any(is.na(TreeheightGuyafordata$DBH)) # all the DBH have been computed?
+unique(TreeheightGuyafordata$Forest) # on prend que Paracou ?
+TreeheightGuyafordata %>% filter(Forest=="Paracou") # 4,520/35,781
+range(TreeheightGuyafordata$DBH) # 0.416986 256.239458
+TreeheightGuyafordata %>% filter(DBH<10) # 13,245/35,781
+table(TreeheightGuyafordata$HeightHow)
+```
+
+# Bind data
+```{r}
+names(FTH) ; names(NouraguesHD);names(TreeheightGuyafordata)
+
+names(TreeheightGuyafordata)[!names(TreeheightGuyafordata) %in% names(FTH)]
+names(TreeheightGuyafordata)[!names(TreeheightGuyafordata) %in% names(NouraguesHD)]
+
+
+names(FTH) <- str_to_sentence(names(FTH)) # start by uppercase
+names(NouraguesHD) <- str_to_sentence(names(NouraguesHD)) # start by uppercase
+
+FTH <- FTH %>% 
+  select(- "...1") %>% 
+  rename(DBH = Dbh, Hauteur = Htot) %>% 
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  # mutate(family = getTaxonomy(Genus)$family) %>% 
+  # mutate(Family = ifelse(is.na(Family), family, Family)) %>% 
+  # select(- family) %>% 
+  mutate(Forest = "Paracou") %>%
+  mutate(Plot = "16") %>% 
+  mutate(Project = "FTH") %>% 
+  mutate(HeightHow = "Trigonometry (FTH)") %>% 
+  mutate(HeightWho = "Giacomo's FTH")
+
+# FTH %>% filter(Family != family) %>% select(Family, family, ScientificName) %>% unique()
+# # APG3 de biomass trop vieux
+# FTH %>% filter(is.na(Family))
+
+NouraguesHD <- NouraguesHD %>% 
+  rename(DBH = D, Hauteur = H)  %>% 
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  mutate(Forest = "Nouragues") %>% 
+  mutate(Plot = "16") %>% 
+  mutate(HeightHow = "Rangefinder") %>% 
+  mutate(HeightWho = "Réjou-Méchain et al., 2015")
+
+# Bind -------------------------------------------------------------------------
+data <- TreeheightGuyafordata %>% bind_rows(FTH) %>% bind_rows(NouraguesHD)
+nrow(data) == nrow(TreeheightGuyafordata) + nrow(FTH) + nrow(NouraguesHD)
+
+# Retreive Family name
+FamilyT <- data %>% filter(!is.na(Genus) & !is.na(Family)) %>% select(Genus, Family) %>% unique()
+
+data <- data %>% 
+  left_join(FamilyT, by="Genus") %>% 
+  mutate(Family.x = ifelse(is.na(Family.x), Family.y, Family.x)) %>% 
+  mutate(family = getTaxonomy(Genus)$family) %>%
+  mutate(Family.x = ifelse(is.na(Family.x), family, Family.x)) %>% 
+  rename(Family = Family.x) %>% 
+  select(- c(family, Family.y))
+
+data %>% filter(!is.na(Genus) & is.na(Family)) %>% select(Genus) %>% unique()
+
+```
+```{r}
+data %>%
+  ggplot() +
+  aes(x = DBH, y = Hauteur, colour=Forest) +
+  geom_point(shape = "circle", size = 0.2) + # , colour = "#440154"
+  geom_smooth(span = 0.75, linewidth = 0.8) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  facet_wrap(vars(HeightHow), ncol = 4) +
+  theme_minimal() +
+  theme(title= element_text(size=14),
+        axis.title= element_text(size=14), axis.text= element_text(size=14),
+        legend.title= element_text(size=14), legend.text= element_text(size=14),
+        legend.position="bottom", strip.text = element_text(size=14)) 
+
+
+
+ggsave("Tree_height_measurment_methods.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+       width = 35, height = 20, units = "cm", dpi=800, bg="white")
+```
+
+# Fits and compares (optional) height-diameter models (BIOMASS)
+là c'est tte espèce confondues -> faire un modèle par espèce
+```{r}
+# log2 : exp(0.07359191 + 1.34241216*log(DBH) + -0.12282344*log(DBH)^2)
+
+ModelsresultGuiana <- modelHD( # fits and compares (optional) height-diameter models
+  D = data$DBH,
+  H = data$Hauteur,
+  useWeight = F
+)
+knitr::kable(ModelsresultGuiana)
+# all data : michaelis (use weight: RSE= 4.69631, no weight : 4.617929)
+# only guyafor : log2 has the lowest RSE (4.699261 with all data, 4.316927 without "Visual E/estimate", 3.059860 with just "Sine Method") # useWeight = T : RSE =  4.699261; F : 4.699261
+#Don't forget, you have the model form, and its parameters, and there are different according to the data.
+
+HDmodelGuiana <- modelHD(
+  D = data$DBH,
+  H = data$Hauteur,
+  method = "michaelis", # Compute the H-D model with the lowest RSE.
+  useWeight = F # T = larger trees have a stronger influence during the construction of the model 
+)
+
+# Understory %>% 
+#   mutate(TreeHeight = retrieveH(D= DBH, model = HDmodelGuiana, region = GuianaShield)$H)
+```
+
+# Pour chaque espèce
+```{r}
+Understory <- Understory %>%
+  mutate(TreeHeight = NA)
+
+# slist <- vector('list', length(unique(Understory$ScientificName)) )
+
+for(s in unique(Understory$ScientificName)){
+  
+  print(s)
+  if(s =="Oenocarpus_bataua") next()
+  
+  Sdata <- data %>% 
+    filter(ScientificName == s)
+  
+  if(nrow(Sdata)>=15){
+    m <- modelHD( # fits and compares height-diameter models
+      D = Sdata$DBH,
+      H = Sdata$Hauteur,
+      method = NULL, 
+      useWeight = F,
+      drawGraph = F
+    )
+    
+    meth <- (m %>% filter(RSE == min(m$RSE)))$method # select the model with the lowest RSE
+    
+    model <- modelHD(  # Compute the H-D model with the lowest RSE
+      D = data$DBH,
+      H = data$Hauteur,
+      method = meth,
+      useWeight = F,
+      drawGraph = F 
+    )
+    
+    Understory <- Understory %>%
+      mutate(TreeHeight = ifelse(ScientificName == s,
+                                 (retrieveH(D = DBH, model = model))$H,
+                                 TreeHeight)) # , region = GuianaShield
+  } else(next())
+}
+
+# Erreur :
+# Erreur dans nls(y ~ x/(K + x), data = xy, start = list(K = abs(pars[2L]/pars[1L])),  : 
+#   le pas 0.000488281 est devenu inférieur à 'minFactor' de 0.000976562
+# "Oenocarpus_bataua"
+
+# bug:
+# m'affiche le plot alors que drawGraph = F
+# To build a HD model you must use the parameter 'method' in this function alors que method = NULL ou renseignée
+```
+
+```{r}
+unique((Understory %>% filter(is.na(TreeHeight)) %>% select(ScientificName, Strategy))) # 6,005 ind, 68 sp, 1-51 cm DBH
+# Pas assez de données de hauteur (<15)
+# "Maytenus_oblongata"
+```
+
