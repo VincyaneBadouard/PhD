@@ -1,0 +1,200 @@
+---
+title: "Reproject coordinates"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+library(terra)
+library(sf)
+```
+
+# Reprojection des piquets selon les coins du carré
+**"warping"**
+## Importer les points géomètre
+```{r}
+geometre_coord <- read.table("~/PhD/SIG_data/Understory-ALT/Geometre_2024/Sy23179-Paracou_P16_9ha_coord_Subplot.txt", quote="\"", comment.char="") # UTM 22 N
+
+geometre_coord <- geometre_coord %>% 
+  rename(ID = V1) %>% 
+  rename(Xutm = V2) %>%
+  rename(Yutm = V3) %>%
+  rename(Zutm = V4)
+
+SubPlots <- data.frame(SubPlot = sort(rep(c(13,14,15,18,19,20,23,24,25), 4)),
+                       ID = c("B.5","B.4","B.7","B.6", # 13
+                              "B.4","B.3","B.8","B.7", # 14
+                              "B.3","B.2","B.1","B.8", # 15
+                              "B.6","B.7","B.15","B.14", # 18
+                              "B.7","B.8","B.16","B.15", # 19
+                              "B.8","B.1","B.9","B.16", # 20
+                              "B.14","B.15","B.12","B.13", # 23
+                              "B.15","B.16","B.11","B.12", # 24
+                              "B.16","B.9","B.10","B.11")) # 25
+
+
+geometre_coord <- SubPlots %>% 
+  left_join(geometre_coord, by="ID") %>% 
+  rename(X=Xutm, Y=Yutm) %>% 
+  select(X,Y,Zutm, SubPlot, ID)
+
+
+
+P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
+geometre_coordsf <- st_as_sf(geometre_coord, coords = c('X','Y'))
+geometre_coordsf <- st_set_crs(geometre_coordsf, crs(P16shp))
+
+ggplot() +
+  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
+  geom_sf(data = geometre_coordsf, col = "red", size = 2) +
+  ggtitle("Paracou P16 9ha - Geometre points")
+
+# ggsave("Paracou_P16_9ha_Geometre_points.png",
+#        path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 15, height = 15, units = "cm", dpi=800, bg="white")
+```
+## Importer les coordonées théoriques des piquets
+```{r}
+ALT <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/ALT_stakes_theoretical_UTM.csv") %>% 
+  select(-X) %>% 
+  rename(X=Xutm, Y=Yutm)
+
+ALTsf <- st_as_sf(ALT, coords = c('X','Y')) # as sf
+ALTsf <- st_set_crs(ALTsf, terra::crs(P16shp)) # set crs
+
+ggplot() +
+  geom_sf(data = ALTsf, col="green", size = 1) + # coordonées théoriques des piquets
+  geom_sf(data = geometre_coordsf, col="darkgreen", size = 0.8) + # geometre
+  ggtitle("Before warping")
+
+subplots_corn <- ALT %>% 
+  filter(x %in% c(0,100,200,300,400,500)) %>% 
+  filter(y %in% c(0,100,200,300,400,500))
+subplots_cornsf <- st_as_sf(subplots_corn, coords = c('X','Y'))
+subplots_cornsf <- st_set_crs(subplots_cornsf, crs(P16shp))
+
+ggplot() +
+  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
+  geom_sf(data = subplots_cornsf, col = "red", size = 2) +
+  ggtitle("Paracou P16 9ha - SubPlots corners")
+
+SubPlots <- SubPlots %>% mutate(x = case_when(
+  ID == "B.13" | ID == "B.14" | ID == "B.6" | ID == "B.5" ~ 200,
+  ID == "B.12" | ID == "B.15" | ID == "B.7" | ID == "B.4" ~ 300,
+  ID == "B.11" | ID == "B.16" | ID == "B.8" | ID == "B.3" ~ 400,
+  ID == "B.10"| ID == "B.9" | ID == "B.1" | ID == "B.2" ~ 500) 
+) %>% 
+  mutate(y = case_when(
+    ID == "B.13" | ID == "B.12" | ID == "B.11" | ID == "B.10" ~ 0,
+    ID == "B.14" | ID == "B.15" | ID == "B.16" | ID == "B.9" ~ 100,
+    ID == "B.6" | ID == "B.7" | ID == "B.8" | ID == "B.1" ~ 200,
+    ID == "B.5"| ID == "B.4" | ID == "B.3" | ID == "B.2" ~ 300) 
+  )
+
+subplots_corn <- SubPlots %>% 
+  left_join(subplots_corn, by = c("x", "y")) %>% 
+  select(X, Y, x, y, SubPlot, ID)
+
+ALT <- ALT %>% 
+  mutate(SubPlot = case_when(
+    (x >= 200 & x < 300 & y >= 0 & y < 100) ~ 23,
+    x >= 300 & x < 400 & y >= 0 & y < 100 ~ 24,
+    x >= 400 & x <= 500 & y >= 0 & y < 100 ~ 25,
+    x >= 200 & x < 300 & y >= 100 & y < 200 ~ 18,
+    x >= 300 & x < 400 & y >= 100 & y < 200 ~ 19,
+    x >= 400 & x <= 500 & y >= 100 & y < 200 ~ 20,
+    x >= 200 & x < 300 & y >= 200 & y <= 300 ~ 13,
+    x >= 300 & x < 400 & y >= 200 & y <= 300 ~ 14,
+    x >= 400 & x <= 500 & y >= 200 & y <= 300 ~ 15) 
+  ) %>% 
+  select(X, Y, x, y, SubPlot)
+```
+
+## Reprojection des piquets
+Reprojette que pour 4 points de référence pas + pas -
+
+```{r}
+# install.packages("remotes")
+# remotes::install_github('umr-amap/BIOMASS')
+library(BIOMASS)
+?bilinear_interpolation
+```
+
+```{r}
+projCoord <- data.frame()
+
+for(S in c(13,14,15,18,19,20,23,24,25)){
+  # S = 18
+  projCoordS <- bilinear_interpolation(
+    coord = ALT[ALT$SubPlot == S, c("x","y")], # relative coord
+    from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # relative coord
+    to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,],
+    ordered_corner = F) %>% 
+    mutate(SubPlot = S)
+  
+  projCoord <- rbind(projCoord, projCoordS)
+}
+
+# plot((st_as_sf(subplots_corn[subplots_corn$SubPlot == S,], coords = c('X','Y'))))
+```
+
+```{r}
+projCoordsf <- st_as_sf(projCoord, coords = c('X','Y'))
+projCoordsf <- st_set_crs(projCoordsf, crs(P16shp))
+
+
+ggplot() +
+  geom_sf(data = ALTsf, col="grey", size = 0.8) + # points to reproject
+  geom_sf(data = geometre_coordsf, col="red", size = 1.5) + # reference
+  geom_sf(data = projCoordsf, aes(col=as.factor(SubPlot)), size = 0.8) + # reprojection
+  labs(col= "SubPlot") +
+  theme_classic() +
+  ggtitle("After warping")
+
+```
+
+## Correction des coordonées des arbres selon les piquets S-O corrigés
+# Import cleaned inventory data
+```{r,include = F, message=F}
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+```
+
+```{r}
+projCoord <- data.frame()
+
+for(S in c(13,14,15,18,19,20,23,24,25)){
+  # S = 18
+  projCoordS <- bilinear_interpolation(
+    coord = Understory[Understory$Subplot == S, c("X","Y")], # relative coord (x, y)
+    from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # relative coord (x, y)
+    to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,],
+    ordered_corner = F) %>% 
+    mutate(SubPlot = S)
+  
+  projCoord <- rbind(projCoord, projCoordS)
+}
+
+plot((st_as_sf(subplots_corn[subplots_corn$SubPlot == S,], coords = c('X','Y'))))
+```
+**ATTENTION ya des arbres qu'on n'a pas reprojeté !!**
+```{r}
+projCoordsf <- st_as_sf(na.omit(projCoord), coords = c('X','Y'))
+projCoordsf <- st_set_crs(projCoordsf, crs(P16shp))
+
+Understorysf <- st_as_sf(na.omit(Understory[Understory$Subplot == S,c('Xutm','Yutm')]),
+                         coords = c('Xutm','Yutm'))
+Understorysf <- st_set_crs(Understorysf, crs(P16shp))
+
+
+ggplot() +
+  geom_sf(data = Understorysf, col="grey", size = 0.8) + # points to reproject
+  geom_sf(data = projCoordsf, aes(col=as.factor(SubPlot)), size = 0.8) + # reprojection
+  labs(col= "SubPlot") +
+  theme_classic() +
+  ggtitle("After warping")
+```
+
