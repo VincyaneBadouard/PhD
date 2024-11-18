@@ -6,6 +6,7 @@ output: pdf_document
 ---
 
 **PRENDRE DBHcor** !!!!
+**sauf pour les multistems : il faut prendre DBH de la 1ère tige**
 
 
 faire un modèle toutes espèces confondues
@@ -32,15 +33,17 @@ CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/CanopyConstructorDataP16.
 
 # Giacomo FTH data
 FTH <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Allometry_FTH_GSellan_Paracou_20240125.csv") %>% 
-  select(DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
+  select(Genus, species, DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
+  unite(col = "ScientificName", c("Genus", "species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
   rename(Height = Htot, CrownBase = Hbranch) %>% 
   mutate(HeightHow = "Trigonometry (FTH)") %>% 
-  mutate(r2 = as.numeric((r2))) %>% 
+  mutate(r2 = as.numeric((r2))) %>% # à vérifier
   mutate(r4 = as.numeric((r4))) 
 
-
+length(sort(unique(FTH$ScientificName))) # ya des sp, indet
 range(na.omit(FTH$DBH)) # 0.90 96.12959
-# petits arbres mesurés, grands: mesure angle au clinomètre entre le haut et le bas de la plante -W trigonométrie
+# petits arbres mesurés au ruban, grands: mesure angle au clinomètre entre le haut et le bas de la plante (trigonométrie)
 
 data <- CC %>%
   bind_rows(FTH) %>% 
@@ -147,10 +150,10 @@ data %>%
   
   scale_color_manual(name = "Crown radius",
                      values = c("CanopyConstructor" = "#00AFBB",
-                              "FTH-r1"= "#CC79A7",
-                              "FTH-r2"= "#E7B800",
-                              "FTH-r3" = "#FC4E07",
-                              "FTH-r4" = "#009E73")) +
+                                "FTH-r1"= "#CC79A7",
+                                "FTH-r2"= "#E7B800",
+                                "FTH-r3" = "#FC4E07",
+                                "FTH-r4" = "#009E73")) +
   
   theme_minimal() +
   labs(x ="DBH (cm)", y = "Crown radius (m)") +
@@ -183,10 +186,10 @@ data %>%
   
   scale_color_manual(name = "Crown radius",
                      values = c("CanopyConstructor" = "#00AFBB",
-                              "FTH-r1"= "#CC79A7",
-                              "FTH-r2"= "#E7B800",
-                              "FTH-r3" = "#FC4E07",
-                              "FTH-r4" = "#009E73")) +
+                                "FTH-r1"= "#CC79A7",
+                                "FTH-r2"= "#E7B800",
+                                "FTH-r3" = "#FC4E07",
+                                "FTH-r4" = "#009E73")) +
   
   theme_minimal() +
   labs(x ="Tree height (m)", y = "Crown radius (m)") +
@@ -235,7 +238,7 @@ mean(FTH$CrownBase/FTH$Height, na.rm = T) # 0.58
 
 CrownDiameterAllometry ln(DBH) = 𝜶 +𝜷 ln(H*CD) + 𝜺, with 𝜺~N(0,σ^2)
 and mean σ^2 = 0.0295966977 with the crown diameter (CD), the tree height
-(H) in m, and the DBH in cm. (Aubry-Kientz et al.2019)(function)
+(H) in m, and the DBH in cm. (Aubry-Kientz et al.2019)
 
 ```{r}
 exp(((log(DBH)- alpha - rnorm(length(DBH), 0, 0.0295966977))/beta))/TreeHeight

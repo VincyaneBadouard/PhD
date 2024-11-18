@@ -575,7 +575,7 @@ data <- Data %>%
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees
   filter(!is.na(DBH))
-  
+
 ```
 
 # Manage multistems (sum the diameters, and keep only 1 stem) (Stem.nb pas codé)
@@ -596,9 +596,11 @@ test <- data %>%
        ScientificName, Genus, Species, Family,
        .direction = "downup") %>% 
   ungroup() %>% 
-  mutate(DBHcor = ifelse(grepl("False pas double tige", Comments), DBH, DBHcor)) #%>% 
-  # select(TreeID, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
-  
+  mutate(Multistems = T) %>% 
+  mutate(DBHcor = ifelse(grepl("False pas double tige", Comments), DBH, DBHcor)) %>% 
+  mutate(Multistems = ifelse(grepl("False pas double tige", Comments), F, Multistems)) #%>% 
+# select(TreeID, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
+
 unique(test$Comment)
 # Different botanical informations (Family, ScientificName) for a same IdTree"
 # Missing value in XTreeUTM
@@ -609,14 +611,15 @@ unique(test$Comments) # attention "False pas double tige" (traité)
 
 data <- data %>% 
   filter(!grepl("Duplicated 'IdStem' in the census", Comment)) %>% # supprimer les dupliqués
+  mutate(Multistems = F) %>% 
   bind_rows(test)
 
- # Only the principal stem
+# Only the principal stem
 filter(Stem.nb == 1) %>%
-# Only spatialised trees
-filter(!is.na(Xutm) & !is.na(Yutm)) %>%
+  # Only spatialised trees
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>%
   # & DBH<10 only ALT data ?
-# Only botanical identified
+  # Only botanical identified
   filter(!is.na(ScientificName)) %>%
   filter(ScientificName!="Tres haut") %>%
   filter(!grepl("indet", ScientificName)) %>%

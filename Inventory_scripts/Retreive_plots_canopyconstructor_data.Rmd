@@ -28,7 +28,9 @@ unique(CC$paramID)
 # Import P16 data
 ```{r}
 P16 <- EcoFoG::Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server",WHERE="Forest='Paracou' AND Plot='16'") %>% 
-  select(idTree, Plot) %>% unique()
+    unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  select(idTree, Plot, ScientificName) %>% unique()
 ```
 
 # Filter P16 CC data
@@ -43,11 +45,13 @@ test <- CC %>%
   ungroup() %>% 
   rename(DBH = dbh) %>% 
   mutate(DBH = DBH*100) %>%  # in cm
-  select(idTree, DBH, Height, CrownRadius) %>% unique()
+  select(idTree, DBH, Height, CrownRadius, ScientificName) %>% unique()
 
-nrow(CC);nrow(test) # 69315
+nrow(CC);nrow(test)
 
 length(unique(test$idTree)) # 13863*5 = 69315
+
+length(sort(unique(test$ScientificName))) # ya des sp, indet
 ```
 
 ```{r}

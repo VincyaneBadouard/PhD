@@ -25,8 +25,8 @@ geometre_coord <- geometre_coord %>%
   rename(Yutm = V3) %>%
   rename(Zutm = V4)
 
-SubPlots <- data.frame(SubPlot = sort(rep(c(13,14,15,18,19,20,23,24,25), 4)),
-                       ID = c("B.5","B.4","B.7","B.6", # 13
+SubPlots <- data.frame(SubPlot = sort(rep(c(13,14,15,18,19,20,23,24,25), 4)), # G à D, Haut en bas
+                       ID = c("B.5","B.4","B.7","B.6", # 13 # clockwise order
                               "B.4","B.3","B.8","B.7", # 14
                               "B.3","B.2","B.1","B.8", # 15
                               "B.6","B.7","B.15","B.14", # 18
@@ -38,7 +38,7 @@ SubPlots <- data.frame(SubPlot = sort(rep(c(13,14,15,18,19,20,23,24,25), 4)),
 
 
 geometre_coord <- SubPlots %>% 
-  left_join(geometre_coord, by="ID") %>% 
+  left_join(geometre_coord, by= "ID") %>% 
   rename(X=Xutm, Y=Yutm) %>% 
   select(X,Y,Zutm, SubPlot, ID)
 
@@ -57,6 +57,7 @@ ggplot() +
 #        path = "D:/Mes Donnees/PhD/Figures/inventory",
 #        width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
+
 ## Importer les coordonées théoriques des piquets
 ```{r}
 ALT <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/ALT_stakes_theoretical_UTM.csv") %>% 
@@ -82,6 +83,7 @@ ggplot() +
   geom_sf(data = subplots_cornsf, col = "red", size = 2) +
   ggtitle("Paracou P16 9ha - SubPlots corners")
 
+# Dans le même ordre que les coordonées géomêtre (obligatoire pour la reprojection)
 SubPlots <- SubPlots %>% mutate(x = case_when(
   ID == "B.13" | ID == "B.14" | ID == "B.6" | ID == "B.5" ~ 200,
   ID == "B.12" | ID == "B.15" | ID == "B.7" | ID == "B.4" ~ 300,
@@ -98,6 +100,9 @@ SubPlots <- SubPlots %>% mutate(x = case_when(
 subplots_corn <- SubPlots %>% 
   left_join(subplots_corn, by = c("x", "y")) %>% 
   select(X, Y, x, y, SubPlot, ID)
+subplots_cornsf <- st_as_sf(subplots_corn, coords = c('X','Y'))
+subplots_cornsf <- st_set_crs(subplots_cornsf, crs(P16shp))
+
 
 ALT <- ALT %>% 
   mutate(SubPlot = case_when(
@@ -114,8 +119,16 @@ ALT <- ALT %>%
   select(X, Y, x, y, SubPlot)
 ```
 
+```{r}
+dist_err <- unique(st_distance(subplots_cornsf, geometre_coordsf, by_element = T))
+range(dist_err) # 2.8- 5 m
+median(dist_err) # 3.4 m
+mean(dist_err) # 3.6 m
+```
+
 ## Reprojection des piquets
 Reprojette que pour 4 points de référence pas + pas -
+**Les corners doivent etre dans le meme ordre dans le from et le to !**
 
 ```{r}
 # install.packages("remotes")
@@ -133,7 +146,7 @@ for(S in c(13,14,15,18,19,20,23,24,25)){
     coord = ALT[ALT$SubPlot == S, c("x","y")], # relative coord
     from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # relative coord
     to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,],
-    ordered_corner = F) %>% 
+    ordered_corner = T) %>% 
     mutate(SubPlot = S)
   
   projCoord <- rbind(projCoord, projCoordS)
@@ -157,37 +170,48 @@ ggplot() +
 
 ```
 
-## Correction des coordonées des arbres selon les piquets S-O corrigés
+## Correction des coordonées des arbres selon les points géomètre
 # Import cleaned inventory data
 ```{r,include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+  filter(!is.na(X) & !is.na(Y)) %>% 
+  arrange(Subplot)
+
+unique(Understory$Subplot)
 ```
 
 ```{r}
 projCoord <- data.frame()
 
 for(S in c(13,14,15,18,19,20,23,24,25)){
-  # S = 18
+  # S = 13
   projCoordS <- bilinear_interpolation(
     coord = Understory[Understory$Subplot == S, c("X","Y")], # relative coord (x, y)
     from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # relative coord (x, y)
     to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,],
-    ordered_corner = F) %>% 
+    ordered_corner = T) %>% 
     mutate(SubPlot = S)
   
   projCoord <- rbind(projCoord, projCoordS)
 }
-
-plot((st_as_sf(subplots_corn[subplots_corn$SubPlot == S,], coords = c('X','Y'))))
 ```
-**ATTENTION ya des arbres qu'on n'a pas reprojeté !!**
+
 ```{r}
-projCoordsf <- st_as_sf(na.omit(projCoord), coords = c('X','Y'))
+projCoordsf <- st_as_sf(projCoord, coords = c('X','Y'))
 projCoordsf <- st_set_crs(projCoordsf, crs(P16shp))
+
+Understorysf <- st_as_sf(Understory[,c('Xutm','Yutm')],
+                         coords = c('Xutm','Yutm'))
 
 Understorysf <- st_as_sf(na.omit(Understory[Understory$Subplot == S,c('Xutm','Yutm')]),
                          coords = c('Xutm','Yutm'))
 Understorysf <- st_set_crs(Understorysf, crs(P16shp))
+
+dist_err <- st_distance(Understorysf, projCoordsf, by_element = T)
+range(dist_err) # 2.7- 5 m
+median(dist_err) # 3.6 m
+mean(dist_err) # 3.7 m
+
 
 
 ggplot() +

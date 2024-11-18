@@ -17,7 +17,7 @@ library(TreeData)
 # library(EcoFoG)
 ```
 
-```{r}
+```{r, include = F}
 # read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 
 AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)

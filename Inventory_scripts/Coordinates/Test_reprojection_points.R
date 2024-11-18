@@ -9,13 +9,34 @@ library(sf)
 points <- data.frame(x = c(180, 180, 120, 120, 120, 180), y = c(120, 180, 180, 120, 160, 140))
 points_sf <- st_as_sf(points, coords = c("x", "y"))
 
+# Corners (bad coordinates)
+corners <- data.frame(x = c(120, 120, 180, 180), y = c(120, 180, 180, 120))
+corners_sf <- st_as_sf(corners, coords = c("x", "y"))
+
 # Créer des données de points de référence
-reference_points <- data.frame(x = c(100, 100, 200, 200), y = c(100, 200, 100, 200))
+reference_points <- data.frame(x = c(100, 100, 200, 200), y = c(100, 200, 200, 100))
 reference_points_sf <- st_as_sf(reference_points, coords = c("x", "y"))
 
 ggplot()+
   geom_sf(data = points_sf, col = "red")+
+  geom_sf(data = corners_sf, col = "orange")+
   geom_sf(data = reference_points_sf, col = "blue")
+
+interpolated <- BIOMASS::bilinear_interpolation(
+  coord = points, # relative coord
+  from_corner_coord = corners,  # relative coord
+  to_corner_coord = reference_points, # les corners doivent etre dans le meme ordre dans le from et le to
+  ordered_corner = T)
+
+interpolatedsf <- st_as_sf(interpolated, coords = c('x','y'))
+
+ggplot()+
+  geom_sf(data = points_sf, col = "red")+
+  geom_sf(data = reference_points_sf, col = "blue") +
+  geom_sf(data = interpolatedsf, col = "green")
+  
+
+
 
 # Définir le système de coordonnées pour les deux ensembles de points
 # Vous pouvez remplacer "+proj=utm +zone=30 +datum=WGS84" par le système de coordonnées approprié
