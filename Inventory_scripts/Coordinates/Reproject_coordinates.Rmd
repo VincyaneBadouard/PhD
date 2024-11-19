@@ -175,9 +175,38 @@ ggplot() +
 ```{r,include = F, message=F}
 Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
   filter(!is.na(X) & !is.na(Y)) %>% 
+  unite(col = "Quadra", c("Quadra.nb.X", "Quadra.nb.Y"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
   arrange(Subplot)
 
 unique(Understory$Subplot)
+```
+
+# Quadrats_overlap
+```{r}
+Understorysf <- st_as_sf(Understory, coords = c('X','Y')) # relativ
+# Understorysf <- st_as_sf(Understory, coords = c('Xutm','Yutm')) # UTM
+# Understorysf <- st_set_crs(Understorysf, crs(P16shp))
+
+# first <- sort(unique(Understory$Quadra))[1:30] # 100
+cols <- rainbow(100, s=.6)[sample(1:100,100)] # , v=.9
+
+Understorysf %>% 
+  filter(Subplot == 13) %>% 
+  # filter(Quadra %in% first) %>%
+  filter(Quadra == "6_2" | Quadra == "6_3") %>%
+  ggplot() +
+  geom_sf(aes(col=as.factor(Quadra)), size = 3, shape=20) + 
+  labs(col= "Quadra") +
+  # scale_color_manual(values=cols) +
+  theme_classic() +
+  # guides(color = F) +
+  theme(title= element_text(size=16), axis.text= element_text(size=14),
+        legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  ggtitle("Quadrats overlap (Subplot 13) - relative coord") # UTM
+
+ggsave("Quadrats_overlap_relativ.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+       width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
@@ -203,8 +232,8 @@ projCoordsf <- st_set_crs(projCoordsf, crs(P16shp))
 Understorysf <- st_as_sf(Understory[,c('Xutm','Yutm')],
                          coords = c('Xutm','Yutm'))
 
-Understorysf <- st_as_sf(na.omit(Understory[Understory$Subplot == S,c('Xutm','Yutm')]),
-                         coords = c('Xutm','Yutm'))
+# Understorysf <- st_as_sf(na.omit(Understory[Understory$Subplot == S,c('Xutm','Yutm')]),
+#                          coords = c('Xutm','Yutm'))
 Understorysf <- st_set_crs(Understorysf, crs(P16shp))
 
 dist_err <- st_distance(Understorysf, projCoordsf, by_element = T)
@@ -215,8 +244,8 @@ mean(dist_err) # 3.7 m
 
 
 ggplot() +
-  geom_sf(data = Understorysf, col="grey", size = 0.8) + # points to reproject
-  geom_sf(data = projCoordsf, aes(col=as.factor(SubPlot)), size = 0.8) + # reprojection
+  geom_sf(data = Understorysf, col="grey", size = 0.5) + # points to reproject
+  geom_sf(data = projCoordsf, aes(col=as.factor(SubPlot)), size = 0.5) + # reprojection
   labs(col= "SubPlot") +
   theme_classic() +
   ggtitle("After warping")
