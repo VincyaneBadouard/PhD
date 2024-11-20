@@ -116,7 +116,51 @@ ALT <- ALT %>%
     x >= 300 & x < 400 & y >= 200 & y <= 300 ~ 14,
     x >= 400 & x <= 500 & y >= 200 & y <= 300 ~ 15) 
   ) %>% 
-  select(X, Y, x, y, SubPlot)
+  mutate(X1 = substr(sprintf('%02d', x %% 100), 1,1)) %>% 
+  mutate(Y1 = substr(sprintf('%02d', y %% 100), 1,1)) %>% #  sprintf('%02d', y %% 100)
+  rowwise() %>% 
+  mutate(X2 = as.character(((max((as.numeric(X1) -1), 0))))) %>% 
+  mutate(Y2 = as.character(max((as.numeric(Y1) -1), 0))) %>% 
+  
+  mutate(X3 = as.character(max((as.numeric(X1) -1), 0))) %>% 
+  mutate(Y3 = Y1) %>% 
+  
+  mutate(X4 = X1) %>% 
+  mutate(Y4 =  as.character(max((as.numeric(Y1) -1), 0))) %>% 
+  
+  mutate(X2 = ifelse(X2== "0", "9", X2)) %>%
+  mutate(Y2 = ifelse(Y2== "0", "9", Y2)) %>% 
+  mutate(X3 = ifelse(X3== "0" & X1== "0", "9", X3)) %>% 
+  mutate(Y4 = ifelse(Y4== "0", "9", Y4)) %>% 
+
+  unite(col = "Quadra1", c("X1", "Y1"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  unite(col = "Quadra2", c("X2", "Y2"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+    unite(col = "Quadra3", c("X3", "Y3"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  unite(col = "Quadra4", c("X4", "Y4"),
+        sep = "_", na.rm = TRUE, remove = F) %>% 
+  pivot_longer(cols = starts_with("Quadra"),
+    names_to = "Quadra_nb",
+    values_to = "Quadra") %>%
+  select(X, Y, x, y, SubPlot, Quadra) %>% unique()
+
+ALT %>%
+  group_by(SubPlot, Quadra) %>% 
+  summarize(N = n()) %>% 
+  ungroup() %>% 
+  select(-SubPlot) %>% 
+  filter(N!=4) %>% unique()
+
+ALT %>% 
+  filter(Quadra == "2_6") %>% 
+  ggplot(aes(x= x, y=y)) +
+  geom_point(aes(col=Quadra), size = 2) + # points to reproject
+  # geom_point(data = subplots_corn, aes(x= x,y=y), col="red", size = 1.5) + # reference
+  
+  # labs(col= "Quadra") +
+  theme_classic()
 ```
 
 ```{r}
@@ -138,32 +182,32 @@ library(BIOMASS)
 ```
 
 ```{r}
-projCoord <- data.frame()
+projQuadra <- data.frame()
 
 for(S in c(13,14,15,18,19,20,23,24,25)){
   # S = 18
-  projCoordS <- bilinear_interpolation(
-    coord = ALT[ALT$SubPlot == S, c("x","y")], # relative coord
-    from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # relative coord
-    to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,],
+  projQuadraS <- bilinear_interpolation(
+    coord = ALT[ALT$SubPlot == S, c("x","y")], # quadrats theoric relative coord
+    from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # SubPlot corner theoric relative coord
+    to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,], # SubPlot corner UTM coord
     ordered_corner = T) %>% 
     mutate(SubPlot = S)
   
-  projCoord <- rbind(projCoord, projCoordS)
+  projQuadra <- rbind(projQuadra, projQuadraS)
 }
 
 # plot((st_as_sf(subplots_corn[subplots_corn$SubPlot == S,], coords = c('X','Y'))))
 ```
 
 ```{r}
-projCoordsf <- st_as_sf(projCoord, coords = c('X','Y'))
-projCoordsf <- st_set_crs(projCoordsf, crs(P16shp))
+projQuadrasf <- st_as_sf(projQuadra, coords = c('X','Y'))
+projQuadrasf <- st_set_crs(projQuadrasf, crs(P16shp))
 
 
 ggplot() +
   geom_sf(data = ALTsf, col="grey", size = 0.8) + # points to reproject
   geom_sf(data = geometre_coordsf, col="red", size = 1.5) + # reference
-  geom_sf(data = projCoordsf, aes(col=as.factor(SubPlot)), size = 0.8) + # reprojection
+  geom_sf(data = projQuadrasf, aes(col=as.factor(SubPlot)), size = 0.8) + # reprojection
   labs(col= "SubPlot") +
   theme_classic() +
   ggtitle("After warping")
@@ -172,19 +216,22 @@ ggplot() +
 
 ## Correction des coordonées des arbres selon les points géomètre
 # Import cleaned inventory data
+Dist.X et .Y sont les coordonnées relatives au quadrat, mesurées sur le terrain
 ```{r,include = F, message=F}
 Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
-  filter(!is.na(X) & !is.na(Y)) %>% 
+  filter(!is.na(Dist.X) & !is.na(Dist.Y)) %>% # coordonnées relatives au quadrat
   unite(col = "Quadra", c("Quadra.nb.X", "Quadra.nb.Y"),
         sep = "_", na.rm = TRUE, remove = F) %>%
-  arrange(Subplot)
+  filter(!is.na(Subplot) & !is.na(Quadra)) %>% # coordonnées relatives au quadrat
+  arrange(Quadra) %>% arrange(Subplot)
 
 unique(Understory$Subplot)
+unique(Understory$Quadra)
 ```
 
 # Quadrats_overlap
-```{r}
-Understorysf <- st_as_sf(Understory, coords = c('X','Y')) # relativ
+```{r, eval = F}
+Understorysf <- Understory %>% filter(!is.na(X) & !is.na(Y)) %>% st_as_sf(coords = c('X','Y')) # relativ
 # Understorysf <- st_as_sf(Understory, coords = c('Xutm','Yutm')) # UTM
 # Understorysf <- st_set_crs(Understorysf, crs(P16shp))
 
@@ -194,7 +241,7 @@ cols <- rainbow(100, s=.6)[sample(1:100,100)] # , v=.9
 Understorysf %>% 
   filter(Subplot == 13) %>% 
   # filter(Quadra %in% first) %>%
-  filter(Quadra == "6_2" | Quadra == "6_3") %>%
+  # filter(Quadra == "6_2" | Quadra == "6_3") %>%
   ggplot() +
   geom_sf(aes(col=as.factor(Quadra)), size = 3, shape=20) + 
   labs(col= "Quadra") +
@@ -205,23 +252,34 @@ Understorysf %>%
         legend.title= element_text(size=16), legend.text= element_text(size=16)) +
   ggtitle("Quadrats overlap (Subplot 13) - relative coord") # UTM
 
-ggsave("Quadrats_overlap_relativ.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+ggsave("Quadrats.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+       width = 30, height = 20, units = "cm", dpi=800, bg="white") # _overlap_relativ
 ```
 
 ```{r}
-projCoord <- data.frame()
+projTrees <- data.frame()
 
-for(S in c(13,14,15,18,19,20,23,24,25)){
+for(S in unique(Understory$Subplot)){ # par subplot
   # S = 13
-  projCoordS <- bilinear_interpolation(
-    coord = Understory[Understory$Subplot == S, c("X","Y")], # relative coord (x, y)
-    from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # relative coord (x, y)
-    to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,],
+  projQuadraS <- bilinear_interpolation(
+    coord = ALT[ALT$SubPlot == S, c("x","y")], # quadrats theoric relative coord
+    from_corner_coord = subplots_corn[subplots_corn$SubPlot == S, c("x","y")],  # SubPlot corner theoric relative coord
+    to_corner_coord = geometre_coord[geometre_coord$SubPlot == S,], # SubPlot corner UTM coord
     ordered_corner = T) %>% 
-    mutate(SubPlot = S)
+    mutate(SubPlot = S) %>% 
+    mutate(Quadrat = Q)
   
-  projCoord <- rbind(projCoord, projCoordS)
+  for(Q in unique(Understory$Quadra)){ #  à faire par quadrat
+    projTreesS <- bilinear_interpolation(
+      coord = Understory[Understory$Subplot == S, c("Dist.X","Dist.X")], # Trees quadrats relative coord 
+      from_corner_coord = ALT[ALT$SubPlot == S, c("x","y")],  # quadrats theoric relative coord
+      to_corner_coord = projQuadraS, # quadrats UTM coord
+      ordered_corner = T) %>% 
+      mutate(SubPlot = S)  %>% 
+      mutate(Quadrat = Q)
+    
+    projTrees <- rbind(projTrees, projTreesS)
+  }
 }
 ```
 
