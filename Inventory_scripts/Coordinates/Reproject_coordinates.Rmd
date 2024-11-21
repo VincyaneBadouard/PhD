@@ -64,44 +64,44 @@ ALT <- read.csv("D:/Mes Donnees/PhD/SIG_data/Understory-ALT/ALT_stakes_theoretic
   select(-X) %>% 
   rename(X=Xutm, Y=Yutm)
 
-ALTsf <- st_as_sf(ALT, coords = c('X','Y')) # as sf
-ALTsf <- st_set_crs(ALTsf, terra::crs(P16shp)) # set crs
-
-ggplot() +
-  geom_sf(data = ALTsf, col="green", size = 1) + # coordonées théoriques des piquets
-  geom_sf(data = geometre_coordsf, col="darkgreen", size = 0.8) + # geometre
-  ggtitle("Before warping")
-
-subplots_corn <- ALT %>% 
-  filter(x %in% c(0,100,200,300,400,500)) %>% 
-  filter(y %in% c(0,100,200,300,400,500))
-subplots_cornsf <- st_as_sf(subplots_corn, coords = c('X','Y'))
-subplots_cornsf <- st_set_crs(subplots_cornsf, crs(P16shp))
-
-ggplot() +
-  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
-  geom_sf(data = subplots_cornsf, col = "red", size = 2) +
-  ggtitle("Paracou P16 9ha - SubPlots corners")
-
-# Dans le même ordre que les coordonées géomêtre (obligatoire pour la reprojection)
-SubPlots <- SubPlots %>% mutate(x = case_when(
-  ID == "B.13" | ID == "B.14" | ID == "B.6" | ID == "B.5" ~ 200,
-  ID == "B.12" | ID == "B.15" | ID == "B.7" | ID == "B.4" ~ 300,
-  ID == "B.11" | ID == "B.16" | ID == "B.8" | ID == "B.3" ~ 400,
-  ID == "B.10"| ID == "B.9" | ID == "B.1" | ID == "B.2" ~ 500) 
-) %>% 
-  mutate(y = case_when(
-    ID == "B.13" | ID == "B.12" | ID == "B.11" | ID == "B.10" ~ 0,
-    ID == "B.14" | ID == "B.15" | ID == "B.16" | ID == "B.9" ~ 100,
-    ID == "B.6" | ID == "B.7" | ID == "B.8" | ID == "B.1" ~ 200,
-    ID == "B.5"| ID == "B.4" | ID == "B.3" | ID == "B.2" ~ 300) 
-  )
-
-subplots_corn <- SubPlots %>% 
-  left_join(subplots_corn, by = c("x", "y")) %>% 
-  select(X, Y, x, y, SubPlot, ID)
-subplots_cornsf <- st_as_sf(subplots_corn, coords = c('X','Y'))
-subplots_cornsf <- st_set_crs(subplots_cornsf, crs(P16shp))
+# ALTsf <- st_as_sf(ALT, coords = c('X','Y')) # as sf
+# ALTsf <- st_set_crs(ALTsf, terra::crs(P16shp)) # set crs
+# 
+# ggplot() +
+#   geom_sf(data = ALTsf, col="green", size = 1) + # coordonées théoriques des piquets
+#   geom_sf(data = geometre_coordsf, col="darkgreen", size = 0.8) + # geometre
+#   ggtitle("Before warping")
+# 
+# subplots_corn <- ALT %>% 
+#   filter(x %in% c(0,100,200,300,400,500)) %>% 
+#   filter(y %in% c(0,100,200,300,400,500))
+# subplots_cornsf <- st_as_sf(subplots_corn, coords = c('X','Y'))
+# subplots_cornsf <- st_set_crs(subplots_cornsf, crs(P16shp))
+# 
+# ggplot() +
+#   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
+#   geom_sf(data = subplots_cornsf, col = "red", size = 2) +
+#   ggtitle("Paracou P16 9ha - SubPlots corners")
+# 
+# # Dans le même ordre que les coordonées géomêtre (obligatoire pour la reprojection)
+# SubPlots <- SubPlots %>% mutate(x = case_when(
+#   ID == "B.13" | ID == "B.14" | ID == "B.6" | ID == "B.5" ~ 200,
+#   ID == "B.12" | ID == "B.15" | ID == "B.7" | ID == "B.4" ~ 300,
+#   ID == "B.11" | ID == "B.16" | ID == "B.8" | ID == "B.3" ~ 400,
+#   ID == "B.10"| ID == "B.9" | ID == "B.1" | ID == "B.2" ~ 500) 
+# ) %>% 
+#   mutate(y = case_when(
+#     ID == "B.13" | ID == "B.12" | ID == "B.11" | ID == "B.10" ~ 0,
+#     ID == "B.14" | ID == "B.15" | ID == "B.16" | ID == "B.9" ~ 100,
+#     ID == "B.6" | ID == "B.7" | ID == "B.8" | ID == "B.1" ~ 200,
+#     ID == "B.5"| ID == "B.4" | ID == "B.3" | ID == "B.2" ~ 300) 
+#   )
+# 
+# subplots_corn <- SubPlots %>% 
+#   left_join(subplots_corn, by = c("x", "y")) %>% 
+#   select(X, Y, x, y, SubPlot, ID)
+# subplots_cornsf <- st_as_sf(subplots_corn, coords = c('X','Y'))
+# subplots_cornsf <- st_set_crs(subplots_cornsf, crs(P16shp))
 
 
 ALT <- ALT %>% 
@@ -128,36 +128,54 @@ ALT <- ALT %>%
   mutate(X4 = X1) %>% 
   mutate(Y4 =  as.character(max((as.numeric(Y1) -1), 0))) %>% 
   
-  mutate(X2 = ifelse(X2== "0", "9", X2)) %>%
-  mutate(Y2 = ifelse(Y2== "0", "9", Y2)) %>% 
-  mutate(X3 = ifelse(X3== "0" & X1== "0", "9", X3)) %>% 
-  mutate(Y4 = ifelse(Y4== "0", "9", Y4)) %>% 
-
+  mutate(X2 = ifelse(X1== "0" & y!=0 & x!=200, "9", X2)) %>%
+  # mutate(SubPlot = ifelse(!SubPlot %in% c(13,18,23) & X1== "0" & y!=0 & x!=200 & x!=500, SubPlot-1, SubPlot)) %>%
+  
+  mutate(Y2 = ifelse(Y1== "0"& y!=0 & x!=200, "9", Y2)) %>%
+  
+  mutate(X3 = ifelse(X1== "0", "9", X3)) %>%
+  
+  mutate(Y4 = ifelse(Y1== "0", "9", Y4)) %>%
+  
   unite(col = "Quadra1", c("X1", "Y1"),
         sep = "_", na.rm = TRUE, remove = F) %>%
   unite(col = "Quadra2", c("X2", "Y2"),
         sep = "_", na.rm = TRUE, remove = F) %>%
-    unite(col = "Quadra3", c("X3", "Y3"),
+  unite(col = "Quadra3", c("X3", "Y3"),
         sep = "_", na.rm = TRUE, remove = F) %>%
   unite(col = "Quadra4", c("X4", "Y4"),
         sep = "_", na.rm = TRUE, remove = F) %>% 
   pivot_longer(cols = starts_with("Quadra"),
-    names_to = "Quadra_nb",
-    values_to = "Quadra") %>%
+               names_to = "Quadra_nb",
+               values_to = "Quadra") %>% 
+  
+    mutate(SubPlot = ifelse(Y1== "0" & data.table::tstrsplit(Quadra, split = "_")[[2]] != "0" & y!=0 & y!=300, SubPlot+5, SubPlot)) %>%
+      mutate(SubPlot = ifelse(X1== "0" & !SubPlot %in% c(13,18,23) & data.table::tstrsplit(Quadra, split = "_")[[1]] == "9" & x!=200 & x!=500, SubPlot-1, SubPlot)) %>%
+
+
+  filter(!((x== 200 | y == 0) & data.table::tstrsplit(Quadra, split = "_")[[2]] == "9" &
+           data.table::tstrsplit(Quadra, split = "_")[[1]] == "9")) %>%
+  filter(!((x==500 | y == 0) & data.table::tstrsplit(Quadra, split = "_")[[2]] == "9" &
+           data.table::tstrsplit(Quadra, split = "_")[[1]] != "9")) %>%
+  filter(!((y==300 | x== 200) & data.table::tstrsplit(Quadra, split = "_")[[1]] == "9" &
+           data.table::tstrsplit(Quadra, split = "_")[[2]] != "9")) %>%
+  filter(!(x==500 & data.table::tstrsplit(Quadra, split = "_")[[1]] == "0")) %>% 
+  filter(!(y==300 & data.table::tstrsplit(Quadra, split = "_")[[2]] == "0")) %>% 
   select(X, Y, x, y, SubPlot, Quadra) %>% unique()
 
 ALT %>%
   group_by(SubPlot, Quadra) %>% 
   summarize(N = n()) %>% 
   ungroup() %>% 
-  select(-SubPlot) %>% 
+  # select(-SubPlot) %>% 
   filter(N!=4) %>% unique()
 
 ALT %>% 
-  filter(Quadra == "2_6") %>% 
+  # filter(SubPlot == 13| SubPlot == 14) %>%
+  # filter(Quadra == "0_9") %>%
   ggplot(aes(x= x, y=y)) +
-  geom_point(aes(col=Quadra), size = 2) + # points to reproject
-  # geom_point(data = subplots_corn, aes(x= x,y=y), col="red", size = 1.5) + # reference
+  geom_point(aes(col=as.factor(SubPlot)), size = 2) + # points to reproject
+  geom_point(data = subplots_corn, aes(x= x,y=y), col="red", size = 1.5) + # reference
   
   # labs(col= "Quadra") +
   theme_classic()
