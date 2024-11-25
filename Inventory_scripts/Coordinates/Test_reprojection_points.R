@@ -5,8 +5,8 @@
 # SF ---------------------------------------------------------------------------
 library(sf)
 
-# Créer des données de points de départ
-points <- data.frame(x = c(180, 180, 120, 120, 120, 180), y = c(120, 180, 180, 120, 160, 140))
+# Créer des données de points à reprojeter
+points <- data.frame(x = c(180, 180, 120, 120, 120, 180, 120), y = c(120, 180, 180, 120, 160, 140, 220))
 points_sf <- st_as_sf(points, coords = c("x", "y"))
 
 # Corners (bad coordinates)
@@ -18,10 +18,11 @@ reference_points <- data.frame(x = c(100, 100, 200, 200), y = c(100, 200, 200, 1
 reference_points_sf <- st_as_sf(reference_points, coords = c("x", "y"))
 
 ggplot()+
-  geom_sf(data = points_sf, col = "red")+
-  geom_sf(data = corners_sf, col = "orange")+
-  geom_sf(data = reference_points_sf, col = "blue")
+  geom_sf(data = points_sf, col = "red") + # to reproject
+  geom_sf(data = corners_sf, col = "orange") + # bad corners
+  geom_sf(data = reference_points_sf, col = "blue") # reference corners
 
+# BIOMASS::bilinear_interpolation ----------------------------------------------
 interpolated <- BIOMASS::bilinear_interpolation(
   coord = points, # relative coord
   from_corner_coord = corners,  # relative coord
@@ -31,12 +32,14 @@ interpolated <- BIOMASS::bilinear_interpolation(
 interpolatedsf <- st_as_sf(interpolated, coords = c('x','y'))
 
 ggplot()+
-  geom_sf(data = points_sf, col = "red")+
-  geom_sf(data = reference_points_sf, col = "blue") +
-  geom_sf(data = interpolatedsf, col = "green")
-  
+  geom_sf(data = points_sf, col = "red") + # to reproject
+  geom_sf(data = interpolatedsf, col = "green") + # reprojected
+  geom_sf(data = corners_sf, col = "orange", size = 0.8) + # bad corners
+  geom_sf(data = reference_points_sf, col = "blue", size = 0.8)  # reference corners
 
+# un point exterieur au plot est reprojeté relativement au corners mais n'est pas mis dans le plot
 
+# Other methods ----------------------------------------------------------------
 
 # Définir le système de coordonnées pour les deux ensembles de points
 # Vous pouvez remplacer "+proj=utm +zone=30 +datum=WGS84" par le système de coordonnées approprié
@@ -60,9 +63,9 @@ translated_points <- st_as_sf(translated_points$geometry)
 st_crs(translated_points) <- st_crs(points_sf)
 
 ggplot()+
-# geom_sf(data = points_sf, col = "red")+
-# geom_sf(data = reference_points_sf, col = "blue")+
-geom_sf(data = translated_points, col = "green")
+  # geom_sf(data = points_sf, col = "red")+
+  # geom_sf(data = reference_points_sf, col = "blue")+
+  geom_sf(data = translated_points, col = "green")
 
 # Warp -------------------------------------------------------------------------
 # Charger les bibliothèques

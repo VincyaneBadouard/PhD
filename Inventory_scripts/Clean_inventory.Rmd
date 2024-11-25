@@ -383,7 +383,7 @@ Multistems_sp <- multistems %>%  # sans stems pcq il sont apparemment dupliqué 
   # select(ScientificName,Strategy, DBH, N) %>% 
   arrange(desc(N))
 
-write.csv(Multistems_sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_sp.csv")
+# write.csv(Multistems_sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_sp.csv")
 
 # On bottomlands ?
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
@@ -586,10 +586,12 @@ unique(data$Comments)
 
 test <- data %>% 
   filter(grepl("Duplicated 'IdStem' in the census", Comment)) %>% # seulement les dupliqués
+  mutate(BasalArea = pi*(DBH/2)^2) %>% 
   group_by(TreeID) %>% 
   arrange(desc(DBH)) %>% 
   mutate(Stem.nb = 1:n()) %>% # numérote les stems par ordre décroissant de DBH
-  mutate(DBHcor = sum(DBH)) %>% 
+  mutate(BasalAreacor = sum(BasalArea)) %>% # somme des surfaces terrières
+  mutate(DBHcor = 2*sqrt(BasalAreacor/pi)) %>% 
   arrange(desc(DBHcor)) %>% 
   fill(Xutm, Yutm, X, Y,
        Guyafor.nb,

@@ -30,7 +30,9 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYea
   # idTree as character
   mutate(idTree = as.character(idTree)) %>% 
   # Circ to DBH
-  mutate(Diameter = CircCorr/pi) # 12489
+  mutate(Diameter = CircCorr/pi) %>%  # 12489
+  mutate(Xutm = round(Xutm, 1)) %>%
+  mutate(Yutm = round(Yutm, 1))
 
 
 # AdultsPP <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
@@ -45,9 +47,8 @@ P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/Ove
   filter(Plot == "16") %>% 
   st_set_crs(st_crs(TopoLevels))
 ```
-
+# Trees in pinotière ?
 ```{r}
-# adultes sur pinotière ?
 AdultsP16_plot <- AdultsP16 %>% 
   filter(VernName != "pinot") %>% 
   filter(Family != "Arecaceae") %>% 
@@ -85,6 +86,20 @@ ggplot() +
   labs(fill= "Topography")
 
 unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
+```
+# Detect multistems
+```{r}
+multistems <- AdultsP16 %>% 
+  select(Xutm,Yutm, idTree) %>%
+  group_by(Xutm,Yutm) %>%
+  mutate(index = row_number()) %>% 
+  pivot_wider(names_from = index, values_from = idTree) %>% 
+  filter(!is.na(`2`)) # 98 multistem trees
+
+
+AdultsP16 %>%
+  filter(Xutm==285249.3 & Yutm ==581289.8) %>% 
+  select(Xutm,Yutm, idTree, ScientificName, VernName, CensusYear, Circ, Diameter)
 ```
 
 # Apply taper correction if measured HOM
