@@ -124,7 +124,7 @@ Adults <- AdultsP
 ```
 
 # Missing data (NA)
-```{r, eval = F}
+```{r}
 data %>%
   filter(DBH==0)
 
@@ -162,7 +162,7 @@ data %>% filter(((is.na(Xutm) | is.na(Yutm)) & (is.na(X) & is.na(Y))) & !is.na(G
 - Unique IdStem in the census
 - Unique IdTree-IdStem association
 - Unique IdStem-coordinates association
-```{r, eval = F}
+```{r}
 # Check duplicated StemID
 data[!is.na(data$StemID) & duplicated(data$StemID),] # oui il y a des StemID dupliqués
 
@@ -190,7 +190,7 @@ length(unique(multistems$IdStem))
 ```
 
 # Bota
-```{r, eval = F}
+```{r}
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
 Data <- BotanicalCorrection(Data, DetectOnly = T)
 
@@ -263,13 +263,13 @@ Subplot
 - tous les arbres cirad
 
 ## Guyafor.nb
-```{r, eval = F}
+```{r}
 guyafor <- data %>% filter(!is.na(Guyafor.nb)) %>% filter(DBH < 10)
 # %>% select(StemID) %>% unique()
 range(guyafor$DBH) # 1.1 - 9.8
 ```
 
-```{r, eval = F}
+```{r}
 data <- data %>% 
   mutate(CIRADid= tstrsplit(Guyafor.nb, split = "_")[[1]]) %>% #1er elmt  
   mutate(CIRADplot= tstrsplit(Guyafor.nb, split = "_")[[2]]) %>%  #2nd
@@ -313,7 +313,7 @@ stems[!stems %in% stem1] # cirad with multiple stems but without a stem 1
 ```
 
 # Positions
-```{r, eval = F}
+```{r}
 data_sf <- data %>% 
   mutate(CIRAD = ifelse(!is.na(Guyafor.nb), T, F)) %>% 
   select(StemID, CIRAD, Subplot, Xutm, Yutm) %>% na.omit() %>% 
@@ -356,7 +356,7 @@ for(p in c(13,14,15,18,19,20,23,24,25)){
 ```
 
 # Stem number
-```{r, eval = F}
+```{r}
 all(data[!is.na(data$TreeID),]$Stem.nb==1) # cirad stem id
 stems <- data[!is.na(data$TreeID) & data$Stem.nb!=1,]$TreeID # cirad stem id >1
 stem1 <- data[data$TreeID %in% stems & data$Stem.nb==1,]$TreeID # cirad stem id == 1
@@ -614,6 +614,7 @@ unique(test$Comments) # attention "False pas double tige" (traité)
 data <- data %>% 
   filter(!grepl("Duplicated 'IdStem' in the census", Comment)) %>% # supprimer les dupliqués
   mutate(Multistems = F) %>% 
+  mutate(DBHcor = DBH) %>%
   bind_rows(test)
 
 # Only the principal stem

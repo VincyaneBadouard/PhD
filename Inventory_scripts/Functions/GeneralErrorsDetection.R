@@ -16,6 +16,7 @@
 #' @return The input dataset (data.table) with a new *Comment* column with error
 #'   type informations.
 #'
+#' @import data.table
 #' @importFrom stats na.omit
 #'
 #' @export
@@ -38,7 +39,7 @@ GeneralErrorsDetection <- function(
   
   # In data.table
   setDT(Data)
-  Data[, Comment := ""]
+  if(!"Comment" %in% names(Data)) Data[, Comment := ""]
   
   # IdStem or IdTree? ---------------------------------------------------------------------------------------
   # If no IdStem take IdTree

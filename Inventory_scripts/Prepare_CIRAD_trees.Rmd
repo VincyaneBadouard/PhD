@@ -39,7 +39,7 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYea
 ```
 
 # Env data
-```{r}
+```{r, eval = F}
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
   filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
 
@@ -48,7 +48,7 @@ P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/Ove
   st_set_crs(st_crs(TopoLevels))
 ```
 # Trees in pinotière ?
-```{r}
+```{r, eval = F}
 AdultsP16_plot <- AdultsP16 %>% 
   filter(VernName != "pinot") %>% 
   filter(Family != "Arecaceae") %>% 
@@ -68,7 +68,7 @@ ggplot() +
   labs(fill= "Topography")
 ```
 
-```{r}
+```{r, eval = F}
 adults_BF <- st_intersection(AdultsP16_plot, TopoLevels[TopoLevels$TopoTypeEn == "Bottomland",])
 adults_BF <- st_intersection(adults_BF, P16[P16$Subplot %in% c("11","12","16","17","21","22"),])
 
@@ -87,27 +87,13 @@ ggplot() +
 
 unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
 ```
-# Detect multistems
-```{r}
-multistems <- AdultsP16 %>% 
-  select(Xutm,Yutm, idTree) %>%
-  group_by(Xutm,Yutm) %>%
-  mutate(index = row_number()) %>% 
-  pivot_wider(names_from = index, values_from = idTree) %>% 
-  filter(!is.na(`2`)) # 98 multistem trees
-
-
-AdultsP16 %>%
-  filter(Xutm==285249.3 & Yutm ==581289.8) %>% 
-  select(Xutm,Yutm, idTree, ScientificName, VernName, CensusYear, Circ, Diameter)
-```
 
 # Apply taper correction if measured HOM
 ```{r}
 # use "Diameter" and "HOM" columns to create -> "TaperDBH_TreeDataCor"
 # POMCertainty = 0: deduced ; 1: measured
 
-cortrees <- AdultsP16 %>% 
+cortrees <- AdultsP16 %>% # 12489
   filter(POMCertainty == 1) %>%
   mutate(HOM = POM/100) %>% # in m
   TaperCorrection(
@@ -118,13 +104,63 @@ cortrees <- AdultsP16 %>%
     
     DetectOnly = F
   ) %>% 
-  rename(DBHcor = TaperDBH_TreeDataCor)
+  rename(DBHcorTaper = TaperDBH_TreeDataCor) # 12213
 
 range(cortrees$Diameter - cortrees$DBHcor) # -4.31897  0.00000 cm DBH
 
 AdultsP16 <- AdultsP16 %>% 
   filter(POMCertainty!=1) %>% 
+  mutate(DBHcorTaper = Diameter) %>% 
+  mutate(DiameterCorrectionMeth = "") %>% 
+  mutate(HOM_TreeDataCor = HOM) %>% 
   bind_rows(cortrees) # 12489
+```
+
+# Detect multistems
+```{r}
+# multistems <- AdultsP16 %>% 
+#   select(Xutm,Yutm, ScientificName, idTree) %>%
+#   group_by(Xutm,Yutm) %>%
+#   mutate(index = row_number()) %>% 
+#   pivot_wider(names_from = index, values_from = idTree) %>% 
+#   filter(!is.na(`2`)) %>%  # 98 multistem trees
+#   unite(col = "Coord", c("Xutm", "Yutm"),
+#         sep = "_", na.rm = TRUE, remove = F)
+# 
+# AdultsP16 %>%
+#   filter(Xutm==285249.3 & Yutm ==581289.8) %>% 
+#   select(Xutm,Yutm, idTree, ScientificName, VernName, CensusYear, Circ, Diameter)
+
+
+source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/DetectMultistem.R")
+AdultsP16 <- DetectMultistem(AdultsP16)
+```
+
+```{r}
+multistems <- AdultsP16 %>% 
+  filter(grepl("Multistem potential", Comment)) %>% # seulement les dupliqués
+  mutate(BasalArea = pi*(DBHcorTaper/2)^2) %>% 
+  group_by(Coord) %>% 
+  arrange(desc(DBHcorTaper)) %>% 
+  mutate(Stem.nb = 1:n()) %>% # numérote les stems par ordre décroissant de DBH
+  mutate(BasalAreacor = sum(BasalArea)) %>% # somme des surfaces terrières
+  mutate(DBHcor = 2*sqrt(BasalAreacor/pi)) %>% 
+  arrange(desc(DBHcor)) %>% 
+  ungroup() %>% 
+  mutate(Multistems = T)
+
+AdultsP16 <- AdultsP16 %>% 
+  filter(!grepl("Multistem potential", Comment)) %>% # supprimer les dupliqués
+  mutate(Multistems = F) %>% 
+  mutate(Stem.nb = 1) %>%
+  mutate(DBHcor = DBHcorTaper) %>%
+  bind_rows(multistems)
+```
+
+```{r}
+# On ALT zone
+multistems %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # only 1 tree with 2 stems, not botanically identified
 ```
 
 # My filters

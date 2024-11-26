@@ -141,7 +141,7 @@ ALT <- ALT %>%
     x >= 400 & x <= 500 & y >= 200 & y <= 300 ~ 15) 
   ) %>% 
   
-  # Quadrats (ça m'a pris 2 jours...)
+  # Quadrats (ça m'a pris 2 jours...) la fct divide_plot de biomass le fait - a voir
   mutate(X1 = substr(sprintf('%02d', x %% 100), 1,1)) %>% 
   mutate(Y1 = substr(sprintf('%02d', y %% 100), 1,1)) %>% 
   rowwise() %>% 
