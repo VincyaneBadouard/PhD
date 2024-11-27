@@ -547,14 +547,6 @@ data %>%
 #        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
-# Filters for my analyses
-DBH>=1
-Only alive trees
-Only the principal stem
-Only measured trees
-Only botanical identified
-Take only sp >= 30 ind
-
 # Remove duplicated rows
 ```{r}
 # DuplicatedID <- unique(data[duplicated(data),]$StemID)
@@ -568,13 +560,9 @@ Take only sp >= 30 ind
 
 ```{r}
 data <- Data %>% 
-  rename(StemID = IdStem, TreeID = IdTree, DBH=Diameter, Xutm = XTreeUTM, Yutm = YTreeUTM) %>%
-  
-  filter(DBH>=1) %>%
-  # Only alive trees
-  filter(Dead == F) %>% # filter(CodeAlive == T) %>%
-  # Only measured trees
-  filter(!is.na(DBH))
+  rename(StemID = IdStem, TreeID = IdTree, DBH=Diameter, Xutm = XTreeUTM, Yutm = YTreeUTM) # %>%
+    # Only measured trees
+  # filter(!is.na(DBH))
 
 ```
 
@@ -616,9 +604,32 @@ data <- data %>%
   mutate(Multistems = F) %>% 
   mutate(DBHcor = DBH) %>%
   bind_rows(test)
+```
 
-# Only the principal stem
-filter(Stem.nb == 1) %>%
+# Write cleaned data
+```{r}
+nrow(data) # 42043
+length(unique(data$ScientificName)) # 678
+
+write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+```
+
+# Filters for my analyses
+DBH>=1
+Only alive trees
+Only the principal stem
+Only measured trees
+Only botanical identified
+Take only sp >= 30 ind
+```{r}
+data <- data %>% 
+  filter(DBH>=1) %>%
+  # Only alive trees
+  filter(Dead == F) %>% # filter(CodeAlive == T) %>%
+  # Only measured trees
+  filter(!is.na(DBH)) %>% 
+  # Only the principal stem
+  filter(Stem.nb == 1) %>%
   # Only spatialised trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>%
   # & DBH<10 only ALT data ?
@@ -647,12 +658,12 @@ filter(Stem.nb == 1) %>%
 
 ```
 
-# Write cleaned data
+# Write cleaned and filtred data
 ```{r}
-nrow(data) # 33337
+nrow(data) # 32793
 length(unique(data$ScientificName)) # 197
 
-# write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
 ```
 
 # Mis de coté pour l'instant (gestion noms scientifiques)

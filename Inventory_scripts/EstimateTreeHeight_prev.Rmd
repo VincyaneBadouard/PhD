@@ -24,7 +24,7 @@ library(BIOMASS)
 
 # Import cleaned inventory data
 ```{r,include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
 ```
 
 # Import allometry data
