@@ -1,0 +1,176 @@
+---
+title: "Check Cirad trees position"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+We need :
+- Xutm, Yutm coordinates
+- Guyafor.nb (= field number of trees bigger than 10cm DBH given by Guyafor Protocol)
+
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+library(sf)
+```
+
+# Env data
+```{r}
+P16shp <- st_as_sf(terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # ALT zone
+```
+
+```{r, include = F}
+AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
+  filter(CensusYear == 2020) %>% # last year
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # ALT zone
+  # Only alive trees
+  filter(CodeAlive == T) %>%
+  filter(!is.na(TreeFieldNum) & !is.na(SubPlot) & !is.na(Xutm) & !is.na(Yutm)) %>%
+  unite(col = "Guyafor.nb", c("TreeFieldNum", "SubPlot"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  # Scientific name
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>% 
+  # Circ to DBH
+  mutate(Diameter = CircCorr/pi) %>% 
+  select(Guyafor.nb, ScientificName, Diameter, Xutm, Yutm)
+
+
+# AdultsPP <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
+```
+
+```{r,include = F, message=F}
+Understory <- 
+  # read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+  # read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20240906F.csv") %>% # raw data
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20241126.csv") %>% # last raw data
+  rename(Xutm = XTreeUTM, Yutm = YTreeUTM) %>%
+  rename(DBH = Diameter) %>%
+  
+  # filter(Stem.nb == 1) %>% 
+  filter(!is.na(Guyafor.nb)) %>% # only cirad trees
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% # coordonnées relatives au quadrat
+  select(IdTree, Guyafor.nb,IdStem, Subplot, Stem.nb, ScientificName, DBH, Xutm, Yutm)
+
+range(na.omit(Understory$DBH)) # 1.1 196.0 ya des arbres dits cirad <10 alors que ce sont les tiges principales
+```
+
+# Compute coordinates difference (euclidian distance)
+```{r}
+all <- Understory %>% 
+  left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>% 
+  mutate(Dist = sqrt((XutmU - XutmA)^2 + (YutmU - YutmA)^2)) %>% # Compute coordinates difference (euclidian distance)
+  # Homogenise bota names
+  mutate(ScientificNameA = str_replace(ScientificNameA, "_Indet.", "_sp")) %>% 
+  mutate(ScientificNameU = gsub("\\.", "", ScientificNameU)) %>%
+  mutate(ScientificNameA = str_remove(ScientificNameA, "Indet.")) %>% 
+  mutate(ScientificNameU = str_remove(ScientificNameU, "-CAY")) %>% 
+  mutate(ScientificNameU = gsub("FG-Holst", "", ScientificNameU)) %>% 
+  mutate(ScientificNameU = str_remove(ScientificNameU, "Guyafor")) %>% 
+  mutate(ScientificNameU = gsub("[[:digit:]]", "", ScientificNameU)) %>% 
+  mutate(ScientificNameA = sub("\\..*", "", ScientificNameA)) %>% 
+  mutate(ScientificNameA = str_remove(ScientificNameA, "_subsp")) %>%
+  mutate(ScientificNameU = str_remove(ScientificNameU, "Indet")) %>% 
+  # Compute DBH difference
+  mutate(DBHdiff = DBH - Diameter)
+```
+
+# Check unique combinaison between IdTree, IdStem and Guyafor.nb 
+```{r}
+library(data.table)
+setDT(all)
+if(!"Comment" %in% names(all)) all[, Comment := ""]
+
+
+for (i in c("IdStem", "Guyafor.nb")) {
+  
+  duplicated_ID <- CorresIDs <- vector("character") # empty vector
+  
+  CoordIDCombination <- na.omit(unique(
+    all[, .(IdTree, get(i))]
+  ))
+  
+  CorresIDs <- CoordIDCombination[, V2] # .(IdTree) 
+  
+  if(!identical(CorresIDs, unique(CorresIDs))){ # check if it's the same length, same ids -> 1 asso/ID
+    
+    duplicated_ID <- unique(CorresIDs[duplicated(CorresIDs)]) # identify the Idtree(s) having several combinations
+    
+    
+    all[get(i) %in% duplicated_ID, 
+        Comment := paste0(Comment, "Non-unique combinaison of IdTree and ",i, sep ="/")]
+    
+    
+    warning(paste("Non-unique combinaison of IdTree and ",i))
+    
+  } else message("Unique IdTree-",i,"associations")
+  
+}
+
+write.csv(all, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Cirad_trees_positions_diff_ALTvsGuyafor.csv")
+```
+
+```{r}
+test <- all %>% 
+  filter(grepl("Non-unique combinaison", Comment)) # 128/4 537 arbres
+
+write.csv(test, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Nonunique_combinaison_IdTree-Guyafornb.csv")
+
+
+test <- all %>% 
+  filter(grepl("Non-unique combinaison", Comment)) %>% 
+  filter(ScientificNameA == ScientificNameU) %>%  # 25/4 537 arbres
+  # filter(ScientificNameA!="Indet") %>%   
+  # filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
+  
+  
+  test <- all %>% 
+  filter(Dist>2) %>%   # 1 660/4 537 arbres
+  filter(!grepl("Non-unique combinaison", Comment)) # 1581/4 537 arbres
+
+
+test <- all %>% 
+  # filter(DBH < Diameter) %>% 
+  mutate(DBHdiff = DBH - Diameter) %>%
+  filter(DBHdiff > 15 | DBHdiff <(- 6)) # 85/4 537 arbres
+
+options(scipen = 999)
+test <- all %>% 
+  filter(Dist>2) %>%   
+  filter(!grepl("Non-unique combinaison", Comment)) %>% 
+  mutate(ScientificNameU = str_remove(ScientificNameU, "Indet")) %>% 
+  filter(ScientificNameA != ScientificNameU) %>%  # 98/4 537 arbres
+  # filter(ScientificNameA!="Indet") %>%   
+  filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
+
+
+
+unique(test$ScientificNameA)
+(test %>% filter(Guyafor.nb =="320_20"))$ScientificNameU
+```
+
+# Plot
+```{r}
+# cols <- rainbow(100, s=.6)[sample(1:100,100)] # , v=.9
+
+all %>% 
+  filter(Dist>65) %>% 
+  ggplot() +
+  geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
+  geom_point(aes(XutmU, YutmU, col= Guyafor.nb, shape = "ALT")) +
+  geom_point(aes(XutmA, YutmA, col= Guyafor.nb, shape = "Cirad")) +
+  scale_shape_manual(values = c("ALT" = 17, # pour donner un nom à chaque intitulé
+                                "Cirad" = 15)) # pour ordonner
+
+# ils sont sur les bords des carrés -> ALT et Guyafor n’ont pas exactement les même limites de subplot -> ils ne sont pas considérés dans le même subplot dans ALT et Guyafor...
+
+
+all %>% 
+  # filter(Dist>25) %>% 
+  ggplot(aes(x=Dist))+
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  labs(x= "Coordinates differences (distance (m))")
+```
+

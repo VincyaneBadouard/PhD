@@ -41,7 +41,7 @@ GeneralErrorsDetection <- function(
   setDT(Data)
   if(!"Comment" %in% names(Data)) Data[, Comment := ""]
   
-  # IdStem or IdTree? ---------------------------------------------------------------------------------------
+  # IdStem or IdTree? ----------------------------------------------------------
   # If no IdStem take IdTree
   if((!"IdStem" %in% names(Data) | all(is.na(Data$IdStem))) &
      ("IdTree" %in% names(Data) & any(!is.na(Data$IdTree))) ){
@@ -54,13 +54,13 @@ GeneralErrorsDetection <- function(
   
   if(!any(c("IdStem", "IdTree") %in% names(Data)) | (all(is.na(Data$IdStem)) &  all(is.na(Data$IdTree))) )
     stop("The 'IdStem' or 'IdTree' column is missing in your dataset")
-  # ---------------------------------------------------------------------------------------------------------
+  # ----------------------------------------------------------------------------
   
   Data[, Subplot := as.character(Subplot)]
   
   #### Function ####
   
-  # Check duplicated rows ------------------------------------------------------------------------------------
+  # Check duplicated rows ------------------------------------------------------
   # if there are duplicated rows, comment them
   
   if(anyDuplicated(Data) != 0){
@@ -70,7 +70,7 @@ GeneralErrorsDetection <- function(
     warning("Duplicated rows")
   }
   
-  # Missing values ----------------------------------------------------------------------------------------------------
+  # Missing values -------------------------------------------------------------
   # If the column exists, but have NA values
   
   # Check bota : Family/Genus/Species/ScientificName/VernName
@@ -96,7 +96,7 @@ GeneralErrorsDetection <- function(
   # Data[grepl("Missing value", Comment)] # to check
   
   
-  # Measurement variables = 0 -----------------------------------------------------------------------------------------
+  # Measurement variables = 0 --------------------------------------------------
   
   Vars <- c("Diameter", "HOM")
   
@@ -113,7 +113,7 @@ GeneralErrorsDetection <- function(
   
   # Data[grepl("cannot be 0", Comment)] # to check
   
-  # Check duplicated IdTree/IdStem in a census ------------------------------------------------------------------------
+  # Check duplicated IdTree/IdStem in a census ---------------------------------
   DuplicatedID <- Data[duplicated(Data[, list(get(ID), Year)]), list(get(ID), Year)]
   
   if(nrow(DuplicatedID) > 0){
@@ -137,35 +137,38 @@ GeneralErrorsDetection <- function(
     
   } else message("No duplicated IdStem in a census")
   
-  # Check unique combinaison between IdTree and IdStem ---------------------------------------------------------------------
+  # Check unique combinaison between IdTree, IdStem and Guyafor.nb -------------
   
-  duplicated_ID <- CorresIDs <- vector("character") # empty vector
-  
-  # For each site
-  for (s in unique(na.omit(Data$Site))) {
+  for (i in c("IdStem", "Guyafor.nb")) {
     
-    CoordIDCombination <- na.omit(unique(
-      Data[Data$Site == s, .(IdTree, IdStem)]
-    ))
+    duplicated_ID <- CorresIDs <- vector("character") # empty vector
     
-    CorresIDs <- CoordIDCombination[, IdStem] # .(IdTree) 
+    # For each site
+    for (s in unique(na.omit(Data$Site))) {
+      
+      CoordIDCombination <- na.omit(unique(
+        Data[Data$Site == s, .(IdTree, get(i))]
+      ))
+      
+      CorresIDs <- CoordIDCombination[, V2] # .(IdTree) 
+      
+      if(!identical(CorresIDs, unique(CorresIDs))){ # check if it's the same length, same ids -> 1 asso/ID
+        
+        duplicated_ID <- unique(CorresIDs[duplicated(CorresIDs)]) # identify the Idtree(s) having several combinations
+        
+        
+        Data[Site == s & get(i) %in% duplicated_ID,
+             Comment := paste0(Comment, "Non-unique combinaison of IdTree and ",i, sep ="/")]
+        
+        
+        warning(paste("Non-unique combinaison of IdTree and ",i))
+        
+      } else message("Unique IdTree-",i,"associations")
+    } # end site loop
     
-    if(!identical(CorresIDs, unique(CorresIDs))){ # check if it's the same length, same ids -> 1 asso/ID
-      
-      duplicated_ID <- unique(CorresIDs[duplicated(CorresIDs)]) # identify the Idtree(s) having several combinations
-      
-      
-      Data[Site == s & get(ID) %in% duplicated_ID,
-           Comment := paste0(Comment, "Non-unique combinaison of IdTree and IdStem", sep ="/")]
-      
-      
-      warning("Non-unique combinaison of IdTree and IdStem")
-      
-    } else message("Unique IdTree-IdStem associations")
-  } # end site loop
+  }
   
-  
-  # Check invariant coordinates per IdTree/IdStem ---------------------------------------------------------------------
+  # Check invariant coordinates per IdTree/IdStem ------------------------------
   
   duplicated_ID <- CorresIDs <- vector("character") # empty vector
   
