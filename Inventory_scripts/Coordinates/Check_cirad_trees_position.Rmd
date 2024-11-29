@@ -59,6 +59,8 @@ range(na.omit(Understory$DBH)) # 1.1 196.0 ya des arbres dits cirad <10 alors qu
 
 # Compute coordinates difference (euclidian distance)
 ```{r}
+options(scipen = 999)
+
 all <- Understory %>% 
   left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>% 
   mutate(Dist = sqrt((XutmU - XutmA)^2 + (YutmU - YutmA)^2)) %>% # Compute coordinates difference (euclidian distance)
@@ -114,14 +116,21 @@ write.csv(all, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Cirad_trees_p
 
 ```{r}
 test <- all %>% 
-  filter(grepl("Non-unique combinaison", Comment)) # 128/4 537 arbres
+  filter(grepl("Non-unique combinaison", Comment)) %>% # 128/4 537 arbres
+  filter(Dist>2) %>% # 79
+  filter(DBH>20) # 64
 
 write.csv(test, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Nonunique_combinaison_IdTree-Guyafornb.csv")
+
+test <- all %>% 
+  filter(grepl("Non-unique combinaison", Comment)) %>% 
+  # filter(ScientificNameA != ScientificNameU) %>%   # 25/4 537 arbres
+  filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
 
 
 test <- all %>% 
   filter(grepl("Non-unique combinaison", Comment)) %>% 
-  filter(ScientificNameA == ScientificNameU) %>%  # 25/4 537 arbres
+  filter(ScientificNameA == ScientificNameU)  # 94/4 537 arbres
   # filter(ScientificNameA!="Indet") %>%   
   # filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
   
@@ -136,7 +145,6 @@ test <- all %>%
   mutate(DBHdiff = DBH - Diameter) %>%
   filter(DBHdiff > 15 | DBHdiff <(- 6)) # 85/4 537 arbres
 
-options(scipen = 999)
 test <- all %>% 
   filter(Dist>2) %>%   
   filter(!grepl("Non-unique combinaison", Comment)) %>% 

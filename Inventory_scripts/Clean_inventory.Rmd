@@ -152,15 +152,15 @@ data %>% filter(is.na(DBH) & !is.na(Guyafor.nb)) %>% select("Guyafor.nb", "IdTre
 
 # Missing ID
 data %>% filter((is.na(IdTree) | is.na(Stem.nb)) & is.na(Guyafor.nb)) %>% select("Guyafor.nb", "IdTree","Stem.nb", 
-                                                                                "DBH","Dist.X", "Dist.Y", "ScientificName") # 1
+                                                                                 "DBH","Dist.X", "Dist.Y", "ScientificName") # 1
 
 data %>% filter((is.na(IdTree) | is.na(Stem.nb)) & !is.na(Guyafor.nb)) %>% select("Guyafor.nb", "IdTree","Stem.nb", 
-                                                                                 "DBH","Dist.X", "Dist.Y", "ScientificName") # 0
+                                                                                  "DBH","Dist.X", "Dist.Y", "ScientificName") # 0
 # Missing coordinates
 data %>% filter((is.na(Dist.X) | is.na(Dist.Y)) & is.na(Guyafor.nb)) %>% select("Guyafor.nb", "IdTree","Stem.nb", 
-                                                                                                      "DBH","Dist.X", "Dist.Y", "ScientificName") # 15
+                                                                                "DBH","Dist.X", "Dist.Y", "ScientificName") # 15
 data %>% filter((is.na(Dist.X) | is.na(Dist.Y)) & !is.na(Guyafor.nb)) %>% select("Guyafor.nb", "IdTree","Stem.nb", 
-                                                                                                       "DBH","Dist.X", "Dist.Y", "ScientificName") # 17
+                                                                                 "DBH","Dist.X", "Dist.Y", "ScientificName") # 17
 ```
 
 # Unique IdStem
@@ -175,6 +175,7 @@ source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/GeneralErrorsDetection.R")
 
 # rename columns for the function
 Data <- data %>%
+  select(-Comment) %>% # Léa a gardé la colonne 
   rename(XTreeUTM=Xutm, YTreeUTM=Yutm, Diameter=DBH)
 
 Data <- GeneralErrorsDetection(Data)
@@ -572,19 +573,46 @@ data %>%
 ```{r}
 data <- Data %>% 
   rename(DBH=Diameter, Xutm = XTreeUTM, Yutm = YTreeUTM) # %>%
-    # Only measured trees
-  # filter(!is.na(DBH))
+# Only measured trees
+# filter(!is.na(DBH))
 
 ```
 
-# Manage multistems (sum the diameters, and keep only 1 stem) (Stem.nb pas codé)
+# Detect real and not sure multistems
+on se fie qu'au DBH et aux idTree, la numérotation des stems contient des erreurs
+Multistem = for a same idtree: 
+T : number of different DBH values >1, same ScientificName and coordinates, all duplicated the same times number (it can be 0 duplication)
+F :  only 1 measurement 
+NA : the rest (soit pas même ScientificName ou coordonnées, soit memes DBHs pour tout l'idTree, soit certains DBH sont dupliqués mais pas tous)
+```{r}
+data <- data %>% 
+  group_by(IdTree) %>% 
+  # TRUE for real multistems: number of different DBH values >1, same ScientificName and coordinates, all duplicated the same times number
+  mutate(Multistem = ifelse(length(table(DBH)) > 1 & 
+                              length(unique(ScientificName))==1 & length(unique(Xutm))==1 & length(unique(Yutm))==1 & 
+                              length(unique(table(DBH))) == 1, T, NA)) %>%
+  mutate(Multistem = ifelse(n()==1, F, Multistem)) %>% # only 1 measurement -> not multistem
+  mutate(Multistem = ifelse(grepl("False pas double tige", Comments), F, Multistem)) %>%  # according to the Comments
+  ungroup()
+
+# Les NA
+test4 <- data %>% 
+  filter(is.na(Multistem)) # the not sure cases (162) (soit pas même ScientificName ou coordonnées, soit memes DBHs pour tout l'idTree, soit certains DBH sont dupliqués mais pas tous)
+
+write.csv(test4, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Multistems_notsure.csv")
+length(unique(test4$IdTree)) # 54 trees
+```
+
+# Manage multistems (sum the basal area, and keep only 1 stem) (Stem.nb pas codé)
+**que fait on des Multistems= NA ?!**
 ```{r}
 # pas codé si Stem.nb bien codé (1, 2, n)
 unique(data$Comment) 
 unique(data$Comments)
 
-test <- data %>% 
-  filter(grepl("Duplicated 'IdStem' in the census", Comment)) %>% # seulement les dupliqués
+Multistems <- data %>% 
+  filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
+  distinct(IdTree, DBH, .keep_all = T) # Résolution cas 2: remove duplicates -> clean real multistems
   mutate(BasalArea = pi*(DBH/2)^2) %>% 
   group_by(IdTree) %>% 
   arrange(desc(DBH)) %>% 
@@ -596,25 +624,21 @@ test <- data %>%
        Guyafor.nb,
        ScientificName, Genus, Species, Family,
        .direction = "downup") %>% 
-  ungroup() %>% 
-  mutate(Multistems = T) %>% 
-  mutate(DBHcor = ifelse(grepl("False pas double tige", Comments), DBH, DBHcor)) %>% 
-  mutate(Multistems = ifelse(grepl("False pas double tige", Comments), F, Multistems)) #%>% 
+  ungroup() 
 # select(IdTree, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
 
-unique(test$Comment)
+unique(Multistems$Comment)
 # Different botanical informations (Family, ScientificName) for a same IdTree"
 # Missing value in XTreeUTM
 # Missing value in Species
-unique(test$Comments) # attention "False pas double tige" (traité)
+unique(Multistems$Comments) # attention "False pas double tige" (traité)
 
 # write.csv(test, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_DBHcor.csv")
 
 data <- data %>% 
-  filter(!grepl("Duplicated 'IdStem' in the census", Comment)) %>% # supprimer les dupliqués
-  mutate(Multistems = F) %>% 
+  filter(!Multistem & !is.na(Multistem)) %>% # supprimer les Multistems=T
   mutate(DBHcor = DBH) %>%
-  bind_rows(test)
+  bind_rows(Multistems)
 ```
 
 # Write cleaned data

@@ -27,7 +27,7 @@ Subplots :
 - 14-15-19-20 : pas encore 
 
 ```{r}
-Piquets_Paracou <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou.csv", 
+Piquets_Paracou <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou13_18_23_24.csv", 
                               delim = ";", escape_double = FALSE, trim_ws = TRUE)
 View(Piquets_Paracou)
 names(Piquets_Paracou) # "plot" "quadra.nb.X" "quadra.nb.Y" "q.length.X"  "q.length.X2" "q.length.Y"  "q.length.Y2"
