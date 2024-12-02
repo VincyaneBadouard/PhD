@@ -77,6 +77,10 @@ all <- Understory %>%
   mutate(ScientificNameU = str_remove(ScientificNameU, "Indet")) %>% 
   # Compute DBH difference
   mutate(DBHdiff = DBH - Diameter)
+
+length(unique(all$Guyafor.nb)) == nrow(all)
+length(unique(all$IdTree)) == nrow(all)
+
 ```
 
 # Check unique combinaison between IdTree, IdStem and Guyafor.nb 
@@ -111,7 +115,7 @@ for (i in c("IdStem", "Guyafor.nb")) {
   
 }
 
-write.csv(all, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Cirad_trees_positions_diff_ALTvsGuyafor.csv")
+# write.csv(all, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Cirad_trees_positions_diff_ALTvsGuyafor.csv")
 ```
 
 ```{r}
@@ -164,11 +168,12 @@ unique(test$ScientificNameA)
 # cols <- rainbow(100, s=.6)[sample(1:100,100)] # , v=.9
 
 all %>% 
-  filter(Dist>65) %>% 
+  filter(Dist>50) %>%
+  filter(!grepl("Non-unique combinaison", Comment)) %>% # si on ne veut que si sont cohérents idtree-guyafor.nb
   ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
-  geom_point(aes(XutmU, YutmU, col= Guyafor.nb, shape = "ALT")) +
-  geom_point(aes(XutmA, YutmA, col= Guyafor.nb, shape = "Cirad")) +
+  geom_point(aes(XutmU, YutmU, col= IdTree, shape = "ALT")) +
+  geom_point(aes(XutmA, YutmA, col= IdTree, shape = "Cirad")) +
   scale_shape_manual(values = c("ALT" = 17, # pour donner un nom à chaque intitulé
                                 "Cirad" = 15)) # pour ordonner
 

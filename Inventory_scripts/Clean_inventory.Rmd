@@ -372,9 +372,12 @@ stems <- data[!is.na(data$IdTree) & data$Stem.nb!=1,]$IdTree # stem id >1
 stem1 <- data[data$IdTree %in% stems & data$Stem.nb==1,]$IdTree # stem id == 1
 
 #!! ATTENTION trees without stem 1 !!
-length(unique(stems[!stems %in% stem1])) # 47 trees with multiple stems but without a stem 1
+test <- as.data.frame(unique(stems[!stems %in% stem1])) # 47 trees with multiple stems but without a stem 1
+write.csv(test, "~/PhD/Inventories/Data/Understory/Paracou/Problems/StemNb_1missing.csv")
+
 test <- data %>%
   filter(IdTree %in% stems[!stems %in% stem1]) 
+
 
 stems <- data[!is.na(data$Stem.nb) & data$Stem.nb!=1,] # multistems identifiées
 (nrow(stems) + (nrow(duplistems)-length(unique(duplistems$IdStem))))/nrow(data)*100 # 0.09 % que stems,  1.5 % avec les stems mal codées
