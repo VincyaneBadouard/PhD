@@ -20,7 +20,7 @@ library(TreeData)
 ```{r, include = F}
 # read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv")
 
-AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
+AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
   filter(CensusYear == 2020) %>% # last year
   # Only alive trees
   filter(CodeAlive == T) %>%
@@ -112,11 +112,11 @@ AdultsP16 <- AdultsP16 %>%
   filter(POMCertainty!=1) %>% 
   mutate(DBHcorTaper = Diameter) %>% 
   mutate(DiameterCorrectionMeth = "") %>% 
-  mutate(HOM_TreeDataCor = HOM) %>% 
+  mutate(HOM_TreeDataCor = POM/100) %>% 
   bind_rows(cortrees) # 12489
 ```
 
-# Detect multistems
+# Detect multistems and manage them
 ```{r}
 # multistems <- AdultsP16 %>% 
 #   select(Xutm,Yutm, ScientificName, idTree) %>%
@@ -162,43 +162,71 @@ AdultsP16 <- AdultsP16 %>%
 multistems %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # only 1 tree with 2 stems, not botanically identified
 ```
+# Subspecies
+```{r}
+unique(AdultsP16$ScientificName) # _subsp.
+
+test <- AdultsP16 %>%
+  filter(grepl("_subsp", ScientificName))
+unique(test$ScientificName)
+# "Protium_opacum_subsp.rabelianum" , "Micropholis_guyanensis_subsp.duckeana", "Zanthoxylum_acuminatum_subsp.juniperinum"
+
+```
+
+# Check missing bota
+```{r}
+test <- AdultsP16 %>%
+  filter(is.na(ScientificName) |
+           grepl("indet", ScientificName) |
+           grepl("Indet", ScientificName) |
+           grepl("aceae", ScientificName) |
+           # grepl("_sp", ScientificName) & grepl("\\.", ScientificName) | 
+           grepl("_aff", ScientificName) & grepl("\\.", ScientificName) |
+           grepl("_cf_", ScientificName)) # 1881, 2046 avec les sp.
+
+unique(test$ScientificName)
+```
 
 # My filters
+**faudra que ce soit le mmemes espèces que celles choisies dans ALT**
 ```{r}
-AdultsP16 %>%
+AdultsP16_filtred <- AdultsP16 %>%
   # Only spatialised trees
-  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% # # aucun
   
-  filter(DBH>=10) %>% 
+  filter(DBHcor>=10) %>% # enlève 7 tiges
   # Only alive trees
-  filter(CodeAlive == T) %>%
+  # filter(CodeAlive == T) %>% # déjà fait avant
   
   # Only measured trees
-  filter(!is.na(DBH)) %>%
+  filter(!is.na(DBHcor)) %>% # aucun
   
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
   filter(!grepl("indet", ScientificName)) %>%
   filter(!grepl("Indet", ScientificName)) %>%
   filter(!grepl("aceae", ScientificName)) %>%
-  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>%
+  # filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # On garde sp.chiffre ?
   filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
   filter(!grepl("_cf_", ScientificName)) %>%
-  mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>% 
-  mutate(SubSpecies = str_extract(ScientificName,"(?<=\\.).*")) %>% 
+  mutate(ScientificName_c = sub("\\_subsp.*", "", ScientificName)) %>%
+  mutate(SubSpecies = ifelse(grepl("_subsp", ScientificName), sub(".*_subsp.", "", ScientificName), NA)) %>%
   rename(ScientificName_old = ScientificName,
          ScientificName = ScientificName_c) %>% 
   
   # Count individuals by species
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
-  ungroup() %>% 
+  ungroup() %>% # 10602
   # Take only sp >= 30 ind
-  filter(N >= 30)
+  filter(N >= 30) # enlève 1887 tiges
+# 8294
 ```
 
-# Estimate tree height
 ```{r}
+nrow(AdultsP16) - nrow(AdultsP16_filtred) # 4195
+length(unique(AdultsP16$ScientificName)) - length(unique(AdultsP16_filtred$ScientificName)) # 401 species lost, 66 sp kept
 
+write.csv(AdultsP16_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv")
 ```
 

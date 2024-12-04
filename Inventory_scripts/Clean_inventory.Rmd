@@ -49,9 +49,9 @@ UnderstoryP <-
 
 UnderstoryN <- read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_ALT_20240910.csv")
 
-AdultsP <- read_csv("~/PhD/Inventories/Data/Adults/Paracou16_2020.csv") %>% 
+AdultsP <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/Paracou16_2020.csv") %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9 ha
-AdultsN <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv") %>%
+AdultsN <- read_csv("~/PhD/Inventories/Data/Adults/Nouragues/NouraguesPetitPlateau_2022.csv") %>%
   filter(SubPlot %in% c(202,203,204,212,213,214)) # 6 ha
 ```
 
@@ -615,7 +615,7 @@ unique(data$Comments)
 
 Multistems <- data %>% 
   filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
-  distinct(IdTree, DBH, .keep_all = T) # Résolution cas 2: remove duplicates -> clean real multistems
+  distinct(IdTree, DBH, .keep_all = T) %>% # Résolution cas 2: remove duplicates -> clean real multistems
   mutate(BasalArea = pi*(DBH/2)^2) %>% 
   group_by(IdTree) %>% 
   arrange(desc(DBH)) %>% 
@@ -645,6 +645,7 @@ data <- data %>%
 ```
 
 # Write cleaned data
+**! vérifier que si ya DBH ya DBHcor !**
 ```{r}
 nrow(data) # 42043
 length(unique(data$ScientificName)) # 678
@@ -661,7 +662,8 @@ Only botanical identified
 Take only sp >= 30 ind
 ```{r}
 data <- data %>% 
-  filter(DBH>=1) %>%
+    # & DBH<10 only ALT data ?
+  filter(DBH>=1 & DBH<10) %>%
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees
@@ -670,14 +672,13 @@ data <- data %>%
   filter(Stem.nb == 1) %>%
   # Only spatialised trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>%
-  # & DBH<10 only ALT data ?
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
   filter(ScientificName!="Tres haut") %>%
   filter(!grepl("indet", ScientificName)) %>%
   filter(!grepl("Indet", ScientificName)) %>%
   filter(!grepl("aceae", ScientificName)) %>%
-  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>%
+  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # garder les sp.numéro ?
   filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
   filter(!grepl("_cf_", ScientificName)) %>%
   mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>% 
@@ -699,7 +700,7 @@ data <- data %>%
 # Write cleaned and filtred data
 ```{r}
 nrow(data) # 32793
-length(unique(data$ScientificName)) # 197
+length(unique(data$ScientificName)) # 184
 
 write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
 ```

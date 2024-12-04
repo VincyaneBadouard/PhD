@@ -1,9 +1,19 @@
 ---
-title: "Estimate tree height"
+title: "Estimate tree height and crown dimensions"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
-output: pdf_document
+output:
+  html_document:
+    df_print: paged
 ---
+
+Arbres communs avec ceux de Claudia -> prendre l'estimation de Claudia de la hauteur de l'arbre et du rayon de la couronne 
+Autres arbres :
+- **TreeHeight** : par une allométrie issue des données de Claudia et FTH
+- **CrownDiameter** : par une allométrie CC (à faire en dernier)
+
+Pour tout le monde : 
+- **CrownHeight** = TreeHeight * 0.3
 
 **PRENDRE DBHcor** !!!!
 **sauf pour les multistems : il faut prendre DBH de la 1ère tige**
@@ -21,14 +31,17 @@ library(BIOMASS)
 
 # Import cleaned inventory data
 ```{r,include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") # 25 ha
+
 ```
 
 # Import allometry data
 ```{r, include = F}
 # Claudia's CanopyConstructor data (simulations average)
 CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/CanopyConstructorDataP16.csv") %>% 
-  select(DBH, Height, CrownRadius) %>% 
+  select(idTree, DBH, Height, CrownRadius) %>% 
+  rename(TreeHeight = Height) %>% 
   mutate(HeightHow = "CanopyConstructor")
 
 # Giacomo FTH data
@@ -36,7 +49,7 @@ FTH <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Allometry_FTH_GSellan
   select(Genus, species, DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
   unite(col = "ScientificName", c("Genus", "species"),
         sep = "_", na.rm = TRUE, remove = F) %>%
-  rename(Height = Htot, CrownBase = Hbranch) %>% 
+  rename(TreeHeight = Htot, CrownBase = Hbranch) %>% 
   mutate(HeightHow = "Trigonometry (FTH)") %>% 
   mutate(r2 = as.numeric((r2))) %>% # à vérifier
   mutate(r4 = as.numeric((r4))) 
@@ -47,14 +60,14 @@ range(na.omit(FTH$DBH)) # 0.90 96.12959
 
 data <- CC %>%
   bind_rows(FTH) %>% 
-  filter(!is.na(DBH)) %>% filter(!is.na(Height))
+  filter(!is.na(DBH)) %>% filter(!is.na(TreeHeight))
 ```
 
 # Plot H-D data
 ```{r}
 data %>%
   ggplot() +
-  aes(x = DBH, y = Height, colour=HeightHow) +
+  aes(x = DBH, y = TreeHeight, colour=HeightHow) +
   geom_point(shape = "circle", size = 0.2) + # , colour = "#440154"
   geom_smooth(span = 0.75, linewidth = 0.8) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
   theme_minimal() +
@@ -63,13 +76,13 @@ data %>%
         legend.title= element_text(size=16), legend.text= element_text(size=16),
         legend.position="bottom") 
 
-ggsave("DBH_height_methods.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("DBH_height_methods.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 
 
 data %>%
   ggplot() +
-  aes(x = DBH, y = Height) +
+  aes(x = DBH, y = TreeHeight) +
   geom_point(shape = "circle", size = 0.2) + # , colour = "#440154"
   geom_smooth(span = 0.75, linewidth = 0.8) +
   theme_minimal() +
@@ -78,16 +91,24 @@ data %>%
         legend.title= element_text(size=16), legend.text= element_text(size=16)) 
 
 
-ggsave("DBH_height_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("DBH_height_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
-# Fits and compares height-diameter models (BIOMASS)
+# Claudia's trees
+```{r}
+Adults <- Adults %>% 
+  left_join((CC %>% select(-DBH)), by="idTree") # + TreeHeight, CrownRadius
+```
+
+# Other trees
+
+## Fits and compares height-diameter models (BIOMASS)
 toutes espèces confondues
 ```{r}
 ModelsresultGuiana <- modelHD( # fits and compares (optional) height-diameter models
   D = data$DBH,
-  H = data$Height,
+  H = data$TreeHeight,
   useWeight = F
 )
 knitr::kable(ModelsresultGuiana)
@@ -95,22 +116,45 @@ knitr::kable(ModelsresultGuiana)
 
 HDmodelGuiana <- modelHD(
   D = data$DBH,
-  H = data$Height,
+  H = data$TreeHeight,
   method = "log2", # Compute the H-D model with the lowest RSE.
   useWeight = F # T = larger trees have a stronger influence during the construction of the model 
 )
 HDmodelGuiana$coefficients
 # log2 : exp(0.6988852 + 1.1989242*log(DBH) + -0.1187707*log(DBH)^2)
 
+Estim <- Adults %>%
+  filter(is.na(TreeHeight)) %>% # 24 trees
+  mutate(TreeHeight = retrieveH(D= DBHcor, model = HDmodelGuiana)$H) %>% 
+  mutate(HeightHow = "Local allometry")
+
+Adults <- Adults %>%
+  filter(!is.na(TreeHeight)) %>% 
+  bind_rows(Estim) %>% 
+ mutate(CrownHeight = TreeHeight*0.3)
+  
 Understory <- Understory %>%
-  mutate(TreeHeight = retrieveH(D= DBH, model = HDmodelGuiana)$H)
+  mutate(TreeHeight = retrieveH(D= DBHcor, model = HDmodelGuiana)$H) %>% 
+ mutate(CrownHeight = TreeHeight*0.3)
 ```
 
 ```{r}
 Understory %>% filter(is.na(TreeHeight))
 ```
+```{r}
+Adults %>%
+  ggplot() +
+  aes(x = DBHcor, y = TreeHeight, colour= HeightHow) +
+  geom_point(shape = "circle", size = 0.2) + # , colour = "#440154"
+  geom_smooth(span = 0.75, linewidth = 0.8) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  theme_minimal() +
+  labs(x ="DBH (cm)", y = "Height (m)", colour = "Method") +
+  theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
+        legend.title= element_text(size=16), legend.text= element_text(size=16),
+        legend.position="bottom") 
+```
 
-# Plot estimated heights
+## Plot estimated heights
 ```{r}
 Understory %>%
   ggplot() +
@@ -123,12 +167,12 @@ Understory %>%
         legend.title= element_text(size=16), legend.text= element_text(size=16)) 
 
 
-ggsave("Estimated_TreeHeight_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 35, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("Estimated_TreeHeight_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 35, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
-# Crown allometry
-## Crown radius
+## Crown allometry
+### Crown radius
 ```{r}
 data %>%
   ggplot() +
@@ -162,13 +206,14 @@ data %>%
         legend.position="bottom") 
 
 
-ggsave("DBH_CrownRadius_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("DBH_CrownRadius_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
+
 ```{r}
 data %>%
   ggplot() +
-  aes(x = Height) +
+  aes(x = TreeHeight) +
   geom_point(aes(y = CrownRadius, color = "CanopyConstructor"), shape = "circle", size = 0.2) + 
   geom_smooth(aes(y = CrownRadius, color = "CanopyConstructor"), span = 0.75, linewidth = 0.8) +
   
@@ -198,11 +243,11 @@ data %>%
         legend.position="bottom") 
 
 
-ggsave("TreeHeight_CrownRadius_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 25, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("TreeHeight_CrownRadius_CCandFTH.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
-## Crown base height
+### Crown base height
 ```{r}
 FTH %>%
   ggplot() +
@@ -214,12 +259,12 @@ FTH %>%
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_text(size=16), legend.text= element_text(size=16)) 
 
-ggsave("DBH_CrownBase_CanopyConstructor.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("DBH_CrownBase_CanopyConstructor.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+#        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 
 FTH %>%
   ggplot() +
-  aes(x = Height, y = CrownBase) +
+  aes(x = TreeHeight, y = CrownBase) +
   geom_point(shape = "circle", size = 0.2) + # , colour = "#440154"
   geom_smooth(span = 0.75, linewidth = 0.8) +
   theme_minimal() +
@@ -227,12 +272,12 @@ FTH %>%
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_text(size=16), legend.text= element_text(size=16)) 
 
-ggsave("Height_CrownBase_CanopyConstructor.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
-       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("Height_CrownBase_CanopyConstructor.png", path = "D:/Mes Donnees/PhD/Figures/inventory",
+# width = 20, height = 20, units = "cm", dpi=800, bg="white")
 
-mean(FTH$CrownBase/FTH$Height, na.rm = T) # 0.58
-2/3 = 0.7
-3/5 = 0.6
+mean(FTH$CrownBase/FTH$TreeHeight, na.rm = T) # 0.58
+# 2/3 = 0.7
+# 3/5 = 0.6
 ```
 
 
