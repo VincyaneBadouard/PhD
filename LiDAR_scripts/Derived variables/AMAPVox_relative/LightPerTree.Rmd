@@ -1,0 +1,138 @@
+---
+title: "LightPerTree"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+# library(lidR)
+library(readr)
+library(data.table)
+library(AMAPVox)
+# library(rgl) # visulaisation 3D
+# library(terra)
+# library(raster)
+# library(lidR)
+# library(tidyterra)
+# library(sf)
+```
+
+# Data
+All the cirad trees on 25ha + ALT on 9 ha
+```{r}
+data <- (read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv") %>% 
+  select(idTree, TreeHeight, CrownHeight, CrownRadius))
+
+idTrees <- data$idTree
+```
+
+# Create Voxel space
+ALS low altitude; 25ha + 100m buffer ; 1 m resolution ; intensity echo weight
+```{r}
+# Get the configuration file
+xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/XML/P16_2023_25ha_buffer_LowAlt_Vox_intensity1m.xml"
+# Run
+AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2
+AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g")
+
+```
+
+# For each tree
+```{r}
+Tree <- data[1,] # temporaire
+idTree <- Tree$idTree
+```
+
+## Create crown's bounding box
+```{r}
+bounding_box <- list(
+xmin = min(points_3d$x),
+xmax = max(points_3d$x),
+ymin = min(points_3d$y),
+ymax = max(points_3d$y),
+zmin = min(points_3d$z),
+zmax = max(points_3d$z)
+)
+```
+
+# Coordinates in the crown
+```{r}
+# X1 <- 
+# Y1
+# Z1
+# 
+# X2 <- 
+# Y2
+# Z2
+# 
+# X3 <- 
+# Y3
+# Z3
+```
+
+## Empties crown voxels
+Put 0 to attenatuation 
+```{r}
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_25ha_buffer_intensity1m.vox")
+# i, j, k = index not coordinates
+VX@data[, c("x", "y", "z") := getPosition(VX)[, .(x, y, z)]]
+
+```
+
+## Crop voxel space
+100m in x, y around the crown
+```{r}
+I <- range(VX@data[x>=(-90) & x<=190 & y<=190,][z<66,i]) # 1m: 61 340 ; 2m: 31 170
+J <- range(VX@data[x>=(-90) & x<=190 & y<=190,][z<66,j]) # 1m:  0 340 ; 2m: 0 170
+K <- range(VX@data[x>=(-90) & x<=190 & y<=190,][z<66,k]) # 1m:  0 66 ; 2m: 0 33
+
+VX <- crop(VX, imin = I[1], imax = I[2], jmin = J[1], jmax = J[2], kmin = K[1], kmax = K[2]) 
+
+range(VX@data$z)
+
+prod(VX@header$dim) == nrow(VX@data) # doit etre cohérent
+
+AMAPVox::plot(VX, variable.name = "ground_distance") 
+
+```
+
+```{r}
+writeVoxelSpace(VX, 
+                paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_25ha_buffer_intensity1m_",idTree,".vox", sep="")
+)
+```
+
+## Edit xml file
+https://lecy.github.io/Open-Data-for-Nonprofit-Research/Quick_Guide_to_XML_in_R.html
+```{r}
+# Input voxelspace
+paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_25ha_buffer_intensity1m_",idTree,".vox", sep="")
+
+# Output path
+paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_25ha_LowAlt_Light_intensity1m_",idTree,".txt", sep="")
+
+# Coordinates
+# <scanners-positions>
+#       <position x= X1 y= Y1 z= Z1 />
+#       <position x= X2 y= Y2 z= Z2 />
+#       <position x= X3 y= Y3 z= Z3 />
+
+# File name
+paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/XML/Light/P16_2023_LowAlt_25ha_buffer_Light_intensity1m_",idTree,".xml", sep="")
+
+```
+
+## Compute light for the tree
+```{r}
+# Get the configuration file
+xmlfile <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/XML/Light/P16_2023_LowAlt_25ha_buffer_Light_intensity1m_",idTree,".xml", sep="")
+# Run
+AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g")
+
+```
+

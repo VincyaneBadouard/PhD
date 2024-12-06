@@ -2,24 +2,25 @@
 title: "Estimate tree height and crown dimensions"
 author: "Vincyane Badouard"
 date: "`r Sys.Date()`"
+echo: true
+code-fold: true
+message: false
+warning: false
 output:
   html_document:
     df_print: paged
 ---
 
-Arbres communs avec ceux de Claudia -> prendre l'estimation de Claudia de la hauteur de l'arbre et du rayon de la couronne 
-Autres arbres :
-- **TreeHeight** : par une allométrie issue des données de Claudia et FTH
-- **CrownDiameter** : par une allométrie CC (à faire en dernier)
+Arbres communs avec ceux de Claudia -> prendre l'estimation de Claudia de la hauteur de l'arbre et du rayon de la couronne  
+Autres arbres :  
+- **TreeHeight** : par une allométrie issue des données de Claudia et FTH  
+- **CrownDiameter** : par une allométrie CC (à faire en dernier)  
 
-Pour tout le monde : 
-- **CrownHeight** = TreeHeight * 0.3
+Pour tout le monde :  
+- **CrownHeight** = TreeHeight * 0.3  
 
-**PRENDRE DBHcor** !!!!
-**sauf pour les multistems : il faut prendre DBH de la 1ère tige**
-
-
-faire un modèle toutes espèces confondues
+**PRENDRE DBHcor** !!!!  
+**Sauf pour les multistems : il faut prendre DBH de la 1ère tige**  
 
 # Packages
 ```{r Setup, include = F}
@@ -31,29 +32,36 @@ library(BIOMASS)
 
 # Import cleaned inventory data
 ```{r,include = F, message=F}
-Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
-Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") # 25 ha
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv") %>% 
+  rename(idTree = IdTree) # 28 711
 
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
+  mutate(idTree = as.character(idTree)) %>% 
+  rename(Multistem = Multistems)
 ```
 
 # Import allometry data
 ```{r, include = F}
 # Claudia's CanopyConstructor data (simulations average)
-CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/CanopyConstructorDataP16.csv") %>% 
+CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/Adults/CanopyConstructorDataP16.csv") %>% 
   select(idTree, DBH, Height, CrownRadius) %>% 
   rename(TreeHeight = Height) %>% 
+  mutate(idTree = as.character(idTree)) %>% 
   mutate(HeightHow = "CanopyConstructor")
 
 # Giacomo FTH data
-FTH <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Allometry_FTH_GSellan_Paracou_20240125.csv") %>% 
-  select(Genus, species, DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% # 931
+  # read_csv("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_20240125.csv") %>% 
+  # select(Genus, species, DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
   unite(col = "ScientificName", c("Genus", "species"),
-        sep = "_", na.rm = TRUE, remove = F) %>%
-  rename(TreeHeight = Htot, CrownBase = Hbranch) %>% 
+        sep = "_", na.rm = TRUE, remove = T) %>%
+  rename(idTree = TreeID, TreeHeight = Htot, CrownBase = Hbranch) %>% 
   mutate(HeightHow = "Trigonometry (FTH)") %>% 
-  mutate(r2 = as.numeric((r2))) %>% # à vérifier
-  mutate(r4 = as.numeric((r4))) %>% 
-  mutate(CrownRadius = rowMeans(select(., r1,r2,r3,r4), na.rm=T)) # average of the 4 measurements (north, south, east, west)
+  mutate(DBH = as.numeric(gsub(",", ".", DBH))) %>% 
+  mutate(r2 = as.numeric(r2)) %>% 
+  mutate(r4 = as.numeric(r4)) %>% 
+  mutate(CrownRadius = rowMeans(select(., r1,r2,r3,r4), na.rm=T))  # average of the 4 measurements (north, south, east, west)
+
 
 length(sort(unique(FTH$ScientificName))) # ya des sp, indet
 range(na.omit(FTH$DBH)) # 0.90 96.12959
@@ -96,10 +104,26 @@ data %>%
 #        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
 
-# Claudia's trees
+# Known trees
+## Claudia's trees
 ```{r}
 Adults <- Adults %>% 
   left_join((CC %>% select(-DBH)), by="idTree") # + TreeHeight, CrownRadius
+```
+
+## FTH trees
+```{r}
+Understory <- Understory %>% 
+  left_join((FTH %>% select(-c(DBH, Family, ScientificName))), by=c("idTree")) # + TreeHeight, CrownRadius # 28 711
+
+# Understory %>% filter(is.na(TreeHeight) & is.na(CrownRadius))  # 28 043 trees
+# filter(idTree %in% FTH$idTree) # 48 trees not recognised
+
+# mismatch <- Understory %>% filter(ScientificName.y != "") %>% filter(ScientificName.x != ScientificName.y) %>% # 31 trees
+#   select(idTree, Family.x, Family.y, ScientificName.x, ScientificName.y, DBH.x, DBH.y)
+# 
+# write.csv(mismatch, "~/PhD/Inventories/Data/Understory/Paracou/Problems/ScientificName_mismatch_dataAllometryAndInventory.csv")
+# 15_0068: pas de scentificname
 ```
 
 # Other trees
@@ -125,23 +149,31 @@ HDmodelGuiana$coefficients
 # log2 : exp(0.6988852 + 1.1989242*log(DBH) + -0.1187707*log(DBH)^2)
 # michaelis : (48.87652 * DBH)/(18.59470 + DBH) *exp(error)
 
-Estim <- Adults %>%
+EstimA <- Adults %>%
   filter(is.na(TreeHeight)) %>% # 24 trees
-  mutate(TreeHeight = retrieveH(D= DBHcor, model = HDmodelGuiana)$H) %>% 
+  mutate(TreeHeight = ifelse(Multistem==T, retrieveH(D= DBH, model = HDmodelGuiana)$H,
+                             retrieveH(D= DBHcor, model = HDmodelGuiana)$H)) %>% 
   mutate(HeightHow = "Local allometry")
 
 Adults <- Adults %>%
   filter(!is.na(TreeHeight)) %>% 
-  bind_rows(Estim) %>% 
+  bind_rows(EstimA) %>% 
   mutate(CrownHeight = TreeHeight*0.3)
 
-Understory <- Understory %>% # 28 711
-  mutate(TreeHeight = retrieveH(D= DBHcor, model = HDmodelGuiana)$H) %>% 
-  mutate(CrownHeight = TreeHeight*0.3) %>% 
+EstimU <- Understory %>% # 28 711
+  filter(is.na(TreeHeight)) %>% # 28 045 trees
+  mutate(TreeHeight = ifelse(Multistem==T, retrieveH(D= DBH, model = HDmodelGuiana)$H,
+                             retrieveH(D= DBHcor, model = HDmodelGuiana)$H)) %>% 
   mutate(HeightHow = "Local allometry")
+
+Understory <- Understory %>%
+  filter(!is.na(TreeHeight)) %>% 
+  bind_rows(EstimU) %>% 
+  mutate(CrownHeight = TreeHeight*0.3)
+
 ```
 
-```{r}
+```{r, eval=F}
 Understory %>% filter(is.na(TreeHeight))
 ```
 
@@ -151,11 +183,12 @@ Adults %>%
   ggplot() +
   aes(x = DBHcor, y = TreeHeight, colour= HeightHow) +
   geom_point(shape = "circle", size = 0.2) + 
-  geom_smooth(span = 0.75, linewidth = 0.8) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-  geom_point(data= Understory, shape = "circle", size = 0.2, aes(color = "Local allometry")) + 
+  geom_smooth(span = 0.75, linewidth = 0.8) + 
+  geom_point(data= Understory, shape = "circle", size = 0.2) + 
+  geom_smooth(data= Understory, span = 0.75, linewidth = 0.8) + 
   theme_minimal() +
-  scale_color_manual(values = c("Local allometry" = "#00AFBB",
-                              "CanopyConstructor"= "#E7B800")) +
+  # scale_color_manual(values = c("Local allometry" = "#00AFBB",
+  #                               "CanopyConstructor"= "#E7B800")) +
   labs(x ="DBH (cm)", y = "Tree height (m)", colour = "Method") +
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_text(size=16), legend.text= element_text(size=16),
@@ -166,13 +199,19 @@ Adults %>%
   aes(x = DBHcor, y = CrownHeight) +
   geom_point(aes(col = "Crown height"), size = 1) + 
   geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Crown height")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-  geom_point(data= Understory, size = 1, aes(color = "Crown height")) + 
+  geom_point(data= Understory, size = 1, aes(color = "Crown height")) +
+  geom_point(data= Understory, size = 1, aes(y = CrownBase, color = "Crown base")) +
+  geom_smooth(data= Understory, span = 0.75, linewidth = 0.8, aes(y = CrownBase, color = "Crown base")) + 
+  
+  geom_point(data= Understory, size = 1, aes(y = CrownRadius, color = "Crown radius")) + 
+  
   geom_point(size = 1, aes(y = CrownRadius, color = "Crown radius")) + 
   geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius, color = "Crown radius")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-
+  
   theme_minimal() +
   scale_color_manual(values = c("Crown height" = "#CC79A7",
-                              "Crown radius"= "#E7B800")) +
+                                "Crown base" = "#00AFBB",
+                                "Crown radius"= "#E7B800")) +
   labs(x ="DBH (cm)", y = "Crown dimension (m)") +
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_blank(), legend.text= element_text(size=16),
@@ -345,8 +384,8 @@ Pour estimer le rayon de la couronne des arbres absents des données de Claudia,
 lm_fit <- lm(log(data$CrownRadius) ~ log(data$DBH), data = data)
 
 # Estimations initiales
-alpha_init <- coef(lm_fit)[1]
-beta_init <- coef(lm_fit)[2]
+alpha_init <- coef(lm_fit)[1] # -0.815
+beta_init <- coef(lm_fit)[2] # 0.629
 
 # Ajustement avec nls (Nonlinear Least Squares)
 nls_fit <- nls(CrownRadius ~ exp(alpha) * (DBH^beta),
@@ -357,16 +396,23 @@ nls_fit <- nls(CrownRadius ~ exp(alpha) * (DBH^beta),
 coef <- coef(nls_fit)
 
 # Estimation
-Estim <- Adults %>%
+EstimA <- Adults %>%
   filter(is.na(CrownRadius)) %>% # 24 trees
-  mutate(CrownRadius = exp(coef["alpha"]) * (DBHcor^coef["beta"]))
+  mutate(CrownRadius = ifelse(Multistem==T, exp(coef["alpha"] + coef["beta"] * log(DBH)), 
+                              exp(coef["alpha"] + coef["beta"] * log(DBHcor))))
 
 Adults <- Adults %>%
   filter(!is.na(CrownRadius)) %>% 
-  bind_rows(Estim)
+  bind_rows(EstimA)
 
-Understory <- Understory %>% # 28 711
-  mutate(CrownRadius = exp(coef["alpha"]) * (DBHcor^coef["beta"]))
+EstimU <- Understory %>% 
+  filter(is.na(CrownRadius)) %>% #  trees
+  mutate(CrownRadius = ifelse(Multistem==T, exp(coef["alpha"] + coef["beta"] * log(DBH)), 
+                              exp(coef["alpha"] + coef["beta"] * log(DBHcor))))
+
+Understory <- Understory %>%
+  filter(!is.na(CrownRadius)) %>% 
+  bind_rows(EstimU)
 ```
 
 ### Check
@@ -380,11 +426,11 @@ FTH %>%
   geom_point(size = 0.2, aes(color = "Average measurement")) + 
   geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Average measurement")) +
   geom_point(aes(y = CrownRadius_est, color = "Estimated"), size = 0.2) +
-    geom_smooth(aes(y = CrownRadius_est, color = "Estimated"), span = 0.75, linewidth = 0.8) +
-
+  geom_smooth(aes(y = CrownRadius_est, color = "Estimated"), span = 0.75, linewidth = 0.8) +
+  
   theme_minimal() +
   scale_color_manual(values = c("Average measurement" = "#009E73",
-                              "Estimated"= "#D55E00")) +
+                                "Estimated"= "#D55E00")) +
   labs(x ="DBH (cm)", y = "CrownRadius (m)") +
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_blank(), legend.text= element_text(size=16),
@@ -397,13 +443,13 @@ CC %>%
   ggplot() +
   aes(x = DBH, y = CrownRadius) +
   geom_point(size = 0.2, aes(color = "Average measurement")) + 
-  # geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Average measurement")) +
+  geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Average measurement")) +
   geom_point(aes(y = CrownRadius_est, color = "Estimated"), size = 0.2) +
-    geom_smooth(aes(y = CrownRadius_est, color = "Estimated"), span = 0.75, linewidth = 0.8) +
-
+  geom_smooth(aes(y = CrownRadius_est, color = "Estimated"), span = 0.75, linewidth = 0.8) +
+  
   theme_minimal() +
   scale_color_manual(values = c("Average measurement" = "#009E73",
-                              "Estimated"= "#D55E00")) +
+                                "Estimated"= "#D55E00")) +
   labs(x ="DBH (cm)", y = "CrownRadius (m)") +
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_blank(), legend.text= element_text(size=16),
@@ -417,23 +463,37 @@ Adults %>%
   ggplot() +
   aes(x = DBHcor, y = CrownRadius, colour= HeightHow) +
   geom_point(shape = "circle", size = 0.2) + 
-  geom_smooth(span = 0.75, linewidth = 0.8) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-  geom_point(data= Understory, shape = "circle", size = 0.2, aes(color = "Local allometry")) + 
+  geom_smooth(span = 0.75, linewidth = 0.8) + 
+  geom_point(data= Understory, shape = "circle", size = 0.2) + 
+  geom_smooth(data= Understory, span = 0.75, linewidth = 0.8) + 
   theme_minimal() +
-  scale_color_manual(values = c("Local allometry" = "#00AFBB",
-                              "CanopyConstructor"= "#E7B800")) +
+  # scale_color_manual(values = c("Local allometry" = "#00AFBB",
+  #                               "CanopyConstructor"= "#E7B800")) +
   labs(x ="DBH (cm)", y = "CrownRadius (m)", colour = "Method") +
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_text(size=16), legend.text= element_text(size=16),
         legend.position="bottom")
 ```
 
-## Osolète - Version allométrie de Mélaine
+## Join data
+```{r}
+Inv <- Adults %>% 
+  bind_rows(Understory)
+
+# any(is.na(Inv$ScientificName))
+```
+
+## Write data
+```{r}
+write.csv(Inv, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv")
+```
+
+## Obsolète - Version allométrie de Mélaine
 CrownDiameterAllometry ln(DBH) = 𝜶 +𝜷 ln(H*CD) + 𝜺, with 𝜺~N(0,σ^2)
 and mean σ^2 = 0.0295966977 with the crown diameter (CD), the tree height
 (H) in m, and the DBH in cm. (Aubry-Kientz et al.2019)
 
 ```{r}
-exp(((log(DBH)- alpha - rnorm(length(DBH), 0, 0.0295966977))/beta))/TreeHeight
+# exp(((log(DBH)- alpha - rnorm(length(DBH), 0, 0.0295966977))/beta))/TreeHeight
 ```
 

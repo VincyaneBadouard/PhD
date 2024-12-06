@@ -33,6 +33,7 @@ library(sf)
 library(corrplot)
 library(RColorBrewer)
 ```
+
 # Paths
 ```{r}
 local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
@@ -55,12 +56,12 @@ ctg : catalog of laz files
 # Si 1 fichier
 # ST <- readLAS(paste(local,"P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_lastoolsclassif.laz", sep="") # décimé
 ST <- readLAS(
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/DZ_buff_2023_HAF_RefAsInt_New.laz"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/DZ_buff_2023_HAF_RefAsInt_New.laz"
   # paste(local,folders, "Returns_and_gpstime_corrected_lastoolsclassif.laz", sep=""))
 # UAV_C19C20_retranslated_lastoolsclassif
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_retranslated_lastoolsclassif.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
 # ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 )
 hist(ST$Intensity, breaks=1000)
@@ -98,7 +99,7 @@ ST;PC
 rm(ST);gc()
 ```
 
-# pas toujours nécessaire
+# Pas toujours nécessaire
 ```{r, crop laz}
 plot(PC)
 
@@ -223,7 +224,6 @@ fwrite(traj, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Hig
 
 # Check points cloud data
 ```{r}
-
 table(PC@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt ; UAV : 4
 PC@data
 range(PC$Z) # min et max de l'altitude: 4.19 65.74 m
@@ -314,7 +314,9 @@ writeLAS(PC,
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz"
+
 )
 ```
 
