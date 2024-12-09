@@ -595,8 +595,17 @@ data <- data %>%
                               length(unique(ScientificName))==1 & length(unique(Xutm))==1 & length(unique(Yutm))==1 & 
                               length(unique(table(DBH))) == 1, T, NA)) %>%
   mutate(Multistem = ifelse(n()==1, F, Multistem)) %>% # only 1 measurement -> not multistem
-  mutate(Multistem = ifelse(grepl("False pas double tige", Comments), F, Multistem)) %>%  # according to the Comments
   ungroup()
+
+# According to the Comments
+falsemultistem <- (data %>% filter(grepl("False pas double tige", Comments)))$IdTree
+data <- data %>% 
+  mutate(Multistem = ifelse(IdTree==falsemultistem, F, Multistem)) %>%  
+  mutate(Stem.nb = ifelse(IdTree==falsemultistem, 1, Stem.nb)) %>%  
+  mutate(IdTree = ifelse(IdTree==falsemultistem, c("18_1761", "falseM"), IdTree)) %>% 
+  mutate(IdStem = ifelse(IdTree=="falseM", "falseM_1", IdStem))
+
+
 
 # Les NA
 test4 <- data %>% 
@@ -630,16 +639,16 @@ Multistems <- data %>%
   ungroup() 
 # select(IdTree, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
 
-unique(Multistems$Comment)
+# unique(Multistems$Comment)
 # Different botanical informations (Family, ScientificName) for a same IdTree"
 # Missing value in XTreeUTM
 # Missing value in Species
-unique(Multistems$Comments) # attention "False pas double tige" (traité)
+# unique(Multistems$Comments) # attention "False pas double tige" (traité)
 
 # write.csv(test, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_DBHcor.csv")
 
 data <- data %>% 
-  filter(!Multistem & !is.na(Multistem)) %>% # supprimer les Multistems=T
+  filter(!Multistem & !is.na(Multistem)) %>% # supprimer les Multistem=T
   mutate(DBHcor = DBH) %>%
   bind_rows(Multistems)
 ```
@@ -647,7 +656,7 @@ data <- data %>%
 # Write cleaned data
 **! vérifier que si ya DBH ya DBHcor !**
 ```{r}
-nrow(data) # 42043
+nrow(data) # 41738
 length(unique(data$ScientificName)) # 678
 
 write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
@@ -661,8 +670,13 @@ Only measured trees
 Only botanical identified
 Take only sp >= 30 ind
 ```{r}
+SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2])
+
 data <- data %>% 
-    # & DBH<10 only ALT data ?
+  rowwise() %>% 
+  filter(ScientificName %in% SpeciesA) %>%
+  ungroup() %>% 
+  # & DBH<10 only ALT data ?
   filter(DBH>=1 & DBH<10) %>%
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
@@ -674,17 +688,17 @@ data <- data %>%
   filter(!is.na(Xutm) & !is.na(Yutm)) %>%
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
-  filter(ScientificName!="Tres haut") %>%
-  filter(!grepl("indet", ScientificName)) %>%
-  filter(!grepl("Indet", ScientificName)) %>%
-  filter(!grepl("aceae", ScientificName)) %>%
-  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # garder les sp.numéro ?
-  filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
-  filter(!grepl("_cf_", ScientificName)) %>%
-  mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>% 
-  mutate(SubSpecies = str_extract(ScientificName,"(?<=\\.).*")) %>% 
-  rename(ScientificName_old = ScientificName,
-         ScientificName = ScientificName_c) %>% 
+  # filter(ScientificName!="Tres haut") %>%
+  # filter(!grepl("indet", ScientificName)) %>%
+  # filter(!grepl("Indet", ScientificName)) %>%
+  # filter(!grepl("aceae", ScientificName)) %>%
+  # filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # garder les sp.numéro ?
+  # filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
+  # filter(!grepl("_cf_", ScientificName)) %>%
+  # mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>% 
+  # mutate(SubSpecies = str_extract(ScientificName,"(?<=\\.).*")) %>% 
+  # rename(ScientificName_old = ScientificName,
+  #        ScientificName = ScientificName_c) %>% 
   
   # attention Rinorea_idem181298 (138 individus)
   
@@ -695,12 +709,17 @@ data <- data %>%
   # Take only sp >= 30 ind
   filter(N >= 30)
 
+SpeciesA[!SpeciesA %in% data$ScientificName]
+# "Chrysophyllum_prieurii", "Theobroma_guianense" : DBH >10 uniquement
+# "Caryocar_glabrum", "Eperua_rubiginosa", "Oenocarpus_bataua", "Goupia_glabra"         
+# "Carapa_surinamensis", "Chrysophyllum_prieurii", "Sterculia_speciosa", "Siparuna_decipiens"    
+# "Theobroma_guianense", "Ambelania_acida", "Euterpe_oleracea" # not enough >10     
 ```
 
 # Write cleaned and filtred data
 ```{r}
-nrow(data) # 32793
-length(unique(data$ScientificName)) # 184
+nrow(data) # 15409
+length(unique(data$ScientificName)) # 55
 
 write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
 ```

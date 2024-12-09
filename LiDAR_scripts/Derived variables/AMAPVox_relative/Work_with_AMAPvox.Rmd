@@ -51,18 +51,18 @@ file <-
 ctg : catalog of laz files
 ```{r}
 # Si en dalles :
-# ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar", filter = "keep") # las catalog. filter only 1st returns
+ST <- readLAScatalog(folder = "D:/Mes Donnees/PhD/Lidar/ALS2023/LowAlt/", filter = "keep") # las catalog. filter only 1st returns
 
 # Si 1 fichier
 # ST <- readLAS(paste(local,"P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_lastoolsclassif.laz", sep="") # décimé
 ST <- readLAS(
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/DZ_buff_2023_HAF_RefAsInt_New.laz"
   # paste(local,folders, "Returns_and_gpstime_corrected_lastoolsclassif.laz", sep=""))
-# UAV_C19C20_retranslated_lastoolsclassif
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_retranslated_lastoolsclassif.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
-# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
+  # UAV_C19C20_retranslated_lastoolsclassif
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_retranslated_lastoolsclassif.laz"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/HighFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/LowFlight_alt4ha_buff100m_2023_RefAsInt_New.laz"
+  # ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 )
 hist(ST$Intensity, breaks=1000)
 crs(ST) # no crs
@@ -78,7 +78,7 @@ Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fi
 ROI : Region of Interest
 ```{r, create ROI}
 # Region of Interest (ROI)
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp") # interest zone + 100m buffer
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_25ha_buffer.shp") # interest zone + 100m buffer
 plot(ROI)
 class(ROI) # SpatVector (terra)
 
@@ -91,6 +91,8 @@ ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 
 # Clip the point cloud in region of interest
 ```{r, crop laz}
+ST <- catalog_intersect(ST, ROI) # if laz catalog
+plot(ST)
 PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
 ST;PC
 ```
@@ -121,22 +123,21 @@ PC <- PC[[1]]
 table(PC@data$Classification) # 7 = bruit, 2 = sol, veg = 3,4,5, non-classified = 1
 PC@data <- PC@data[Classification != 7,]
 # plot(PC)
+
+writeLAS(PC,
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/P16_2023_25ha_LowAlt_buffer_raw.laz"
+)
 ```
 
 # Crop the DEM in region of interest
 ```{r, crop DEM}
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer101m.shp") # buffer plus grand pour éviter les effets de bords lors de la voxélisation
-# ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/Shp/DZ_buffer.shp") # DZ + buffer
-ROI <- st_as_sf(ROI) # as sf object
-ROI <- st_set_crs(ROI, 2972) # crs
-
 # Modèle numérique de terrain
 # //amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/mnt_roi36ha_1m.asc""
 # mnt <- rast(paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Decimated/Processed/Subsampled_Returns_and_gpstime_corrected_DEM.tif", sep = "")) # decimated
 mnt <- rast(
   # paste(local,folders,"Returns_and_gpstime_corrected_DEM.tif", sep = "")
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/dtm2023.asc"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt.tif"
 )
 
 ggplot() + 
@@ -160,10 +161,15 @@ ggplot() +
   theme_classic() +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-ggsave(paste(file, "_DEM_1m_crop.png", sep = "" ), path = "D:/Mes Donnees/PhD/Figures/lidar/UAV", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave("P16_25ha_buffer_DEM.png",
+  # paste(file, "_DEM_1m_crop.png", sep = "" ),
+       # path = "D:/Mes Donnees/PhD/Figures/lidar/UAV",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/MNT",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 writeRaster(raster(mntROI),
-            paste(local,"AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
+            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc",
+            # paste(local,"AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
             format="ascii", overwrite=T) # decimated
 
 # writeRaster(raster(mntROI),
@@ -269,6 +275,7 @@ Réflectance (ou Albedo) = énergie lumineuse réfléchie/énergie lumineuse inc
 
 ```{r}
 anyNA(PC@data$Intensity) # 10748 62215
+range(PC@data$Intensity) #  0 46071
 names(PC@data)
 
 # Compute Intensity
@@ -310,13 +317,13 @@ table(PC@data$Classification)
 
 writeLAS(PC,
          # paste(local,"AMAPVox/LAZ/P16_2023_",file,"_buffer_intensitycor.laz", sep="")
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz"
-
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz"
+         
 )
 ```
 
@@ -629,7 +636,7 @@ Relativ2UTM <- function(data, VOP){
   # Apply inverse of VOP matrix to convert back to UTM
   xyz <- tcrossprod(as.matrix(data@data[, .(x, y, z, c=1)]), solve(VOP))
   data@data[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
-
+  
   data@data <- unique(data@data)
   return(data)
 }
@@ -743,7 +750,7 @@ AMAPVox::plot(VX_merge) ; gc()
 ```{r}
 writeVoxelSpace(VX_merge, 
                 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_PadHLE_intensity2m.vox"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_PadHLE_intensity1m.vox"
+                "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_bufferALS_PadHLE_intensity1m.vox"
 )
 ```
 

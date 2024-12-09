@@ -10,7 +10,7 @@ output:
 # Packages
 ```{r Setup, include = F}
 library(tidyverse)
-# library(lidR)
+library(lidR)
 library(readr)
 library(data.table)
 library(AMAPVox)
@@ -26,19 +26,22 @@ library(AMAPVox)
 All the cirad trees on 25ha + ALT on 9 ha
 ```{r}
 data <- (read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv") %>% 
-  select(idTree, TreeHeight, CrownHeight, CrownRadius))
+           select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius)) # 23 631 rows
 
-idTrees <- data$idTree
+idTrees <- unique(data$idTree)
+data[!is.na(data$idTree) & duplicated(data$idTree),] 
 ```
 
 # Create Voxel space
 ALS low altitude; 25ha + 100m buffer ; 1 m resolution ; intensity echo weight
-```{r}
+```{r, eval= F}
+# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz")
+# View(ST@data)
 # Get the configuration file
 xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/XML/P16_2023_25ha_buffer_LowAlt_Vox_intensity1m.xml"
 # Run
 AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2
-AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g")
+AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g") # v. 2.3.2
 
 ```
 
@@ -48,16 +51,64 @@ Tree <- data[1,] # temporaire
 idTree <- Tree$idTree
 ```
 
-## Create crown's bounding box
+## Extract Zutm for each tree
 ```{r}
-bounding_box <- list(
-xmin = min(points_3d$x),
-xmax = max(points_3d$x),
-ymin = min(points_3d$y),
-ymax = max(points_3d$y),
-zmin = min(points_3d$z),
-zmax = max(points_3d$z)
-)
+
+```
+
+## Create crown's bounding box
+TreeHeight, CrownHeight, CrownRadius
+```{r}
+# 8 points
+x0 = Tree$Xutm
+y0 = Tree$Yutm
+z0 = 3 # Tree$Zutm
+
+CrownRadius <- Tree$CrownRadius
+TreeHeight <- Tree$TreeHeight
+CrownHeight <- Tree$CrownHeight
+
+lowleftfront = c(x = x0 - CrownRadius, # left
+                 y = y0 + CrownRadius, # front
+                 z = z0 + (TreeHeight - CrownHeight)) # low
+lowrightfront = c(x = x0 + CrownRadius, # rght
+                 y = y0 + CrownRadius, # front
+                 z = z0 + (TreeHeight - CrownHeight)) # low
+  
+lowleftback = c(x = x0 - CrownRadius, # left
+                 y = y0 - CrownRadius, # back
+                 z = z0 + (TreeHeight - CrownHeight)) # low
+lowrightback = c(x = x0 + CrownRadius, # right
+                 y = y0 - CrownRadius, # back
+                 z = z0 + (TreeHeight - CrownHeight)) # low
+  
+Highleftfront = c(x = x0 - CrownRadius, # left
+                 y = y0 + CrownRadius, # front
+                 z = z0 + TreeHeight) # high
+Highrightfront = c(x = x0 + CrownRadius, # right
+                 y = y0 + CrownRadius, # front
+                 z = z0 + TreeHeight) # high
+  
+Highleftback = c(x = x0 - CrownRadius, # left
+                 y = y0 - CrownRadius, # back
+                 z = z0 + TreeHeight) # high
+Highrightback = c(x = x0 + CrownRadius, # right
+                 y = y0 - CrownRadius, # back
+                 z = z0 + TreeHeight) # high
+
+plot3D::scatter3D() 
+rgl::plot3d()
+
+ggplot(data= Highrightback, aes(x=x,y=y)) +
+  geom_point(lowleftfront) +
+    geom_point(lowleftfront) +
+    geom_point(lowleftback) +
+    geom_point(lowrightback) +
+    geom_point(Highleftfront) +
+    geom_point(Highrightfront) +
+    geom_point(Highleftback) +
+    geom_point(Highrightback)
+
 ```
 
 # Coordinates in the crown
@@ -75,10 +126,16 @@ zmax = max(points_3d$z)
 # Z3
 ```
 
+# Transformer en coordonnées locales
+```{r}
+```
+
 ## Empties crown voxels
 Put 0 to attenatuation 
 ```{r}
 VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_25ha_buffer_intensity1m.vox")
+View(VX@data)
+AMAPVox::plot(VX, variable.name = "nbSampling")
 # i, j, k = index not coordinates
 VX@data[, c("x", "y", "z") := getPosition(VX)[, .(x, y, z)]]
 

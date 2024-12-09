@@ -147,11 +147,11 @@ multistems <- AdultsP16 %>%
   mutate(DBHcor = 2*sqrt(BasalAreacor/pi)) %>% 
   arrange(desc(DBHcor)) %>% 
   ungroup() %>% 
-  mutate(Multistems = T)
+  mutate(Multistem = T)
 
 AdultsP16 <- AdultsP16 %>% 
   filter(!grepl("Multistem potential", Comment)) %>% # supprimer les dupliqués
-  mutate(Multistems = F) %>% 
+  mutate(Multistem = F) %>% 
   mutate(Stem.nb = 1) %>%
   mutate(DBHcor = DBHcorTaper) %>%
   bind_rows(multistems)
@@ -193,7 +193,8 @@ unique(test$ScientificName)
 AdultsP16_filtred <- AdultsP16 %>%
   # Only spatialised trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% # # aucun
-  
+  # Only the principal stem
+  filter(Stem.nb == 1) %>%
   filter(DBHcor>=10) %>% # enlève 7 tiges
   # Only alive trees
   # filter(CodeAlive == T) %>% # déjà fait avant
@@ -224,9 +225,15 @@ AdultsP16_filtred <- AdultsP16 %>%
 ```
 
 ```{r}
-nrow(AdultsP16) - nrow(AdultsP16_filtred) # 4195
+nrow(AdultsP16) - nrow(AdultsP16_filtred) # 4267
 length(unique(AdultsP16$ScientificName)) - length(unique(AdultsP16_filtred$ScientificName)) # 401 species lost, 66 sp kept
 
 write.csv(AdultsP16_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv")
+```
+
+```{r}
+Species <- as.data.frame(unique(AdultsP16_filtred$ScientificName))
+
+write.csv(Species, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")
 ```
 

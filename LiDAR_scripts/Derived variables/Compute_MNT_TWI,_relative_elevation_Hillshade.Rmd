@@ -90,8 +90,13 @@ writeRaster(MNT_buffer50m, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16
 1. LAZ > MNT on-by-one
 
 ```{r, eval=FALSE}
-las_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/las"
-mnt_path = "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT"
+las_path = 
+  # "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/las"
+  "D:/Mes Donnees/PhD/Lidar/ALS2023/LowAlt"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/P16_2023_25ha_LowAlt_buffer_raw.laz"
+mnt_path =
+  # "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dalles"
 
 lases <- list.files(las_path)
 
@@ -106,7 +111,8 @@ las_to_dem <- function(las_file, las_path, mnt_path) {
 }
 
 # lapply(lases, las_to_dem, las_path = las_path,
-#        mnt_path = mnt_path)
+#        mnt_path = mnt_path) # paréllisé au chunk suivant
+
 ```
 
 ```{r}
@@ -149,7 +155,9 @@ stopCluster(cl)
 dems <- list.files(mnt_path, full.names = TRUE) %>% 
   lapply(terra::rast)
 dem <- do.call(terra::merge, dems)
-writeRaster(dem, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT.tif")
+# writeRaster(dem, "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT.tif")
+writeRaster(dem, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt.tif")
+
 ```
 
 3. View DEM

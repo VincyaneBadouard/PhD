@@ -24,8 +24,8 @@ library(terra)
 Site : Paracou - P16
 Subplots :
 - 13, 18, 23, 24 : oui
-- 14-15-19-20 : pas encore 
-Méthode de mesure : lazer
+- 14-15-19-20-25 : pas encore 
+Méthode de mesure : laser
 
 ```{r}
 Piquets_Paracou <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou13_18_23_24.csv", 
