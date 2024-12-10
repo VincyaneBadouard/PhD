@@ -15,11 +15,11 @@ library(readr)
 library(data.table)
 library(AMAPVox)
 # library(rgl) # visulaisation 3D
-# library(terra)
+library(terra)
 # library(raster)
 # library(lidR)
 # library(tidyterra)
-# library(sf)
+library(sf)
 ```
 
 # Data
@@ -34,6 +34,13 @@ data[!is.na(data$idTree) & duplicated(data$idTree),]
 
 # Create Voxel space
 ALS low altitude; 25ha + 100m buffer ; 1 m resolution ; intensity echo weight
+
+1/ VOP de la P16 (centre de rotation = centre de la parcelle)
+
+2/ il ne faut pas d'intensité nulle ->  non géré par AMAPVox (remplace les 0 que tu obtiens par arrondi, par 0.01 ou 0.001)
+
+3/ essaie de travailler avec la bounding box de ta zone d'intérêt si tu galères (sans VOP du coup)
+
 ```{r, eval= F}
 # ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz")
 # View(ST@data)
@@ -53,17 +60,29 @@ idTree <- Tree$idTree
 
 ## Extract Zutm for each tree
 ```{r}
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc")
+ROI <- terra::vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_25ha_buffer.shp") %>% st_as_sf() %>% st_set_crs(2972)
+Treesf <- st_as_sf(Tree, coords = c('Xutm','Yutm'))
+Treesf <- st_set_crs(Treesf, st_crs(ROI)) 
 
+crs(MNT) <- crs(ROI)
+
+alt <- extract(MNT, Treesf) %>% # extract z
+  rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
+
+Tree <- Tree %>% cbind(alt)
 ```
 
 ## Create crown's bounding box
 TreeHeight, CrownHeight, CrownRadius
 ```{r}
-# 8 points
 x0 = Tree$Xutm
 y0 = Tree$Yutm
-z0 = 3 # Tree$Zutm
+z0 = Tree$Zutm
 
+foot = c(x = x0, y = y0, z = z0)
+
+# 8 points
 CrownRadius <- Tree$CrownRadius
 TreeHeight <- Tree$TreeHeight
 CrownHeight <- Tree$CrownHeight
@@ -72,42 +91,34 @@ lowleftfront = c(x = x0 - CrownRadius, # left
                  y = y0 + CrownRadius, # front
                  z = z0 + (TreeHeight - CrownHeight)) # low
 lowrightfront = c(x = x0 + CrownRadius, # rght
-                 y = y0 + CrownRadius, # front
-                 z = z0 + (TreeHeight - CrownHeight)) # low
-  
+                  y = y0 + CrownRadius, # front
+                  z = z0 + (TreeHeight - CrownHeight)) # low
+
 lowleftback = c(x = x0 - CrownRadius, # left
-                 y = y0 - CrownRadius, # back
-                 z = z0 + (TreeHeight - CrownHeight)) # low
+                y = y0 - CrownRadius, # back
+                z = z0 + (TreeHeight - CrownHeight)) # low
 lowrightback = c(x = x0 + CrownRadius, # right
                  y = y0 - CrownRadius, # back
                  z = z0 + (TreeHeight - CrownHeight)) # low
-  
+
 Highleftfront = c(x = x0 - CrownRadius, # left
-                 y = y0 + CrownRadius, # front
-                 z = z0 + TreeHeight) # high
+                  y = y0 + CrownRadius, # front
+                  z = z0 + TreeHeight) # high
 Highrightfront = c(x = x0 + CrownRadius, # right
-                 y = y0 + CrownRadius, # front
-                 z = z0 + TreeHeight) # high
-  
+                   y = y0 + CrownRadius, # front
+                   z = z0 + TreeHeight) # high
+
 Highleftback = c(x = x0 - CrownRadius, # left
                  y = y0 - CrownRadius, # back
                  z = z0 + TreeHeight) # high
 Highrightback = c(x = x0 + CrownRadius, # right
-                 y = y0 - CrownRadius, # back
-                 z = z0 + TreeHeight) # high
+                  y = y0 - CrownRadius, # back
+                  z = z0 + TreeHeight) # high
 
-plot3D::scatter3D() 
-rgl::plot3d()
+boundingbox <- as.data.frame(rbind(foot, lowleftfront, lowrightfront, lowleftback, lowrightback, Highleftfront, Highrightfront, Highleftback, Highrightback))
 
-ggplot(data= Highrightback, aes(x=x,y=y)) +
-  geom_point(lowleftfront) +
-    geom_point(lowleftfront) +
-    geom_point(lowleftback) +
-    geom_point(lowrightback) +
-    geom_point(Highleftfront) +
-    geom_point(Highrightfront) +
-    geom_point(Highleftback) +
-    geom_point(Highrightback)
+
+plotly::plot_ly(boundingbox, x = ~x, y = ~y, z = ~z, color=row.names(boundingbox))
 
 ```
 
@@ -126,8 +137,24 @@ ggplot(data= Highrightback, aes(x=x,y=y)) +
 # Z3
 ```
 
-# Transformer en coordonnées locales
+# Coordinates in local positions (use VOP)
 ```{r}
+Tree <- as.data.table(Tree)
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+
+# matrix <- as.matrix(data.frame(Xutm = c(286536.53, 286541.3), Yutm = c(582611.45, 582605.2), c = 0, d = 1)) # DZ
+
+matrix <- as.matrix(Tree[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- cbind(datalocal,Tree[,Zutm])[, -c(3,4)] # add Zutm
+
+# datalocal <- cbind(datalocal,data.frame(Zutm=39.3))[, -c(3,4)] # add DZ Zutm
+
+ggplot() +
+  geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.3) 
+
 ```
 
 ## Empties crown voxels
