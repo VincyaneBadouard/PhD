@@ -100,7 +100,7 @@ ggplot() +
 data <- Understory %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
-  filter(ScientificName=="Symphonia_globulifera") %>% 
+  filter(ScientificName=="Virola_surinamensis") %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 

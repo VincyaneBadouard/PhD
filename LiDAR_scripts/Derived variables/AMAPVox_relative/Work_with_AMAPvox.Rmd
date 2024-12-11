@@ -315,6 +315,10 @@ PC@data <- PC@data %>%
 
 table(PC@data$Classification)
 
+# PC <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz")
+# range(PC@data$Intensity) # 0-40
+PC@data[, Intensity := ifelse(Intensity == 0L, 1L, Intensity)] # != 0 and integer
+
 writeLAS(PC,
          # paste(local,"AMAPVox/LAZ/P16_2023_",file,"_buffer_intensitycor.laz", sep="")
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz"

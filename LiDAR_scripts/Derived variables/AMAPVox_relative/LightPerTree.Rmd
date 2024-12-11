@@ -25,8 +25,9 @@ library(sf)
 # Data
 All the cirad trees on 25ha + ALT on 9 ha
 ```{r}
-data <- (read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv") %>% 
-           select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius)) # 23 631 rows
+data <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv") %>% 
+  filter(SubPlot==20) %>% # TEMPORAIRE
+  select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius) # 23 631 rows
 
 idTrees <- unique(data$idTree)
 data[!is.na(data$idTree) & duplicated(data$idTree),] 
@@ -35,14 +36,18 @@ data[!is.na(data$idTree) & duplicated(data$idTree),]
 # Create Voxel space
 ALS low altitude; 25ha + 100m buffer ; 1 m resolution ; intensity echo weight
 
-1/ VOP de la P16 (centre de rotation = centre de la parcelle)
+1/ VOP de la P16 (centre de rotation = centre de la parcelle) (done)
 
-2/ il ne faut pas d'intensité nulle ->  non géré par AMAPVox (remplace les 0 que tu obtiens par arrondi, par 0.01 ou 0.001)
+2/ il ne faut pas d'intensité nulle ->  non géré par AMAPVox (remplace les 0 que tu obtiens par arrondi, par 0.01 ou 0.001) (done)
 
 3/ essaie de travailler avec la bounding box de ta zone d'intérêt si tu galères (sans VOP du coup)
 
 ```{r, eval= F}
 # ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_25ha_LowAlt_buffer_intensitycor.laz")
+# range(ST@data$Intensity) # 1-40
+# table(ST@data$Classification)
+# plot(ST, color="Classification", legend = T)
+
 # View(ST@data)
 # Get the configuration file
 xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/XML/P16_2023_25ha_buffer_LowAlt_Vox_intensity1m.xml"
@@ -51,6 +56,9 @@ AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2
 AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g") # v. 2.3.2
 
 ```
+
+# Fill empty voxels
+*voir Fill_empty_voxels.Rmd*
 
 # For each tree
 ```{r}
@@ -71,102 +79,107 @@ alt <- extract(MNT, Treesf) %>% # extract z
   rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
 
 Tree <- Tree %>% cbind(alt)
+foot <- Tree %>% select(Xutm, Yutm, Zutm) %>% setDT()
+```
+
+## Coordinates in local positions (use VOP)
+```{r}
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_25ha.txt"))
+
+matrix <- as.matrix(foot[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+footlocal <- matrix %*% t(VOP) # same dimensions
+
+footlocal <- as.data.frame(cbind(footlocal, foot[,Zutm]))[, -c(3,4)]  # add Zutm
+names(footlocal) <- c("x","y","z")
+footlocal$ID <- "foot" 
 ```
 
 ## Create crown's bounding box
 TreeHeight, CrownHeight, CrownRadius
 ```{r}
-x0 = Tree$Xutm
-y0 = Tree$Yutm
-z0 = Tree$Zutm
-
-foot = c(x = x0, y = y0, z = z0)
-
 # 8 points
 CrownRadius <- Tree$CrownRadius
 TreeHeight <- Tree$TreeHeight
 CrownHeight <- Tree$CrownHeight
 
-lowleftfront = c(x = x0 - CrownRadius, # left
-                 y = y0 + CrownRadius, # front
-                 z = z0 + (TreeHeight - CrownHeight)) # low
-lowrightfront = c(x = x0 + CrownRadius, # rght
-                  y = y0 + CrownRadius, # front
-                  z = z0 + (TreeHeight - CrownHeight)) # low
+lowleftfront = c(x = footlocal$x - CrownRadius, # left
+                 y = footlocal$y + CrownRadius, # front
+                 z = footlocal$z + (TreeHeight - CrownHeight)) # low
+lowrightfront = c(x = footlocal$x + CrownRadius, # rght
+                  y = footlocal$y + CrownRadius, # front
+                  z = footlocal$z + (TreeHeight - CrownHeight)) # low
 
-lowleftback = c(x = x0 - CrownRadius, # left
-                y = y0 - CrownRadius, # back
-                z = z0 + (TreeHeight - CrownHeight)) # low
-lowrightback = c(x = x0 + CrownRadius, # right
-                 y = y0 - CrownRadius, # back
-                 z = z0 + (TreeHeight - CrownHeight)) # low
+lowleftback = c(x = footlocal$x - CrownRadius, # left
+                y = footlocal$y - CrownRadius, # back
+                z = footlocal$z + (TreeHeight - CrownHeight)) # low
+lowrightback = c(x = footlocal$x + CrownRadius, # right
+                 y = footlocal$y - CrownRadius, # back
+                 z = footlocal$z + (TreeHeight - CrownHeight)) # low
 
-Highleftfront = c(x = x0 - CrownRadius, # left
-                  y = y0 + CrownRadius, # front
-                  z = z0 + TreeHeight) # high
-Highrightfront = c(x = x0 + CrownRadius, # right
-                   y = y0 + CrownRadius, # front
-                   z = z0 + TreeHeight) # high
+Highleftfront = c(x = footlocal$x - CrownRadius, # left
+                  y = footlocal$y + CrownRadius, # front
+                  z = footlocal$z + TreeHeight) # high
+Highrightfront = c(x = footlocal$x + CrownRadius, # right
+                   y = footlocal$y + CrownRadius, # front
+                   z = footlocal$z + TreeHeight) # high
 
-Highleftback = c(x = x0 - CrownRadius, # left
-                 y = y0 - CrownRadius, # back
-                 z = z0 + TreeHeight) # high
-Highrightback = c(x = x0 + CrownRadius, # right
-                  y = y0 - CrownRadius, # back
-                  z = z0 + TreeHeight) # high
-
-boundingbox <- as.data.frame(rbind(foot, lowleftfront, lowrightfront, lowleftback, lowrightback, Highleftfront, Highrightfront, Highleftback, Highrightback))
-
-
-plotly::plot_ly(boundingbox, x = ~x, y = ~y, z = ~z, color=row.names(boundingbox))
-
-```
+Highleftback = c(x = footlocal$x - CrownRadius, # left
+                 y = footlocal$y - CrownRadius, # back
+                 z = footlocal$z + TreeHeight) # high
+Highrightback = c(x = footlocal$x + CrownRadius, # right
+                  y = footlocal$y - CrownRadius, # back
+                  z = footlocal$z + TreeHeight) # high
 
 # Coordinates in the crown
-```{r}
-# X1 <- 
-# Y1
-# Z1
-# 
-# X2 <- 
-# Y2
-# Z2
-# 
-# X3 <- 
-# Y3
-# Z3
-```
+CrownBase = c(x = footlocal$x, # as foot
+              y = footlocal$y, # as foot
+              z = footlocal$z + (TreeHeight - CrownHeight)) # base
 
-# Coordinates in local positions (use VOP)
-```{r}
-Tree <- as.data.table(Tree)
-VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
 
-# matrix <- as.matrix(data.frame(Xutm = c(286536.53, 286541.3), Yutm = c(582611.45, 582605.2), c = 0, d = 1)) # DZ
+points <- as.data.frame(rbind(lowleftfront, lowrightfront,
+                              lowleftback, lowrightback,
+                              Highleftfront, Highrightfront,
+                              Highleftback, Highrightback,
+                              CrownBase)) %>% 
+  rownames_to_column(var= "ID") %>% setDT() %>% rbind(footlocal)
 
-matrix <- as.matrix(Tree[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+plotly::plot_ly(points, x = ~x, y = ~y, z = ~z, color= ~ID)
 
-datalocal <- matrix %*% t(VOP) # same dimensions
+# Crown bounding box
+boundingbox <- points %>% filter(ID != 'foot' & ID != "CrownBase") 
 
-datalocal <- cbind(datalocal,Tree[,Zutm])[, -c(3,4)] # add Zutm
-
-# datalocal <- cbind(datalocal,data.frame(Zutm=39.3))[, -c(3,4)] # add DZ Zutm
-
-ggplot() +
-  geom_point(data=as.data.frame(datalocal), aes(x = V1, y = V2), col = "red", size = 0.3) 
-
+# Where estimate light
+CrownBase <- points %>% filter(ID == "CrownBase")
 ```
 
 ## Empties crown voxels
-Put 0 to attenatuation 
+Put 0 to attenatuation (HLE)
 ```{r}
-VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_25ha_buffer_intensity1m.vox")
-View(VX@data)
-AMAPVox::plot(VX, variable.name = "nbSampling")
-# i, j, k = index not coordinates
-VX@data[, c("x", "y", "z") := getPosition(VX)[, .(x, y, z)]]
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_4ha_buffer_LowAlt_PadHLE_intensity1m.vox"
+                     # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_LowAlt_PadHLE_25ha_buffer_intensity1m.vox"
+)
+# View(test@data)
 
+# i, j, k = index not coordinates
+VX@data[, c("x", "y", "z") := getPosition(VX)[, .(x, y, z)]] # in relative coordinates
 ```
+
+### Modify HLE and PAD
+```{r}
+VX@data[x>= min(boundingbox$x) & x <= max(boundingbox$x) & 
+          y>= min(boundingbox$y) & y <= max(boundingbox$y) & 
+          z>= min(boundingbox$z) & z <= max(boundingbox$z), `:=`(HLE = 0 , PadBVTotal = 0)] # empty voxels, PadBVTotal = 2*HLE
+
+test <- VX
+test@data <- VX@data[x>= min(boundingbox$x) & x <= max(boundingbox$x) & 
+                            y>= min(boundingbox$y) & y <= max(boundingbox$y) & 
+                            z>= min(boundingbox$z) & z <= max(boundingbox$z),] # 1331 vxls
+AMAPVox::plot(test)
+
+AMAPVox::plot(VX, variable.name = "HLE")
+```
+
 
 ## Crop voxel space
 100m in x, y around the crown
@@ -191,6 +204,10 @@ writeVoxelSpace(VX,
 )
 ```
 
+
+
+
+
 ## Edit xml file
 https://lecy.github.io/Open-Data-for-Nonprofit-Research/Quick_Guide_to_XML_in_R.html
 ```{r}
@@ -202,7 +219,7 @@ paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitud
 
 # Coordinates
 # <scanners-positions>
-#       <position x= X1 y= Y1 z= Z1 />
+#       <position x= CrownBase$x y=  CrownBase$y z=  CrownBase$z />
 #       <position x= X2 y= Y2 z= Z2 />
 #       <position x= X3 y= Y3 z= Z3 />
 
