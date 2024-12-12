@@ -22,21 +22,23 @@ P16shp <- st_as_sf(terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")
 ```
 
 ```{r, include = F}
-AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
+AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
   filter(CensusYear == 2020) %>% # last year
-  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # ALT zone
+  # filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # ALT zone
+  filter(SubPlot %in% c(7,8,9,10,12,17,22, 13,14,15,18,19,20,23,24,25)) %>% # ALT zone and around
   # Only alive trees
   filter(CodeAlive == T) %>%
   filter(!is.na(TreeFieldNum) & !is.na(SubPlot) & !is.na(Xutm) & !is.na(Yutm)) %>%
-  unite(col = "Guyafor.nb", c("TreeFieldNum", "SubPlot"),
-        sep = "_", na.rm = TRUE, remove = F) %>%
+  mutate(TreeFieldNum = as.character(TreeFieldNum)) %>% 
+  # unite(col = "Guyafor.nb", c("TreeFieldNum", "SubPlot"),
+  #       sep = "_", na.rm = TRUE, remove = F) %>%
   # Scientific name
+  mutate(Genus = ifelse(Genus=="Indet.MalvaceaeBombacoideae", 'Malvaceae-Bombacoideae', Genus)) %>% 
   unite(col = "ScientificName", c("Genus", "Species"),
         sep = "_", na.rm = TRUE, remove = F) %>% 
   # Circ to DBH
   mutate(Diameter = CircCorr/pi) %>% 
-  select(Guyafor.nb, ScientificName, Diameter, Xutm, Yutm)
-
+  select(TreeFieldNum, SubPlot, ScientificName, Genus, Diameter, Xutm, Yutm) # Guyafor.nb, 
 
 # AdultsPP <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
 ```
@@ -48,13 +50,15 @@ Understory <-
   read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20241126.csv") %>% # last raw data
   rename(Xutm = XTreeUTM, Yutm = YTreeUTM) %>%
   rename(DBH = Diameter) %>%
-  
+  separate(col = "Guyafor.nb", sep = "_", into = c("TreeFieldNum", "SubPlot"), remove = F) %>% 
   # filter(Stem.nb == 1) %>% 
   filter(!is.na(Guyafor.nb)) %>% # only cirad trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% # coordonnées relatives au quadrat
-  select(IdTree, Guyafor.nb,IdStem, Subplot, Stem.nb, ScientificName, DBH, Xutm, Yutm)
+  select(IdTree, Guyafor.nb, TreeFieldNum, SubPlot, IdStem, Subplot, Stem.nb, ScientificName, Genus, DBH, Xutm, Yutm)
 
 range(na.omit(Understory$DBH)) # 1.1 196.0 ya des arbres dits cirad <10 alors que ce sont les tiges principales
+length(unique((Understory %>% 
+                 filter(is.na(ScientificName)))$Guyafor.nb)) # 225 arbres sans identification bota
 ```
 
 # Compute coordinates difference (euclidian distance)
@@ -62,12 +66,16 @@ range(na.omit(Understory$DBH)) # 1.1 196.0 ya des arbres dits cirad <10 alors qu
 options(scipen = 999)
 
 all <- Understory %>% 
-  left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>% 
+  filter(Stem.nb == 1) %>%
+  left_join(AdultsP16, by = "TreeFieldNum", suffix = c("U","A")) %>% 
+  # left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>% 
   mutate(Dist = sqrt((XutmU - XutmA)^2 + (YutmU - YutmA)^2)) %>% # Compute coordinates difference (euclidian distance)
   # Homogenise bota names
   mutate(ScientificNameA = str_replace(ScientificNameA, "_Indet.", "_sp")) %>% 
   mutate(ScientificNameU = gsub("\\.", "", ScientificNameU)) %>%
   mutate(ScientificNameA = str_remove(ScientificNameA, "Indet.")) %>% 
+  mutate(GenusA = str_remove(GenusA, "Indet.")) %>% 
+  
   mutate(ScientificNameU = str_remove(ScientificNameU, "-CAY")) %>% 
   mutate(ScientificNameU = gsub("FG-Holst", "", ScientificNameU)) %>% 
   mutate(ScientificNameU = str_remove(ScientificNameU, "Guyafor")) %>% 
@@ -75,11 +83,18 @@ all <- Understory %>%
   mutate(ScientificNameA = sub("\\..*", "", ScientificNameA)) %>% 
   mutate(ScientificNameA = str_remove(ScientificNameA, "_subsp")) %>%
   mutate(ScientificNameU = str_remove(ScientificNameU, "Indet")) %>% 
+  mutate(GenusU = str_remove(GenusU, "Indet.")) %>% 
+  mutate(ScientificNameA = ifelse(ScientificNameA=="Indet", NA, ScientificNameA)) %>%
+  mutate(GenusA = ifelse(GenusA=="Indet.", NA, GenusA)) %>% 
+  
   # Compute DBH difference
   mutate(DBHdiff = DBH - Diameter)
 
 length(unique(all$Guyafor.nb)) == nrow(all)
 length(unique(all$IdTree)) == nrow(all)
+
+length(unique((all %>% 
+                 filter(is.na(GenusA)))$Guyafor.nb)) # 1085 arbres sans identification bota
 
 ```
 
@@ -118,7 +133,70 @@ for (i in c("IdStem", "Guyafor.nb")) {
 # write.csv(all, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Cirad_trees_positions_diff_ALTvsGuyafor.csv")
 ```
 
+# Check in other Subplots
 ```{r}
+test <- all %>% 
+  group_by(Guyafor.nb) %>% 
+  # Same species name
+  mutate(SelectedSp = ifelse(GenusA==GenusU, T, F)) %>% 
+  mutate(NbSelectedSp = sum(SelectedSp, na.rm = T)) %>%  # combien de T par Guyafor.nb
+  # Closer coordinates
+  # rowwise() %>% # en fait ça marche pas
+  group_by(Guyafor.nb, SelectedSp) %>% 
+  mutate(SelectedCoord = ifelse(SelectedSp & Dist== min(abs(Dist)), T, F)) %>% 
+  mutate(NbSelectedCoord = sum(SelectedCoord)) %>% # combien de T par Guyafor.nb
+  # Closer DBH
+  group_by(Guyafor.nb, SelectedCoord) %>% 
+  rowwise() %>% 
+  mutate(SelectedDBH = ifelse(SelectedCoord & (DBHdiff== min(abs(DBHdiff))), T, F)) %>% 
+  mutate(NbSelectedDBH = sum(SelectedDBH)) %>% 
+  rowwise() %>% 
+  mutate(SelectedDBH = ifelse(SelectedCoord & NbSelectedDBH ==0 & (DBHdiff < 15 & DBHdiff >(- 6)), T, SelectedDBH)) %>% 
+  mutate(NbSelectedDBH = sum(SelectedDBH)) %>% 
+  ungroup()
+
+# Checks
+test0 <- test %>% 
+  filter(!is.na(GenusU) & !is.na(GenusA)) %>% 
+  filter(NbSelectedDBH==0) # 4129/4537 arbres cirad n’ont pas un bon match
+length(unique(test0$Guyafor.nb)) 
+
+test0sp <- test %>% 
+  filter(!is.na(GenusU) & !is.na(GenusA)) %>% 
+  filter(NbSelectedSp==0) #%>% # 188 arbres sans aucun match de nom de genre entre ALT et Guyafor...
+length(unique(test0sp$Guyafor.nb)) 
+
+testsup <- test %>% 
+  filter(NbSelectedDBH>1) # 0 -> 1 seul match final youhou! 
+
+testchange <- test %>%
+  filter(SelectedDBH & SubPlotU!=SubPlotA) 
+length(unique(testchange$Guyafor.nb)) # que 5 qui étaient en fait d'un autre subplot...-> 48
+
+checkchange <- test %>%
+  filter(Guyafor.nb %in% testchange$Guyafor.nb)
+
+testgrand <- test %>%
+  filter(SelectedDBH & DBHdiff >15) # 18 arbres qui ont grandit vachement vite en 3 ans
+length(unique(testgrand$Guyafor.nb))
+range(testgrand$DBHdiff) # 15.02253 178.01549
+range(testgrand$Dist) # 0.05303301 2.66866218 : mais niveau spatial ça va
+
+testloin <- test %>%
+  filter(SelectedDBH & Dist >3) # 498 qui commencent à etre loin..
+length(unique(testloin$Guyafor.nb))
+range(testloin$Dist) # 3.001276 89.261326
+range(testloin$DBHdiff) # -4.774648 11.756717 mais  ne sont pas sur les grosses distances
+
+test %>% filter(SelectedDBH) %>%
+  ggplot(aes(x=Dist))+
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(limits = c(0, 90), breaks = seq(0, 90,by=2)) +
+  scale_y_continuous(limits = c(0, 1050), breaks = seq(0, 1050,by=50))+
+  labs(x= "Coordinates differences (distance (m))")
+```
+
+```{r, eval=F}
 test <- all %>% 
   filter(grepl("Non-unique combinaison", Comment)) %>% # 128/4 537 arbres
   filter(Dist>2) %>% # 79
@@ -135,11 +213,11 @@ test <- all %>%
 test <- all %>% 
   filter(grepl("Non-unique combinaison", Comment)) %>% 
   filter(ScientificNameA == ScientificNameU)  # 94/4 537 arbres
-  # filter(ScientificNameA!="Indet") %>%   
-  # filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
-  
-  
-  test <- all %>% 
+# filter(ScientificNameA!="Indet") %>%   
+# filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
+
+
+test <- all %>% 
   filter(Dist>2) %>%   # 1 660/4 537 arbres
   filter(!grepl("Non-unique combinaison", Comment)) # 1581/4 537 arbres
 
@@ -164,19 +242,22 @@ unique(test$ScientificNameA)
 ```
 
 # Plot
-```{r}
+```{r, eval=F}
 # cols <- rainbow(100, s=.6)[sample(1:100,100)] # , v=.9
 
-all %>% 
-  filter(Dist>50) %>%
-  filter(!grepl("Non-unique combinaison", Comment)) %>% # si on ne veut que si sont cohérents idtree-guyafor.nb
+test %>% 
+  filter(SelectedDBH) %>% 
+  filter(Dist>60) %>%
+  # filter(!grepl("Non-unique combinaison", Comment)) %>% # si on ne veut que si sont cohérents idtree-guyafor.nb
   ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
-  geom_point(aes(XutmU, YutmU, col= IdTree, shape = "ALT")) +
-  geom_point(aes(XutmA, YutmA, col= IdTree, shape = "Cirad")) +
+  geom_point(aes(XutmU, YutmU, col= Guyafor.nb, shape = "ALT"), size = 2) +
+  geom_point(aes(XutmA, YutmA, col= Guyafor.nb, shape = "Cirad"), size = 2) +
   scale_shape_manual(values = c("ALT" = 17, # pour donner un nom à chaque intitulé
                                 "Cirad" = 15)) # pour ordonner
 
+ggsave("CiradTrees_ALTvsGuyafor_Distsup15_afterExplo.png", path="D:/Mes Donnees/PhD/Figures/inventory/",
+       width = 25, height = 20, units = "cm", dpi=800, bg="white")
 # ils sont sur les bords des carrés -> ALT et Guyafor n’ont pas exactement les même limites de subplot -> ils ne sont pas considérés dans le même subplot dans ALT et Guyafor...
 
 

@@ -39,7 +39,7 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP
 ```
 
 # Env data
-```{r, eval = F}
+```{r}
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
   filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
 
@@ -47,6 +47,7 @@ P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/Ove
   filter(Plot == "16") %>% 
   st_set_crs(st_crs(TopoLevels))
 ```
+
 # Trees in pinotière ?
 ```{r, eval = F}
 AdultsP16_plot <- AdultsP16 %>% 
@@ -69,8 +70,8 @@ ggplot() +
 ```
 
 ```{r, eval = F}
-adults_BF <- st_intersection(AdultsP16_plot, TopoLevels[TopoLevels$TopoTypeEn == "Bottomland",])
-adults_BF <- st_intersection(adults_BF, P16[P16$Subplot %in% c("11","12","16","17","21","22"),])
+adults_BF <- st_intersection(AdultsP16_plot, TopoLevels[TopoLevels$TopoTypeEn == "Bottomland",]) # en BF
+adults_BF <- st_intersection(adults_BF, P16[P16$Subplot %in% c("11","12","16","17","21","22"),]) # pinotière
 
 
 ggplot() +
@@ -86,6 +87,31 @@ ggplot() +
   labs(fill= "Topography")
 
 unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
+```
+
+```{r}
+adults_BF <- AdultsP16 %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(TopoLevels)) %>% 
+  st_intersection(TopoLevels[TopoLevels$TopoTypeEn == "Bottomland",]) %>%  # en BF
+  st_intersection(P16[P16$Subplot %in% c("11","12","16","17","21","22"),]) # pinotière
+
+AdultsP16 <- AdultsP16 %>% 
+  filter(!idTree %in% adults_BF$idTree) # remove pinotière trees
+
+ggplot() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = AdultsP16 %>%
+            st_as_sf(coords = c("Xutm", "Yutm")) %>%
+            st_set_crs(st_crs(TopoLevels)), size = 0.1) + # , aes(col= Genus)
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  labs(fill= "Topography")
 ```
 
 # Apply taper correction if measured HOM
