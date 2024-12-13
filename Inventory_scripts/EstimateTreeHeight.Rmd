@@ -196,25 +196,30 @@ Adults %>%
 Adults %>%
   ggplot() +
   aes(x = DBHcor, y = CrownHeight) +
-  geom_point(aes(col = "Crown height"), size = 1) + 
-  geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Crown height")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
-  geom_point(data= Understory, size = 1, aes(color = "Crown height")) +
-  geom_point(data= Understory, size = 1, aes(y = CrownBase, color = "Crown base")) +
+  geom_point(aes(col = "Crown height"), size = 0.2) + 
+  geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Crown height")) +
+  geom_point(data= Understory, size = 0.2, aes(color = "Crown height")) +
+  geom_point(data= Understory, size = 0.2, aes(y = CrownBase, color = "Crown base")) +
   geom_smooth(data= Understory, span = 0.75, linewidth = 0.8, aes(y = CrownBase, color = "Crown base")) + 
   
-  geom_point(data= Understory, size = 1, aes(y = CrownRadius, color = "Crown radius")) + 
+  geom_point(data= Understory, size = 0.2, aes(y = CrownRadius*2, color = "Crown diameter")) + 
+  geom_smooth(data= Understory, span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, color = "Crown diameter")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+
   
-  geom_point(size = 1, aes(y = CrownRadius, color = "Crown radius")) + 
-  geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius, color = "Crown radius")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  geom_point(size = 0.2, aes(y = CrownRadius*2, color = "Crown diameter")) + 
+  geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, color = "Crown diameter")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
   
   theme_minimal() +
   scale_color_manual(values = c("Crown height" = "#CC79A7",
                                 "Crown base" = "#00AFBB",
-                                "Crown radius"= "#E7B800")) +
+                                "Crown diameter"= "#E7B800")) +
   labs(x ="DBH (cm)", y = "Crown dimension (m)") +
+  scale_x_continuous(limits = c(0, 150), breaks = seq(0, 150, by=10)) +
   theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
         legend.title= element_blank(), legend.text= element_text(size=16),
         legend.position="bottom")
+
+ggsave("CrownDimensions-FTH_Claudiasdata.png", path= "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Crown radius allometry
@@ -375,7 +380,10 @@ mean(FTH$CrownBase/FTH$TreeHeight, na.rm = T) # 0.58
 ```
 
 ### Estimate CrownRadius
-Pour estimer le rayon de la couronne des arbres absents des données de Claudia, je dois utiliser l'allométrie de CanopyConstructor dont je ne connais pas la valeur des paramètres. Donc je dois les estimer à partir des données de Claudia.
+Pour estimer le rayon de la couronne des arbres absents des données de Claudia, je dois utiliser l'allométrie de CanopyConstructor dont je ne connais pas la valeur des paramètres. Donc je dois les estimer à partir des données de Claudia pour les arbres >10 cm.
+
+Pour les arbres <10 cm, on fitte l'allométrie que sur les données FTH  (vaut mieux surestimer la couronne pour éviter l’auto-ombrage)
+
 ```{r}
 # La relation allométrique de CanopyConstructor : exp(alpha + epsilon) * DBH^beta
 
