@@ -94,7 +94,7 @@ length(unique(all$Guyafor.nb)) == nrow(all)
 length(unique(all$IdTree)) == nrow(all)
 
 length(unique((all %>% 
-                 filter(is.na(GenusA)))$Guyafor.nb)) # 1085 arbres sans identification bota
+                 filter(is.na(GenusA)))$IdTree)) # 1096 arbres sans identification bota
 
 ```
 
@@ -141,7 +141,6 @@ test <- all %>%
   mutate(SelectedSp = ifelse(GenusA==GenusU | is.na(GenusA==GenusU), T, F)) %>% 
   mutate(NbSelectedSp = sum(SelectedSp, na.rm = T)) %>%  # combien de T par Guyafor.nb
   # Closer coordinates
-  # rowwise() %>% 
   group_by(IdTree, SelectedSp) %>% 
   mutate(SelectedCoord = ifelse(SelectedSp & Dist== min(abs(Dist)), T, F)) %>% 
   ungroup() %>% group_by(IdTree) %>% 
@@ -152,7 +151,7 @@ test <- all %>%
 ## Combien de matchs
 match <- test %>% 
   filter(SelectedCoord==T) # 4420/4537
-## Combien sans match (pcq pas bonne sp ou croissance incohérente)
+## Combien sans match (pcq pas bonne sp)
 test %>% 
   filter(NbSelectedSp==0) %>% select(IdTree) %>% unique() # 61
 
@@ -169,15 +168,34 @@ range(testchange$DBHdiff, na.rm = T) # -36.28733  39.28028
 
 ## Quest-ce qu'il ya de satisfaisant :
 OK <- test %>% 
-  filter(SelectedCoord==T & Dist<5 & GenusA==GenusU & (DBHdiff < 15 | DBHdiff >(- 6)))  # 3774/4537 -> 83%
+  filter(SelectedCoord==T & Dist<5 & GenusA==GenusU & (DBHdiff < 15 & DBHdiff >(- 6)))  # 3714/4537 -> 82%
 range(OK$DBHdiff, na.rm = T) #  -38.41268 178.01549
 OKchange <- OK %>%
-  filter(SelectedCoord & SubPlotU!=SubPlotA) # 14 parmis les ok ont changé de plot
+  filter(SelectedCoord & SubPlotU!=SubPlotA) # 10 parmis les ok ont changé de plot
 
-# Combien sont très loin
+# Combien étaient mal identifiés
+badbota <- test %>%
+  filter(GenusA!=GenusU & SubPlotU==SubPlotA) %>% select(IdTree) %>% unique() # 39 
+
+# Combien étaient très loin
 loin <- test %>%
   filter(Dist>10 & SubPlotU==SubPlotA) %>% select(IdTree) %>% unique() # 115 (- ce qui ont été mis dans un autre subplot)
 
+# Combien avient des taux de croissance aberrants
+growthpb <- test %>%
+  filter(SubPlotU==SubPlotA & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 69 
+
+# Combien sont encore mal identifiés
+badbota <- test %>%
+  filter(SelectedCoord==T & GenusA!=GenusU) %>% select(IdTree) %>% unique() # 0 
+
+# Combien sont encore très loin
+loin <- test %>%
+  filter(SelectedCoord==T & Dist>10) %>% select(IdTree) %>% unique() # 154 
+
+# Combien ont encore des taux de croissance aberrants
+growthpb <- test %>%
+  filter(SelectedCoord==T & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 88 
 
 test0 <- test %>% 
   filter(NbSelectedCoord==0) # 61/4537 arbres cirad n’ont pas un bon match
@@ -189,6 +207,9 @@ length(unique(test0sp$IdTree))
 
 testsup <- test %>% 
   filter(NbSelectedCoord>1) # 0 -> 1 seul match final youhou! 
+testsup <- test %>% 
+  group_by(IdTree) %>% 
+  filter(SelectedCoord==T) # 0 -> 1 seul match final youhou! 
 
 checkchange <- test %>%
   filter(IdTree %in% testchange$IdTree)
@@ -264,7 +285,7 @@ unique(test$ScientificNameA)
 
 test %>% 
   filter(SelectedCoord) %>% 
-  filter(Dist>60) %>%
+  filter(Dist>90) %>%
   # filter(!grepl("Non-unique combinaison", Comment)) %>% # si on ne veut que si sont cohérents idtree-guyafor.nb
   ggplot() +
   geom_sf(data = sf::st_cast(P16shp, "LINESTRING")) +
