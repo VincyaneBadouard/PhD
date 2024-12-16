@@ -7,6 +7,8 @@ output:
     df_print: paged
 ---
 
+**TOUT PASSER EN HIGH ALT 25HA BUFFER 50M + fill empty vox**
+**quel inventaire cirad ?**
 # Packages
 ```{r Setup, include = F}
 library(tidyverse)
@@ -14,11 +16,7 @@ library(lidR)
 library(readr)
 library(data.table)
 library(AMAPVox)
-# library(rgl) # visulaisation 3D
 library(terra)
-# library(raster)
-# library(lidR)
-# library(tidyterra)
 library(sf)
 library(xml2)
 ```
@@ -26,7 +24,11 @@ library(xml2)
 # Data
 All the cirad trees on 25ha + ALT on 9 ha
 ```{r}
-data <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv") %>% 
+data <- read.csv(
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+    # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
+  ) %>% 
+  # rename(SubPlot = Subplot) %>%
   filter(SubPlot==20) %>% # TEMPORAIRE
   select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius) # 23 631 rows
 
@@ -34,8 +36,8 @@ idTrees <- unique(data$idTree)
 data[!is.na(data$idTree) & duplicated(data$idTree),] 
 ```
 
-# Create Voxel space (A FAIRE)
-ALS High altitude (pcq meilleur couverture des lignes de vol); 25ha + 100m buffer ; 1 m resolution ; intensity echo weight
+# Create Voxel space (A FAIRE, bug)
+ALS High altitude (pcq meilleur couverture des lignes de vol); 25ha + 50m buffer ; 1 m resolution ; intensity echo weight
 
 1/ VOP de la P16 (centre de rotation = centre de la parcelle) (done)
 
@@ -44,10 +46,10 @@ ALS High altitude (pcq meilleur couverture des lignes de vol); 25ha + 100m buffe
 3/ essaie de travailler avec la bounding box de ta zone d'intérêt si tu galères (sans VOP du coup)
 
 ```{r, eval= F}
-# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_intensitycor.laz")
-# range(ST@data$Intensity) # 1-40
-# table(ST@data$Classification)
-# plot(ST, color="Classification", legend = T)
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer50m_intensitycor.laz")
+range(ST@data$Intensity) # 12-6251
+table(ST@data$Classification)
+plot(ST, color="Classification", legend = T)
 
 # View(ST@data)
 # Get the configuration file
@@ -63,13 +65,13 @@ AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g") # v. 2.3.2
 
 # For each tree
 ```{r}
-Tree <- data[1,] # temporaire
+Tree <- data[10,] # temporaire
 idTree <- Tree$idTree
 ```
 
 ## Extract Zutm for each tree
 ```{r}
-MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25 ha_buffer.asc")
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc")
 ROI <- terra::vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_25ha_buffer.shp") %>% st_as_sf() %>% st_set_crs(2972)
 Treesf <- st_as_sf(Tree, coords = c('Xutm','Yutm'))
 Treesf <- st_set_crs(Treesf, st_crs(ROI)) 
@@ -137,27 +139,30 @@ Highrightback = c(x = footlocal$x + CrownRadius, # right
 CrownBase = c(x = footlocal$x, # as foot
               y = footlocal$y, # as foot
               z = footlocal$z + (TreeHeight - CrownHeight)) # base
+CrownCentre = c(x = footlocal$x, # as foot
+              y = footlocal$y, # as foot
+              z = footlocal$z + (TreeHeight - CrownHeight/2)) # base
 
 
 points <- as.data.frame(rbind(lowleftfront, lowrightfront,
                               lowleftback, lowrightback,
                               Highleftfront, Highrightfront,
                               Highleftback, Highrightback,
-                              CrownBase)) %>% 
+                              CrownBase, CrownCentre)) %>% 
   rownames_to_column(var= "ID") %>% setDT() %>% rbind(footlocal)
 
 plotly::plot_ly(points, x = ~x, y = ~y, z = ~z, color= ~ID)
 
 # Crown bounding box
-boundingbox <- points %>% filter(ID != 'foot' & ID != "CrownBase")
+boundingbox <- points %>% filter(ID != 'foot' & ID != "CrownBase" & ID != "CrownCentre")
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Relative2UTM.R")
 boundingboxUTM <- Relativ2UTM(boundingbox, VOP)
 
 # Where estimate light
-CrownBase <- points %>% filter(ID == "CrownBase")
+CrownLight <- points %>% filter(ID == "CrownBase" | ID == "CrownCentre")
 ```
 
-# Bounding box in the laz (to check)
+## Bounding box in the laz (to check)
 ```{r, eval=F}
 ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
 
@@ -207,19 +212,19 @@ prod(VX@header$dim) == nrow(VX@data) # doit etre cohérent
 # AMAPVox::plot(test_crop, variable.name = "PadBVTotal", voxel.size = 5) 
 ```
 
-## Crop voxel space with a 100m buffer around the crown
-100m in x,y,z around the crown
+## Crop voxel space with a 50m buffer around the crown
+50m in x,y,z around the crown
 ```{r}
 # range(VX@data$x) # -150.1270  249.3395
 # range(VX@data$y) # -150.4118  249.2358
 # range(VX@data$z) # 0.0000 102.6534
 
-subset <- VX@data[x >= max(min(boundingbox$x)-100, min(VX@data$x)) & # xmin
-                    x <= min(max(boundingbox$x)+100, max(VX@data$x)) & # xmax
-                    y >= max(min(boundingbox$y)-100, min(VX@data$y)) & # ymin
-                    y <= min(max(boundingbox$y)+100, max(VX@data$y)) & # ymax
-                    z >= max(min(boundingbox$z)-100, min(VX@data$z)) & # zmin
-                    z <= min(max(boundingbox$z)+100, max(VX@data$z)), .(i,j,k)] # zmax
+subset <- VX@data[x >= max(min(boundingbox$x)-50, min(VX@data$x)) & # xmin
+                    x <= min(max(boundingbox$x)+50, max(VX@data$x)) & # xmax
+                    y >= max(min(boundingbox$y)-50, min(VX@data$y)) & # ymin
+                    y <= min(max(boundingbox$y)+50, max(VX@data$y)) & # ymax
+                    z >= max(min(boundingbox$z)-50, min(VX@data$z)) & # zmin
+                    z <= min(max(boundingbox$z)+50, max(VX@data$z)), .(i,j,k)] # zmax
 I <- range(subset$i) 
 J <- range(subset$j) 
 K <- range(subset$k) 
@@ -230,6 +235,8 @@ VX_crop <- AMAPVox::crop(VX, imin = I[1], imax = I[2], jmin = J[1], jmax = J[2],
 
 # AMAPVox::plot(VX_crop, variable.name = "PadBVTotal") 
 
+# Only necessary columns
+VX_crop@data <- VX_crop@data[, .(i,j,k, PadBVTotal)] 
 ```
 
 ```{r}
@@ -242,59 +249,80 @@ writeVoxelSpace(VX_crop,
 ## Edit xml file (A FAIRE)
 https://lecy.github.io/Open-Data-for-Nonprofit-Research/Quick_Guide_to_XML_in_R.html
 ```{r}
-xml_file0 <- read_xml("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/XML/P16_2023_HighAlt_4ha_buffer_Light_template_intensity1m.xml")
+xml_file0 <- read_xml(
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/XML/P16_2023_HighAlt_4ha_buffer_Light_template_intensity1m.xml"
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/XML/P16_2023_HighAlt_4ha_buffer_Light_template_severalpts_intensity1m.xml"
+  )
 
 # Input voxelspace
 VXin <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Vox/P16_2023_HighAlt_25ha_buffer_intensity1m_",idTree,".vox", sep="")
 
 # Output path
-Outputpath <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_intensity1m_",idTree,".txt", sep="")
+Outputpath <- paste(
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_intensity1m_",
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_severalpts_intensity1m_",
+
+  idTree,".txt", sep="")
 
 # get node configuration/process
 process <- xml_children(xml_file0)[[1]]
+
+# update current input file
 input_node <- xml_child(process, "input_file")
-# update current input file str attr
 xml_attr(input_node, "src") <- VXin
 
+# update current output file
 output_node <- xml_child(xml_child(process, "output_files"))
-xml_child(output_node, "output_text_file") 
-# update current input file str attr
 xml_attr(output_node, "src") <- Outputpath
 
+# update coordinates
+# coord_node <- xml_child(xml_child(process, "scanners-positions"))
+# xml_attr(coord_node, "x") <- as.character(CrownLight[ID=="CrownBase"]$x)
+# xml_attr(coord_node, "y") <- as.character(CrownLight[ID=="CrownBase"]$y)
+# xml_attr(coord_node, "z") <- as.character(CrownLight[ID=="CrownBase"]$z)
 
-# to_mod <- xml_find_all(xml_file0 , "//input_file")
-# xml_text(to_mod)
-# xml_text(to_mod) <- VXin
-# 
-# to_mod <- xml_find_all(xml_file0 , "//output_text_file")
-# xml_text(to_mod)
-# xml_text(to_mod) <- Outputpath
 
-# Coordinates
-# <scanners-positions>
-#       <position x= CrownBase$x y=  CrownBase$y z=  CrownBase$z />
-#       <position x= X2 y= Y2 z= Z2 />
-#       <position x= X3 y= Y3 z= Z3 />
-
-to_mod <- xml_find_all(xml_file0 , "//position")
-xml_text(to_mod)
-xml_text(to_mod) <- VXin
+# If several points:
+coord_node <- xml_child(process, "scanners-positions")
+coord_1 <- xml_find_first(process, "//position[1]")
+xml_attr(coord_1, "x") <- as.character(CrownLight[ID=="CrownBase"]$x)
+xml_attr(coord_1, "y") <- as.character(CrownLight[ID=="CrownBase"]$y)
+xml_attr(coord_1, "z") <- as.character(CrownLight[ID=="CrownBase"]$z)
+coord_2 <- xml_find_first(process, "//position[2]")
+xml_attr(coord_2, "x") <- as.character(CrownLight[ID=="CrownCentre"]$x)
+xml_attr(coord_2, "y") <- as.character(CrownLight[ID=="CrownCentre"]$y)
+xml_attr(coord_2, "z") <- as.character(CrownLight[ID=="CrownCentre"]$z)
 
 
 # File name
-paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/XML/Light/P16_2023_HighAlt_25ha_buffer_Light_intensity1m_",idTree,".xml", sep="")
-write_xml()
+xml_fileT <- paste(
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/XML/Light/P16_2023_HighAlt_25ha_buffer_Light_intensity1m_", # 1 point
+      "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/XML/P16_2023_HighAlt_4ha_buffer_Light_severalpts_intensity1m_", # several points
+                   idTree,".xml", sep=""
+                   )
+write_xml(xml_file0, xml_fileT)
 
 ```
 
-## Compute light for the tree (A FAIRE)
-**distribution plagiophile des feuilles ?**
+## Compute light for the tree
+Distribution plagiophile des feuilles
 Pendant 1 an
 ```{r}
-# Get the configuration file
-xmlfile <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/XML/Light/P16_2023_HighAlt_25ha_buffer_Light_intensity1m_",idTree,".xml", sep="")
 # Run
-AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g")
+AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2
+AMAPVox::run(xml = xml_fileT, jvm.option = "-Xms16g") # v. 2.3.2
+```
 
+# Check light results (pas sur cluster)
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
+path_1pt <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_intensity1m_", idTree,".txt", sep="")
+
+path_2pts <- paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_severalpts_intensity1m_", idTree,".txt", sep="")
+
+
+Light_1pt <- ReadLightFile(path_1pt, skiplines=9)
+Light_2pts <- ReadLightFile(path_2pts, skiplines=9)
+Light_1pt;Light_2pts # 0.5603481 ; 0.8722726	
 ```
 
