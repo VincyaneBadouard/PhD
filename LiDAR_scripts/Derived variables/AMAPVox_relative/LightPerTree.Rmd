@@ -39,6 +39,9 @@ data <- read.csv(
 
 idTrees <- unique(data$idTree)
 data[!is.na(data$idTree) & duplicated(data$idTree),] 
+
+# IDtrees <- data %>% select(idTree)
+# write.table(IDtrees, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/IDtrees.txt", sep=";")
 ```
 
 # Create Voxel space (A FAIRE, bug)
@@ -76,12 +79,11 @@ idTree <- Tree$idTree
 
 ## Extract Zutm for each tree
 ```{r}
-MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc")
-ROI <- terra::vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_25ha_buffer.shp") %>% st_as_sf() %>% st_set_crs(2972)
-Treesf <- st_as_sf(Tree, coords = c('Xutm','Yutm'))
-Treesf <- st_set_crs(Treesf, st_crs(ROI)) 
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc") 
+crs(MNT) <- crs("EPSG:2972")
 
-crs(MNT) <- crs(ROI)
+Treesf <- st_as_sf(Tree, coords = c('Xutm','Yutm'))
+Treesf <- st_set_crs(Treesf, st_crs(MNT)) 
 
 alt <- extract(MNT, Treesf) %>% # extract z
   rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
@@ -318,6 +320,12 @@ Pendant 1 an
 # Run
 AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2
 AMAPVox::run(xml = xml_fileT, jvm.option = "-Xms16g") # v. 2.3.2
+```
+
+# Apply function for the all the trees
+```{r}
+# gc()
+# lapply(data$idTree, LightPerTree, data=data, MNT=MNT, VOP=VOP, VX=VX)
 ```
 
 # Check light results (pas sur cluster)
