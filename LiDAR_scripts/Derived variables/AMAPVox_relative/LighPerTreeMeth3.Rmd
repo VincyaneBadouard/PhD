@@ -1,0 +1,159 @@
+---
+title: "LighPerTreeMeth3"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Métode 3 : lumière 1m au desus de chaque arbre
+
+```{r}
+warning("TOUT PASSER EN HIGH ALT 25HA BUFFER 50M + fill empty vox")  
+warning("quel inventaire cirad ?")  
+```
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(lidR)
+library(readr)
+library(data.table)
+library(AMAPVox)
+library(terra)
+library(sf)
+```
+
+# Data
+All the cirad trees on 25ha + ALT on 9 ha
+```{r}
+warning("25ha data")
+data <- read.csv(
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
+) %>% 
+  # rename(SubPlot = Subplot) %>%
+  filter(SubPlot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 8026 rows
+  select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius) # 23 631 rows
+
+idTrees <- unique(data$idTree)
+data[!is.na(data$idTree) & duplicated(data$idTree),] 
+
+# IDtrees <- data %>% select(idTree)
+```
+
+# Extract Zutm for each tree
+```{r}
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc") 
+crs(MNT) <- crs("EPSG:2972")
+
+datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
+datasf <- st_set_crs(datasf, st_crs(MNT)) 
+
+alt <- extract(MNT, datasf) %>% # extract z
+  rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
+
+data <- data %>% cbind(alt) %>% setDT()
+```
+
+# Coordinates in local positions (use VOP)
+```{r}
+warning("Change VOP for 25ha")
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+# A CHANGER POUR 25ha
+
+matrix <- as.matrix(data[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
+names(datalocal) <- c("x","y","z")
+datalocal <- datalocal %>% cbind(data[,.(idTree, Xutm,Yutm,Zutm, TreeHeight)]) %>% setDT()
+```
+
+# Light 1m above the tree
+```{r}
+datalocal[,z := z+TreeHeight+1]
+```
+
+```{r}
+write.csv(datalocal,
+          "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/TreeLight+1mZ_local.csv")
+```
+
+# Compute light
+Distribution plagiophile des feuilles
+Pendant 1 an
+```{r, eval=F}
+warning("changer le xml avec les coordonnées arbres pour 25ha")
+xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/XML/Light/P16_2023_HighAlt_4ha_buffer_Light_TreeLightplus1mZ_intensity1m.xml"
+gc()
+AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2
+# AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g") # v. 2.3.2
+```
+
+
+# Check light results
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_4ha_buffer_HighAlt_Light_intensity1m_TreeLightplus1mZ.txt"
+
+Light <- ReadLightFile(path, skiplines=9)
+setnames(Light, "Period 1", "Transmittance")
+
+range(Light$Transmittance) # 5.16304e-05 - 1
+any(is.na(Light$Transmittance))
+```
+
+## Transformation des coordonnées relatives en UTM
+On peut retrouver les cooordonnées UTM avec la VOP
+```{r}
+Relativ2UTM <- function(data, VOP){
+  # Apply inverse of VOP matrix to convert back to UTM
+  xyz <- tcrossprod(as.matrix(data[, .(X, Y, Z, c=1)]), solve(VOP))
+  data[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
+  return(data)
+}
+
+LightUTM <- Relativ2UTM(Light, VOP)
+```
+
+# 
+```{r}
+Lightenv <- data[,.(idTree, Xutm,Yutm, CrownRadius)] %>% cbind(LightUTM[,.(Z,Transmittance)])  #%>% setDT()
+
+# write.csv(Lightenv, "")
+```
+
+## Plot
+```{r}
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
+Plot_LightUTM <- function(Light, zone){
+  Light %>% 
+    arrange(Z) %>% 
+    ggplot() + 
+    geom_point(aes(Xutm, Yutm, color = Transmittance, size = CrownRadius*2)) + # 1.28
+    scale_color_gradientn(name = "Transmittance",
+                          colors = terrain.colors(30, rev=T),
+                          na.value="white") +
+    geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+    ggtitle("Meth3 - Light 1m above each tree") +  
+    theme_classic() +
+    guides(size= guide_legend(title = "Crown diameter (m)")) + # 
+    scale_size_continuous(range = c(0.05, 4)) +
+    coord_sf()
+}
+
+Plot_LightUTM(Lightenv, zone)
+
+# ggsave(paste("Paracou_P16_4ha_buffer_HighAlt_intensity1m_TreeLightplus1mZMeth3.png", sep = ""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Maps/Intensity_1m/ByTree",
+#        width = 20, height = 18, units = "cm", dpi=800, bg="white")
+
+```
+
+```{r}
+Lightenv <- Lightenv[,.(idTree, Xutm,Yutm, Transmittance,Z)]  #%>% setDT()
+
+write.csv(Lightenv, "D:/Mes Donnees/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv")
+```

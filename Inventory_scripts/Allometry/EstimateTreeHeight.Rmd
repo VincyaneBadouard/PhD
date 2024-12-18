@@ -33,8 +33,8 @@ library(BIOMASS)
 # Import cleaned inventory data
 ```{r,include = F, message=F}
 Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv") %>% 
-  rename(idTree = IdTree) # 28 711
-
+  rename(idTree = IdTree) %>% # 28 711
+  rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
   mutate(idTree = as.character(idTree))
 ```
@@ -108,13 +108,13 @@ data %>%
   mutate(CrownHeight = TreeHeight*0.3) %>% 
   ggplot() +
   aes(x = DBH, y = CrownHeight) +
-    # Estimated height
+  # Estimated height
   geom_point(aes(col = "Crown height estimated"), size = 0.2) + 
   geom_smooth(span = 0.75, linewidth = 0.8, aes(color = "Crown height estimated")) +
-    # Measured height
+  # Measured height
   geom_point(size = 0.2, aes(TreeHeight - CrownBase, col = "Crown height measured")) +
   geom_smooth(span = 0.75, linewidth = 0.8, aes(TreeHeight - CrownBase, col = "Crown height measured")) +
-    # Measured diameter
+  # Measured diameter
   geom_point(size = 0.2, aes(y = CrownRadius*2, color = "Crown diameter")) + 
   geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, color = "Crown diameter")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
   

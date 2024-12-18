@@ -18,26 +18,26 @@ library(sf)
 library(xml2)
 
 
-# args <- commandArgs(trailingOnly=TRUE)
-# ID <- args[1]
-ID <- "156765" # en local
+args <- commandArgs(trailingOnly=TRUE)
+ID <- args[1]
+# ID <- "156765" # en local
 
 # Paths ------------------------------------------------------------------------
 # cluster
-# path_input <- '/cirad_lotois/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/'
-# path_output <- '/lustre/badouardv/lightpertree/ByTree_Output/'
-# path_script <- '/home/badouardv/fonctions_utiles/ByTree_scripts/'
+path_input <- '/cirad_lotois/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/'
+path_output <- '/lustre/badouardv/lightpertree/ByTree_Output/'
+path_script <- '/home/badouardv/fonctions_utiles/ByTree_scripts/'
   
 # local 
-path_input <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/'
-path_output <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Output/'
-path_script <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_scripts/'
+# path_input <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/'
+# path_output <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Output/'
+# path_script <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_scripts/'
   
 # Data -------------------------------------------------------------------------
 ## Trees
 Tree <- read.csv(paste(path_input,"AllP16_filtred.csv",sep='')) %>% 
            filter(idTree == ID) %>% # "156765"
-  # filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # TEMPORAIRE 4ha seulement # 3051 rows
+  filter(SubPlot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 8026 rows
   select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius)# 23 631 rows
 
 # IDtrees <- data %>% select(idTree)
@@ -173,7 +173,7 @@ VX_crop <- AMAPVox::crop(VX, imin = I[1], imax = I[2], jmin = J[1], jmax = J[2],
 VX_crop@data <- VX_crop@data[, .(i,j,k, PadBVTotal, ground_distance)] 
 
 writeVoxelSpace(VX_crop, 
-                paste(path_output,"Tree_Vox/P16_2023_HighAlt_25ha_buffer_intensity1m_",ID,".vox", sep='')
+                paste(path_output,"Tree_Vox/P16_2023_HighAlt_4ha_buffer_intensity1m_",ID,".vox", sep='')
 )
 
 
@@ -183,11 +183,11 @@ xml_file0 <- read_xml(paste(path_input,
   "P16_2023_HighAlt_4ha_buffer_Light_template_severalpts_intensity1m.xml", sep=''))
 
 # Input voxelspace
-VXin <- paste(path_output,"Tree_Vox/P16_2023_HighAlt_25ha_buffer_intensity1m_",ID,".vox", sep='')
+VXin <- paste(path_output,"Tree_Vox/P16_2023_HighAlt_4ha_buffer_intensity1m_",ID,".vox", sep='')
 
 # Output path
 Outputpath <- paste(path_output,
-  "Tree_Light/P16_2023_25ha_HighAlt_Light_severalpts_intensity1m_",
+  "Tree_Light/P16_2023_4ha_HighAlt_Light_severalpts_intensity1m_",
   ID,".txt", sep='')
 
 # get node configuration/process
