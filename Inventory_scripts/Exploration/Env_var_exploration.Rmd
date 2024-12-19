@@ -39,7 +39,7 @@ elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeEle
 # Zone
 P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
   st_set_crs(st_crs(MNT))
-plot(P16)
+# plot(P16)
 
 # Classes topo (4 classes)
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
@@ -106,7 +106,7 @@ ggsave("Paracou_P16_TWI_topolevels.png",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
 ggplot() + 
-  geom_spatraster(data = elev, aes(fill = re)) +
+  geom_spatraster(data = elev, aes(fill = HAND)) +
   scale_fill_gradientn(name = "HAND (m)",
                        colors = hcl.colors(45, "Blues"),
                        na.value="white") +
@@ -139,7 +139,7 @@ ggsave("Paracou_P16_Light_topolevels.png",
 ```
 
 # Distribution
-```{r}
+```{r, eval=F}
 # Elevation
 MNT$Z # 3.52 - 23.80
 hist(MNT$Z) 
@@ -188,43 +188,51 @@ ggsave("Paracou_P16_Light_distrib.png",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
-
+# Join env data
 ```{r}
-TWI_1m <- resample(TWI, MNT, method="bilinear") # 5m to 1m TWI
+# TWI_1m <- resample(TWI, MNT, method="bilinear") # 5m to 1m TWI
 # plot(TWI); plot(TWI_1m)
 # TWI_1m ; MNT
 
-# raster to data.frame
-MNT_df <- as.data.frame(MNT, xy=T)
-TWI_df <- as.data.frame(TWI_1m, xy=T)
-elev_df <- as.data.frame(elev, xy=T)
+alt <- extract(MNT, Light) %>% # extract z
+  rename(Elev = Z) %>% select(-ID)
+twi <- extract(TWI, Light) %>% # extract twi
+  rename(TWI = `Paracou_TWI_5m`) %>% select(-ID)
+re <- extract(elev, Light) %>%  rename(HAND = re) %>% select(-ID) # extract re
 
-# join data.frame
-topo <- MNT_df %>% left_join(elev_df, by=c("x", "y")) %>% left_join(TWI_df, by=c("x", "y"))
+Env <- Light %>% cbind(alt) %>% cbind(twi) %>% cbind(re)
+
+# raster to data.frame
+# MNT_df <- as.data.frame(MNT, xy=T)
+# TWI_df <- as.data.frame(TWI_1m, xy=T)
+# elev_df <- as.data.frame(elev, xy=T)
+# 
+# # join data.frame
+# Env <- MNT_df %>% left_join(elev_df, by=c("x", "y")) %>% left_join(TWI_df, by=c("x", "y"))
 ```
 
-# Extract raster values for each topo level
+# Env values for each topo level
 ```{r}
 # terra::extract(x= MNT, y= TopoLevels, fun=table) # extract z from MNT # xy=T, bind=T, , fun=table
 
-topo_all <- topo %>% st_as_sf(coords = c("x","y")) %>% 
-  st_set_crs(st_crs(MNT)) %>% 
+Env_all <- Env %>% 
+  # st_as_sf(coords = c("x","y")) %>% st_set_crs(st_crs(MNT)) %>% 
   st_intersection(TopoLevels) %>% 
   mutate(TopoTypeEn = factor(TopoTypeEn, levels= c("Bottomland", "Downslope", "Slope", "Hilltop")))
 
-ggplot() +
-  geom_sf(data = topo_all, aes(colour = Z)) +
-  geom_sf(data = st_cast(st_cast(TopoLevels, "POLYGON"), "LINESTRING")) +
-  geom_sf(data = st_cast(st_cast(P16, "POLYGON"), "LINESTRING")) +
-  scale_colour_gradientn(name = "Elevation (m)",
-                         colors = terrain.colors(30, rev=T, alpha = 0.9),
-                         na.value="white") +
-  theme_classic()
+# ggplot() +
+#   geom_sf(data = Env_all, aes(colour = Z)) +
+#   geom_sf(data = st_cast(st_cast(TopoLevels, "POLYGON"), "LINESTRING")) +
+#   geom_sf(data = st_cast(st_cast(P16, "POLYGON"), "LINESTRING")) +
+#   scale_colour_gradientn(name = "Elevation (m)",
+#                          colors = terrain.colors(30, rev=T, alpha = 0.9),
+#                          na.value="white") +
+#   theme_classic()
 ```
 
 # Boxplot var to topo level
-```{r}
-ggplot(topo_all, aes(x= TopoTypeEn, y= Z, fill= TopoTypeEn)) +
+```{r, eval=F}
+ggplot(Env_all, aes(x= TopoTypeEn, y= Elev, fill= TopoTypeEn)) +
   geom_boxplot() +
   scale_fill_manual(values = c("Hilltop" = "#009E73",
                                "Slope"= "#E7B800",
@@ -237,7 +245,7 @@ ggplot(topo_all, aes(x= TopoTypeEn, y= Z, fill= TopoTypeEn)) +
 
 ggsave("Elevation_VS_topolevels.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-ggplot(topo_all, aes(x= TopoTypeEn, y= Paracou_TWI_5m, fill= TopoTypeEn)) +
+ggplot(Env_all, aes(x= TopoTypeEn, y= TWI, fill= TopoTypeEn)) +
   geom_boxplot() +
   scale_fill_manual(values = c("Hilltop" = "#009E73",
                                "Slope"= "#E7B800",
@@ -250,7 +258,7 @@ ggplot(topo_all, aes(x= TopoTypeEn, y= Paracou_TWI_5m, fill= TopoTypeEn)) +
 
 ggsave("TWI_VS_topolevels.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-ggplot(topo_all, aes(x= TopoTypeEn, y= re, fill= TopoTypeEn)) +
+ggplot(Env_all, aes(x= TopoTypeEn, y= HAND, fill= TopoTypeEn)) +
   geom_boxplot() +
   scale_fill_manual(values = c("Hilltop" = "#009E73",
                                "Slope"= "#E7B800",
@@ -263,12 +271,25 @@ ggplot(topo_all, aes(x= TopoTypeEn, y= re, fill= TopoTypeEn)) +
 
 ggsave("HAND_VS_topolevels.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
+ggplot(Env_all, aes(x= TopoTypeEn, y= Transmittance, fill= TopoTypeEn)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Hilltop" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Downslope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4")) +
+  guides(fill = FALSE) +
+  theme_minimal() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18)) +
+  labs(x= "Topography", y= "Transmittance")
+
+ggsave("Light_VS_topolevels.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
 ```
 
 # Relations var to var
-```{r}
-ggplot(topo_all) +
-  geom_point(aes(x= Z, y= re, col = TopoTypeEn)) +
+```{r, eval=F}
+ggplot(Env_all) +
+  geom_point(aes(x= Elev, y= HAND, col = TopoTypeEn)) +
   scale_colour_manual(values = c("Hilltop" = "#009E73",
                                  "Slope"= "#E7B800",
                                  "Downslope"= "#bfe6eb", 
@@ -281,8 +302,8 @@ ggplot(topo_all) +
 
 ggsave("Elevation_VS_HAND.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-ggplot(topo_all) +
-  geom_point(aes(x= Z, y= Paracou_TWI_5m, col = TopoTypeEn)) +
+ggplot(Env_all) +
+  geom_point(aes(x= Elev, y= Paracou_TWI_5m, col = TopoTypeEn)) +
   scale_colour_manual(values = c("Hilltop" = "#009E73",
                                  "Slope"= "#E7B800",
                                  "Downslope"= "#bfe6eb", 
@@ -295,8 +316,8 @@ ggplot(topo_all) +
 
 ggsave("Elevation_VS_TWI.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
-ggplot(topo_all) +
-  geom_point(aes(x= re, y= Paracou_TWI_5m, col = TopoTypeEn)) +
+ggplot(Env_all) +
+  geom_point(aes(x= HAND, y= Paracou_TWI_5m, col = TopoTypeEn)) +
   scale_colour_manual(values = c("Hilltop" = "#009E73",
                                  "Slope"= "#E7B800",
                                  "Downslope"= "#bfe6eb", 
@@ -308,29 +329,61 @@ ggplot(topo_all) +
   labs(x= "Height Above the Nearest Drainage (HAND) (m)", y= "TWI")
 
 ggsave("HAND_VS_TWI.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(Env_all) +
+  geom_point(aes(x= Elev, y= Transmittance)) + # , col = TopoTypeEn
+  theme_minimal() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18),
+        legend.title=element_blank(), legend.text= element_text(size=18)) +
+  labs(x= "Elevation (m)", y= "Transmittance")
+
+ggsave("Elevation_VS_Light.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(Env_all) +
+  geom_point(aes(x= HAND, y= Transmittance)) + # , col = TopoTypeEn
+  theme_minimal() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18),
+        legend.title=element_blank(), legend.text= element_text(size=18)) +
+  labs(x= "Height Above the Nearest Drainage (HAND) (m)", y= "Transmittance")
+
+ggsave("HAND_VS_Light.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+ggplot(Env_all) +
+  geom_point(aes(x= TWI, y= Transmittance)) + # , col = TopoTypeEn
+  theme_minimal() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18),
+        legend.title=element_blank(), legend.text= element_text(size=18)) +
+  labs(x= "TWI", y= "Transmittance")
+
+ggsave("TWI_VS_Light.png", path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+
+```
+# Why there are NAs
+```{r}
+
 ```
 
 # Correlations
 ```{r}
-topo_cor <- topo %>% 
-  select(Z,re, Paracou_TWI_5m) %>%  
-  rename(HAND = re) %>% rename(TWI = Paracou_TWI_5m)  %>% rename(Elev = Z)
+Env_cor <- Env %>% 
+  select(Transmittance, Elev,HAND,TWI) %>% st_drop_geometry() %>% 
+  na.omit()
 
-CorMatrixS <- Hmisc::rcorr(as.matrix(topo_cor))
+CorMatrixS <- Hmisc::rcorr(as.matrix(Env_cor))
 CorMatrix <- round(CorMatrixS$r, digits = 2)  # matrice de corrélation
 Pval_corr <- CorMatrixS$P # p-values
 
 # write.csv(CorMatrix, "D:/Mes Donnees/PhD/Figures//Correlation_plot_topo.csv")
 
 # Plot de la matrice de corrélation :
-png("D:/Mes Donnees/PhD/Figures/EnvVar_explo/Correlation_plot_topo.png",
-    width = 600, height = 700, pointsize=20)
+png("D:/Mes Donnees/PhD/Figures/EnvVar_explo/Correlation_plot_Env.png",
+    width = 700, height = 500, pointsize=20) # width = 600, height = 600 for only topo
 
 corrplot(CorMatrix, method="circle", col=brewer.pal(n=6, name="PuOr"),  
          type="upper",
          # # order="hclust", 
          tl.col="black", tl.cex = 1.5, tl.srt=45, #Text label color and rotation
-         addCoef.col = "white", # Add coefficient of correlation
+         addCoef.col = "black", # Add coefficient of correlation
          number.cex = 1.5, # values
          cl.pos = 'n',
          diag=FALSE # hide correlation coefficient on the principal diagonal
