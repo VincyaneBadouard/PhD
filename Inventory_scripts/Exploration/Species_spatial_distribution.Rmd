@@ -39,7 +39,7 @@ Inventory <- read_csv(
 HAND : Height Above the Nearest Drainage
 ```{r}
 # Topography
-MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc")
 
 # TWI
 TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
@@ -361,7 +361,7 @@ data %>%
 ```
 
 ## Density plot (without ontogeny)
-```{r}
+```{r, eval=F}
 # datainit <- data
 plist <- vector('list', length(unique(data$ScientificName)))
 
@@ -403,7 +403,7 @@ ggsave(paste("Species_",var,"_niche_density_without_ontogeny.pdf",sep=""), plots
 
 ## With ontogeny
 ### Hist per size class
-```{r}
+```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))
 
 for(p in 1:length(unique(data$ScientificName))){
@@ -461,7 +461,7 @@ ggsave(paste("Species_",var,"_niche_hist.pdf",sep=''), plots, width = 15, height
 ```
 
 ### Box-plots
-```{r}
+```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))
 
 for(p in 1:length(unique(data$ScientificName))){
@@ -508,7 +508,7 @@ ggsave(paste("Species_",var,"_niche_boxplot.pdf",sep=''), plots, width = 15, hei
 ```
 
 ### Point plot
-```{r}
+```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))
 
 for(p in 1:length(unique(data$ScientificName))){
@@ -538,7 +538,7 @@ ggsave(paste("Species_",var,"_niche_points.pdf",sep=''), plots, width = 15, heig
 
 ```
 # Relation between transmittance and tree height 
-```{r}
+```{r, eval=F}
 COR <- round(cor(data$TreeHeight, data$Transmittance),2) # 0.76
 
 ggplot(data, aes(x= TreeHeight, y= Transmittance)) + 
@@ -557,7 +557,7 @@ ggsave("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance.png"
 ```
 
 ## Per species
-```{r}
+```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))
 
 for(p in 1:length(unique(data$ScientificName))){
@@ -589,4 +589,67 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 
 ggsave("Species_TreeHeight_vs_Transmittance.pdf", plots, width = 15, height = 10)
 
+```
+
+## Strategy
+```{r}
+strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
+                       delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  select(genre_esp, Strategy) %>%
+  rename(ScientificName = genre_esp) %>%
+  mutate(Strategy = ifelse(Strategy== "#N/A", NA, Strategy)) %>%
+  mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
+  unique()
+unique(strategy$Strategy)
+
+data <- data %>% left_join(strategy, by="ScientificName")
+```
+## MaxTreeHeight
+```{r}
+data <- data %>% 
+  group_by(ScientificName) %>% 
+  mutate(MaxDBH = max(DBHcor)) %>% 
+  mutate(MaxTreeHeight = max(TreeHeight)) %>% 
+  mutate(N = n()) %>% 
+  arrange(MaxTreeHeight) %>% 
+  ungroup() %>% 
+  # select(ScientificName, MaxDBH, MaxTreeHeight, Strategy, N) %>% 
+  unique() %>% 
+  filter(N>=30)
+
+Q95 = quantile(SpeciesInf$MaxTreeHeight, .95, na.rm=T) # quantile 95%
+Q50 = median(SpeciesInf$MaxTreeHeight)
+Q05 = quantile(SpeciesInf$MaxTreeHeight, .05, na.rm=T) # quantile 5%
+Q05; Q50 ; Q95
+
+ggplot(SpeciesInf, aes(x=MaxTreeHeight)) +
+  geom_histogram(bins = 3, fill="#69b3a2", color="#e9ecef", alpha=0.9) #+ # binwidth=5, 
+# scale_x_continuous(breaks = seq(-0.5, 24, 1))
+# <25; 25-40; 45-48
+```
+
+# Relation between transmittance and tree height per category
+```{r, eval=F}
+minH <- 40
+maxH <- round(max(data$MaxTreeHeight),0)
+# minH <- as.integer(min(data$MaxTreeHeight))
+# maxH <- 23
+
+data %>% 
+  filter(MaxTreeHeight>=minH & MaxTreeHeight< maxH) %>% 
+  ggplot(aes(x= TreeHeight, y= Transmittance, col=ScientificName)) + 
+  # geom_point(alpha=0.5) +
+  # geom_quantile(size = 1) +
+  geom_smooth(method= "gam", se=F, size =1) +
+  geom_text(aes(label = paste("Sp max tree height ]",minH,";",maxH,"m]", sep='')),
+            size = 8, col="black",
+            x = -Inf, y = Inf, hjust = -0.1, vjust = 3, show.legend = F) + # hjust = -2, vjust = 1.5
+  theme_classic() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18),
+        legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  labs(x= "Tree height (m)", y= "Transmittance")
+
+ggsave(paste("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance_SpMaxTreeTeight",
+             minH,"-",maxH,"m.png", sep=''),
+       width = 15, height = 10)
 ```

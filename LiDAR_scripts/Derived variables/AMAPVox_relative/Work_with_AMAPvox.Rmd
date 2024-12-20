@@ -26,10 +26,10 @@ library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
 library(terra)
-library(raster)
 library(lidR)
 library(tidyterra)
 library(sf)
+library(raster)
 library(corrplot)
 library(RColorBrewer)
 ```
@@ -142,8 +142,11 @@ writeLAS(PC,
 mnt <- rast(
   # paste(local,folders,"Returns_and_gpstime_corrected_DEM.tif", sep = "")
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt.tif"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt.tif"
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt.tif"
+
 )
+terra::crs(mnt) <- terra::crs("EPSG:2972")
 
 ggplot() + 
   geom_spatraster(data = mnt, aes(fill = Z)) + # mnt_roi36ha_1m # dtm2023 ; MNT_0.5m_IRD_500m_Paracou_284000_579500
@@ -153,7 +156,7 @@ ggplot() +
   theme_classic() +
   geom_sf(data = sf::st_cast(ROI, "LINESTRING"))
 
-crs(mnt) <- crs(ROI) 
+# crs(mnt) <- crs(ROI) 
 mntROI <- raster::mask(mnt,ROI)
 mntROI <- raster::crop(mntROI,ROI)
 mntROI;ROI
@@ -173,7 +176,8 @@ ggsave("P16_25ha_buffer_DEM.png",
        width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 writeRaster(raster(mntROI),
-            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25ha_buffer.asc",
+            # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25ha_buffer.asc",
+            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc",
             # paste(local,"AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
             format="ascii", overwrite=T) # decimated
 
