@@ -1,0 +1,69 @@
+---
+title: "Guyafor exploration"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(readr)
+library(sf)
+# library() # TreeData
+
+# remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
+library(EcoFoG)
+```
+
+# Import inventory data
+```{r, eval=F}
+# data <- Guyafor2df(UID = "Vincyane.Badouard", PWD = "Vincyane973+", Driver = "SQL Server") # ,WHERE="Forest='Paracou' AND Plot='16' AND CensusYear=2020"
+
+# unique(data$Forest)
+# "Acarouany""Paracou""Organabo""Regina_St_Georges" "Risquetout"       
+# "Tibourou""Tresor""Trinite""BAFOG""Kaw"              
+# "Laussat""Montagne_Plomb""Montagne_Tortue""Nouragues"       
+
+# write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Adults/AllGuyafor.csv")
+
+data <- read_csv("~/PhD/Inventories/Data/Adults/AllGuyafor.csv") %>% 
+  select(idTree, Genus, Species, CircCorr)
+```
+
+```{r}
+data <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/All_Paracou.csv") %>% 
+  select(idTree, Genus, Species, CircCorr)
+
+# unique(Paracou$CensusYear)
+```
+
+```{r}
+data <- data %>% 
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  filter(!grepl("indet", ScientificName)) %>%
+  filter(!grepl("Indet", ScientificName)) %>%
+  mutate(DBH = ifelse(!is.na(CircCorr), CircCorr/pi, Circ/pi)) %>% 
+  
+  group_by(ScientificName) %>% 
+  # DBH max
+  mutate(MaxDBH = max(DBH, na.rm = T)) %>% 
+  # Abundances
+  distinct(idTree, .keep_all = T) %>%
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  arrange(N) %>% 
+  select(ScientificName, MaxDBH, N) %>%
+  filter(N>=30) %>% 
+  unique() # 267 sp à Paracou; 454 sur Guyafor
+
+```
+
+```{r}
+write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/Paracou_species_MaxDBH_abundances.csv")
+
+# write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Guyafor_species_MaxDBH_abundances.csv")
+```
+

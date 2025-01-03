@@ -1,0 +1,55 @@
+---
+title: "Model_exploration"
+format: html
+editor: visual
+---
+
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+```
+
+# Import data
+```{r, include = F}
+Inventory <- read_csv(
+ "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_andEnv.csv"
+)
+```
+
+# Beta distribution
+```{r}
+# shape 1 = alpha ; shape 2 = beta paramètres de la loi Beta
+x <- rbeta(100000, shape1 = 11, shape2 = 7) # shape 1 = alpha ; shape 2 = beta
+hist(x)
+plot(density(x))
+```
+
+# Play with parameters
+```{r}
+iota = 0
+tau = 8
+lambda = 2
+mu = invlogit(iota + tau*Topo + lambda*Light)
+plot(mu)
+```
+
+# Beta regression
+```{r}
+library(betareg)
+data("GasolineYield", package = "betareg")
+
+model <- betareg(yield ~ batch + temp, data = GasolineYield, link = "logit")
+summary(model)
+# coef(model)
+
+mu_pred <- predict(model, type = "response")
+```
+
+```{r}
+plot(GasolineYield$yield, mu_pred)
+
+plot(GasolineYield$temp, GasolineYield$yield, pch = 16, xlab = "Batch (X)", ylab = "Probabilité (Y)")
+lines(sort(GasolineYield$temp), mu_pred[order(GasolineYield$temp)], col = "red", lwd = 2)
+```
+

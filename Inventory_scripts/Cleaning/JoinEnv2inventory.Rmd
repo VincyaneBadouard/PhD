@@ -1,0 +1,81 @@
+---
+title: "Join environnmental data to the inventory"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(sf)
+library(raster)
+library(terra)
+library(tidyverse)
+```
+
+# Import environmental data
+HAND : Height Above the Nearest Drainage
+```{r}
+# Topography
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc")
+
+# TWI
+TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
+
+# Height Above the Nearest Drainage (HAND)
+elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
+
+# Zone
+P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+  st_set_crs(st_crs(MNT))
+
+# Classes topo (4 classes)
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>% 
+  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>% 
+  st_set_crs(st_crs(MNT)) #%>% 
+# st_intersection(P16)
+
+# Light (à faire 25ha)
+Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>% 
+  dplyr::select(-`...1`)
+# st_as_sf(coords = c('Xutm','Yutm')) %>% 
+# st_set_crs(st_crs(MNT))
+```
+
+# Import inventory data
+```{r, include = F}
+Inventory <- read.csv(
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+) %>% 
+  dplyr::select(idTree, SubPlot, ScientificName, DBHcor, Xutm, Yutm, TreeHeight) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
+```
+
+# Env
+```{r}
+# extract altitude(z) from MNT
+alt <- extract(MNT, Inventory) %>% 
+  rename(Elevation = dtm2023_HighAlt_25ha_buffer) %>% 
+  dplyr::select(-ID)
+# extract twi
+twi <- extract(TWI, Inventory) %>% 
+  rename(TWI = `Paracou_TWI_5m`) %>% dplyr::select(-ID)
+# extract re
+re <- extract(elev, Inventory) %>%  rename(HAND = re) %>% dplyr::select(-ID) 
+
+Inventory <- Inventory %>% cbind(alt) %>% cbind(twi) %>% cbind(re)
+
+XY <- st_coordinates(Inventory) # stock coordinates
+st_geometry(Inventory) <- NULL # no more sf object
+Inventory <- cbind(Inventory, XY) %>% # bind XY coord
+  rename(Xutm = X) %>% rename(Yutm = Y)
+
+Inventory <- Inventory %>% left_join(Light, by=c("idTree","Xutm","Yutm"))
+```
+
+```{r}
+write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_andEnv.csv")
+```
+
