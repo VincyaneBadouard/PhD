@@ -177,7 +177,7 @@ source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/GeneralErrorsDetection.R")
 # rename columns for the function
 Data <- data %>%
   select(-Comment) %>% # Léa a gardé la colonne 
-  rename(XTreeUTM=Xutm, YTreeUTM=Yutm, Diameter=DBH)
+  rename(XTreeUTM=Xutm, YTreeUTM=Yutm, Diameter=DBH, Subplot=SubPlot)
 
 Data <- GeneralErrorsDetection(Data)
 
@@ -288,9 +288,9 @@ data <- data %>%
   mutate(ID = tstrsplit(IdTree, split = "_")[[2]]) #2nd
 
 
-all(na.omit(data$CIRADplot == data$Subplot)) # il ya des erreurs dans les n° de subplots des identifiants cirad
-data %>% filter(CIRADplot != Subplot)
-all(na.omit(data$suplot == data$Subplot)) # il ya des erreurs dans les n° de subplots les IdTree
+all(na.omit(data$CIRADplot == data$SubPlot)) # il ya des erreurs dans les n° de subplots des identifiants cirad
+data %>% filter(CIRADplot != SubPlot)
+all(na.omit(data$suplot == data$SubPlot)) # il ya des erreurs dans les n° de subplots les IdTree
 
 Adults <- Adults %>% 
   filter(CodeAlive == T) %>%
@@ -300,7 +300,7 @@ Adults <- Adults %>%
   mutate(CIRAD = str_squish(CIRAD)) # remove double spaces
 
 data <- data %>% 
-  unite(col = "CIRAD", c("CIRADid", "Subplot"),
+  unite(col = "CIRAD", c("CIRADid", "SubPlot"),
         sep = "_", na.rm = F, remove = F) %>% 
   mutate(CIRAD = gsub("[[:space:]]", "", CIRAD)) %>% 
   mutate(CIRAD = str_squish(CIRAD)) # remove double spaces
@@ -327,19 +327,19 @@ stems[!stems %in% stem1] # cirad with multiple stems but without a stem 1
 ```{r}
 data_sf <- data %>% 
   mutate(CIRAD = ifelse(!is.na(Guyafor.nb), T, F)) %>% 
-  select(IdStem, CIRAD, Subplot, Xutm, Yutm) %>% na.omit() %>% 
-  mutate(Subplot = as.factor(Subplot)) %>% 
+  select(IdStem, CIRAD, SubPlot, Xutm, Yutm) %>% na.omit() %>% 
+  mutate(SubPlot = as.factor(SubPlot)) %>% 
   st_as_sf(coords = c("Xutm", "Yutm"))
 
 missingCIRAD_sf <- MissingCirad %>% 
-  # select(IdStem, CIRAD, Subplot, Xutm, Yutm) %>% na.omit() %>% 
-  # mutate(Subplot = as.factor(SubPlot)) %>% 
+  # select(IdStem, CIRAD, SubPlot, Xutm, Yutm) %>% na.omit() %>% 
+  # mutate(SubPlot = as.factor(SubPlot)) %>% 
   st_as_sf(coords = c("Xutm", "Yutm"))
 
 
 ggplot() +
   geom_sf(data=missingCIRAD_sf, aes(fill="missingCIRAD"), size = 0.5) +
-  geom_sf(data=data_sf, aes(col=Subplot), size = 0.5) +
+  geom_sf(data=data_sf, aes(col=SubPlot), size = 0.5) +
   scale_fill_manual(name = "Missing CIRAD trees",
                     values = c("missingCIRAD" = "black")) +
   theme_classic()
@@ -354,7 +354,7 @@ for(p in c(13,14,15,18,19,20,23,24,25)){
   
   print(
     data_sf %>% 
-      filter(Subplot== as.character(p)) %>% 
+      filter(SubPlot== as.character(p)) %>% 
       ggplot() +
       geom_sf(data=missing, col="black", size = 1) +
       geom_sf(aes(col=CIRAD),size = 1.5) +
@@ -374,7 +374,7 @@ stem1 <- data[data$IdTree %in% stems & data$Stem.nb==1,]$IdTree # stem id == 1
 
 #!! ATTENTION trees without stem 1 !!
 test <- as.data.frame(unique(stems[!stems %in% stem1])) # 47 trees with multiple stems but without a stem 1
-write.csv(test, "~/PhD/Inventories/Data/Understory/Paracou/Problems/StemNb_1missing.csv")
+# write.csv(test, "~/PhD/Inventories/Data/Understory/Paracou/Problems/StemNb_1missing.csv")
 
 test <- data %>%
   filter(IdTree %in% stems[!stems %in% stem1]) 
@@ -612,7 +612,7 @@ data <- data %>%
 test4 <- data %>% 
   filter(is.na(Multistem)) # the not sure cases (162) (soit pas même ScientificName ou coordonnées, soit memes DBHs pour tout l'idTree, soit certains DBH sont dupliqués mais pas tous)
 
-write.csv(test4, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Multistems_notsure.csv")
+# write.csv(test4, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Multistems_notsure.csv")
 length(unique(test4$IdTree)) # 54 trees
 ```
 
@@ -675,7 +675,7 @@ SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_f
 
 data <- data %>% 
   rowwise() %>% 
-  filter(ScientificName %in% SpeciesA) %>%
+  filter(ScientificName %in% SpeciesA | Strategy=="Understory species") %>%
   ungroup() %>% 
   # & DBH<10 only ALT data ?
   filter(DBH>=1 & DBH<10) %>%
@@ -710,6 +710,7 @@ data <- data %>%
   # Take only sp >= 30 ind
   filter(N >= 30)
 
+unique(data$Comment)
 SpeciesA[!SpeciesA %in% data$ScientificName]
 # "Chrysophyllum_prieurii", "Theobroma_guianense" : DBH >10 uniquement
 # "Caryocar_glabrum", "Eperua_rubiginosa", "Oenocarpus_bataua", "Goupia_glabra"         
@@ -719,8 +720,8 @@ SpeciesA[!SpeciesA %in% data$ScientificName]
 
 # Write cleaned and filtred data
 ```{r}
-nrow(data) # 15409
-length(unique(data$ScientificName)) # 55
+nrow(data) # 19827
+length(unique(data$ScientificName)) # 86
 
 write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
 ```

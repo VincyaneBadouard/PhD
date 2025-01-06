@@ -72,7 +72,7 @@ data <- CC %>%
 ```
 
 # Plot H-D data
-```{r}
+```{r, eval=F}
 data %>%
   ggplot() +
   aes(x = DBH, y = TreeHeight, colour=HeightHow) +
@@ -103,7 +103,7 @@ data %>%
 #        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
 # Plot crown dimensions data
-```{r}
+```{r, eval=F}
 data %>%
   mutate(CrownHeight = TreeHeight*0.3) %>% 
   ggplot() +
@@ -231,7 +231,7 @@ Understory %>% filter(is.na(TreeHeight))
 ```
 
 ## Plot Tree and crown heights estimation
-```{r}
+```{r, eval=F}
 Adults %>%
   ggplot() +
   aes(x = DBHcor, y = TreeHeight, colour= HeightHow) +
@@ -302,7 +302,7 @@ Understory %>%
 
 ## Crown radius allometry
 ### Plot data - relation CrownRadius-DBH
-```{r}
+```{r, eval=F}
 data %>%
   ggplot() +
   aes(x = DBH) +
@@ -364,7 +364,7 @@ data %>%
 ```
 
 ### Plot data - relation CrownRadius-TreeHeight
-```{r}
+```{r, eval=F}
 data %>%
   ggplot() +
   aes(x = TreeHeight) +
@@ -426,7 +426,7 @@ data %>%
 ```
 
 ### Plot crown base height
-```{r}
+```{r, eval=F}
 FTH %>%
   ggplot() +
   aes(x = DBH, y = CrownBase) +
@@ -530,7 +530,7 @@ FTH <- FTH %>%
 ```
 
 ### Check
-```{r}
+```{r, eval=F}
 FTH %>%
   ggplot() +
   aes(x = DBH, y = CrownRadius) +
@@ -567,7 +567,7 @@ CC %>%
 ```
 
 ### Plot Crown radius estimation
-```{r}
+```{r, eval=F}
 Adults %>%
   ggplot() +
   aes(x = DBHcor, y = CrownRadius, colour= HeightHow) +
@@ -590,6 +590,24 @@ Inv <- Adults %>%
   bind_rows(Understory)
 
 # any(is.na(Inv$ScientificName))
+```
+
+# Strategy data (canopy vs understory species)
+```{r}
+strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
+                       delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  select(genre_esp, Strategy) %>%
+  rename(ScientificName = genre_esp) %>%
+  mutate(Strategy = ifelse(Strategy== "#N/A", NA, Strategy)) %>%
+  mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
+  unique()
+unique(strategy$Strategy)
+
+Inv <- Inv %>% 
+  select(-Strategy) %>% 
+  left_join(strategy, by="ScientificName")
+
+sum(is.na(Inv$Strategy)) # 485
 ```
 
 ## Write data

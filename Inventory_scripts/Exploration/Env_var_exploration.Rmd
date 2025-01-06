@@ -40,6 +40,8 @@ elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeEle
 P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
   st_set_crs(st_crs(MNT))
 # plot(P16)
+ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")) %>% 
+  st_set_crs(st_crs(MNT))
 
 # Classes topo (4 classes)
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
@@ -55,9 +57,8 @@ Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>%
 
 crs(MNT) == crs(TWI); crs(MNT) == crs(elev); crs(MNT) == crs(TopoLevels) ; crs(MNT) == crs(Light)
 ```
-
+# Plot maps
 ```{r, eval = F}
-
 ggplot(TopoLevels) +
   geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
   geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
@@ -139,9 +140,25 @@ ggsave("Paracou_P16_Light_topolevels.png",
 ```
 
 # Distribution
+```{r}
+# Topography
+MNTalt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+MNTalt$Z # 25ha : 3.52 - 23.80 ; 9ha : 6.39 - 23.80
+
+# TWI
+TWIalt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
+TWIalt$Paracou_TWI_5m # 25ha : 3.888584 - 13.227507 ; 9ha : 4.729557 - 11.025112
+
+# Height Above the Nearest Drainage (HAND)
+elevalt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
+elevalt$re # 25ha : -0.4487296 - 23.3439674 ; 9ha : -0.3905195 - 23.3439674 
+```
+
 ```{r, eval=F}
 # Elevation
 MNT$Z # 3.52 - 23.80
+terra::global(MNT, fun="mean", na.rm=TRUE)[,1] # 12.54061
+sqrt(terra::global(MNT, fun="sd", na.rm=TRUE)[,1]) # 2.120244
 hist(MNT$Z) 
 ggplot(MNT, aes(x=Z)) +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
@@ -153,6 +170,8 @@ ggsave("Paracou_P16_altitude_distrib.png",
 
 # TWI
 TWI$Paracou_TWI_5m # 3.888584 - 13.227507
+terra::global(TWI, fun="mean", na.rm=TRUE)[,1] # 6.761383
+sqrt(terra::global(TWI, fun="sd", na.rm=TRUE)[,1]) # 1.25684
 hist(TWI$Paracou_TWI_5m) 
 ggplot(TWI, aes(x=Paracou_TWI_5m)) +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
@@ -165,6 +184,8 @@ ggsave("Paracou_P16_TWI_distrib.png",
 
 # Relative elevation
 elev$re # -0.4487296 - 23.3439674
+terra::global(elev, fun="mean", na.rm=TRUE)[,1] # 5.980169
+sqrt(terra::global(elev, fun="sd", na.rm=TRUE)[,1]) # 2.374534
 hist(elev$re) 
 ggplot(elev, aes(x=re)) +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
@@ -178,6 +199,9 @@ ggsave("Paracou_P16_HAND_distrib.png",
 
 # Light
 range(Light$Transmittance) # 5.16304e-05 - 1.00000e+00
+mean(Light$Transmittance) # 0.07
+median(Light$Transmittance) # 0.014
+var(Light$Transmittance) # 0.03
 hist(Light$Transmittance) 
 ggplot(Light, aes(x=Transmittance)) +
   geom_histogram(binwidth=0.01, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
@@ -187,6 +211,8 @@ ggsave("Paracou_P16_Light_distrib.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
+
+
 
 # Join env data
 ```{r}

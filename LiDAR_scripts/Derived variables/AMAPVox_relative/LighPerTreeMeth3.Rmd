@@ -30,12 +30,12 @@ All the cirad trees on 25ha + ALT on 9 ha
 ```{r}
 warning("25ha data")
 data <- read.csv(
-  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv" # 28 049 rows
   # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
 ) %>% 
   # rename(SubPlot = Subplot) %>%
-  filter(SubPlot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 8026 rows
-  select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius) # 23 631 rows
+  filter(SubPlot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 10 315 rows
+  select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius)
 
 idTrees <- unique(data$idTree)
 data[!is.na(data$idTree) & duplicated(data$idTree),] 
@@ -119,7 +119,7 @@ Relativ2UTM <- function(data, VOP){
 LightUTM <- Relativ2UTM(Light, VOP)
 ```
 
-# 
+# Inv + light
 ```{r}
 Lightenv <- data[,.(idTree, Xutm,Yutm, CrownRadius)] %>% cbind(LightUTM[,.(Z,Transmittance)])  #%>% setDT()
 
