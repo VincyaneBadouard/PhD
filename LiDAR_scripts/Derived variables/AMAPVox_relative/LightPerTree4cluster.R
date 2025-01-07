@@ -24,7 +24,8 @@ ID <- args[1]
 
 # Paths ------------------------------------------------------------------------
 # cluster
-path_input <- '/cirad_lotois/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/'
+# path_input <- '/cirad_lotois/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/'
+path_input <- '/lustre/badouardv/lightpertree/ByTree_Input/'
 path_output <- '/lustre/badouardv/lightpertree/ByTree_Output/'
 path_script <- '/home/badouardv/fonctions_utiles/ByTree_scripts/'
   
@@ -33,15 +34,18 @@ path_script <- '/home/badouardv/fonctions_utiles/ByTree_scripts/'
 # path_output <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Output/'
 # path_script <- '//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_scripts/'
   
+IDtrees <- read_csv(paste(path_input,"IDtrees.csv", sep=""))
+idtree <- IDtrees[ID,]$idTree
+  
 # Data -------------------------------------------------------------------------
 ## Trees
 Tree <- read.csv(paste(path_input,"AllP16_filtred.csv",sep='')) %>% # 28 049 rows
-           filter(idTree == ID) %>% # "156765"
+           filter(idTree == idtree) %>% # "156765"
   filter(SubPlot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 10 315 rows
   select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius)
 
 # IDtrees <- Tree %>% select(idTree)
-# write.table(IDtrees, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/IDtrees.txt", sep=";")
+# write.csv(IDtrees, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Input/IDtrees.csv")
 
 warning("temporairement filtré au 4ha")  
 

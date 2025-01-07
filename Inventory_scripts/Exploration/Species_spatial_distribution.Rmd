@@ -362,7 +362,7 @@ data %>%
 ```{r}
 data %>% 
   group_by(ScientificName) %>% 
-    mutate(MaxTreeHeight = max(TreeHeight)) %>% 
+  mutate(MaxTreeHeight = max(TreeHeight)) %>% 
   group_by(Strategy) %>% 
   summarise(MinMaxTreeHeight = min(MaxTreeHeight),
             MaxMaxTreeHeight = max(MaxTreeHeight)
@@ -387,11 +387,11 @@ for(p in 1:length(unique(data$ScientificName))){
     label <- dataS %>% 
       summarise(N = paste("N: ", n()),
                 MaxTreeHeight = paste("MaxTreeHeight: ", round(max(TreeHeight),0),"m")
-                )
+      )
     
-      if(all(is.na(dataS$Strategy))){cl = "black"
-      }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
-      }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
     
     ggplot(dataS, aes(x= get(var))) +
       geom_histogram(binwidth=bin, alpha=0.2) + #  binwidth=1, aes(y=..density..), 
@@ -441,9 +441,9 @@ for(p in 1:length(unique(data$ScientificName))){
       group_by(Size) %>% 
       summarise(N = paste("N: ", n()))
     
-     if(all(is.na(dataS$Strategy))){cl = "black"
-      }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
-      }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
     
     ggplot(dataS, aes(x= get(var))) +
       geom_histogram(binwidth=bin , aes(color= Size, fill= Size),
@@ -492,19 +492,23 @@ for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
-    data <- data %>% 
+    dataS <- data %>% 
       na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
       filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       group_by(Size) %>% 
       mutate(med=median(get(var))) %>% 
       ungroup() 
     
-    label <- data %>% 
+    label <- dataS %>% 
       group_by(Size) %>% 
       summarise(N = paste("N: ", n()))
     
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
     
-    ggplot(data, aes(y= get(var), x= Size, color= Size)) +
+    
+    ggplot(dataS, aes(y= get(var), x= Size, color= Size)) +
       geom_boxplot() +
       geom_point(position = position_jitter(seed = 1, width = 0.2), size=0.3) +
       scale_color_manual(values = c("1-5" = "#00AFBB",
@@ -517,8 +521,9 @@ for(p in 1:length(unique(data$ScientificName))){
                 y = Inf, hjust = -0.1, vjust = 1.5, show.legend = F) +
       
       theme_classic() +
+      theme(plot.title = element_text(colour = cl)) + 
       guides(fill = FALSE) +
-      labs(title = unique(data$ScientificName),
+      labs(title = unique(dataS$ScientificName),
            y= var, color= "DBH (cm)") # Abundances
     
   })
@@ -539,17 +544,23 @@ for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
     # s <- s
-    data <- data %>% 
+    dataS <- data %>% 
       na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
       filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       mutate(med = median(get(var)))
     
-    ggplot(data, aes(y= get(var), x= DBHcor, color= DBHcor)) +
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    
+    ggplot(dataS, aes(y= get(var), x= DBHcor, color= DBHcor)) +
       geom_point() +
       geom_hline(aes(yintercept=med), linetype="dashed", size=0.8) +
       theme_classic() +
+      theme(plot.title = element_text(colour = cl)) + 
       guides(fill = FALSE) +
-      labs(title = unique(data$ScientificName),
+      labs(title = unique(dataS$ScientificName),
            x= "DBH", y= var, color= "DBH (cm)") # Abundances
     
   })
@@ -561,6 +572,7 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 ggsave(paste("Species_",var,"_niche_points.pdf",sep=''), plots, width = 15, height = 10)
 
 ```
+
 # Relation between transmittance and tree height 
 ```{r, eval=F}
 COR <- round(cor(data$TreeHeight, data$Transmittance),2) # 0.76
@@ -575,8 +587,8 @@ ggplot(data, aes(x= TreeHeight, y= Transmittance)) +
   theme(axis.title= element_text(size=18), axis.text= element_text(size=18)) +
   labs(x= "Tree height (m)", y= "Transmittance")
 
-ggsave("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance.png",
-       width = 15, height = 10)
+# ggsave("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance.png",
+#        width = 15, height = 10)
 
 ```
 
@@ -615,19 +627,6 @@ ggsave("Species_TreeHeight_vs_Transmittance.pdf", plots, width = 15, height = 10
 
 ```
 
-## Strategy
-```{r}
-strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
-                       delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
-  select(genre_esp, Strategy) %>%
-  rename(ScientificName = genre_esp) %>%
-  mutate(Strategy = ifelse(Strategy== "#N/A", NA, Strategy)) %>%
-  mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
-  unique()
-unique(strategy$Strategy)
-
-data <- data %>% left_join(strategy, by="ScientificName")
-```
 ## MaxTreeHeight
 ```{r}
 data <- data %>% 
@@ -646,7 +645,7 @@ Q50 = median(SpeciesInf$MaxTreeHeight)
 Q05 = quantile(SpeciesInf$MaxTreeHeight, .05, na.rm=T) # quantile 5%
 Q05; Q50 ; Q95
 
-ggplot(SpeciesInf, aes(x=MaxTreeHeight)) +
+ggplot(data, aes(x=MaxTreeHeight)) +
   geom_histogram(bins = 3, fill="#69b3a2", color="#e9ecef", alpha=0.9) #+ # binwidth=5, 
 # scale_x_continuous(breaks = seq(-0.5, 24, 1))
 # <25; 25-40; 45-48
@@ -660,20 +659,55 @@ maxH <- round(max(data$MaxTreeHeight),0)
 # maxH <- 23
 
 data %>% 
-  filter(MaxTreeHeight>=minH & MaxTreeHeight< maxH) %>% 
+  # filter(MaxTreeHeight>=minH & MaxTreeHeight< maxH) %>% 
   ggplot(aes(x= TreeHeight, y= Transmittance, col=ScientificName)) + 
   # geom_point(alpha=0.5) +
   # geom_quantile(size = 1) +
   geom_smooth(method= "gam", se=F, size =1) +
-  geom_text(aes(label = paste("Sp max tree height ]",minH,";",maxH,"m]", sep='')),
-            size = 8, col="black",
-            x = -Inf, y = Inf, hjust = -0.1, vjust = 3, show.legend = F) + # hjust = -2, vjust = 1.5
+  # geom_text(aes(label = paste("Sp max tree height ]",minH,";",maxH,"m]", sep='')),
+  #           size = 8, col="black",
+  #           x = -Inf, y = Inf, hjust = -0.1, vjust = 3, show.legend = F) + # hjust = -2, vjust = 1.5
+  
+  facet_wrap(~ Strategy, scales = "free_x", ncol=2) +
+  
+  theme_classic() +
+  theme(strip.text.x = element_text(size=18),
+        axis.title= element_text(size=18), axis.text= element_text(size=18),
+        legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  guides(color = FALSE) +
+  labs(x= "Tree height (m)", y= "Transmittance")
+
+ggsave(paste("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance_Strategy",
+             minH,"-",maxH,"m.png", sep=''),
+       width = 15, height = 10)
+```
+
+## Understory species 
+```{r, eval=F}
+test <- data %>% 
+  filter(Strategy=="Understory species") %>%
+  mutate(Label = if_else(TreeHeight == MaxTreeHeight, ScientificName, NA_character_))
+  ggplot(test, aes(x= TreeHeight, y= Transmittance, col=ScientificName)) + 
+  geom_smooth(method= "gam", se=F, size =1) +
+  
+  geomtextpath::geom_textsmooth(data=test, aes(label = ScientificName), method = "gam",
+                                hjust = 1, vjust=1, size=6) +
+    
+  # ggrepel::geom_text_repel(aes(label = label), nudge_x = 2.5) +
+    
+  # directlabels::geom_dl(data=test,label=test$label, method="maxvar.points", inherit.aes=T) +
+  
+  # ggrepel::geom_label_repel(aes(label = label),
+  #                 nudge_y = 0.01,
+  #                 na.rm = TRUE) +
+  
   theme_classic() +
   theme(axis.title= element_text(size=18), axis.text= element_text(size=18),
         legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  # guides(color = FALSE) +
+   guides(col = guide_legend(ncol = 1)) +
   labs(x= "Tree height (m)", y= "Transmittance")
 
-ggsave(paste("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance_SpMaxTreeTeight",
-             minH,"-",maxH,"m.png", sep=''),
+ggsave(paste("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance_UnderstorySplabels.png", sep=''),
        width = 15, height = 10)
 ```
