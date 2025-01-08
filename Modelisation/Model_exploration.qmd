@@ -5,6 +5,7 @@ editor: visual
 ---
 
 # Packages
+
 ```{r Setup, include = F}
 library(readr)
 library(tidyverse)
@@ -17,6 +18,17 @@ Inventory <- read_csv(
 )
 ```
 
+# Prepare data for 1 sp
+Tachigali melinonii: pionnère sans topo
+Pradosia cochlearia : ombre puis lumière, plateau
+```{r}
+sp <- "Pradosia_cochlearia"
+
+data <- Inventory %>% 
+  mutate(Presence = ifelse(ScientificName==sp, 1, 0)) %>% 
+  na.omit()
+```
+
 # Beta distribution
 ```{r}
 # shape 1 = alpha ; shape 2 = beta paramètres de la loi Beta
@@ -26,15 +38,22 @@ plot(density(x))
 ```
 
 # Play with parameters
+
 ```{r}
 iota = 0
-tau = 8
-lambda = 2
-mu = invlogit(iota + tau*Topo + lambda*Light)
+tau = 0
+lambda = 0
+A = mu*phi
+B = (1-mu)*phi
+y = rbeta(N, A, B)
+
+mu = rstanarm::invlogit(iota + tau*data$Elevation + lambda*data$Transmittance)
+table(mu)
 plot(mu)
 ```
 
 # Beta regression
+
 ```{r}
 library(betareg)
 data("GasolineYield", package = "betareg")
@@ -51,5 +70,40 @@ plot(GasolineYield$yield, mu_pred)
 
 plot(GasolineYield$temp, GasolineYield$yield, pch = 16, xlab = "Batch (X)", ylab = "Probabilité (Y)")
 lines(sort(GasolineYield$temp), mu_pred[order(GasolineYield$temp)], col = "red", lwd = 2)
+```
+
+```{r}
+library(betareg)
+
+model <- betareg(Presence ~ Elevation + Transmittance, data = data, link = "logit")
+summary(model)
+# coef(model)
+
+mu_pred <- predict(model, type = "response")
+```
+
+```{r}
+plot(GasolineYield$yield, mu_pred)
+
+plot(GasolineYield$temp, GasolineYield$yield, pch = 16, xlab = "Batch (X)", ylab = "Probabilité (Y)")
+lines(sort(GasolineYield$temp), mu_pred[order(GasolineYield$temp)], col = "red", lwd = 2)
+```
+
+# Stan
+https://github.com/daltonhance/stan_beta_reg
+https://m-clark.github.io/models-by-example/bayesian-beta-regression.html
+```{r}
+dat = list(N = length(y), # observations nbr
+            K = dim(X)[2], # ncol(X) 
+            J = dim(X)[2], 
+            y = y, # response var
+            X = X, # var exp 1
+            Z = X)
+```
+
+```{r}
+beta_stan_test <- stan(model_code = "Beta.stan",
+     data       = dat,
+     pars       = c("beta", "gamma"))
 ```
 

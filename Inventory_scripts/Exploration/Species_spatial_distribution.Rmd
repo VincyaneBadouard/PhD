@@ -557,6 +557,9 @@ for(p in 1:length(unique(data$ScientificName))){
     ggplot(dataS, aes(y= get(var), x= DBHcor, color= DBHcor)) +
       geom_point() +
       geom_hline(aes(yintercept=med), linetype="dashed", size=0.8) +
+      
+      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by=0.1)) + # fix y
+    
       theme_classic() +
       theme(plot.title = element_text(colour = cl)) + 
       guides(fill = FALSE) +
@@ -569,7 +572,7 @@ for(p in 1:length(unique(data$ScientificName))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave(paste("Species_",var,"_niche_points.pdf",sep=''), plots, width = 15, height = 10)
+ggsave(paste("Species_",var,"_niche_points_fixy.pdf",sep=''), plots, width = 15, height = 10)
 
 ```
 
