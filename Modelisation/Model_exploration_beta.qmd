@@ -1,5 +1,5 @@
 ---
-title: "Model_exploration"
+title: "Model exploration - beta distribution"
 format: html
 editor: visual
 ---

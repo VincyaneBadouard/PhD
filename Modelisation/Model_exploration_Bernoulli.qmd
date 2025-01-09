@@ -1,0 +1,156 @@
+---
+title: "Model exploration - Bernoulli distribution"
+format: html
+editor: visual
+---
+La distribution de la variable réponse : présence-absence (discret) [0;1] → *Bernoulli(p)*
+La fonction de prédiction ou prédicteur linéaire : α + 𝜏*Topo + λ*Light
+La fonction de lien : de [0;1] à R → *logit*
+
+Proba de succès : p ∊ [0,1] 
+q = 1- p
+Esperence = p
+Variance = p*q
+
+Presence ~ *Bernoulli(p)*
+
+logit(p) = α + 𝜏*Topo + λ*Light
+Et donc p = logit-1(α + 𝜏*Topo + λ*Light)
+
+Environmental var :
+Light : continuous, [0,1]
+
+```{r, echo=F}
+library(tidyverse)
+```
+
+```{r}
+inv_logit <- function(x) 1/(1 + exp(-x))
+# exp(x)/(1+exp(x))
+```
+
+```{r}
+# null model
+null <- function(x, a= 1) a # pas d'effet de l'env, présente partout avec la meme proba
+
+# linear form
+lin <- function(x, a= 1, b1= 1) a + b1*x
+
+# quadratic form
+quad <- function(x, a= 1, b1= 1, b2= 1) a + b1*x + b2*x^2
+
+# polynomial power form
+pow <- function(x, a= 1, b1= 1, b2= 1) a + b1*x + x^b2
+
+# a : intercept
+# x : var (light)
+# b : x parameter
+# c : y parameter
+```
+
+```{r}
+data.frame(x = seq(0, 1, length.out = 100)) %>% # x explicative var
+  mutate(y = inv_logit(lin(x, 1, 1))) %>% # succès proba
+  ggplot(aes(x, y)) +
+  geom_line() +
+  theme_bw()
+```
+
+```{r}
+x = seq(0, 1, length.out = 100)
+
+a = 17
+inv_logit(0) # 0.5
+inv_logit(17) # 1
+gtools::logit(1)
+b1 = 2 # faible effet de la lumière
+b1 = 10 # for effet de la lumière
+b2 = 2
+```
+
+# linear
+```{r}
+data.frame(x) %>% 
+  ggplot(aes(x)) +
+  # null
+  geom_function(fun = ~ null(.x, a), colour = "black") +
+  # linear
+  geom_function(fun = ~ lin(.x, a, b1=-2), col = "red") +
+  # quadratic
+  geom_function(fun = ~ quad(.x, a, b1=-10, b2=2), col = "green") +
+  # power
+  geom_function(fun = ~ pow(.x, a, b1=-10, b2=2), col = "blue") +
+  
+  theme_bw()
+```
+
+# invlogit
+```{r}
+data.frame(x) %>% 
+  ggplot(aes(x)) +
+  # null
+  geom_function(fun = ~ (inv_logit(null(.x, a))), colour = "black") +
+  # linear
+  geom_function(fun = ~ (inv_logit(lin(.x, a, b1=b1))), col = "red") +
+  # quadratic
+  geom_function(fun = ~ (inv_logit(quad(.x, a, b1=-70, b2=2))), col = "green") +
+  # power
+  geom_function(fun = ~ (inv_logit(pow(.x, a, b1=-20, b2=2))), col = "blue") +
+  
+  theme_bw()
+```
+
+# Forme linéaire d'ordre 1
+```{r}
+b1_values <- seq(1,10, by=1) # nop
+b1_values <- seq(-1,-10, by=-1) # descente trop tardive
+b1_values <- seq(-10,-200, by=-10) # descente de plus en plus tot mais devient trop raide et pas assez tot
+
+data.frame(x) %>% 
+  ggplot(aes(x)) +
+  map(b1_values, function(b1) {
+    geom_function(
+      fun = function(x) inv_logit(lin(x, a, b1)),
+      aes(colour = factor(b1)) # Associer les couleurs aux valeurs de b1
+    )
+  }) +
+  scale_colour_discrete(name = "Valeur de b1") +
+  theme_minimal()
+```
+
+# Quadratic form
+```{r}
+b2_values <- seq(1,500, by=100) # quasiment la meme chose
+b2_values <- seq(-1,-10, by=-1) # pente de plus en plus raide et tardive
+
+
+data.frame(x) %>% 
+  ggplot(aes(x)) +
+  map(b2_values, function(b2) {
+    geom_function(
+      fun = function(x) inv_logit(quad(x, a, b1=-140, b2)),
+      aes(colour = factor(b2)) # Associer les couleurs aux valeurs de b1
+    )
+  }) +
+  scale_colour_discrete(name = "Valeur de b2") +
+  theme_minimal()
+```
+
+# Power form
+```{r}
+b2_values <- seq(1,100, by=10) # quasiment la meme chose
+b2_values <- seq(-1,-10, by=-1) # pente de plus en plus raide et tardive
+
+
+data.frame(x) %>% 
+  ggplot(aes(x)) +
+  map(b2_values, function(b2) {
+    geom_function(
+      fun = function(x) inv_logit(pow(x, a, b1=-140, b2)),
+      aes(colour = factor(b2)) # Associer les couleurs aux valeurs de b1
+    )
+  }) +
+  scale_colour_discrete(name = "Valeur de b2") +
+  theme_minimal()
+```
+
