@@ -40,6 +40,7 @@ HAND : Height Above the Nearest Drainage
 ```{r}
 # Topography
 MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc")
+plot(MNT)
 
 # TWI
 TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
@@ -118,7 +119,7 @@ ggplot() +
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = gray.colors(4, start = 0.9, end = 0),
                        na.value="white") +
-  geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
   geom_sf(data, mapping = aes(colour = DBHcor), size = 3) +
   viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # trans = "log", 
   # scale_colour_gradient(name = "DBH (cm)",
@@ -150,36 +151,38 @@ plist <- vector('list', length(unique(data$ScientificName)))
 
 for(p in 1:length(unique(data$ScientificName))){
   plist[[p]] <- local({
-    data <- data %>% 
+    dataS <- data %>% 
       filter(ScientificName==unique(data$ScientificName)[p]) 
     
-    ggplot(data) + 
-      geom_spatraster(data = MNT, aes(fill = Z)) +
+    ggplot(dataS) + 
+      geom_spatraster(data = mask(crop(MNT,P16), P16), aes(fill = dtm2023_HighAlt_25ha_buffer)) +
       # scale_fill_gradientn(name = "Elevation (m)",
       #                      colors = terrain.colors(30, rev=T, alpha = 0.9),
       #                      na.value="white") +
       # scale_colour_gradient(name = "DBH (cm)",
       #                       low = "#56B1F7", high = "#132B43") +
       scale_fill_gradientn(name = "Elevation (m)",
-                           colors = gray.colors(4, start = 0.9, end = 0),
+                           colors = gray.colors(2, start = 0.9, end = 0, alpha=1),
                            na.value="white") +
-      geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-      geom_sf(mapping = aes(colour = DBHcor), alpha = 0.7) +
+      geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+      geom_sf(mapping = aes(colour = DBHcor), alpha = 0.7, size = 0.7) +
       viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # , trans = "log"
       theme_classic() +
       guides(fill="none") +
-      # geom_text(label = max(data$DBHcor), position ="top")
-      annotate(geom = 'text', label = paste("DBH max: ",round(max(data$DBHcor),0),"cm"),
+      # geom_text(label = max(dataS$DBHcor), position ="top")
+      annotate(geom = 'text', label = paste("DBH max: ",round(max(dataS$DBHcor),0),"cm"),
                x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
       coord_sf() +
-      labs(title = unique(data$ScientificName))
+      labs(title = unique(dataS$ScientificName))
   })
 }
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
-# ggsave("Spatial_distribution_of_each_species_on_MNT_notlog.pdf", plots, width = 15, height = 10)
+# ggsave("Spatial_distribution_of_each_species_on_MNT_notlog.pdf", 
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+#        plots, width = 15, height = 10)
 ```
 
 
@@ -236,7 +239,9 @@ for(p in 1:length(unique(data$ScientificName))){
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 
-# ggsave("Spatial_distribution_of_each_species_on_TWI.pdf", plots, width = 15, height = 10) 
+# ggsave("Spatial_distribution_of_each_species_on_TWI.pdf",
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+#        plots, width = 15, height = 10) 
 
 ```
 
@@ -296,7 +301,9 @@ for(p in 1:length(unique(data$ScientificName))){
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 
-# ggsave("Spatial_distribution_of_each_species_on_relativeelevation.pdf", plots, width = 15, height = 10) 
+# ggsave("Spatial_distribution_of_each_species_on_relativeelevation.pdf",
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+#        plots, width = 15, height = 10)
 ```
 
 # Niches
@@ -336,12 +343,13 @@ data <- data %>%
 # Plot for which var
 ```{r}
 ## MNT :
-# var <- "Elevation"
-# bin <- 1
+var <- "Elevation"
+bin <- 1
 ## Light :
-var <- "Transmittance"
-bin <- 0.1
-data <- data %>% filter(SubPlot %in% c(14,15,19,20)) # TEMPORAIRE 4ha seulement # 10315 rows
+# var <- "Transmittance"
+# bin <- 0.1
+
+# data <- data %>% filter(SubPlot %in% c(14,15,19,20)) # TEMPORAIRE 4ha seulement # 10315 rows
 ```
 
 ```{r, eval=F}
@@ -418,7 +426,9 @@ for(p in 1:length(unique(data$ScientificName))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave(paste("Species_",var,"_niche_density_without_ontogeny.pdf",sep=""), plots, width = 15, height = 10)
+ggsave(paste("Species_",var,"_niche_density_without_ontogeny.pdf",sep=""),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
 ```
 
 ## With ontogeny
@@ -481,7 +491,9 @@ for(p in 1:length(unique(data$ScientificName))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
 # plots
 
-ggsave(paste("Species_",var,"_niche_hist.pdf",sep=''), plots, width = 15, height = 10)
+ggsave(paste("Species_",var,"_niche_hist.pdf",sep=''),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
 ```
 
 ### Box-plots
@@ -532,7 +544,9 @@ for(p in 1:length(unique(data$ScientificName))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave(paste("Species_",var,"_niche_boxplot.pdf",sep=''), plots, width = 15, height = 10)
+# ggsave(paste("Species_",var,"_niche_boxplot.pdf",sep=''), 
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+#        plots, width = 15, height = 10)
 
 ```
 
@@ -559,7 +573,7 @@ for(p in 1:length(unique(data$ScientificName))){
       geom_hline(aes(yintercept=med), linetype="dashed", size=0.8) +
       
       scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by=0.1)) + # fix y
-    
+      
       theme_classic() +
       theme(plot.title = element_text(colour = cl)) + 
       guides(fill = FALSE) +
@@ -572,7 +586,9 @@ for(p in 1:length(unique(data$ScientificName))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave(paste("Species_",var,"_niche_points_fixy.pdf",sep=''), plots, width = 15, height = 10)
+# ggsave(paste("Species_",var,"_niche_points_fixy.pdf",sep=''), 
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+#        plots, width = 15, height = 10)
 
 ```
 
@@ -626,7 +642,9 @@ for(p in 1:length(unique(data$ScientificName))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave("Species_TreeHeight_vs_Transmittance.pdf", plots, width = 15, height = 10)
+# ggsave("Species_TreeHeight_vs_Transmittance.pdf", 
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+#        plots, width = 15, height = 10)
 
 ```
 
@@ -690,14 +708,14 @@ ggsave(paste("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittanc
 test <- data %>% 
   filter(Strategy=="Understory species") %>%
   mutate(Label = if_else(TreeHeight == MaxTreeHeight, ScientificName, NA_character_))
-  ggplot(test, aes(x= TreeHeight, y= Transmittance, col=ScientificName)) + 
+ggplot(test, aes(x= TreeHeight, y= Transmittance, col=ScientificName)) + 
   geom_smooth(method= "gam", se=F, size =1) +
   
   geomtextpath::geom_textsmooth(data=test, aes(label = ScientificName), method = "gam",
                                 hjust = 1, vjust=1, size=6) +
-    
+  
   # ggrepel::geom_text_repel(aes(label = label), nudge_x = 2.5) +
-    
+  
   # directlabels::geom_dl(data=test,label=test$label, method="maxvar.points", inherit.aes=T) +
   
   # ggrepel::geom_label_repel(aes(label = label),
@@ -708,7 +726,7 @@ test <- data %>%
   theme(axis.title= element_text(size=18), axis.text= element_text(size=18),
         legend.title= element_text(size=16), legend.text= element_text(size=16)) +
   # guides(color = FALSE) +
-   guides(col = guide_legend(ncol = 1)) +
+  guides(col = guide_legend(ncol = 1)) +
   labs(x= "Tree height (m)", y= "Transmittance")
 
 ggsave(paste("D:/Mes Donnees/PhD/Figures/EnvVar_explo/TreeHeight_vs_Transmittance_UnderstorySplabels.png", sep=''),

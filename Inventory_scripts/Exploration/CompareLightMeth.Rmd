@@ -1,0 +1,60 @@
+---
+title: "CompareLightMeth"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(readr)
+# library(ggforce)
+library(sf)
+library(raster)
+library(terra)
+# library(tidyterra)
+# library(corrplot)
+# library(RColorBrewer)
+```
+
+# Import light data
+```{r}
+# Zone
+P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+  st_set_crs(st_crs(MNT))
+# plot(P16)
+ALT <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")) %>% 
+  st_set_crs(st_crs(MNT))
+
+# Light Meth 3
+Meth3 <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>% 
+  st_as_sf(coords = c('Xutm','Yutm')) %>% 
+  st_set_crs(st_crs(P16))
+```
+
+## Bind all light files from Meth 1
+```{r}
+filenames <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Output/Tree_Light", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
+
+df_list <- lapply(filenames, ReadLightFile, skiplines=9) # read all the folder files
+
+# keep the idTree
+files <- str_remove(filenames, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_severalpts_intensity1m_")
+files <- str_remove(files, ".txt")
+names(df_list) <- files
+
+Meth1 <- bind_rows(df_list, .id = "idTree") # bind all dat with an idTree column
+
+write.csv(datalight, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/AllTreesLight.csv")
+```
+
+# Compare
+```{r}
+all <- Meth1 %>% 
+  filter(idTree %in% Meth3$idTree) %>% 
+  left_join(Meth3, by=idTree, suffix = c("_1", "_3")) %>% 
+  mutate(Diff = Transmittance_1 - Transmittance_3)
+
+range(all$Diff) # 
+```

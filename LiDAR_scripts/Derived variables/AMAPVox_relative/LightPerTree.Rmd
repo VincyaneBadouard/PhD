@@ -342,9 +342,9 @@ Light_2pts <- ReadLightFile(path_2pts, skiplines=9)
 Light_1pt;Light_2pts # 0.5603481 ; 0.8722726	
 ```
 
-## Bind all light fles
+## Bind all light files
 ```{r}
-filenames <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
+filenames <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ByTree_Output/Tree_Light", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
 
 df_list <- lapply(filenames, ReadLightFile, skiplines=9) # read all the folder files
 

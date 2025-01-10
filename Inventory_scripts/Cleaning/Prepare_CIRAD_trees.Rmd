@@ -216,7 +216,7 @@ unique(test$ScientificName)
 ```
 
 # My filters
-**faudra que ce soit le mmemes espèces que celles choisies dans ALT**
+**faudra que ce soit le memes espèces que celles choisies dans ALT**
 ```{r}
 AdultsP16_filtred <- AdultsP16 %>%
   # Only spatialised trees
