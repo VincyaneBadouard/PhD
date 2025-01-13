@@ -3,22 +3,16 @@ title: "Model exploration - Bernoulli distribution"
 format: html
 editor: visual
 ---
-La distribution de la variable réponse : présence-absence (discret) [0;1] → *Bernoulli(p)*
-La fonction de prédiction ou prédicteur linéaire : α + 𝜏*Topo + λ*Light
-La fonction de lien : de [0;1] à R → *logit*
 
-Proba de succès : p ∊ [0,1] 
-q = 1- p
-Esperence = p
-Variance = p*q
+La distribution de la variable réponse : présence-absence (discret) \[0;1\] → *Bernoulli(p)* La fonction de prédiction ou prédicteur linéaire : α + 𝜏*Topo + λ*Light La fonction de lien : de \[0;1\] à R → *logit*
 
-Presence ~ *Bernoulli(p)*
+Proba de succès : p ∊ \[0,1\] q = 1- p Esperence = p Variance = p\*q
 
-logit(p) = α + 𝜏*Topo + λ*Light
-Et donc p = logit-1(α + 𝜏*Topo + λ*Light)
+Presence \~ *Bernoulli(p)*
 
-Environmental var :
-Light : continuous, [0,1]
+logit(p) = α + 𝜏*Topo + λ*Light Et donc p = logit-1(α + 𝜏*Topo + λ*Light)
+
+Environmental var : Light : continuous, \[0,1\]
 
 ```{r, echo=F}
 library(tidyverse)
@@ -69,6 +63,7 @@ b2 = 2
 ```
 
 # linear
+
 ```{r}
 data.frame(x) %>% 
   ggplot(aes(x)) +
@@ -85,6 +80,7 @@ data.frame(x) %>%
 ```
 
 # invlogit
+
 ```{r}
 data.frame(x) %>% 
   ggplot(aes(x)) +
@@ -101,6 +97,7 @@ data.frame(x) %>%
 ```
 
 # Forme linéaire d'ordre 1
+
 ```{r}
 b1_values <- seq(1,10, by=1) # nop
 b1_values <- seq(-1,-10, by=-1) # descente trop tardive
@@ -119,6 +116,7 @@ data.frame(x) %>%
 ```
 
 # Quadratic form
+
 ```{r}
 b2_values <- seq(1,500, by=100) # quasiment la meme chose
 b2_values <- seq(-1,-10, by=-1) # pente de plus en plus raide et tardive
@@ -137,6 +135,7 @@ data.frame(x) %>%
 ```
 
 # Power form
+
 ```{r}
 b2_values <- seq(1,100, by=10) # quasiment la meme chose
 b2_values <- seq(-1,-10, by=-1) # pente de plus en plus raide et tardive
@@ -153,4 +152,3 @@ data.frame(x) %>%
   scale_colour_discrete(name = "Valeur de b2") +
   theme_minimal()
 ```
-

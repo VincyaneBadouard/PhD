@@ -39,7 +39,7 @@ Inventory <- read_csv(
 HAND : Height Above the Nearest Drainage
 ```{r}
 # Topography
-MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc")
+MNT <- terra::rast("~/PhD/Env_data_forModel/dtm2023_HighAlt_25ha_buffer.asc")
 plot(MNT)
 
 # TWI
@@ -49,14 +49,14 @@ TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
 elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
 
 # Zone
-P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
-  st_set_crs(st_crs(MNT))
+P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) #%>% 
+# st_set_crs(st_crs(MNT))
 
 # Classes topo (4 classes)
-TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
-  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>% 
-  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>% 
-  st_set_crs(st_crs(MNT)) #%>% 
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>%
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>%
+  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>%
+  st_set_crs(st_crs(MNT)) #%>%
 # st_intersection(P16)
 
 # Light (à faire 25ha)
@@ -343,11 +343,11 @@ data <- data %>%
 # Plot for which var
 ```{r}
 ## MNT :
-var <- "Elevation"
-bin <- 1
+# var <- "Elevation"
+# bin <- 1
 ## Light :
-# var <- "Transmittance"
-# bin <- 0.1
+var <- "Transmittance"
+bin <- 0.1
 
 # data <- data %>% filter(SubPlot %in% c(14,15,19,20)) # TEMPORAIRE 4ha seulement # 10315 rows
 ```
@@ -367,6 +367,23 @@ data %>%
   guides(fill = FALSE) +
   labs(x= var, y="Abundances", color= "DBH (cm)") # Abundances
 ```
+# Density + points
+```{r, eval=F}
+data %>% 
+  na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+  filter(ScientificName == "Iryanthera_hostmannii" | 
+           ScientificName ==  "Tachigali_melinonii" | 
+           ScientificName == "Cordia_sprucei"|
+           ScientificName == "Licania_alba" |
+           ScientificName == "Pogonophora_schomburgkiana") %>% 
+  ggplot(aes(x= get(var), y= ScientificName)) +
+  ggridges::geom_density_ridges(aes(colour = Size), scale = 0.6,
+                                jittered_points = T, alpha=0, point_alpha  = 0.7) +
+  theme_classic() +
+  labs(x= var, y="Density", color= "DBH (cm)") 
+```
+
+
 ```{r}
 data %>% 
   group_by(ScientificName) %>% 
@@ -496,6 +513,111 @@ ggsave(paste("Species_",var,"_niche_hist.pdf",sep=''),
        plots, width = 15, height = 10)
 ```
 
+### Density + points transmittance not log
+```{r, eval=F}
+plist <- vector('list', length(unique(data$ScientificName)))
+
+for(p in 1:length(unique(data$ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    dataS <- data %>% 
+      # na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      filter(ScientificName==unique(data$ScientificName)[p])
+    
+    label <- dataS %>% 
+      summarise(MaxTreeHeight = paste("MaxTreeHeight: ", round(max(TreeHeight),0),"m"))
+    
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    ggplot(dataS, aes(x= get(var), y= ScientificName)) +
+      ggridges::geom_density_ridges(aes(colour = Size), scale = 0.6,
+                                    jittered_points = T,
+                                    alpha=0, point_alpha  = 0.7) +
+      
+      scale_color_manual(values = c("1-5" = "#00AFBB",
+                                    "5-10"= "#CC79A7",
+                                    "10-20"= "#E7B800",
+                                    ">20" = "#FC4E07"),
+                         breaks=c("1-5","5-10","10-20",">20")) + 
+      
+
+      geom_text(data = label, aes(label = MaxTreeHeight),
+                x = Inf, y = Inf, hjust = 1, vjust = 3, show.legend = F) +
+      
+      
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl),
+            axis.text.y = element_blank()) + 
+      guides(fill = FALSE) +
+      labs(title = unique(dataS$ScientificName),
+           x= var, y="Density", color= "DBH (cm)") 
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave(paste("Species_",var,"_density_points_notlog.pdf",sep=''),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+```
+### Density + points transmittance log
+```{r, eval=F}
+plist <- vector('list', length(unique(data$ScientificName)))
+
+for(p in 1:length(unique(data$ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    dataS <- data %>% 
+      # na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      filter(ScientificName==unique(data$ScientificName)[p])
+    
+    label <- dataS %>% 
+      summarise(MaxTreeHeight = paste("MaxTreeHeight: ", round(max(TreeHeight),0),"m"))
+    
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    ggplot(dataS, aes(x= get(var), y= ScientificName)) +
+      ggridges::geom_density_ridges(aes(colour = Size), scale = 0.6,
+                                    jittered_points = T,
+                                    alpha=0, point_alpha  = 0.7) +
+      
+      scale_color_manual(values = c("1-5" = "#00AFBB",
+                                    "5-10"= "#CC79A7",
+                                    "10-20"= "#E7B800",
+                                    ">20" = "#FC4E07"),
+                         breaks=c("1-5","5-10","10-20",">20")) + 
+      
+
+      geom_text(data = label, aes(label = MaxTreeHeight),
+                x = Inf, y = Inf, hjust = 1, vjust = 3, show.legend = F) +
+      
+      # scale_x_log10() +
+      scale_x_continuous(trans="log") +
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl),
+            axis.text.y = element_blank()) + 
+      guides(fill = FALSE) +
+      labs(title = unique(dataS$ScientificName),
+           x= var, y="Density", color= "DBH (cm)") 
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave(paste("Species_",var,"_density_points_log.pdf",sep=''),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+```
 ### Box-plots
 ```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))

@@ -10,6 +10,8 @@ output:
 **TOUT PASSER EN HIGH ALT 25HA BUFFER 50M + fill empty vox**
 **quel inventaire cirad ?**
 idstem ou idtree pour light ? peut importe on n'a plus que la 1ère tige après avoir sommer les BA et estimer la hauteur de la 1ère tige; et si na ? pas censé
+
+(avec le High alt pcq meilleur couverture des lignes de vol)
 ```{r}
 warning("TOUT PASSER EN HIGH ALT 25HA BUFFER 50M + fill empty vox")  
 warning("quel inventaire cirad ?")  
