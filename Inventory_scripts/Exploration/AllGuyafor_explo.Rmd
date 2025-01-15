@@ -49,7 +49,7 @@ data <- data %>%
   
   group_by(ScientificName) %>% 
   # DBH max
-  mutate(MaxDBH = max(DBH, na.rm = T)) %>% 
+  mutate(MaxDBH = max(DBH, na.rm = T)) %>% # peut-etre prendre plutot le 95th percentile to correct for outliers, because it is easy to overestimate the height of tall trees.
   # Abundances
   distinct(idTree, .keep_all = T) %>%
   mutate(N = n()) %>% 

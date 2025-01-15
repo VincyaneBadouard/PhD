@@ -139,25 +139,78 @@ ggsave("Paracou_P16_Light_topolevels.png",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
+# Remove pinotière from MNT (pas besoin on filtre à <6m)
+```{r, eval=F}
+nopinotiere <- P16 %>% st_intersection(TopoLevels) %>% # TopoLevels by subplot
+  # without pinotière
+  filter(!(TopoTypeEn == "Bottomland" &
+             SubPlot %in% c("11","12","16","17","21","22")))
+# plot(nopinotiere)
+
+pinotiere <- P16 %>% st_intersection(TopoLevels) %>% # TopoLevels by subplot
+  # without pinotière
+  filter((TopoTypeEn == "Bottomland" &
+            SubPlot %in% c("11","12","16","17","21","22")))
+
+truc <- MNT %>% 
+  raster::mask(pinotiere) %>% raster::crop(nopinotiere) # remove pinotière
+plot(truc)
+truc
+
+MNT <- MNT %>% 
+  raster::mask(nopinotiere) %>% raster::crop(nopinotiere) # remove pinotière
+# plot(MNT_withoutpinot)
+TWI <- TWI %>% 
+  raster::mask(nopinotiere) %>% raster::crop(nopinotiere) # remove pinotière
+# plot(TWI)
+elev <- elev %>% 
+  raster::mask(nopinotiere) # remove pinotière
+# plot(elev)
+```
+# Where are MNT values <6 m (in the same zone or dispatched)
+```{r}
+MNT[MNT[] < 6] = NA 
+plot(MNT)
+
+TWI <- TWI %>% 
+  resample(MNT) %>% 
+  crop(MNT) %>% 
+  mask(MNT)
+plot(TWI)
+
+elev <- elev %>% 
+  resample(MNT) %>% 
+  crop(MNT) %>% 
+  mask(MNT)
+plot(elev)
+
+
+# MNTalt2 <- MNTalt
+# MNTalt2[MNTalt2[] < 6] = NA 
+# plot(MNTalt2)
+
+
+```
+
 # Distribution
 ```{r}
 # Topography
 MNTalt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
-MNTalt$Z # 25ha : 3.52 - 23.80 ; 9ha : 6.39 - 23.80
+MNTalt$Z # 25ha : 3.52 - 23.80 ; 9ha : 6.39 - 23.80 ; without pinotiere : 3.52-23.80
 
 # TWI
 TWIalt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
-TWIalt$Paracou_TWI_5m # 25ha : 3.888584 - 13.227507 ; 9ha : 4.729557 - 11.025112
+TWIalt$Paracou_TWI_5m # 25ha : 3.888584 - 13.227507 ; 9ha : 4.729557 - 11.025112 ; without pinotiere :
 
 # Height Above the Nearest Drainage (HAND)
 elevalt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
-elevalt$re # 25ha : -0.4487296 - 23.3439674 ; 9ha : -0.3905195 - 23.3439674 
+elevalt$re # 25ha : -0.4487296 - 23.3439674 ; 9ha : -0.3905195 - 23.3439674 ; without pinotiere :
 ```
 
 ```{r, eval=F}
 # Elevation
-MNT$Z # 3.52 - 23.80
-terra::global(MNT, fun="mean", na.rm=TRUE)[,1] # 12.54061
+MNT$Z # 3.52 - 23.80 
+terra::global(MNT, fun="mean", na.rm=TRUE)[,1] # 12.54061 
 sqrt(terra::global(MNT, fun="sd", na.rm=TRUE)[,1]) # 2.120244
 hist(MNT$Z) 
 ggplot() +
@@ -165,7 +218,7 @@ ggplot() +
   geom_histogram(data=MNTalt, aes(x=Z), binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(breaks = seq(3, 24, 1))
 
-ggsave("Paracou_P16_altitude_distrib.png",
+ggsave("Paracou_P16_altitude_distrib_filtr6m.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
@@ -177,12 +230,12 @@ hist(TWI$Paracou_TWI_5m)
 ggplot() +
   geom_histogram(data= TWI, aes(x=Paracou_TWI_5m),
                  binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-    geom_histogram(data= TWIalt, aes(x=Paracou_TWI_5m),
+  geom_histogram(data= TWIalt, aes(x=Paracou_TWI_5m),
                  binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
-
+  
   scale_x_continuous(breaks = seq(4, 14, 1))
 
-ggsave("Paracou_P16_TWI_distrib.png",
+ggsave("Paracou_P16_TWI_distrib_filtr6m.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
@@ -195,11 +248,11 @@ hist(elev$re)
 ggplot() +
   geom_histogram(data = elev, aes(x=re),
                  binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-    geom_histogram(data = elevalt, aes(x=re),
+  geom_histogram(data = elevalt, aes(x=re),
                  binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(breaks = seq(-0.5, 24, 1))
 
-ggsave("Paracou_P16_HAND_distrib.png",
+ggsave("Paracou_P16_HAND_distrib_filtr6m.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 

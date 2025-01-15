@@ -91,6 +91,7 @@ ggplot() +
 unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
 ```
 
+# Remove pinotière trees
 ```{r}
 adults_BF <- AdultsP16 %>% 
   filter(!is.na(Xutm)) %>% 
