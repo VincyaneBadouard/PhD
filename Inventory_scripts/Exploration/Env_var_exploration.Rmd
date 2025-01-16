@@ -170,26 +170,24 @@ elev <- elev %>%
 # Where are MNT values <6 m (in the same zone or dispatched)
 ```{r}
 MNT[MNT[] < 6] = NA 
-plot(MNT)
+# plot(MNT)
 
 TWI <- TWI %>% 
   resample(MNT) %>% 
   crop(MNT) %>% 
   mask(MNT)
-plot(TWI)
+# plot(TWI)
 
 elev <- elev %>% 
   resample(MNT) %>% 
   crop(MNT) %>% 
   mask(MNT)
-plot(elev)
+# plot(elev)
 
 
 # MNTalt2 <- MNTalt
 # MNTalt2[MNTalt2[] < 6] = NA 
 # plot(MNTalt2)
-
-
 ```
 
 # Distribution

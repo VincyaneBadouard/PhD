@@ -23,7 +23,7 @@ library(TreeData)
 
 AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
   filter(CensusYear == 2020) %>% # last year
-  filter(!SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # remove ALT zone
+  # filter(!SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # remove ALT zone
   # Only alive trees
   filter(CodeAlive == T) %>%
   # Scientific name
@@ -42,6 +42,9 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP
 
 # Env data
 ```{r}
+# Topography
+MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
+
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
   filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
 
@@ -92,7 +95,7 @@ unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
 ```
 
 # Remove pinotière trees
-```{r}
+```{r, eval=F}
 adults_BF <- AdultsP16 %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
@@ -115,6 +118,48 @@ ggplot() +
                                "Bottomland" = "#1f78b4")) +
   theme_classic() +
   labs(fill= "Topography")
+```
+
+# Remove trees at <6m altitude
+```{r}
+datasf <- AdultsP16 %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% # as sf
+  st_set_crs(st_crs(MNT))
+
+alt <- raster::extract(MNT, datasf) %>% # extract z from MNT for each tree
+  rename(Elevation = Z) %>% 
+  select(-ID)
+
+datasf <- datasf %>% cbind(alt) 
+XY <- st_coordinates(datasf) # stock coordinates
+st_geometry(datasf) <- NULL # no more sf object
+AdultsP16 <- cbind(datasf, XY) %>% # bind XY coord
+  rename(Xutm = X, Yutm = Y) %>% 
+  filter(Elevation >= 6) # Remove trees at <6m altitude
+
+range(AdultsP16$Elevation)
+
+# Reclasser en intervalles avec `cut()`
+MNT <- stars::st_as_stars(MNT)
+MNT <- raster::cut(MNT, 
+                   breaks = c(0, 6, 23.67), 
+                   labels = c("0-6", "6-23.67"),
+                   include.lowest = TRUE)
+
+ggplot() +
+  stars::geom_stars(data = MNT, aes(fill = Paracou_P16_MNT.tif)) +
+  scale_fill_manual(values = c("0-6" = "#FC4E07", 
+                               "6-23.67" = "#009E73")) +
+  
+  geom_sf(data = AdultsP16 %>%
+            st_as_sf(coords = c("Xutm", "Yutm")) %>%
+            st_set_crs(st_crs(TopoLevels)), size = 0.1) + # , aes(col= Genus)
+  theme_classic() +
+  labs(fill= "Elevation (m)") 
+
+# ggsave("Paracou_P16_elevationfilter.png",
+#        path = "D:/Mes Donnees/PhD/Figures/inventory/",
+#        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 # Apply taper correction if measured HOM
@@ -193,7 +238,7 @@ multistems %>%
 ```
 # Subspecies
 ```{r}
-unique(AdultsP16$ScientificName) # _subsp.
+# unique(AdultsP16$ScientificName) # _subsp.
 
 test <- AdultsP16 %>%
   filter(grepl("_subsp", ScientificName))
@@ -213,7 +258,7 @@ test <- AdultsP16 %>%
            grepl("_aff", ScientificName) & grepl("\\.", ScientificName) |
            grepl("_cf_", ScientificName)) # 1881, 2046 avec les sp.
 
-unique(test$ScientificName)
+# unique(test$ScientificName)
 ```
 
 # My filters
@@ -254,8 +299,8 @@ AdultsP16_filtred <- AdultsP16 %>%
 ```
 
 ```{r}
-nrow(AdultsP16) - nrow(AdultsP16_filtred) # 4267
-length(unique(AdultsP16$ScientificName)) - length(unique(AdultsP16_filtred$ScientificName)) # 401 species lost, 66 sp kept
+nrow(AdultsP16) - nrow(AdultsP16_filtred) # 3959
+length(unique(AdultsP16$ScientificName)) - length(unique(AdultsP16_filtred$ScientificName)) # 394 species lost, 64 sp kept
 
 write.csv(AdultsP16_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv")
 ```

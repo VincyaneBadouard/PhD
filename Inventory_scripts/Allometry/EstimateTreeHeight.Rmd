@@ -36,7 +36,8 @@ Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9h
   rename(idTree = IdTree) %>% # 28 711
   rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
-  mutate(idTree = as.character(idTree))
+  mutate(idTree = as.character(idTree)) %>% 
+  filter(ScientificName %in% Understory$ScientificName)
 ```
 
 # Import allometry data

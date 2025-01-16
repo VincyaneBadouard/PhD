@@ -340,6 +340,45 @@ data <- data %>%
   )
 ```
 
+## Only sp enough abundant in < and > 10 cm DBH
+```{r}
+data <- data %>%
+  na.omit() %>% 
+  mutate(ALT = ifelse(DBHcor <10, T, F))
+
+Guyafor <- data %>% # 808
+  filter(!ALT) %>% 
+  group_by(ScientificName) %>%
+  mutate(N = n()) %>%
+  ungroup() %>%
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+
+
+ALT <- data %>% #5887
+  filter(ALT) %>%  
+  filter(ScientificName %in% Guyafor$ScientificName | Strategy=="Understory species") %>%
+  group_by(ScientificName) %>%
+  mutate(N = n()) %>%
+  ungroup() %>%
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+
+s <- Guyafor$ScientificName %in% ALT$ScientificName
+
+Guyafor <- Guyafor %>% # 736
+    dplyr::filter(s) 
+
+data <- ALT %>% #6623
+  bind_rows(Guyafor) %>% 
+  arrange(Strategy, N) %>% 
+  mutate(cl = ifelse(Strategy =="Understory species" & !is.na(Strategy), "#009E73",
+                     "#E7B800")) # color per sp strategy
+
+nrow(data)==(nrow(ALT)+nrow(Guyafor))
+length(unique(data$ScientificName)) # 34 (4ha)
+```
+
 # Plot for which var
 ```{r}
 ## MNT :
@@ -543,7 +582,7 @@ for(p in 1:length(unique(data$ScientificName))){
                                     ">20" = "#FC4E07"),
                          breaks=c("1-5","5-10","10-20",">20")) + 
       
-
+      
       geom_text(data = label, aes(label = MaxTreeHeight),
                 x = Inf, y = Inf, hjust = 1, vjust = 3, show.legend = F) +
       
@@ -595,7 +634,7 @@ for(p in 1:length(unique(data$ScientificName))){
                                     ">20" = "#FC4E07"),
                          breaks=c("1-5","5-10","10-20",">20")) + 
       
-
+      
       geom_text(data = label, aes(label = MaxTreeHeight),
                 x = Inf, y = Inf, hjust = 1, vjust = 3, show.legend = F) +
       
@@ -625,9 +664,9 @@ plist <- vector('list', length(unique(data$ScientificName)))
 for(p in 1:length(unique(data$ScientificName))){
   # message(s)
   plist[[p]] <- local({
-    # s <- s
+    # p <- p
     dataS <- data %>% 
-      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      na.omit() %>% 
       filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       group_by(Size) %>% 
       mutate(med=median(get(var))) %>% 
@@ -672,6 +711,64 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 
 ```
 
+### Boxplot per ages - all species
+```{r, eval=F}
+plist <- vector('list', round(length(unique(data$ScientificName))/10))
+
+for(p in 1:round(length(unique(data$ScientificName))/10)){
+  # message(s)
+  plist[[p]] <- local({
+    # p <- 8
+    if (p==1) {start = 1
+    }else{start = 10*(p-1) + (p-1)}
+    stop = start + 9
+    
+    S <- data %>%
+      select(ScientificName,Strategy,N, cl) %>%
+      unique() %>% 
+      arrange(Strategy, N) %>%
+      slice(start:stop)
+    
+    dataS <- data %>% 
+      filter(ScientificName %in% S$ScientificName) %>% 
+      arrange(Strategy, N) %>%
+      group_by(ScientificName, Size)  %>% 
+      mutate(N_text = paste("N: ", n())) %>% ungroup() 
+    
+    # str <- dataS %>% select(ScientificName, Strategy, N) %>%
+    #   unique() %>% arrange(Strategy, N) 
+    
+    # cl <- ifelse(str$Strategy =="Understory species" & !is.na(str$Strategy), "#009E73", "#E7B800")
+    
+    ggplot(dataS, aes(x= get(var), y= ScientificName, fill= Size)) +
+      xlim(0,1) +
+      geom_boxplot(outlier.colour = NULL, position = "dodge") +
+      stat_summary(geom = 'text', aes(label = N_text), fun = max, size=3,
+                   position = position_dodge(width = 0.75), hjust = -0.15) +
+      
+      # geom_point(position = position_jitter(seed = 1, width = 0.2), size=0.3) +
+      scale_fill_manual(values = c("1-5" = "#00AFBB",
+                                   "5-10"= "#CC79A7",
+                                   "10-20"= "#E7B800",
+                                   ">20" = "#FC4E07"),
+                        breaks=c("1-5","5-10","10-20",">20")) + 
+      theme_classic() +
+      theme(axis.text.y = element_text(size=12)) +
+      # theme(axis.text.y = element_text(colour = cl, size=12)) +
+      labs(x= var, col= "DBH (cm)") 
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 1, ncol = 1)
+# plots
+
+ggsave(paste("Species_",var,"_niche_boxplot_allsp.pdf",sep=''),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+
+```
+
 ### Point plot
 ```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))
@@ -681,7 +778,7 @@ for(p in 1:length(unique(data$ScientificName))){
   plist[[p]] <- local({
     # s <- s
     dataS <- data %>% 
-      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      na.omit() %>% 
       filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       mutate(med = median(get(var)))
     
@@ -742,7 +839,7 @@ for(p in 1:length(unique(data$ScientificName))){
   plist[[p]] <- local({
     # s <- s
     data <- data %>% 
-      na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      na.omit() %>% 
       filter(ScientificName==unique(data$ScientificName)[p]) %>% 
       mutate(med = median(get(var)))
     

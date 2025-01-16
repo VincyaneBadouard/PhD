@@ -671,13 +671,13 @@ Only measured trees
 Only botanical identified
 Take only sp >= 30 ind
 ```{r}
-SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2])
+SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2]) # 64
 
 data <- data %>% 
   rowwise() %>% 
   filter(ScientificName %in% SpeciesA | Strategy=="Understory species") %>%
   ungroup() %>% 
-  # & DBH<10 only ALT data ?
+  # & DBH<10 only ALT data for the moment
   filter(DBH>=1 & DBH<10) %>%
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
