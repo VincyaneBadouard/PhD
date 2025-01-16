@@ -1,8 +1,9 @@
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
-.pdf
-.html
-.tex
-test/
+*.Rproj.user
+*.Rhistory
+*.RData
+*.Ruserdata
+*.pdf
+*.html
+*.tex
+test/*
+pdf/*
