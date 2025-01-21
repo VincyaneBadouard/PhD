@@ -1,0 +1,111 @@
+---
+title: "Equation_exploration"
+format: html
+editor: visual
+---
+
+# Parametres exploration
+
+-   0 = species absence = the other species
+-   1 = species presence
+
+**Eq: *a* + *b*\*X + *c*\*X^2^**
+
+**Optimum : -b/2*c***
+
+***-b*** **= *opt* \* 2 \* *c***
+
+-   pas d'effet (plat) : -2 + 0 \* X + 0 \* X^2^
+-   montée progressive : -2 + 3 \* X
+-   monte fortement puis plateau : -2 + 20 \* X
+-   cloche centrée : -2 + 15 \* X + -15 \* X^2^
+-   cloche à droite (opt =0.7) : -2 + 15 \* X + -3.6 \* X^2^
+
+```{r}
+n <- 100 # abs + pres
+X <- seq(0, 1, length.out = n) # env var
+# Parameters
+opt <- 0.7
+a <- -2
+b <- 3 # à 0 pour pas d'effet
+c <- 0 # -b/(opt*2) # à 0 pour une linéaire
+
+
+# Compute presence probability
+logit_p <- a + b * X + c * X^2 # equation
+data <- data.frame(X = X, y = logit_p)
+plot(data)
+
+p <- 1 / (1 + exp(-logit_p))  # logistique transformation (inverse logit)
+
+# Generate presence-absence data from probability
+presence_absence <- rbinom(n, size = 1, prob = p) # Bernoulli = 1 trial
+
+# data.frame of simulated data
+data <- data.frame(X = X, PresenceAbsence = presence_absence)
+
+# Visualisation of simulated data
+plot(X, presence_absence,
+     main = "Simulated data : presence-absence vs explicative variable",
+     xlab = "Explicative variable (X)", ylab = "Presence (1) / Absence (0)",
+     pch = 19)
+# proba
+curve(1 / (1 + exp(-(a + b * x + c * x^2))), add = TRUE, col = "blue", lwd = 2)
+```
+
+# Data simulation
+
+```{r}
+
+```
+
+```{r}
+data <- list(
+  no = data.frame(Environment = seq(0, 1, length.out = 100),
+                  Presence = c(rep(0:1, 50))),
+  intermediate = data.frame(Environment = seq(0, 1, length.out = n),
+                            Presence = c(rep(0, 20), 
+                                         rep(0:1,10),
+                                         rep(1,20),
+                                         rep(0:1,10),
+                                         rep(0,20))),
+  limit = data.frame(Environment = seq(0, 1, length.out = n), 
+                     Presence = c(rep(0,30), rep(0:1,20), rep(1,30)))
+)
+
+mdata <- lapply(data, function(x) list(N = nrow(x),
+                                       Presence = x$Presence,
+                                       Environnement = x$Environnement))
+
+data[[1]]
+mdata[[1]]
+```
+
+```{r}
+ModelB0 <- stan_model("./distribution_models/Bernoullis/B0.stan")
+fitsB0 <- lapply(mdata, function(x) sampling(ModelB0, chains = 2, data = x))
+```
+
+# Only topo
+
+## Linear
+
+```{r}
+
+```
+
+## Quadratic
+
+```{r}
+
+```
+
+# Light only
+
+## Eq 1
+
+```{r}
+
+```
+
+## Eq 2

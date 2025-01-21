@@ -367,7 +367,7 @@ ALT <- data %>% #5887
 s <- Guyafor$ScientificName %in% ALT$ScientificName
 
 Guyafor <- Guyafor %>% # 736
-    dplyr::filter(s) 
+  dplyr::filter(s) 
 
 data <- ALT %>% #6623
   bind_rows(Guyafor) %>% 
@@ -406,7 +406,8 @@ data %>%
   guides(fill = FALSE) +
   labs(x= var, y="Abundances", color= "DBH (cm)") # Abundances
 ```
-# Density + points
+## Without ontogeny
+### Density + points
 ```{r, eval=F}
 data %>% 
   na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
@@ -433,7 +434,7 @@ data %>%
   )
 ```
 
-## Density plot (without ontogeny)
+### Density plot
 ```{r, eval=F}
 # datainit <- data
 plist <- vector('list', length(unique(data$ScientificName)))
@@ -483,6 +484,112 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
 ggsave(paste("Species_",var,"_niche_density_without_ontogeny.pdf",sep=""),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+```
+
+### Density + points transmittance not log
+```{r, eval=F}
+plist <- vector('list', length(unique(data$ScientificName)))
+
+for(p in 1:length(unique(data$ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    dataS <- data %>% 
+      # na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      filter(ScientificName==unique(data$ScientificName)[p])
+    
+    label <- dataS %>% 
+      summarise(MaxTreeHeight = paste("MaxTreeHeight: ", round(max(TreeHeight),0),"m"))
+    
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    ggplot(dataS, aes(x= get(var), y= ScientificName)) +
+      xlim(0,1) +
+      # shaded area
+      geom_rect(aes(xmin=min(Transmittance),
+                    xmax=max(Transmittance),
+                    ymin=-Inf,ymax=Inf), fill='#009E73', alpha= 0.01) +
+      
+      ggridges::geom_density_ridges(scale = 0.6,
+                                    jittered_points = T,
+                                    alpha=0, point_alpha  = 0.7) +
+      
+      geom_text(data = label, aes(label = MaxTreeHeight),
+                x = Inf, y = Inf, hjust = 1, vjust = 3, show.legend = F) +
+      
+      
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl),
+            axis.text.y = element_blank()) + 
+      guides(fill = FALSE) +
+      labs(title = unique(dataS$ScientificName),
+           x= var, y="Density", color= "DBH (cm)") 
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave(paste("Species_",var,"_density_points_notlog_withoutonto.pdf",sep=''),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+```
+
+### Density + points transmittance log
+```{r, eval=F}
+plist <- vector('list', length(unique(data$ScientificName)))
+
+for(p in 1:length(unique(data$ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    dataS <- data %>% 
+      # na.omit() %>% # des NA pcq MNT pas assez grand (a faire)
+      filter(ScientificName==unique(data$ScientificName)[p])
+    
+    label <- dataS %>% 
+      summarise(MaxTreeHeight = paste("MaxTreeHeight: ", round(max(TreeHeight),0),"m"))
+    
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    ggplot(dataS, aes(x= get(var), y= ScientificName)) +
+      xlim(0,1) +
+      # shaded area
+      geom_rect(aes(xmin=min(Transmittance),
+                    xmax=max(Transmittance),
+                    ymin=-Inf,ymax=Inf), fill='#009E73', alpha= 0.01) +
+      
+      
+      ggridges::geom_density_ridges(scale = 0.6,
+                                    jittered_points = T,
+                                    alpha=0, point_alpha  = 0.7) +
+      
+      geom_text(data = label, aes(label = MaxTreeHeight),
+                x = Inf, y = Inf, hjust = 1, vjust = 3, show.legend = F) +
+      
+      # scale_x_log10() +
+      scale_x_continuous(trans="log") +
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl),
+            axis.text.y = element_blank()) + 
+      guides(fill = FALSE) +
+      labs(title = unique(dataS$ScientificName),
+           x= var, y="Density", color= "DBH (cm)") 
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave(paste("Species_",var,"_density_points_log_withoutonto.pdf",sep=''),
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
        plots, width = 15, height = 10)
 ```

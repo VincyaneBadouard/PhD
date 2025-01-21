@@ -52,7 +52,9 @@ ctg : catalog of laz files
 ```{r}
 # Si en dalles :
 ST <- readLAScatalog( # # las catalog. filter only 1st returns
-  folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte", filter = "keep"
+    folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/Laz", filter = "keep"
+
+  # folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte", filter = "keep"
     # folder = "D:/Mes Donnees/PhD/Lidar/ALS2023/HighAlt/", filter = "keep"
   # folder = "D:/Mes Donnees/PhD/Lidar/ALS2023/HighAlt/", filter = "keep"
   ) 
@@ -130,7 +132,7 @@ PC@data <- PC@data[Classification != 7,]
 # plot(PC)
 
 writeLAS(PC,
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/P16_2023_25ha_HighAlt_buffer_raw.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/P16_2023_25ha_HighAlt_buffer_raw_withoutextrabytes.laz"
 )
 ```
 
@@ -263,6 +265,7 @@ table(PC_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
 
 # Dénormaliser la hauteur du sol
 PC <- lidR::unnormalize_height(PC_norm) 
+rm(PC_norm)
 ```
 
 # Garder uniquement les points de végétation (pas nécessaire avant amapvox)
@@ -337,7 +340,7 @@ writeLAS(PC,
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_intensitycor.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_withoutextrabytes.laz"
          
 )
 ```
@@ -503,16 +506,14 @@ write.csv(ClearnessIndex, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 
 # AMAPVox
 ```{r}
-library(AMAPVox)
-
 # For the 1st time
 # AMAPVox::run()
 AMAPVox::run(jvm.option = "-Xms16g") # pour allouer 16Go de RAM # 
 
-AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4")  
+# AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4")  
 
 # Get the configuration file
-xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.xml"
+xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Vox_equalecho1m"
 # Run with the previous configuration file
 AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g")
 
