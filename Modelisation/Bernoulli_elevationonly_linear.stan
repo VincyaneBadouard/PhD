@@ -16,5 +16,6 @@ generated quantities {
   vector<lower=0, upper=1>[N] p ;
   p = inv_logit(alpha + tau1 * Elevation) ;
 
+
 }
 
