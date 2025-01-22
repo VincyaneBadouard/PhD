@@ -4,31 +4,44 @@ format: html
 editor: visual
 ---
 
-# Parametres exploration
+# *Parametres exploration*
 
--   0 = species absence = the other species
--   1 = species presence
+-   *0 = species absence = the other species*
+-   *1 = species presence*
 
-**Eq: *a* + *b*\*X + *c*\*X^2^**
+***Eq: a + b\*X + c\*X^2^***
 
-**Optimum : -b/2*c***
+***Optimum : -b/(2c)***
 
-***-b*** **= *opt* \* 2 \* *c***
+***-b= opt \* 2 \* c***
 
--   pas d'effet (plat) : -2 + 0 \* X + 0 \* X^2^
--   montée progressive : -2 + 3 \* X
--   monte fortement puis plateau : -2 + 20 \* X
--   cloche centrée : -2 + 15 \* X + -15 \* X^2^
--   cloche à droite (opt =0.7) : -2 + 15 \* X + -3.6 \* X^2^
+-   *pas d'effet (plat) : -2 + 0 \* X + 0 \* X^2^*
+-   *montée progressive : -2 + 3 \* X*
+-   *monte fortement puis plateau : -2 + 20 \* X*
+-   *cloche centrée : -2 + 15 \* X + -15 \* X^2^*
+-   *cloche à droite (opt =0.7) : -2 + 15 \* X + -11 \* X^2^*
 
+# Packages
 ```{r}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot) # visualiser la chaine de Markov
+library(shinystan) # for interactive stan output visualization
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(ggplot2)
+```
+
+```{r, eval=F}
 n <- 100 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
 opt <- 0.7
-a <- -2
-b <- 3 # à 0 pour pas d'effet
-c <- 0 # -b/(opt*2) # à 0 pour une linéaire
+a <- -2 # logit(0.5)= 0) autant de 0 que de 1
+b <-15 # à 0 pour pas d'effet
+c <- -11 # -b/(opt*2) # à 0 pour une linéaire
 
 
 # Compute presence probability
@@ -42,7 +55,7 @@ p <- 1 / (1 + exp(-logit_p))  # logistique transformation (inverse logit)
 presence_absence <- rbinom(n, size = 1, prob = p) # Bernoulli = 1 trial
 
 # data.frame of simulated data
-data <- data.frame(X = X, PresenceAbsence = presence_absence)
+data <- data.frame(X = X, Presence = presence_absence)
 
 # Visualisation of simulated data
 plot(X, presence_absence,
@@ -53,59 +66,229 @@ plot(X, presence_absence,
 curve(1 / (1 + exp(-(a + b * x + c * x^2))), add = TRUE, col = "blue", lwd = 2)
 ```
 
-# Data simulation
+# *Data simulation*
 
 ```{r}
+n <- 500 # abs + pres
+X <- seq(0, 1, length.out = n) # env var
+# Parameters
+a <- 0 # logit(0.5)= 0) autant de 0 que de 1
+b <- 0 # à 0 pour pas d'effet
+c <- 0 # -b/(opt*2) # à 0 pour une linéaire
 
-```
-
-```{r}
 data <- list(
-  no = data.frame(Environment = seq(0, 1, length.out = 100),
-                  Presence = c(rep(0:1, 50))),
-  intermediate = data.frame(Environment = seq(0, 1, length.out = n),
-                            Presence = c(rep(0, 20), 
-                                         rep(0:1,10),
-                                         rep(1,20),
-                                         rep(0:1,10),
-                                         rep(0,20))),
-  limit = data.frame(Environment = seq(0, 1, length.out = n), 
-                     Presence = c(rep(0,30), rep(0:1,20), rep(1,30)))
+  # data.frame of simulated data
+  noeffect = data.frame(Environment = X,
+                        # Generate presence-absence data from probability
+                        Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                          # logistique transformation (inverse logit)
+                                          prob = 1 / (1 + exp(-(a + b * X + c * X^2))))),
+  
+  gentleslope = data.frame(Environment = X,
+                           # Generate presence-absence data from probability
+                           Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                             # logistique transformation (inverse logit)
+                                             prob = 1 / (1 + exp(-(a + 3 * X + c * X^2))))),
+  
+  bell = data.frame(Environment = X,
+                    # Generate presence-absence data from probability
+                    Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                      # logistique transformation (inverse logit)
+                                      prob = 1 / (1 + exp(-(a + 15 * X + -15 * X^2))))), 
+  
+  rightbell = data.frame(Environment = X,
+                         # Generate presence-absence data from probability
+                         Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                           # logistique transformation (inverse logit)
+                                           prob = 1 / (1 + exp(-(-2 + 15 * X + -11 * X^2))))), # opt =0.7
+  
+  convexbell = data.frame(Environment = X,
+                          # Generate presence-absence data from probability
+                          Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                            # logistique transformation (inverse logit)
+                                            prob = 1 / (1 + exp(-(a + -15 * X + 15 * X^2))))), 
+  
+  negsigmoid = data.frame(Environment = X,
+                          # Generate presence-absence data from probability
+                          Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                            # logistique transformation (inverse logit)
+                                            prob = 1 / (1 + exp(-(a + -15 * X + -15 * X^2))))), 
+  
+  possigmoid = data.frame(Environment = X,
+                          # Generate presence-absence data from probability
+                          Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                            # logistique transformation (inverse logit)
+                                            prob = 1 / (1 + exp(-(a + 15 * X + 15 * X^2))))) 
 )
+```
 
-mdata <- lapply(data, function(x) list(N = nrow(x),
+# Run models
+```{r Créer une liste contenant la définition des "data" renseignés dans rstan file}
+dataM <- lapply(data, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
                                        Presence = x$Presence,
-                                       Environnement = x$Environnement))
+                                       Environment = x$Environment))
+```
 
-data[[1]]
-mdata[[1]]
+```{r, eval=F}
+# Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan")
+# fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM, chains = 4, iter = 2000) # 0.511 seconds (Total)
+
+fits <- lapply(dataM, function(x) stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = x, chains = 4, iter = 2000))
+names(fits) <- names(dataM) # "noeffect" "gentleslope" "bell" "rightbell" "convexbell"  "negsigmoid" "possigmoid"
+# fit
+
+# posterior <- as.data.frame(fit, pars = c("alpha", "beta1", "beta2"))
+# predictions <- as.data.frame(fit, pars = c("p", "lp__"))
+fits[["noeffect"]]
+save(fits, file = "./Fits/ExploSimForm.Rdata")
+```
+
+```{r, eval=F}
+load("./Fits/ExploSimForm.Rdata")
+```
+
+
+```{r, eval= F, visualiser la progression des chaînes pour chaque paramètres}
+lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comme vecteurs
+                                           # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
+                                           pars = c("alpha", "beta1", "beta2"),
+                                           np = nuts_params(fits[[x]])) # np pour afficher la divergeance
+)
+```
+
+```{r, eval=F, visualiser la relation entre chaque paramètre}
+#les paramètres doivent être indépendants et former une patate à leur valeur correspondant aux données.
+lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), pars = c("alpha", "beta1", "beta2")))
+```
+
+```{r, vue 3D des posteriors}
+lapply(names(fits), function(x) mcmc_areas(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))) # pars pour n'afficher que les paramètres que je veux, pas la vraissemblance
+```
+
+```{r, vue 2D des posteriors}
+lapply(names(fits), function(x) mcmc_intervals(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))) # + # vu du dessus
+# scale_x_continuous(limits = c(-15, 15), breaks = seq(-15,15, by=1)) 
+```
+
+```{r, eval=F}
+# Simulations mean
+cbind(mu = apply(as.matrix(fit, pars = "p"), 2, mean),# 2 for columns;  mean of all sim
+      t(apply(as.matrix(fit, pars = "p"), 2,
+              quantile, probs = c(0.05, 0.95)))) %>%
+  cbind(data) %>% 
+  ggplot(aes(x = X)) +
+  theme_minimal() +
+  geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
+  labs(title = "Simulations mean", x ="Environment", y = "Presence probability", col= "Presence-absence")
+
+# Simulations maximum likelihood  
+mat <- as.data.frame(fit, pars = c("p", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
+
+cbind(mu = unlist(as.vector(mat)),
+      t(apply(as.matrix(fit, pars = "p"), 2, 
+              quantile, probs = c(0.05, 0.95)))
+) %>% 
+  cbind(data) %>% 
+  ggplot(aes(x = X)) +
+  theme_minimal() +
+  geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
+  labs(title = "Simulations maximum likelihood", x ="Environment", y = "Presence probability", col= "Presence-absence")
 ```
 
 ```{r}
-ModelB0 <- stan_model("./distribution_models/Bernoullis/B0.stan")
-fitsB0 <- lapply(mdata, function(x) sampling(ModelB0, chains = 2, data = x))
+betas <- lapply(as.list(names(data)), function(type)
+apply(as.matrix(fits[[type]], pars = c("beta1", "beta2")), 2, mean))
+names(betas) <- names(data)
+
+opt <-  lapply(names(betas), function(x) -(betas[[x]]["beta1"]/(2*betas[[x]]["beta2"]))) # -beta1/2*beta2
+opt <- unlist(opt)
+names(opt) <- names(betas)
+opt <- as.data.frame(opt) %>%
+  tibble::rownames_to_column("type") %>% rename(Opt = opt)
+
+lapply(as.list(names(data)), function(type)
+  cbind(type = type, data[[type]],
+        mu = apply(as.matrix(fits[[type]], pars = "p"), 2, mean),
+        t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
+                quantile, probs = c(0.05, 0.95))))) %>% 
+  bind_rows() %>% 
+  left_join(opt, by="type") %>% 
+  ggplot(aes(x = Environment)) +
+  geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
+  geom_vline(aes(xintercept = Opt)) +
+  labs(title = "Simulations mean", y = "Presence probability", col= "Presence-absence") +
+  facet_wrap(~ type, scales = "free", nrow = 1)
+
+ggsave("ExploSimFormMean.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
+
+
+betas <- lapply(as.list(names(data)), function(type)
+  unlist(as.vector(as.data.frame(fits[[type]], pars = c("beta1", "beta2", "lp__")) %>%
+                     filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)))
+)
+names(betas) <- names(data)
+
+opt <-  lapply(names(betas), function(x) -(betas[[x]]["beta1"]/(2*betas[[x]]["beta2"]))) # -beta1/2*beta2
+opt <- unlist(opt)
+names(opt) <- names(betas)
+opt <- as.data.frame(opt) %>% 
+  tibble::rownames_to_column("type") %>% rename(Opt = opt)
+
+lapply(as.list(names(data)), function(type)
+  cbind(type = type, data[[type]],
+        mu = unlist(as.vector(as.data.frame(fits[[type]], pars = c("p", "lp__")) %>%
+                                filter(`lp__`== max(`lp__`)) %>% select(-`lp__`))),
+        t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
+                quantile, probs = c(0.05, 0.95)))
+  )) %>% 
+  bind_rows() %>% 
+  left_join(opt, by="type") %>% 
+  ggplot(aes(x = Environment)) +
+  geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
+  geom_vline(aes(xintercept = Opt)) +
+  labs(title = "Simulations maximum likelihood", y = "Presence probability", col= "Presence-absence") +
+  facet_wrap(~ type, scales = "free", nrow = 1)
+
+ggsave("ExploSimFormMaxL.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
-# Only topo
 
-## Linear
+
+# *Only topo*
+
+## *Linear*
 
 ```{r}
 
 ```
 
-## Quadratic
+## *Quadratic*
 
 ```{r}
 
 ```
 
-# Light only
-
-## Eq 1
-
+Model comparaison
 ```{r}
+DivTaxo_complet <- stan("../models/DivTaxo_complet.stan", data = data_Taxo_interac, iter = 2000) #works
 
+loo1 <- loo(DivTaxo_complet)
+print(loo1)
+#elpd_loo = the expected log pointwise predictive density
+#p_loo = the effective number of parameters
+#looic = the LOO information criterion 
+
+# compute loo for the other models
+loo2 <- loo(DivTaxo_ShannM6_IDH_interac)
+print(loo2)
+
+loo_compare(loo1, loo2)
 ```
-
-## Eq 2
