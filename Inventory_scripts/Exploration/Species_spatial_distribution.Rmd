@@ -659,6 +659,74 @@ ggsave(paste("Species_",var,"_niche_hist.pdf",sep=''),
        plots, width = 15, height = 10)
 ```
 
+### Hist relative abundances to the community per size class
+```{r, eval=F}
+data <- data %>% 
+  group_by(Size) %>% 
+  mutate(ComAbundSize = n()) %>% ungroup() # Community abundances per size class
+
+plist <- vector('list', length(unique(data$ScientificName)))
+
+for(p in 1:length(unique(data$ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    dataS <- data %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
+      group_by(Size) %>% 
+      mutate(RelativeAbund = n()/ComAbundSize) %>%
+      mutate(med=median(get(var))) %>% 
+      ungroup() 
+    
+    label <- dataS %>% 
+      group_by(Size) %>% 
+      summarise(N = paste("RelAbund: ", round((n()/ComAbundSize)*100,0), "%"))
+    
+    if(all(is.na(dataS$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    ggplot(dataS, aes(x= get(var))) +
+      geom_histogram(aes(y = after_stat(count/sum(data$count)), # relative abund
+                         color= Size, fill= Size),
+                     binwidth=bin, alpha=0.2) + 
+      scale_y_continuous(labels = scales::percent) + # in percent
+      geom_vline(aes(xintercept=med, color=Size),
+                 linetype="dashed", linewidth=0.8) +
+      
+      scale_color_manual(values = c("1-5" = "#00AFBB",
+                                    "5-10"= "#CC79A7",
+                                    "10-20"= "#E7B800",
+                                    ">20" = "#FC4E07"),
+                         breaks=c("1-5","5-10","10-20",">20")) + 
+      
+      scale_fill_manual(values = c("1-5" = "#00AFBB",
+                                   "5-10"= "#CC79A7",
+                                   "10-20"= "#E7B800",
+                                   ">20" = "#FC4E07"),
+                        breaks=c("1-5","5-10","10-20",">20")) +
+      
+      facet_wrap(~ Size, scales = "free_y", ncol=1) +
+      
+      geom_text(data = label, aes(label = N, color=Size),
+                x = Inf, y = Inf, hjust = 2, vjust = 3, show.legend = F) + 
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl)) + 
+      guides(fill = FALSE) +
+      labs(title = unique(dataS$ScientificName),
+           x= var, y="Relatives abundances") 
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave(paste("Species_",var,"_niche_hist_RelAbun.pdf",sep=''),
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+```
+
 ### Density + points transmittance not log
 ```{r, eval=F}
 plist <- vector('list', length(unique(data$ScientificName)))
