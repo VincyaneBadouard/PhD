@@ -325,6 +325,8 @@ data <- cbind(data, XY) %>% # bind XY coord
   rename(Xutm = X) %>% rename(Yutm = Y)
 
 data <- data %>% left_join(Light, by=c("idTree","Xutm","Yutm"))
+
+rm(alt)
 ```
 
 ## Age

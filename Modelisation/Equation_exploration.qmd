@@ -22,6 +22,7 @@ editor: visual
 -   *cloche à droite (opt =0.7) : -2 + 15 \* X + -11 \* X^2^*
 
 # Packages
+
 ```{r}
 library(rstan)
 rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
@@ -31,17 +32,17 @@ library(bayesplot) # visualiser la chaine de Markov
 library(shinystan) # for interactive stan output visualization
 library(rstanarm) # for Bayesian automatic regression modelling using stan
 library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
-library(ggplot2)
+library(tidyverse)
 ```
 
 ```{r, eval=F}
-n <- 100 # abs + pres
+n <- 500 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
 opt <- 0.7
-a <- -2 # logit(0.5)= 0) autant de 0 que de 1
-b <-15 # à 0 pour pas d'effet
-c <- -11 # -b/(opt*2) # à 0 pour une linéaire
+a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
+b <- 0 # pour pas d'effet ; inv_logit(-9) ~ 0
+c <- 0 # -b/(opt*2) ; pour une linéaire : inv_logit(-9) ~ 0
 
 
 # Compute presence probability
@@ -72,9 +73,9 @@ curve(1 / (1 + exp(-(a + b * x + c * x^2))), add = TRUE, col = "blue", lwd = 2)
 n <- 500 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
-a <- 0 # logit(0.5)= 0) autant de 0 que de 1
-b <- 0 # à 0 pour pas d'effet
-c <- 0 # -b/(opt*2) # à 0 pour une linéaire
+a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
+b <- 0 # pour pas d'effet ; inv_logit(-9) ~ 0
+c <- 0 # -b/(opt*2) pour une linéaire : inv_logit(-9) ~ 0
 
 data <- list(
   # data.frame of simulated data
@@ -120,19 +121,26 @@ data <- list(
                                             # logistique transformation (inverse logit)
                                             prob = 1 / (1 + exp(-(a + 15 * X + 15 * X^2))))) 
 )
+
+table(data[["noeffect"]]$Presence)
 ```
 
 # Run models
+
 ```{r Créer une liste contenant la définition des "data" renseignés dans rstan file}
 dataM <- lapply(data, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
                                        Presence = x$Presence,
                                        Environment = x$Environment))
 ```
 
-```{r, eval=F}
+```{r}
 # Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan")
-# fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM, chains = 4, iter = 2000) # 0.511 seconds (Total)
+# for 1 dataset
+fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[["noeffect"]], chains = 4, iter = 2000) # 0.511 seconds (Total)
+fit
+```
 
+```{r, eval=F}
 fits <- lapply(dataM, function(x) stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = x, chains = 4, iter = 2000))
 names(fits) <- names(dataM) # "noeffect" "gentleslope" "bell" "rightbell" "convexbell"  "negsigmoid" "possigmoid"
 # fit
@@ -147,8 +155,12 @@ save(fits, file = "./Fits/ExploSimForm.Rdata")
 load("./Fits/ExploSimForm.Rdata")
 ```
 
-
 ```{r, eval= F, visualiser la progression des chaînes pour chaque paramètres}
+mcmc_trace(as.array(fits[["noeffect"]]), #as.array = comme vecteurs
+           # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
+           pars = c("alpha", "beta1", "beta2"),
+           np = nuts_params(fits[["noeffect"]]))
+
 lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comme vecteurs
                                            # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
                                            pars = c("alpha", "beta1", "beta2"),
@@ -157,11 +169,20 @@ lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comm
 ```
 
 ```{r, eval=F, visualiser la relation entre chaque paramètre}
+mcmc_pairs(as.array(fits[["noeffect"]]), pars = c("alpha", "beta1", "beta2", "lp__", "o"))
+
 #les paramètres doivent être indépendants et former une patate à leur valeur correspondant aux données.
 lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), pars = c("alpha", "beta1", "beta2")))
 ```
 
 ```{r, vue 3D des posteriors}
+mcmc_areas(as.array(fits[["noeffect"]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))
+mcmc_areas(as.array(fits[["noeffect"]]), prob=0.95, pars = "o")
+mcmc_areas(as.array(fits[["bell"]]), prob=0.95, pars = "o")
+mcmc_areas(as.array(fits[["rightbell"]]), prob=0.95, pars = "o")
+mcmc_areas(as.array(fits[["gentleslope"]]), prob=0.95, pars = "o")
+mcmc_areas(as.array(fits[["negsigmoid"]]), prob=0.95, pars = "o")
+
 lapply(names(fits), function(x) mcmc_areas(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))) # pars pour n'afficher que les paramètres que je veux, pas la vraissemblance
 ```
 
@@ -170,53 +191,61 @@ lapply(names(fits), function(x) mcmc_intervals(as.array(fits[[x]]), prob=0.95, p
 # scale_x_continuous(limits = c(-15, 15), breaks = seq(-15,15, by=1)) 
 ```
 
+# Predictions for 1 dataset
 ```{r, eval=F}
 # Simulations mean
-cbind(mu = apply(as.matrix(fit, pars = "p"), 2, mean),# 2 for columns;  mean of all sim
-      t(apply(as.matrix(fit, pars = "p"), 2,
-              quantile, probs = c(0.05, 0.95)))) %>%
-  cbind(data) %>% 
-  ggplot(aes(x = X)) +
+cbind(mu = apply(as.matrix(fits[["noeffect"]], pars = "p"), 2, mean),# 2 for columns;  mean of all sim
+      t(apply(as.matrix(fits[["noeffect"]], pars = "p"), 2,
+              quantile, probs = c(0.05, 0.95))),
+      Opt = apply(as.matrix(fits[["noeffect"]], pars = "o"), 2, mean)) %>% # optimum
+  cbind(data[["noeffect"]]) %>% 
+  ggplot(aes(x = Environment)) +
   theme_minimal() +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
+  geom_vline(aes(xintercept = Opt)) +
   labs(title = "Simulations mean", x ="Environment", y = "Presence probability", col= "Presence-absence")
 
 # Simulations maximum likelihood  
-mat <- as.data.frame(fit, pars = c("p", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
+mat <- as.data.frame(fits[["noeffect"]], pars = c("p", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
+op <- as.data.frame(fits[["noeffect"]], pars = c("o", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
 
 cbind(mu = unlist(as.vector(mat)),
-      t(apply(as.matrix(fit, pars = "p"), 2, 
-              quantile, probs = c(0.05, 0.95)))
+      t(apply(as.matrix(fits[["noeffect"]], pars = "p"), 2, 
+              quantile, probs = c(0.05, 0.95))),
+      Opt = unlist(as.vector(op)) # optimum
 ) %>% 
-  cbind(data) %>% 
-  ggplot(aes(x = X)) +
+  cbind(data[["noeffect"]]) %>% 
+  ggplot(aes(x = Environment)) +
   theme_minimal() +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
+  geom_vline(aes(xintercept = Opt)) +
   labs(title = "Simulations maximum likelihood", x ="Environment", y = "Presence probability", col= "Presence-absence")
 ```
 
+# Predictions facet
 ```{r}
-betas <- lapply(as.list(names(data)), function(type)
-apply(as.matrix(fits[[type]], pars = c("beta1", "beta2")), 2, mean))
-names(betas) <- names(data)
-
-opt <-  lapply(names(betas), function(x) -(betas[[x]]["beta1"]/(2*betas[[x]]["beta2"]))) # -beta1/2*beta2
-opt <- unlist(opt)
-names(opt) <- names(betas)
-opt <- as.data.frame(opt) %>%
-  tibble::rownames_to_column("type") %>% rename(Opt = opt)
+# betas <- lapply(as.list(names(data)), function(type)
+#   apply(as.matrix(fits[[type]], pars = c("beta1", "beta2")), 2, mean))
+# names(betas) <- names(data)
+# 
+# opt <-  lapply(names(betas), function(x) -(betas[[x]]["beta1"]/(2*betas[[x]]["beta2"]))) # -beta1/2*beta2
+# opt <- unlist(opt)
+# names(opt) <- names(betas)
+# opt <- as.data.frame(opt) %>%
+#   tibble::rownames_to_column("type") %>% rename(Opt = opt)
 
 lapply(as.list(names(data)), function(type)
   cbind(type = type, data[[type]],
         mu = apply(as.matrix(fits[[type]], pars = "p"), 2, mean),
         t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
-                quantile, probs = c(0.05, 0.95))))) %>% 
+                quantile, probs = c(0.05, 0.95))),
+        Opt = apply(as.matrix(fits[[type]], pars = "o"), 2, mean))) %>% 
   bind_rows() %>% 
-  left_join(opt, by="type") %>% 
+  # left_join(opt, by="type") %>% 
   ggplot(aes(x = Environment)) +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
   geom_point(aes(y = mu), size=0.7) +
@@ -228,27 +257,29 @@ lapply(as.list(names(data)), function(type)
 ggsave("ExploSimFormMean.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
 
 
-betas <- lapply(as.list(names(data)), function(type)
-  unlist(as.vector(as.data.frame(fits[[type]], pars = c("beta1", "beta2", "lp__")) %>%
-                     filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)))
-)
-names(betas) <- names(data)
-
-opt <-  lapply(names(betas), function(x) -(betas[[x]]["beta1"]/(2*betas[[x]]["beta2"]))) # -beta1/2*beta2
-opt <- unlist(opt)
-names(opt) <- names(betas)
-opt <- as.data.frame(opt) %>% 
-  tibble::rownames_to_column("type") %>% rename(Opt = opt)
+# betas <- lapply(as.list(names(data)), function(type)
+#   unlist(as.vector(as.data.frame(fits[[type]], pars = c("beta1", "beta2", "lp__")) %>%
+#                      filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)))
+# )
+# names(betas) <- names(data)
+# 
+# opt <-  lapply(names(betas), function(x) -(betas[[x]]["beta1"]/(2*betas[[x]]["beta2"]))) # -beta1/2*beta2
+# opt <- unlist(opt)
+# names(opt) <- names(betas)
+# opt <- as.data.frame(opt) %>% 
+#   tibble::rownames_to_column("type") %>% rename(Opt = opt)
 
 lapply(as.list(names(data)), function(type)
   cbind(type = type, data[[type]],
         mu = unlist(as.vector(as.data.frame(fits[[type]], pars = c("p", "lp__")) %>%
                                 filter(`lp__`== max(`lp__`)) %>% select(-`lp__`))),
         t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
-                quantile, probs = c(0.05, 0.95)))
+                quantile, probs = c(0.05, 0.95))),
+        Opt = unlist(as.vector(as.data.frame(fits[[type]], pars = c("o", "lp__")) %>%
+                                filter(`lp__`== max(`lp__`)) %>% select(-`lp__`))) 
   )) %>% 
   bind_rows() %>% 
-  left_join(opt, by="type") %>% 
+  # left_join(opt, by="type") %>% 
   ggplot(aes(x = Environment)) +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
   geom_point(aes(y = mu), size=0.7) +
@@ -259,8 +290,6 @@ lapply(as.list(names(data)), function(type)
 
 ggsave("ExploSimFormMaxL.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
 ```
-
-
 
 # *Only topo*
 
@@ -277,6 +306,7 @@ ggsave("ExploSimFormMaxL.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation",
 ```
 
 Model comparaison
+
 ```{r}
 DivTaxo_complet <- stan("../models/DivTaxo_complet.stan", data = data_Taxo_interac, iter = 2000) #works
 
