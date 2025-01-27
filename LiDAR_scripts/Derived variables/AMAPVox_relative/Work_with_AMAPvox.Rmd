@@ -26,7 +26,6 @@ library(lidR)
 library(data.table)
 library(rgl) # visulaisation 3D
 library(terra)
-library(lidR)
 library(tidyterra)
 library(sf)
 library(raster)

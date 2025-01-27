@@ -23,7 +23,7 @@ editor: visual
 
 # Packages
 
-```{r}
+```{r, message=FALSE}
 library(rstan)
 rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
 options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
@@ -126,17 +126,21 @@ table(data[["noeffect"]]$Presence)
 ```
 
 # Run models
+```{r}
+load("./Fits/ExploSimForm.Rdata")
+behaviour <- "noeffect"
+```
 
-```{r Créer une liste contenant la définition des "data" renseignés dans rstan file}
+```{r Create a liste with data definitions as in the rstan file}
 dataM <- lapply(data, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
                                        Presence = x$Presence,
                                        Environment = x$Environment))
 ```
 
-```{r}
+```{r, eval=F}
 # Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan")
 # for 1 dataset
-fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[["noeffect"]], chains = 4, iter = 2000) # 0.511 seconds (Total)
+fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[behaviour]], chains = 4, iter = 2000) # 0.511 seconds (Total)
 fit
 ```
 
@@ -147,19 +151,15 @@ names(fits) <- names(dataM) # "noeffect" "gentleslope" "bell" "rightbell" "conve
 
 # posterior <- as.data.frame(fit, pars = c("alpha", "beta1", "beta2"))
 # predictions <- as.data.frame(fit, pars = c("p", "lp__"))
-fits[["noeffect"]]
+fits[[behaviour]]
 save(fits, file = "./Fits/ExploSimForm.Rdata")
 ```
 
-```{r, eval=F}
-load("./Fits/ExploSimForm.Rdata")
-```
-
 ```{r, eval= F, visualiser la progression des chaînes pour chaque paramètres}
-mcmc_trace(as.array(fits[["noeffect"]]), #as.array = comme vecteurs
+mcmc_trace(as.array(fits[[behaviour]]), #as.array = comme vecteurs
            # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
            pars = c("alpha", "beta1", "beta2"),
-           np = nuts_params(fits[["noeffect"]]))
+           np = nuts_params(fits[[behaviour]]))
 
 lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comme vecteurs
                                            # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
@@ -169,15 +169,15 @@ lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comm
 ```
 
 ```{r, eval=F, visualiser la relation entre chaque paramètre}
-mcmc_pairs(as.array(fits[["noeffect"]]), pars = c("alpha", "beta1", "beta2", "lp__", "o"))
+mcmc_pairs(as.array(fits[[behaviour]]), pars = c("alpha", "beta1", "beta2", "lp__", "o"))
 
 #les paramètres doivent être indépendants et former une patate à leur valeur correspondant aux données.
 lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), pars = c("alpha", "beta1", "beta2")))
 ```
 
 ```{r, vue 3D des posteriors}
-mcmc_areas(as.array(fits[["noeffect"]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))
-mcmc_areas(as.array(fits[["noeffect"]]), prob=0.95, pars = "o")
+mcmc_areas(as.array(fits[[behaviour]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))
+mcmc_areas(as.array(fits[[behaviour]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["bell"]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["rightbell"]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["gentleslope"]]), prob=0.95, pars = "o")
@@ -192,13 +192,14 @@ lapply(names(fits), function(x) mcmc_intervals(as.array(fits[[x]]), prob=0.95, p
 ```
 
 # Predictions for 1 dataset
+
 ```{r, eval=F}
 # Simulations mean
-cbind(mu = apply(as.matrix(fits[["noeffect"]], pars = "p"), 2, mean),# 2 for columns;  mean of all sim
-      t(apply(as.matrix(fits[["noeffect"]], pars = "p"), 2,
+cbind(mu = apply(as.matrix(fits[[behaviour]], pars = "p"), 2, mean),# 2 for columns;  mean of all sim
+      t(apply(as.matrix(fits[[behaviour]], pars = "p"), 2,
               quantile, probs = c(0.05, 0.95))),
-      Opt = apply(as.matrix(fits[["noeffect"]], pars = "o"), 2, mean)) %>% # optimum
-  cbind(data[["noeffect"]]) %>% 
+      Opt = apply(as.matrix(fits[[behaviour]], pars = "o"), 2, mean)) %>% # optimum
+  cbind(data[[behaviour]]) %>% 
   ggplot(aes(x = Environment)) +
   theme_minimal() +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
@@ -208,15 +209,15 @@ cbind(mu = apply(as.matrix(fits[["noeffect"]], pars = "p"), 2, mean),# 2 for col
   labs(title = "Simulations mean", x ="Environment", y = "Presence probability", col= "Presence-absence")
 
 # Simulations maximum likelihood  
-mat <- as.data.frame(fits[["noeffect"]], pars = c("p", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
-op <- as.data.frame(fits[["noeffect"]], pars = c("o", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
+mat <- as.data.frame(fits[[behaviour]], pars = c("p", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
+op <- as.data.frame(fits[[behaviour]], pars = c("o", "lp__")) %>% filter(`lp__`== max(`lp__`)) %>% select(-`lp__`)
 
 cbind(mu = unlist(as.vector(mat)),
-      t(apply(as.matrix(fits[["noeffect"]], pars = "p"), 2, 
+      t(apply(as.matrix(fits[[behaviour]], pars = "p"), 2, 
               quantile, probs = c(0.05, 0.95))),
       Opt = unlist(as.vector(op)) # optimum
 ) %>% 
-  cbind(data[["noeffect"]]) %>% 
+  cbind(data[[behaviour]]) %>% 
   ggplot(aes(x = Environment)) +
   theme_minimal() +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
@@ -227,6 +228,7 @@ cbind(mu = unlist(as.vector(mat)),
 ```
 
 # Predictions facet
+
 ```{r}
 # betas <- lapply(as.list(names(data)), function(type)
 #   apply(as.matrix(fits[[type]], pars = c("beta1", "beta2")), 2, mean))

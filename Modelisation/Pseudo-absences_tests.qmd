@@ -1,0 +1,46 @@
+---
+title: "Pseudo-absences_tests"
+format: html
+editor: visual
+---
+# Objectives
+- Test the sensibility to absences number relative to presence number (*1, 10, 100) on simulated data, then on the less and more abundant species and of different spatial structure (Barbet-Massin et al., 2012 method) 
+- Check if our simulated pseudo-absences are similarly distributed than our community, with a heatmap (env var and DBH).
+
+Pseudo-absences were always generated without considering the species potential distribution 
+
+# Simulate data
+N presence: 30 (nmin), 100, 700 (nmax) randomly chosen from the species distribution
+N absence: *1, 10, 100, nmax
+Species distribution:
+
+To account for the variability arising from the random selection of a set of presences, the models were ﬁtted with 20 different random presence sets for each combination of sample size and each virtual species
+
+Pseudo-absences selection method: random selection from all points within the studied area including available presence points 
+
+# Run models
+```{r, eval=F}
+# load("./Fits/Pseudo_abs_tests.Rdata")
+# behaviour <- ""
+```
+
+```{r Create a liste with data definitions as in the rstan file}
+dataM <- lapply(data, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
+                                       Presence = x$Presence,
+                                       Environment = x$Environment))
+
+fits <- lapply(dataM, function(x) stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = x, chains = 4, iter = 2000))
+names(fits) <- names(dataM) 
+
+# save(fits, file = "./Fits/Pseudo_abs_tests.Rdata")
+```
+
+# Evaluation
+Maximised the TSS (true skill statistics) corresponds to the sum of sensitivity and speciﬁcity minus one (the sensitivity is the proportion of presences correctly predicted, and the speciﬁcity is the proportion of absences correctly predicted).
+compare les ratios pres-abs output avec les ratios en input
+```{r}
+sensitivity <- presences_correctly_predicted/presences_predicted
+speciﬁcity  <- absences_correctly_predicted/absences_predicted
+TSS <- (sensitivity + speciﬁcity)-1
+```
+
