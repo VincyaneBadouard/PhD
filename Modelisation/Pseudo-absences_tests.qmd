@@ -3,22 +3,240 @@ title: "Pseudo-absences_tests"
 format: html
 editor: visual
 ---
-# Objectives
-- Test the sensibility to absences number relative to presence number (*1, 10, 100) on simulated data, then on the less and more abundant species and of different spatial structure (Barbet-Massin et al., 2012 method) 
-- Check if our simulated pseudo-absences are similarly distributed than our community, with a heatmap (env var and DBH).
 
-Pseudo-absences were always generated without considering the species potential distribution 
+# Objectives
+
+-   Test the sensibility to absences number relative to presence number (\*1, 10, 100) on simulated data, then on the less and more abundant species and of different spatial structure (Barbet-Massin et al., 2012 method)
+-   Check if our simulated pseudo-absences are similarly distributed than our community, with a heatmap (env var and DBH).
+
+Pseudo-absences were always generated without considering the species potential distribution
+
+# Packages
+```{r}
+library(tidyverse)
+library(rstan)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+```
+
+# Data
+```{r}
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+```
+
+# Check number of pseudo-absences necessary to represent the community environment
+30, 100, 300, 700, 1 000, 3 000, 7 000, 10 000, 26 758
+```{r, eval=F}
+nrow(Inv %>% na.omit()) # 10181: max number of light values
+
+data <- list()
+for(N in c(10, 30, 100, 300, 700, 1000, 3000, 7000, 10000, nrow(Inv))){ # , nrow(Inv)
+  data[[as.character(N)]] <- data.frame(
+    N= N,
+    # Transmittance = sample(na.omit(Inv$Transmittance), N, replace=F),
+    Elevation = sample(Inv$Elevation, N, replace=F))
+}
+draws <- bind_rows(data, .id = "N") %>% 
+  mutate(N = factor(N, levels = c("10","30", "100", "300", "700", "1000", "3000", "7000", "10000", as.character(nrow(Inv)))))
+
+
+ggplot(draws, aes(x= N, y = Elevation, group=N)) +
+  geom_boxplot() +
+  theme_minimal() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18)) +
+  labs(y="Elevation (m)", x="N random draws")
+
+ggsave("Elevation_draws_boxplot.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
+       width = 15, height = 10)
+
+
+ggplot(draws, aes(x= N, y = Transmittance, group=N)) +
+  geom_boxplot() +
+  scale_y_continuous(trans="log", labels = scales::number_format(accuracy = 0.001)) +
+  theme_minimal() +
+  theme(axis.title= element_text(size=18),
+        axis.text= element_text(size=18)) +
+  labs(y="log(transmittance)", x="N random draws")
+
+ggsave("Light_draws_boxplot.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
+       width = 15, height = 10)
+```
+
+```{r, eval=F}
+# Histograms of elevation distribution à different draws nbr
+ggplot(draws, aes(x= Elevation)) +
+  geom_histogram(data= draws %>%
+                   filter(as.numeric(as.character(N))== nrow(Inv)) %>% select(-N),
+                 binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  geom_histogram(binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
+  facet_wrap(~N, scales = "fixed") +
+  theme(title= element_text(size=18),
+        axis.title= element_text(size=18),
+        axis.text= element_text(size=18),
+        strip.text.x = element_text(size=18)) +
+  labs(title = "N random draws", x="Elevation (m)")
+
+ggsave("Elevation_draws_hist.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
+       width = 15, height = 10)
+
+# Histograms of light distribution à different draws nbr
+ggplot(draws, aes(x= Transmittance)) +
+  geom_histogram(data = draws %>%
+                   filter(as.numeric(as.character(N)) == 10000) %>%
+                   select(-N), binwidth=0.1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  geom_histogram(binwidth=0.1, fill="grey", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="log", labels = scales::number_format(accuracy = 0.001)) +
+  facet_wrap(~N, scales = "fixed") +
+  theme(title= element_text(size=18),
+        axis.title= element_text(size=18),
+        axis.text= element_text(size=18),
+        strip.text.x = element_text(size=18)) +
+  labs(title = "N random draws", x="log(transmittance)")
+
+ggsave("Transmittance_draws_hist.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
+       width = 15, height = 10)
+```
+
+
+```{r, eval=F}
+# sample individuals
+data <- list()
+for(N in c(10, 30, 100, 300, 700, 1000, 3000, 7000, 10000)){ # , nrow(Inv)
+  data[[as.character(N)]] <- data.frame(
+    N= N,
+    idTree = sample(na.omit(Inv)$idTree, N, replace=F))
+}
+draws <- bind_rows(data, .id = "N") %>% 
+  left_join(Inv, by="idTree") %>% 
+  mutate(N = factor(N, levels = c("10","30", "100", "300", "700", "1000", "3000", "7000", "10000", as.character(nrow(Inv)))))
+
+# heatmaps for Elevation-DBH spatial distribution à different draws nbr
+ggplot(draws, aes(x=DBHcor, y=Elevation)) + 
+  geom_tile() + # heatmap
+  geom_bin2d(bins = 50) + # for counts
+  scale_x_continuous(trans="log", labels = scales::number_format(accuracy = 1)) +
+  labs(title="N random draws", y="Elevation (m)", x="log(DBH)") +
+  theme(title= element_text(size=18),
+        axis.title= element_text(size=18),
+        axis.text= element_text(size=18),
+        strip.text.x = element_text(size=18)) +
+  facet_wrap(~N, scales = "fixed")
+
+ggsave("Elevation_draws_heatmap.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
+       width = 15, height = 10)
+
+# heatmaps for Light-DBH spatial distribution à different draws nbr
+ggplot(draws, aes(x=DBHcor, y=Transmittance)) + 
+  geom_tile() + # heatmap
+  geom_bin2d(bins = 50) + # for counts
+  scale_y_continuous(trans="log", labels = scales::number_format(accuracy = 0.001)) +
+  scale_x_continuous(trans="log", labels = scales::number_format(accuracy = 1)) +
+  labs(title="N random draws", y="log(transmittance)", x="log(DBH)") +
+  theme(title= element_text(size=18),
+        axis.title= element_text(size=18),
+        axis.text= element_text(size=18),
+        strip.text.x = element_text(size=18)) +
+  facet_wrap(~N, scales = "fixed")
+
+ggsave("Light_draws_heatmap.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
+       width = 15, height = 10)
+```
+
 
 # Simulate data
-N presence: 30 (nmin), 100, 700 (nmax) randomly chosen from the species distribution
-N absence: *1, 10, 100, nmax
-Species distribution:
 
-To account for the variability arising from the random selection of a set of presences, the models were ﬁtted with 20 different random presence sets for each combination of sample size and each virtual species
+N presence: 30 (nmin), 100 (median), 700 (nmax) randomly chosen from the species distribution  
+N absence:  30, 100, 300, 700, 1 000, 3 000, 7 000, 10 000, 26 758 (= maximum community abundance)  
+Species distribution: no effect, concave, convex or left truncated bell, negative and positive sigmoid.  
 
-Pseudo-absences selection method: random selection from all points within the studied area including available presence points 
+Pseudo-absences selection method: random selection from all inventoried individuals including the species of interest.  
+```{r}
+# noeffect c(b= 0, c= 0)
+# concavebell c(b= 15, c= -15)
+# convexbell c(b= -50, c= 50)
+# leftbell c(b= 50, c= -125)
+# negsigmoid c(b= -15, c= -15)
+# possigmoid c(b= 15, c= 15)
+
+var = "Transmittance"
+N1 = 30 # n presence
+N2 = 100 # n absence
+a =  rstanarm::logit(N1/(N1+N2)) # intercept
+b = 0
+c = 0
+
+simulatedata_PA <- function(var = "Transmittance",
+                            N1, # n presence
+                            N2, # n absence
+                            a =  NULL, # intercept
+                            temperament = NULL, # character
+                            b = NULL, c = NULL) {
+  
+  if(is.null(a)) {a = rstanarm::logit(N1/(N1+N2))} # intercept
+  if(temperament == "noeffect") {b= 0; c= 0}
+  if(temperament == "concavebell") {b= 15; c= -15}
+  if(temperament == "convexbell") {b= -50; c= 50}
+  if(temperament == "leftbell") {b= 50; c= -125}
+  if(temperament == "negsigmoid") {b= -15; c= -15}
+  if(temperament == "possigmoid") {b= 15; c= 15}
+  
+  
+  print(temperament)
+  print(paste("a=",a)); print(paste("b=",b)); print((paste("c=",c)))
+  print(paste("N1=",N1)); print((paste("N2=",N2)))
+  
+  test <- na.omit(Inv) %>% 
+    select(idTree, as.name(var)) %>% 
+    rowwise() %>% 
+    mutate(Probability = 1 / (1 + exp(-(
+      a + b * get(var) + c * get(var)^2)))) %>% # (inverse logit(Eq))
+    mutate(Presence = rbinom(1, size = 1, # Bernoulli = 1 trial
+                             prob = Probability)) %>% 
+    ungroup() %>% 
+    mutate(SelectPres = if_else(rownames(.) %in% sample(which(Presence==T), N1, replace=F), 1, 0)) %>% # among the presences
+    mutate(SelectAbs = if_else(rownames(.) %in% sample(1:nrow(.), N2, replace=F), 1, 0)) # among all the community
+  
+  # checks
+  print(paste("NSelectPres ==",N1,":", nrow(test[test$SelectPres==1,]) == N1))
+  print(paste("NSelectAbs ==",N2,":",nrow(test[test$SelectAbs==1,]) == N2))
+  
+  # plot(test$Transmittance, test$Presence,
+  #      main = paste(temperament,
+  #                   "; a=",round(a,1), "b=",b, "c=",c,"N1=",N1,"N2=",N2),
+  #      xlab = "Explicative variable (X)", ylab = "Presence (1) / Absence (0)",
+  #      pch = 19)
+  # # proba
+  # curve(1 / (1 + exp(-(a + b * x + c * x^2))), add = TRUE, col = "blue", lwd = 2)
+  # return(test)
+} # end function
+```
+
+```{r}
+temperaments <- c("concavebell", "leftbell", "possigmoid") # "convexbell", "negsigmoid", "noeffect", 
+Np <- c(30, 100, 700)
+Na <- c(30, 100, 300, 700, 1000, 3000, 7000, 10000) # , 26 758
+
+# lapply(temperaments, function(t)
+#     simulatedata_PA(var = "Transmittance",
+#                     N1 = 30, # n presence
+#                     N2 = 100, # n absence
+#                     temperament = t) # character
+# )
+
+mapply(FUN = simulatedata_PA,
+       N1 = rep(Np, (3*8)), # 6 t * 8 Na
+       N2 = rep(Na, (3*3)), # 6 t * 3 Np
+       temperament = sort(rep(temperaments, (8*3)))) # 8 Na * 3 Np
+```
 
 # Run models
+
 ```{r, eval=F}
 # load("./Fits/Pseudo_abs_tests.Rdata")
 # behaviour <- ""
@@ -36,11 +254,11 @@ names(fits) <- names(dataM)
 ```
 
 # Evaluation
-Maximised the TSS (true skill statistics) corresponds to the sum of sensitivity and speciﬁcity minus one (the sensitivity is the proportion of presences correctly predicted, and the speciﬁcity is the proportion of absences correctly predicted).
-compare les ratios pres-abs output avec les ratios en input
+
+Maximised the TSS (true skill statistics) corresponds to the sum of sensitivity and speciﬁcity minus one (the sensitivity is the proportion of presences correctly predicted, and the speciﬁcity is the proportion of absences correctly predicted). compare les ratios pres-abs output avec les ratios en input
+
 ```{r}
 sensitivity <- presences_correctly_predicted/presences_predicted
 speciﬁcity  <- absences_correctly_predicted/absences_predicted
 TSS <- (sensitivity + speciﬁcity)-1
 ```
-

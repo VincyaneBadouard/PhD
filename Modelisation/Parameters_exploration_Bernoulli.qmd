@@ -21,6 +21,7 @@ library(tidyverse)
 # Logit de pleins de valeurs plot
 
 le logit transforme les valeurss sur \[0;1\] en valeurs sur R
+
 ```{r}
 X <- seq(0,1, by=0.01)
 plot(X, rstanarm::logit(X))
@@ -32,6 +33,7 @@ plot(X, rstanarm::logit(X))
 # Inverse logit de pleins de valeurs plot
 
 l'inverse logit transforme les valeurs sur R en valeurs sur \[0;1\]
+
 ```{r}
 inv_logit <- function(x) 1/(1 + exp(-x))
 # exp(x)/(1+exp(x))
