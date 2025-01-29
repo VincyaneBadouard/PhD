@@ -36,13 +36,14 @@ library(tidyverse)
 ```
 
 ```{r, eval=F}
-n <- 500 # abs + pres
+n <- 7040 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
 opt <- 0.2
-a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
-b <- 15 # pour pas d'effet ; inv_logit(-9) ~ 0
-c <- 15 # -b/(opt*2) ; pour une linéaire : inv_logit(-9) ~ 0
+a <- rstanarm::logit(0.5) # intercept ; logit(0.5)= 0) autant de 0 que de 1
+# a <- rstanarm::logit(N1/(N1+N2))
+b <- -50 # pour pas d'effet ; inv_logit(-9) ~ 0
+c <- ( -b/(opt*2))# ; pour une linéaire : inv_logit(-9) ~ 0
 
 
 # Compute presence probability
@@ -129,7 +130,7 @@ table(data[["noeffect"]]$Presence)
 
 ```{r}
 load("./Fits/ExploSimForm.Rdata")
-behaviour <- "noeffect"
+behaviour <- "bell"
 ```
 
 ```{r Create a liste with data definitions as in the rstan file}
@@ -170,6 +171,7 @@ lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comm
 ```
 
 ```{r, eval=F, visualiser la relation entre chaque paramètre}
+names(fits)
 mcmc_pairs(as.array(fits[[behaviour]]), pars = c("alpha", "beta1", "beta2", "lp__", "o"))
 
 #les paramètres doivent être indépendants et former une patate à leur valeur correspondant aux données.
