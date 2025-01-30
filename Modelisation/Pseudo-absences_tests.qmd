@@ -18,6 +18,7 @@ library(tidyverse)
 library(rstan)
 library(rstanarm) # for Bayesian automatic regression modelling using stan
 library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library("loo") # model evaluation
 ```
 
 # Data
@@ -273,13 +274,41 @@ names(fits) <- names(dataM)
 # save(fits, file = "./Fits/Pseudo_abs_tests.Rdata")
 ```
 
-# Evaluation
+# Evaluation - Goodness of fit
+https://campus.datacamp.com/courses/bayesian-regression-modeling-with-rstanarm/assessing-model-fit?ex=10
 
-Maximised the TSS (true skill statistics) corresponds to the sum of sensitivity and speciﬁcity minus one (the sensitivity is the proportion of presences correctly predicted, and the speciﬁcity is the proportion of absences correctly predicted). compare les ratios pres-abs output avec les ratios en input
--> on fait pas ça pcq ça marche par pixel mais pas à notre échelle continue
-
+loo package which implements fast Pareto smoothed leave-one-out cross-validation (PSIS-LOO) (Vehtari, Gelman and Gabry, 2017) to compute expected log predictive density (elpd)
+PSIS : Pareto smoothed importance sampling
+the user needs to explicitly code the factors of the likelihood (actually, the terms of the log-likelihood) as a vector (see generated quantities in the stan file).
 ```{r}
-sensitivity <- presences_correctly_predicted/presences_predicted
-speciﬁcity  <- absences_correctly_predicted/absences_predicted
-TSS <- (sensitivity + speciﬁcity)-1
+# Read in and prepare the data
+wells <- read.csv("wells.csv")
+N <- nrow(wells)
+X <- cbind(rep(1,N), wells$dist100, wells$arsenic)
+y <- wells$y
+P <- ncol(X)
+# Fit the model with Stan
+fit_1 <- stan("logistic.stan")
+print(fit_1, "b")
+# Compute LOO
+log_lik_1 <- extract_log_lik(fit_1)
+loo_1 <- loo(log_lik_1)
+print(loo_1)
+plot(loo_1)
+
+# leave-one-out cross-validation
+(loo1 <- loo(fit1, save_psis = TRUE))
+# all Pareto k estimates have to be small (k< 0.5)
+help('pareto-k-diagnostic') # for details.
+
+# Widely Applicable or Watanabe-Akaike Information Criterion (WAIC; Watanabe 2010)
+waic_1 <- waic(log_lik_1)
+waic_2 <- waic(log_lik_2)
+waic_diff <- compare(waic_1, waic_2)
+print(waic_diff)
+
+# Model comparaison
+loo_diff <- loo_compare(loo1, loo2)
+print(loo_diff)
 ```
+

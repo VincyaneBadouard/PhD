@@ -163,6 +163,9 @@ mcmc_trace(as.array(fits[[behaviour]]), #as.array = comme vecteurs
            pars = c("alpha", "beta1", "beta2"),
            np = nuts_params(fits[[behaviour]]))
 
+# rank histogram plots (Vehtarh et al., 2021)
+mcmc_rank_hist(as.array(fits[[behaviour]]), pars = c("alpha", "beta1", "beta2"), ref_line = TRUE)
+
 lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comme vecteurs
                                            # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
                                            pars = c("alpha", "beta1", "beta2"),

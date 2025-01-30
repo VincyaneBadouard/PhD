@@ -19,4 +19,10 @@ generated quantities {
   
   real o ; // Optimum
   o = -beta1/(2*beta2) ; // Optimum
+  
+  // For model evaluation with loo;
+  vector[N] log_lik; // factors of the log-likelihood as a vector
+  for (n in 1:N) {
+    log_lik[n] = bernoulli_logit_lpmf(Presence[n] | alpha + beta1*Environment[n] + beta2*Environment[n].*Environment[n]);
+  } // to produce the log posterior density
 }
