@@ -39,11 +39,11 @@ library(tidyverse)
 n <- 7040 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
-opt <- 0.2
+opt <- 0.07 # community median
 a <- rstanarm::logit(0.5) # intercept ; logit(0.5)= 0) autant de 0 que de 1
 # a <- rstanarm::logit(N1/(N1+N2))
-b <- -50 # pour pas d'effet ; inv_logit(-9) ~ 0
-c <- ( -b/(opt*2))# ; pour une linéaire : inv_logit(-9) ~ 0
+b <- -50 
+c <- ( -b/(opt*2))
 
 
 # Compute presence probability
@@ -75,8 +75,8 @@ n <- 500 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
 a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
-b <- 0 # pour pas d'effet ; inv_logit(-9) ~ 0
-c <- 0 # -b/(opt*2) pour une linéaire : inv_logit(-9) ~ 0
+b <- 0
+c <- 0 # -b/(opt*2) 
 
 data <- list(
   # data.frame of simulated data
@@ -313,20 +313,40 @@ ggsave("ExploSimFormMaxL.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation",
 
 ```
 
-Model comparaison
+## Model comparaison
+
+# Evaluation - Goodness of fit
+
+https://campus.datacamp.com/courses/bayesian-regression-modeling-with-rstanarm/assessing-model-fit?ex=10
+
+loo package which implements fast Pareto smoothed leave-one-out cross-validation (PSIS-LOO) (Vehtari, Gelman and Gabry, 2017) to compute expected log predictive density (elpd) PSIS : Pareto smoothed importance sampling the user needs to explicitly code the factors of the likelihood (actually, the terms of the log-likelihood) as a vector (see generated quantities in the stan file).
 
 ```{r}
-DivTaxo_complet <- stan("../models/DivTaxo_complet.stan", data = data_Taxo_interac, iter = 2000) #works
+# Fit the model with Stan
+fit_1 <- stan("logistic.stan")
+print(fit_1, "b")
+# Compute LOO
+log_lik_1 <- extract_log_lik(fit_1)
+loo_1 <- loo(log_lik_1)
+print(loo_1)
+plot(loo_1)
 
-loo1 <- loo(DivTaxo_complet)
-print(loo1)
+# leave-one-out cross-validation
+(loo1 <- loo(fit1, save_psis = TRUE))
+# all Pareto k estimates have to be small (k< 0.5)
+help('pareto-k-diagnostic') # for details.
 #elpd_loo = the expected log pointwise predictive density
 #p_loo = the effective number of parameters
 #looic = the LOO information criterion 
 
-# compute loo for the other models
-loo2 <- loo(DivTaxo_ShannM6_IDH_interac)
-print(loo2)
 
-loo_compare(loo1, loo2)
+# Widely Applicable or Watanabe-Akaike Information Criterion (WAIC; Watanabe 2010)
+waic_1 <- waic(log_lik_1)
+waic_2 <- waic(log_lik_2)
+waic_diff <- compare(waic_1, waic_2)
+print(waic_diff)
+
+# Model comparaison
+loo_diff <- loo_compare(loo1, loo2)
+print(loo_diff)
 ```
