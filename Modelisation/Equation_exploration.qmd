@@ -71,6 +71,34 @@ curve(1 / (1 + exp(-(a + b * x + c * x^2))), add = TRUE, col = "blue", lwd = 2)
 # *Data simulation*
 
 ```{r}
+dataParam <- data.frame(
+  type = c("noeffect", "gentleslope", "bell", "rightbell", "convexbell", "negsigmoid", "possigmoid"),
+  alpha=0) %>% 
+  mutate(alpha= ifelse(type == "rightbell", -2, alpha)) %>% 
+  mutate(beta1 = case_when(
+    type == "noeffect" ~ 0,
+    type == "gentleslope" ~ 3,
+    type == "bell" ~ 15,
+    type == "rightbell" ~ 15,
+    type == "convexbell" ~ -15,
+    type == "negsigmoid" ~ -15,
+    type == "possigmoid" ~ 15) 
+  ) %>% 
+  mutate(beta2 = case_when(
+    type == "noeffect" ~ 0,
+    type == "gentleslope" ~ 0,
+    type == "bell" ~ -15,
+    type == "rightbell" ~ -11,
+    type == "convexbell" ~ 15,
+    type == "negsigmoid" ~ -15,
+    type == "possigmoid" ~ 15) 
+  )
+dataParamL <- dataParam %>% pivot_longer(cols = c("alpha", "beta1", "beta2"),
+                                         names_to = "Parameters",
+                                         values_to = "Initial")
+```
+
+```{r}
 n <- 500 # abs + pres
 X <- seq(0, 1, length.out = n) # env var
 # Parameters
@@ -157,6 +185,25 @@ fits[[behaviour]]
 save(fits, file = "./Fits/ExploSimForm.Rdata")
 ```
 
+# Compare initial vs estimated parameters values
+
+```{r, posteriors table}
+summaryfits <- lapply(names(fits), function(x) as.data.frame(summary(fits[[x]], 
+                                                                     pars = c("alpha", "beta1", "beta2"))$summary[, c("50%", "2.5%", "97.5%")]) %>% 
+                        tibble::rownames_to_column("Parameters")
+)
+names(summaryfits) <- names(fits)
+summaryfits <- bind_rows(summaryfits, .id = "type")
+
+summaryM <- dataParamL %>% 
+  left_join(summaryfits, by = c("type", "Parameters")) %>% 
+  mutate(Difference = round(`50%`-Initial,2))
+```
+
+# Diagnostic plots
+
+## Chains
+
 ```{r, eval= F, visualiser la progression des chaînes pour chaque paramètres}
 mcmc_trace(as.array(fits[[behaviour]]), #as.array = comme vecteurs
            # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
@@ -173,6 +220,8 @@ lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comm
 )
 ```
 
+## Parameters correlation
+
 ```{r, eval=F, visualiser la relation entre chaque paramètre}
 names(fits)
 mcmc_pairs(as.array(fits[[behaviour]]), pars = c("alpha", "beta1", "beta2", "lp__", "o"))
@@ -181,15 +230,21 @@ mcmc_pairs(as.array(fits[[behaviour]]), pars = c("alpha", "beta1", "beta2", "lp_
 lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), pars = c("alpha", "beta1", "beta2")))
 ```
 
+## Posteriors
+
 ```{r, vue 3D des posteriors}
-mcmc_areas(as.array(fits[[behaviour]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))
+mcmc_areas(as.array(fits[[1]]), prob=0.95, pars = c("alpha", "beta1", "beta2")) +
+  labs(title=names(fits)[[1]])
 mcmc_areas(as.array(fits[[behaviour]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["bell"]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["rightbell"]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["gentleslope"]]), prob=0.95, pars = "o")
 mcmc_areas(as.array(fits[["negsigmoid"]]), prob=0.95, pars = "o")
 
-lapply(names(fits), function(x) mcmc_areas(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))) # pars pour n'afficher que les paramètres que je veux, pas la vraissemblance
+p <- lapply(names(fits), function(x) mcmc_areas(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2")) +
+              labs(title=paste(x,"b= -4; c= -0.8")))
+
+save(p, file = "./Plots/Posteriors_PA_1-10.Rdata")
 ```
 
 ```{r, vue 2D des posteriors}
@@ -197,7 +252,9 @@ lapply(names(fits), function(x) mcmc_intervals(as.array(fits[[x]]), prob=0.95, p
 # scale_x_continuous(limits = c(-15, 15), breaks = seq(-15,15, by=1)) 
 ```
 
-# Predictions for 1 dataset
+# Predictions plots
+
+## for 1 dataset
 
 ```{r, eval=F}
 # Simulations mean
@@ -212,6 +269,12 @@ cbind(mu = apply(as.matrix(fits[[behaviour]], pars = "p"), 2, mean),# 2 for colu
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
   geom_vline(aes(xintercept = Opt)) +
+  stat_function(
+    fun=function(x) 1 / (1 + exp(-(dataParam[dataParam$type==behaviour,]$alpha +
+                                     dataParam[dataParam$type==behaviour,]$beta1 * x +
+                                     dataParam[dataParam$type==behaviour,]$beta2 * x^2))),
+    col = "blue", linewidth = 1) +
+  
   labs(title = "Simulations mean", x ="Environment", y = "Presence probability", col= "Presence-absence")
 
 # Simulations maximum likelihood  
@@ -230,10 +293,15 @@ cbind(mu = unlist(as.vector(mat)),
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
   geom_vline(aes(xintercept = Opt)) +
+  stat_function(
+    fun=function(x) 1 / (1 + exp(-(dataParam[dataParam$type==behaviour,]$alpha +
+                                     dataParam[dataParam$type==behaviour,]$beta1 * x +
+                                     dataParam[dataParam$type==behaviour,]$beta2 * x^2))),
+    col = "blue", linewidth = 1) +
   labs(title = "Simulations maximum likelihood", x ="Environment", y = "Presence probability", col= "Presence-absence")
 ```
 
-# Predictions facet
+## Facet
 
 ```{r}
 # betas <- lapply(as.list(names(data)), function(type)
@@ -248,21 +316,35 @@ cbind(mu = unlist(as.vector(mat)),
 
 lapply(as.list(names(data)), function(type)
   cbind(type = type, data[[type]],
-        mu = apply(as.matrix(fits[[type]], pars = "p"), 2, mean),
+        mu = apply(as.matrix(fits[[type]], pars = "p"), 2, median),
         t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
                 quantile, probs = c(0.05, 0.95))),
-        Opt = apply(as.matrix(fits[[type]], pars = "o"), 2, mean))) %>% 
+        Opt = apply(as.matrix(fits[[type]], pars = "o"), 2, median),
+        Opt = t(apply(as.matrix(fits[[type]], pars = "o"), 2, 
+                      quantile, probs = c(0.05, 0.95)))
+  )) %>% 
   bind_rows() %>% 
   # left_join(opt, by="type") %>% 
+  left_join(dataParam, by="type") %>%
+  mutate(InitialProba = 1 / (1 + exp(-(alpha + beta1 * Environment + beta2 * Environment^2)))) %>% 
+  mutate(InitialOpt = -beta1/(2*beta2)) %>% 
   ggplot(aes(x = Environment)) +
+  # Presences
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  # Probas
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
+  # Optimum
   geom_vline(aes(xintercept = Opt)) +
-  labs(title = "Simulations mean", y = "Presence probability", col= "Presence-absence") +
+  geom_vline(aes(xintercept = `Opt.5%`), linetype="dashed") +
+  geom_vline(aes(xintercept = `Opt.95%`), linetype="dashed") +
+    # Initial
+  geom_line(aes(y = InitialProba), col = "blue", linewidth = 0.5) +
+  geom_vline(aes(xintercept = InitialOpt), col = "blue", linewidth = 0.5) +
+  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
   facet_wrap(~ type, scales = "free", nrow = 1)
 
-ggsave("ExploSimFormMean.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
+ggsave("ExploSimFormMedian.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
 
 
 # betas <- lapply(as.list(names(data)), function(type)
@@ -284,15 +366,20 @@ lapply(as.list(names(data)), function(type)
         t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
                 quantile, probs = c(0.05, 0.95))),
         Opt = unlist(as.vector(as.data.frame(fits[[type]], pars = c("o", "lp__")) %>%
-                                filter(`lp__`== max(`lp__`)) %>% select(-`lp__`))) 
+                                 filter(`lp__`== max(`lp__`)) %>% select(-`lp__`))) 
   )) %>% 
   bind_rows() %>% 
   # left_join(opt, by="type") %>% 
+  left_join(dataParam, by="type") %>%
+  mutate(InitialProba = 1 / (1 + exp(-(alpha + beta1 * Environment + beta2 * Environment^2)))) %>% 
+  mutate(InitialOpt = -beta1/(2*beta2)) %>% 
   ggplot(aes(x = Environment)) +
   geom_point(aes(y = Presence, col = as.factor(Presence))) +
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
   geom_vline(aes(xintercept = Opt)) +
+  geom_line(aes(y = InitialProba), col = "blue", linewidth = 1) +
+  geom_vline(aes(xintercept = InitialOpt), col = "blue", linewidth = 0.5) +
   labs(title = "Simulations maximum likelihood", y = "Presence probability", col= "Presence-absence") +
   facet_wrap(~ type, scales = "free", nrow = 1)
 
