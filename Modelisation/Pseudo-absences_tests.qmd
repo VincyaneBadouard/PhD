@@ -13,7 +13,7 @@ Pseudo-absences were always generated without considering the species potential 
 
 # Packages
 
-```{r}
+```{r, include = F}
 library(tidyverse)
 library(rstan)
 rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
@@ -28,8 +28,7 @@ library(loo) # model evaluation
 ```
 
 # Data
-
-```{r}
+```{r, include = F, message=F}
 Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
 ```
 

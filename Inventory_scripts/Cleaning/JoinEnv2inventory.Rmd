@@ -47,7 +47,7 @@ Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>%
 Inventory <- read.csv(
   "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
 ) %>% 
-  dplyr::select(idTree, SubPlot, ScientificName, DBHcor, Xutm, Yutm, TreeHeight) %>% 
+  dplyr::select(idTree, SubPlot, ScientificName, Strategy, DBHcor, Xutm, Yutm, TreeHeight) %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 ```

@@ -23,7 +23,7 @@ editor: visual
 
 # Packages
 
-```{r, message=FALSE}
+```{r, , include = F, message=FALSE}
 library(rstan)
 rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
 options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
@@ -198,6 +198,8 @@ summaryfits <- bind_rows(summaryfits, .id = "type")
 summaryM <- dataParamL %>% 
   left_join(summaryfits, by = c("type", "Parameters")) %>% 
   mutate(Difference = round(`50%`-Initial,2))
+
+summaryM
 ```
 
 # Diagnostic plots

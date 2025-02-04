@@ -1,0 +1,289 @@
+---
+title: "Fit_model_realspecies"
+author: "Vincyane Badouard"
+format: html
+editor: visual
+---
+
+# Objectives
+
+Run the logistic quadratic model for real species, with the log of the transmittance as explanatory variable.
+
+Which species:
+- Anaxagorea_dolichocarpa : sciaphile et sous-bois (626)  
+- Xylopia_crinita (1 bosse) (32)  
+- Oxandra_asbeckii : canopée cloche (1307)  
+- Lecythis_persistens : canopée cloche (N=468)  
+
+then the 50 most abundant species
+
+# Packages
+
+```{r, include = F}
+library(tidyverse)
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+
+library(bayesplot) # visualiser la chaine de Markov
+# library(shinystan) # for interactive stan output visualization
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+```
+
+# Prepare data
+
+```{r, include = F, message=F}
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+```
+
+```{r}
+Inv <- Inv %>% 
+  na.omit() %>% 
+  mutate(logTransmittance =  log(Transmittance))
+
+## Only sp enough abundant in < and > 10 cm DBH
+data <- Inv %>%
+  na.omit() %>% 
+  mutate(ALT = ifelse(DBHcor <10, T, F))
+
+Guyafor <- data %>% # 808
+  filter(!ALT) %>% 
+  group_by(ScientificName) %>%
+  mutate(N = n()) %>%
+  ungroup() %>%
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+
+
+ALT <- data %>% #5887
+  filter(ALT) %>%  
+  filter(ScientificName %in% Guyafor$ScientificName | Strategy=="Understory species") %>%
+  group_by(ScientificName) %>%
+  mutate(N = n()) %>%
+  ungroup() %>%
+  # Take only sp >= 30 ind
+  filter(N >= 30)
+
+s <- Guyafor$ScientificName %in% ALT$ScientificName
+
+Guyafor <- Guyafor %>% # 736
+  dplyr::filter(s) 
+
+data <- ALT %>% #6623
+  bind_rows(Guyafor) %>% 
+  arrange(Strategy, N) %>% 
+  mutate(cl = ifelse(Strategy =="Understory species" & !is.na(Strategy), "#009E73",
+                     "#E7B800")) %>% # color per sp strategy
+  select(-N) %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup() 
+
+nrow(data)==(nrow(ALT)+nrow(Guyafor))
+length(unique(data$ScientificName)) # 34 sp (4ha)
+
+rm(Inv, ALT, Guyafor, s)
+```
+
+# Create presence-absence data format for each species
+
+```{r}
+# Create a list of the inventory replicated, 1 per ScientificName
+datalist <- replicate(length(unique(data$ScientificName)), data, simplify = F) 
+names(datalist) <- unique(data$ScientificName) # 1 per ScientificName
+
+# Presence=1 if it's a the interest species, 0 if not
+datalist <- lapply(names(datalist), function(name) {
+  datalist[[name]]$Presence <- ifelse(datalist[[name]]$ScientificName == name, 1, 0)
+  datalist[[name]]  # Return modified data frame
+})
+names(datalist) <- unique(data$ScientificName)
+
+
+# view(datalist[["Anaxagorea_dolichocarpa"]])
+```
+
+```{r}
+sp <- c("Anaxagorea_dolichocarpa" , "Xylopia_crinita", "Oxandra_asbeckii", "Lecythis_persistens")
+
+# datalist <- split(data, data$ScientificName) # 34 ; create a list of data.frames,1 per ScientificName
+# names(datalist)
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# view(datalist[["Anaxagorea_dolichocarpa"]])
+
+rm(data)
+```
+
+# Run models
+
+```{r}
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_1-4.Rdata")
+```
+
+```{r Create a liste with data definitions as in the rstan file}
+dataM <- lapply(datalist, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance))
+
+Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan") # remove rds file if doest work
+# num <- 4
+# fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[num]], chains = 4, iter = 2000) # 15h28 - 31
+
+
+# fit
+# 16h13 - 16h20 1er, 2e, 3 finissent quasi en meme temps, 16h22 le 4e finit - total 9 min
+gc()
+cores = min(c(length(dataM), 5)) # nbr of cores to use, not more than 5
+# parallel::detectCores() # 8
+i <- NULL
+j = length(dataM)
+
+# L'enregistrement des clusters
+cl <- parallel::makeCluster(cores, outfile = "")
+doSNOW::registerDoSNOW(cl)
+
+writeLines(c(""), "Realsplog.txt") # to create a log file
+
+# Progress bar:
+# pb <- txtProgressBar(min = 0, max = j, style = 3)
+pb <- txtProgressBar(max=j)
+# progress <- function(n) setTxtProgressBar(pb, n)
+progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+opts <- list(progress = progress)
+
+Sys.time()
+fits <- foreach::foreach(
+  i=1:j,
+  .packages = c("rstan"), # necessary packages
+  .options.snow = opts, # ProgressBar
+  .combine = c
+) %dopar% {
+  sink("Realsplog.txt", append=TRUE) # for the log file
+  # the function to parallelise:
+  stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[i]], chains = 4, iter = 2000)
+}
+# close progressbar and cluster
+close(pb)
+stopCluster(cl)
+Sys.time()
+names(fits) <- names(dataM) 
+# fits[[1]]
+
+save(fits, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_1-4.Rdata") # need a absolute path after cluster
+```
+
+# Diagnostic plots
+
+## Chains
+
+```{r, eval= F, visualiser la progression des chaînes pour chaque paramètres}
+mcmc_trace(as.array(fit), #as.array = comme vecteurs
+           pars = c("alpha", "beta1", "beta2"),
+           np = nuts_params(fit))
+
+# rank histogram plots (Vehtarh et al., 2021)
+mcmc_rank_hist(as.array(fits[[behaviour]]), pars = c("alpha", "beta1", "beta2"), ref_line = TRUE)
+
+lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), #as.array = comme vecteurs
+                                           # facet_args=list(labeller=label_parsed), #pour mettre en lettre greques
+                                           pars = c("alpha", "beta1", "beta2"),
+                                           np = nuts_params(fits[[x]])) # np pour afficher la divergeance
+)
+```
+
+## Parameters correlation
+
+```{r, eval=F, visualiser la relation entre chaque paramètre}
+mcmc_pairs(as.array(fit), pars = c("alpha", "beta1", "beta2", "lp__", "o"))
+
+#les paramètres doivent être indépendants et former une patate à leur valeur correspondant aux données.
+lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), pars = c("alpha", "beta1", "beta2")))
+```
+
+## Posteriors
+
+```{r, vue 3D des posteriors}
+mcmc_areas(as.array(fit), prob=0.95, pars = c("alpha", "beta1", "beta2")) +
+  labs(title=names(fit))
+
+p <- lapply(names(fits), function(x) mcmc_areas(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2")) +
+              labs(title=paste(x,"b= -4; c= -0.8")))
+
+save(p, file = "./Plots/Posteriors_PA_1-10.Rdata")
+```
+
+```{r, vue 2D des posteriors}
+mcmc_intervals(as.array(fit), prob=0.95, pars = c("alpha", "beta1", "beta2"))
+
+lapply(names(fits), function(x) mcmc_intervals(as.array(fits[[x]]), prob=0.95, pars = c("alpha", "beta1", "beta2"))) # + # vu du dessus
+# scale_x_continuous(limits = c(-15, 15), breaks = seq(-15,15, by=1)) 
+```
+
+# Predictions plots
+
+## for 1 dataset
+
+```{r, eval=F}
+# Simulations mean
+pdata <- cbind(mu = apply(as.matrix(fit, pars = "p"), 2, median),# 2 for columns;  mean of all sim
+               t(apply(as.matrix(fit, pars = "p"), 2,
+                       quantile, probs = c(0.05, 0.95))),
+               Opt = apply(as.matrix(fit, pars = "o"), 2, median)
+               # Opt = t(apply(as.matrix(fit, pars = "o"), 2,
+               #               quantile, probs = c(0.05, 0.95)))
+) %>% # optimum
+  cbind(datalist[[num]])
+
+S <- unique(pdata[pdata$Presence==1,]$ScientificName)
+
+ggplot(pdata, aes(x = logTransmittance)) +
+  theme_minimal() +
+  # Presences
+  geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  # Probas
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) + # 95% enveloppe
+  # Optimum
+  geom_vline(aes(xintercept = Opt)) +
+  # geom_vline(aes(xintercept = `Opt.5%`), linetype="dashed") +
+  # geom_vline(aes(xintercept = `Opt.95%`), linetype="dashed") +
+  labs(title = paste(S,"- Predicts median"), x ="logTransmittance", y = "Presence probability", col= "Presence-absence")
+
+ggsave(paste(S,"_Predicts median.png", sep=""),
+       path = "D:/Mes Donnees/PhD/Figures/Modelisation",
+       width = 15, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+## Facet
+
+```{r}
+lapply(as.list(names(dataM)), function(species)
+  cbind(species = species, datalist[[species]],
+        mu = apply(as.matrix(fits[[species]], pars = "p"), 2, median),
+        t(apply(as.matrix(fits[[species]], pars = "p"), 2, 
+                quantile, probs = c(0.05, 0.95))),
+        Opt = apply(as.matrix(fits[[species]], pars = "o"), 2, median),
+        Opt = t(apply(as.matrix(fits[[species]], pars = "o"), 2, 
+                      quantile, probs = c(0.05, 0.95)))
+  )) %>% 
+  bind_rows() %>% 
+  ggplot(aes(x = logTransmittance)) +
+  # Presences
+  geom_point(aes(y = Presence, col = as.factor(Presence))) +
+  # Probas
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
+  # Optimum
+  geom_vline(aes(xintercept = Opt)) +
+  # geom_vline(aes(xintercept = `Opt.5%`), linetype="dashed") +
+  # geom_vline(aes(xintercept = `Opt.95%`), linetype="dashed") +
+  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
+  facet_wrap(~ species, scales = "free", nrow = 1)
+
+ggsave("RealspPredictsMedian_without_opt_quantiles.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
+```
