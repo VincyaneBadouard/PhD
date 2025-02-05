@@ -1,5 +1,5 @@
 ---
-title: "Fit_model_realspecies"
+title: "Fit_model_realspecies_DBHcat"
 author: "Vincyane Badouard"
 format: html
 editor: visual
@@ -7,17 +7,19 @@ editor: visual
 
 # Objectives
 
-Run the logistic quadratic model for real species, with the log of the transmittance as explanatory variable.
+Run the logistic quadratic model for real species, with the log of the transmittance as explanatory variable, and with DBH categorized.
 
-Which species: - Anaxagorea_dolichocarpa : sciaphile et sous-bois (626)\
-- Xylopia_crinita (1 bosse) (32)\
-- Oxandra_asbeckii : canopée cloche (1307)\
-- Lecythis_persistens : canopée cloche (N=468)
+For different form of species niche: 2 convex, sigmo, 2 concaves, 2 no-effects
 
-then the 50 most abundant species
+Which species:  
+- 2 convex: Licania_alba, Licania_membranacea
+- sigmo: no ones
+- 2 concaves: Oxandra_asbeckii, Iryanthera_hostmannii
+- 2 no-effects: Lecythis_persistens, Eschweilera_sagotiana
+
+DBH categories : 1-5, 10-20, >20
 
 # Packages
-
 ```{r, include = F}
 library(tidyverse)
 library(rstan)
@@ -36,9 +38,11 @@ library(parallel)
 # Prepare data
 
 ```{r, include = F, message=F}
-Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv") %>% 
+  select(-`...1`)
 ```
 
+## Only sp enough abundant in < and > 10 cm DBH
 ```{r}
 Inv <- Inv %>% 
   na.omit() %>% 
@@ -88,30 +92,82 @@ length(unique(data$ScientificName)) # 34 sp (4ha)
 rm(Inv, ALT, Guyafor, s)
 ```
 
+# Attribute DBH categories
+1-10, 10-20, >20
+```{r}
+data <- data %>%
+  mutate(Size = factor(case_when(
+    # DBHcor < 10 ~ "1-10",
+    # DBHcor >= 10 ~ ">10"), levels = c("1-10",">10")) 
+    # DBHcor < 5 ~ "1-5",
+    DBHcor < 10 ~ "1-10",
+    # DBHcor >= 5 & DBHcor < 10 ~ "5-10",
+    DBHcor >= 10 & DBHcor < 20 ~ "10-20",
+    DBHcor >= 20 ~ ">20"), levels = c(
+      # "1-5",
+      "1-10",
+      # "5-10",
+      "10-20",
+      ">20"))
+  )
+
+data <- data %>% 
+  group_by(ScientificName, Size) %>% 
+  mutate(NSt = n())
+
+```
+
 # Create presence-absence data format for each species
 
 ```{r}
-# Create a list of the inventory replicated, 1 per ScientificName
-datalist <- replicate(length(unique(data$ScientificName)), data, simplify = F) 
-names(datalist) <- unique(data$ScientificName) # 1 per ScientificName
+# Create a list of the inventory replicated, 1 per ScientificName and per DBH category
+datalist <- replicate(
+  length(unique(data$ScientificName))*length(unique(data$Size)),
+  data, simplify = F) 
+# 34*3 = 102
+
+names(datalist) <- sort(paste(
+  rep(unique(data$ScientificName), length(unique(data$Size))),
+  rep(unique(data$Size), length(unique(data$ScientificName))),
+  sep= " - ")) # per ScientificName and per DBH category
+
+# filter per DBH category
+datalist <- lapply(names(datalist), function(name) {
+  datalist[[name]] <- filter(datalist[[name]], Size==gsub(".*- ","",name))
+  datalist[[name]]  # Return modified data frame
+})
+names(datalist) <- sort(paste(
+  rep(unique(data$ScientificName), length(unique(data$Size))),
+  rep(unique(data$Size), length(unique(data$ScientificName))),
+  sep= " - ")) # per ScientificName and per DBH category
 
 # Presence=1 if it's a the interest species, 0 if not
 datalist <- lapply(names(datalist), function(name) {
-  datalist[[name]]$Presence <- ifelse(datalist[[name]]$ScientificName == name, 1, 0)
+  datalist[[name]]$Presence <- ifelse(
+    datalist[[name]]$ScientificName == data.table::tstrsplit(name, split = " - ")[[1]], 1, 0)
   datalist[[name]]  # Return modified data frame
 })
-names(datalist) <- unique(data$ScientificName)
+names(datalist) <- sort(paste(
+  rep(unique(data$ScientificName), length(unique(data$Size))),
+  rep(unique(data$Size), length(unique(data$ScientificName))),
+  sep= " - ")) # per ScientificName and per DBH category
 
-# view(datalist[["Anaxagorea_dolichocarpa"]])
+# view(datalist[["Anaxagorea_acuminata - 10-20"]])
 
-save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
+# Remove data.frames without presence
+datalist <- Filter(\(df) any(df$Presence==1), datalist) # 60
+
 ```
 
+# Species filter 
 ```{r, eval = F}
-# sp <- c("Anaxagorea_dolichocarpa" , "Xylopia_crinita", "Oxandra_asbeckii", "Lecythis_persistens")
-# 
-# datalist <- datalist[names(datalist) %in% sp] # only species in sp
-# view(datalist[["Anaxagorea_dolichocarpa"]])
+sp <- c("Licania_alba" , "Licania_membranacea", "Oxandra_asbeckii",
+        "Iryanthera_hostmannii", "Lecythis_persistens", "Eschweilera_sagotiana") # 6
+
+datalist <- datalist[
+  data.table::tstrsplit(names(datalist),
+                        split = " - ")[[1]] %in% sp] # only species in sp
+# 18
 
 rm(data)
 ```
@@ -119,10 +175,10 @@ rm(data)
 # Run models
 
 ```{r}
-# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha.Rdata")
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat.Rdata")
 ```
 
-```{r Create a liste with data definitions as in the rstan file}
+```{r Create a liste with data definitions as in the rstan file, eval=F}
 dataM <- lapply(datalist, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
                                            Presence = x$Presence,
                                            Environment = x$logTransmittance))
@@ -144,7 +200,7 @@ j = length(dataM)
 cl <- parallel::makeCluster(cores, outfile = "")
 doSNOW::registerDoSNOW(cl)
 
-writeLines(c(""), "Realsplog.txt") # to create a log file
+writeLines(c(""), "Realsp_DBHcat_log.txt") # to create a log file
 
 # Progress bar:
 # pb <- txtProgressBar(min = 0, max = j, style = 3)
@@ -160,7 +216,7 @@ fits <- foreach::foreach(
   .options.snow = opts, # ProgressBar
   .combine = c
 ) %dopar% {
-  sink("Realsplog.txt", append=TRUE) # for the log file
+  sink("Realsp_DBHcat_log.txt", append=TRUE) # for the log file
   # the function to parallelise:
   stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[i]], chains = 4, iter = 2000)
 }
@@ -171,17 +227,16 @@ Sys.time() # 1h
 names(fits) <- names(dataM) 
 # fits[[1]]
 
-save(fits, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha.Rdata") # need a absolute path after cluster
+save(fits, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat.Rdata") # need a absolute path after cluster
 ```
 
 ```{r}
 # summaryfits <- lapply(names(fits), function(x)
-as.data.frame(summary(fits[["Eschweilera_sagotiana"]],
-pars = c("alpha", "beta1", "beta2", "o"))$summary[, c("50%", "2.5%", "97.5%")]) %>% 
+as.data.frame(summary(fits[["Licania_membranacea"]],
+                      pars = c("alpha", "beta1", "beta2", "o"))$summary[, c("50%", "2.5%", "97.5%")]) %>% 
   tibble::rownames_to_column("Parameters")
 # )
-
-# names(summaryfits) <- names(fits)
+names(summaryfits) <- names(fits)
 # summaryfits <- bind_rows(summaryfits, .id = "type")
 # 
 # summaryM <- dataParamL %>% 
@@ -276,34 +331,46 @@ ggsave(paste(S,"_Predicts median.png", sep=""),
 ## Facet
 
 ```{r}
-# Sys.time() # 5 min
+# Sys.time() # 30 min
 # 
-# data <- lapply(as.list(names(dataM)), function(species)
-#   cbind(species = species, datalist[[species]],
-#         mu = apply(as.matrix(fits[[species]], pars = "p"), 2, median),
-#         t(apply(as.matrix(fits[[species]], pars = "p"), 2, 
+# data <- lapply(as.list(names(dataM)), function(speciesSt)
+#   cbind(speciesSt = speciesSt, datalist[[speciesSt]],
+#         mu = apply(as.matrix(fits[[speciesSt]], pars = "p"), 2, median),
+#         t(apply(as.matrix(fits[[speciesSt]], pars = "p"), 2,
 #                 quantile, probs = c(0.05, 0.95))),
-#         Opt = apply(as.matrix(fits[[species]], pars = "o"), 2, median),
-#         Opt = t(apply(as.matrix(fits[[species]], pars = "o"), 2, 
-#                       quantile, probs = c(0.05, 0.95)))
+#         Opt = apply(as.matrix(fits[[speciesSt]], pars = "o"), 2, median),
+#         as.data.frame(t(apply(as.matrix(fits[[speciesSt]], pars = "o"), 2,
+#                       quantile, probs = c(0.05, 0.95))), row.names = NULL) %>%
+#           rename(`Opt.5%` = `5%`) %>% rename(`Opt.95%` = `95%`)  
 #   )) %>% 
 #   bind_rows()
+# Sys.time() 
 # 
-# save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha_mediandata.Rdata")
-load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha_mediandata.Rdata")
+# save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat_mediandata.Rdata")
+
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat_mediandata.Rdata")
 ```
 
 # log
-
 ```{r}
-plist <- vector('list', length(unique(data$species)))
+plist <- vector('list', length(unique(data$speciesSt)))
 
-for(p in 1:length(unique(data$species))){
+for(p in 1:length(unique(data$speciesSt))){
   plist[[p]] <- local({
     
     dataS <- data %>% 
-      filter(species==unique(data$species)[p])
-    cl <- unique((dataS[dataS$ScientificName == dataS$species,])$cl)
+      filter(speciesSt==unique(data$speciesSt)[p])
+    
+    cl <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$cl)
+    
+    # label <- dataS %>% 
+    #   mutate(NSt = ifelse(
+    #     ScientificName == data.table::tstrsplit(speciesSt,
+    #                                             split = " - ")[[1]],
+    #     paste("N: ", n()), NA)) %>% 
+    #   filter(!is.na(NSt))
+    
+    NSt <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$NSt)
     
     ggplot(dataS, aes(x = logTransmittance)) +
       # xlim(0,1) +
@@ -318,7 +385,7 @@ for(p in 1:length(unique(data$species))){
       geom_vline(aes(xintercept = Opt), color = "#00AFBB", linewidth=1) + # exp to delog
       geom_vline(aes(xintercept = `Opt.5%`), linetype="dashed") +
       geom_vline(aes(xintercept = `Opt.95%`), linetype="dashed") +
-      labs(title = unique(dataS$species), y = "Presence probability", col= "Presence-absence")
+      labs(title = paste(unique(dataS$speciesSt), " N=",NSt, sep=""), y = "Presence probability", col= "Presence-absence")
     
   })
 }
@@ -326,7 +393,7 @@ for(p in 1:length(unique(data$species))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave("RealspPredictsMedian_4ha_log.pdf",
+ggsave("RealspPredictsMedian_DBHcat_log.pdf",
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
        plots, width = 15, height = 10)
 Sys.time()
@@ -335,15 +402,24 @@ Sys.time()
 # Delog
 
 ```{r}
-# not log -----------------------------------------------------------------
-plist <- vector('list', length(unique(data$species)))
+plist <- vector('list', length(unique(data$speciesSt)))
 
-for(p in 1:length(unique(data$species))){
+for(p in 1:length(unique(data$speciesSt))){
   plist[[p]] <- local({
     
     dataS <- data %>% 
-      filter(species==unique(data$species)[p])
-    cl <- unique((dataS[dataS$ScientificName == dataS$species,])$cl)
+      filter(speciesSt==unique(data$speciesSt)[p])
+    
+    cl <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$cl)
+    
+    # label <- dataS %>% 
+    #   mutate(NSt = ifelse(
+    #     ScientificName == data.table::tstrsplit(speciesSt,
+    #                                             split = " - ")[[1]],
+    #     paste("N: ", n()), NA)) %>% 
+    #   filter(!is.na(NSt))
+    
+    NSt <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$NSt)
     
     ggplot(dataS, aes(x = Transmittance)) +
       xlim(0,1) +
@@ -358,7 +434,7 @@ for(p in 1:length(unique(data$species))){
       geom_vline(aes(xintercept = exp(Opt)), color = "#00AFBB", linewidth=1) + # exp to delog
       geom_vline(aes(xintercept = exp(`Opt.5%`)), linetype="dashed") +
       geom_vline(aes(xintercept = exp(`Opt.95%`)), linetype="dashed") +
-      labs(title = unique(dataS$species), y = "Presence probability", col= "Presence-absence")
+      labs(title = paste(unique(dataS$speciesSt), " N=",NSt, sep=""), y = "Presence probability", col= "Presence-absence")
     
   })
 }
@@ -366,7 +442,7 @@ for(p in 1:length(unique(data$species))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave("RealspPredictsMedian_4ha_notlog.pdf",
+ggsave("RealspPredictsMedian_DBHcat_notlog.pdf",
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
        plots, width = 15, height = 10)
 Sys.time()

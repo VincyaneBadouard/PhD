@@ -1,0 +1,48 @@
+---
+title: "Residuals_explo"
+format: html
+editor: visual
+---
+
+# Objectives
+
+Aggregatives species :  
+- Anaxagorea_dolichocarpa  
+- Tabernaemontana_macrocalyx  
+
+# Packages
+
+```{r, include = F}
+library(tidyverse)
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+
+library(bayesplot) # visualiser la chaine de Markov
+# library(shinystan) # for interactive stan output visualization
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+```
+
+# Model results and their data
+```{r}
+# Data
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
+# Model results
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha.Rdata")
+```
+
+# Extract agregative species
+```{r}
+sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx")
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+fits <- fits[names(fits) %in% sp] # only species in sp
+
+save(datalist, file="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/AgregativeSp.Rdata")
+save(fits, file="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/AgregativeSp.Rdata")
+```
+

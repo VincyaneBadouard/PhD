@@ -28,6 +28,7 @@ library(loo) # model evaluation
 ```
 
 # Data
+
 ```{r, include = F, message=F}
 Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
 ```
