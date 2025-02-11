@@ -1,6 +1,9 @@
 
 
 # Check pseudo-absences tests graphicaly
+# Check presence: Presence density plot - obs vs est
+# Check niche form: Proba facet - obs vs est
+# Check extremum : Extremum plot
 
 library(tidyverse)
 

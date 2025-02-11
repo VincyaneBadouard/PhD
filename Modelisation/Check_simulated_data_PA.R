@@ -4,13 +4,13 @@
 
 library(tidyverse)
 
-load("~/PhD/R_codes/PhD/Modelisation/Simdata/simulatedata_PA.Rdata")
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Simdata/simulatedata_PA.rds")
 
 # plot initial total and subsampled probabilites, and presences as density plots
 
-data <- bind_rows(plist, .id = "Simulation") %>% 
-  rename(TotProbability= Probability) %>% 
-  mutate(Probability = ifelse(!is.na(Presence), TotProbability, NA))
+data <- bind_rows(plist, .id = "Simulation")#  %>% 
+  # rename(TotProbability= Probability) %>% 
+  # mutate(Probability = ifelse(!is.na(Presence), TotProbability, NA))
 
 gc()
 # Plot initial total and subsampled probabilites  ------------------------------

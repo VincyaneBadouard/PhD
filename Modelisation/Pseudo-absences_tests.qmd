@@ -224,8 +224,8 @@ Pseudo-absences selection method: random selection from all inventoried individu
 # possigmoid = 0.5; -(-b/(opt*2)) (=-0.09)
 
 
-# N1 = 30 # n presence
-# N2 = "*1" # n absence
+# Abundance = "rare"
+# Absence = "*1" # n absence
 # temperament = "concavebell"
 # include=F
 
@@ -234,18 +234,15 @@ Inv <- Inv %>%
   na.omit() %>% # to remove data without env data
   mutate(logTransmittance =  log(Transmittance))
 
-simulatedata_PA <- function(N1, # n presence
-                            N2, # n absence
+simulatedata_PA <- function(Abundance, # n presence
+                            Absence, # n absence
                             include, # include interest species in the absences
-                            # a =  rstanarm::logit(0.1), # intercept à 0.1 : rstanarm::logit(0.1) = -2.2
                             temperament = NULL, # character
                             b = NULL, c = NULL) {
   
   # print(temperament)
-  # print(paste("N1=",N1)); print((paste("N2=",N2)))
+  # print(paste("Abundance=",Abundance)); print((paste("Absence=",Absence)))
   # print((paste("include=",include)))
-  
-  # # if(is.null(a)) {a = rstanarm::logit((N1)/(N1+N2))} # intercept
   
   if(temperament == "noeffect") {b= 0; c= 0}
   if(temperament == "concavebell") {b= -4; c= -0.8} # {b= 15; c= -15}
@@ -253,68 +250,106 @@ simulatedata_PA <- function(N1, # n presence
   if(temperament == "negsigmoid") {b= -1; c= 0.2} # {b= -15; c= -15}
   if(temperament == "possigmoid") {b= 0.5; c= -0.09} # {b= 15; c= 15}
   
-  # Intercept at he median of light and for a proba of 0.2
-    # logit(P) = a + b*median(log(Transmittance)) - c*median(log(Transmittance))^2
-  a = rstanarm::logit(0.1) - (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2) # 
-
-  # Na <- c("*1", "max/2", "max")
-  if(N2 == "*1") {N2= N1}
-  if(N2 == "max/2" & include) {N2= nrow(Inv)/2}
-  if(N2 == "max/2" & !include) {N2= (nrow(Inv)/2)-N1}
-  if(N2 == "max" & include) {N2= nrow(Inv)}
-  if(N2 == "max" & !include) {N2= nrow(Inv)-N1}
+  # Intercept at he median of light and for a proba of (N1)/(N1+N2)
+  # logit(P) = a + b*median(log(Transmittance)) - c*median(log(Transmittance))^2
+  a = rstanarm::logit(0.1) - (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2) #
   
-  print(temperament)
-  print(paste("a=",a)); print(paste("b=",b)); print((paste("c=",c)))
-  print(paste("N1=",N1)); print((paste("N2=",N2))) ; print((paste("include=",include)))
-  
-  repeat { # repeat until there is sufficient number of presences
-    test <- try(
-        Inv %>%
-      select(idTree, logTransmittance) %>%
-      rowwise() %>%
-      # Full community 
-      mutate(TotProbability = 1 / (1 + exp(-(
-        a + b * logTransmittance + c * logTransmittance^2)))) %>% # (inverse logit(Eq))
-      mutate(TotPresence = rbinom(1, size = 1, # Bernoulli = 1 trial
-                                  prob = TotProbability)) %>%
-      ungroup() %>%
-      # Sampling
-      mutate(SelectPres = if_else(rownames(.) %in% sample(which(TotPresence==1), N1, replace=F), 1, NA)) # among the presences
-    )
-    
-     if (!(inherits(test,"try-error")))
-      break
-  }
-    
-    # Include interest psecies or not
-    if(include==T){
-      test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(1:nrow(.), N2, replace=F), 0, NA)) # N2 absences among all the community
-    }else if(include==F){
-      test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(which(is.na(SelectPres)), N2, replace=F), 0, NA)) # N2 absences among all exept the presences
-      
+  # Np <- c("rare", "abundant")
+  # a = rstanarm::logit((N1)/(N1+N2)) # intercept
+  if(Abundance == "rare") {
+    if(temperament == "concavebell"){
+      a = rstanarm::logit(12/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
     }
+    if(temperament == "possigmoid"){
+      a = rstanarm::logit(10/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "convexbell"){
+      a = rstanarm::logit(0.0005/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "negsigmoid"){
+      a = rstanarm::logit(0.08/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "noeffect"){
+      a = rstanarm::logit(30/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+  } # end rare
+  if(Abundance == "abundant") {
+    if(temperament == "concavebell"){
+      a = rstanarm::logit(250/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "possigmoid"){
+      a = rstanarm::logit(200/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "convexbell"){
+      a = rstanarm::logit(5/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "negsigmoid"){
+      a = rstanarm::logit(20/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+    if(temperament == "noeffect"){
+      a = rstanarm::logit(600/nrow(Inv)) -
+        (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2)
+    }
+  } # end abundant
+  
+  # print(temperament)
+  # print(paste("a=",a)); print(paste("b=",b)); print((paste("c=",c)))
+  # print(paste("N1=",N1)); print((paste("Absence=",Absence))) ; print((paste("include=",include)))
+  
+  test <- Inv %>%
+    select(idTree, logTransmittance) %>%
+    rowwise() %>%
+    # Full community 
+    mutate(TotProbability = 1 / (1 + exp(-(
+      a + b * logTransmittance + c * logTransmittance^2)))) %>% # (inverse logit(Eq))
+    mutate(TotPresence = rbinom(1, size = 1, # Bernoulli = 1 trial
+                                prob = TotProbability)) %>%
+    ungroup() %>%
+    mutate(SelectPres = if_else(TotPresence==1, 1, NA)) # all the presences
+  
+  # Na <- c("*1", "max/2", "max")
+  N1 <- nrow(test[!is.na(test$SelectPres),])
+  if(Absence == "*1") {N2= N1} 
+  if(Absence == "max/2" & include) {N2= nrow(Inv)/2}
+  if(Absence == "max/2" & !include) {N2= (nrow(Inv)/2)-N1}
+  if(Absence == "max" & include) {N2= nrow(Inv)}
+  if(Absence == "max" & !include) {N2= nrow(Inv)-N1}
+  
+  # Absence sampling
+  # Include interest psecies or not
+  if(include==T){
+    test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(1:nrow(.), N2, replace=F), 0, NA)) # N2 absences among all the community
+  }else if(include==F){
+    test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(which(is.na(SelectPres)), N2, replace=F), 0, NA)) # N2 absences among all exept the presences
     
+  }
+  
   test_piv <- test %>%
     pivot_longer(cols = c("SelectPres", "SelectAbs"),
                  values_to = "Presence") %>%
     # Recompute proba of the sampling
-    # courbe verte : intercept = N1/(N1+N2), b1 b2 je garde et on recalcule les proba
-    mutate(Probability = 1 / (1 + exp(-(
-      ( rstanarm::logit((N1)/(N1+N2)) ) + b * logTransmittance + c * logTransmittance^2)))) %>% # (inverse logit(Eq))
+    # mutate(Probability = 1 / (1 + exp(-(
+    #   ( rstanarm::logit((N1)/(N1+N2)) ) + b * logTransmittance + c * logTransmittance^2)))) %>% # (inverse logit(Eq))
     
-    na.omit() %>%
+    # na.omit() %>%
     mutate(temperament = temperament) %>%
+    mutate(Abundance = Abundance) %>%
+    mutate(Absence = Absence) %>%
     mutate(NSelectPres = N1) %>%
     mutate(NSelectAbs = nrow(test[!is.na(test$SelectAbs) & test$SelectAbs==0,])) %>% 
-    mutate(IncludeSp = include)
+    mutate(IncludeSp = include) %>% 
+    mutate(Opt_sim = -b/(2*c)) # simulated data optimum
   
   
-  # checks
-  # print(paste("NSelectPres ==",N1,":", nrow(test[!is.na(test$SelectPres) & test$SelectPres==1,]) == N1))
-  # print(paste("NSelectAbs ==",N2,":",nrow(test[!is.na(test$SelectAbs) & test$SelectAbs==0,]) == N2))
-  # nrow(test_piv)==N1+N2
-  # 
   # p <- ggplot(test, aes(x= logTransmittance, y= Presence)) +
   #   geom_point() +
   #   theme_minimal() +
@@ -335,23 +370,49 @@ simulatedata_PA <- function(N1, # n presence
 #                     temperament = t) # character
 # )
 
-# Generates all combination of variables ; 90
+# Generates all combination of variables ; 60
 combinaisons <- tidyr::crossing(
   temperaments =  c("noeffect", "concavebell","convexbell", "possigmoid", "negsigmoid"),
-  Np = c(30, 100, 700),
+  Np = factor(c("rare", "abundant"), levels= c("rare", "abundant")),
   Na = factor(c("*1", "max/2", "max"), levels= c("*1", "max/2", "max")),
   includeSP = c(T, F) # with or without interest sp
 )
 
 plist <- mapply(FUN = simulatedata_PA,
-                N1 = combinaisons$Np, 
-                N2 = combinaisons$Na, 
+                Abundance = combinaisons$Np, 
+                Absence = combinaisons$Na, 
                 include = combinaisons$includeSP, 
                 temperament = combinaisons$temperaments,
-                SIMPLIFY = F) 
+                SIMPLIFY = F)
+```
 
+## Check
+```{r, eval=F}
+for(x in 1:length(plist)){
+  if(unique(plist[[x]]$Abundance)=="rare"){
+    print(paste(unique(plist[[x]]$temperament),
+                unique(plist[[x]]$Abundance), 
+                unique(plist[[x]]$NSelectPres),
+                unique(plist[[x]]$NSelectPres) <= 60 &
+                  unique(plist[[x]]$NSelectPres) >= 20))
+  }
+  if(unique(plist[[x]]$Abundance)=="abundant"){
+    print(paste(unique(plist[[x]]$temperament),
+                unique(plist[[x]]$Abundance), 
+                unique(plist[[x]]$NSelectPres),
+                unique(plist[[x]]$NSelectPres) >= 500 & 
+                  unique(plist[[x]]$NSelectPres) <= 1000))
+  }
+}
+```
+
+## Rename and save
+```{r, eval=F}
 names(plist) <- lapply(1:length(plist), \(x) paste(
-  unique(plist[[x]]$temperament), unique(plist[[x]]$NSelectPres), unique(plist[[x]]$NSelectAbs), unique(plist[[x]]$IncludeSp), sep = "-")
+  unique(plist[[x]]$temperament),
+  unique(plist[[x]]$Abundance), unique(plist[[x]]$Absence),
+  # unique(plist[[x]]$NSelectPres), unique(plist[[x]]$NSelectAbs),
+  unique(plist[[x]]$IncludeSp), sep = "-")
 )
 names(plist)
 plist[[1]]
@@ -368,13 +429,14 @@ saveRDS(plist, file = "./Simdata/simulatedata_PA.rds")
 View(plist[[1]])
 ```
 
+
 ```{r}
 plist <- readRDS("./Simdata/simulatedata_PA.rds")
 ```
 
 # Run models
 
-```{r}
+```{r, include = F}
 library(rstan)
 rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
 options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
@@ -387,17 +449,36 @@ library(parallel)
 ```
 
 ```{r, eval=F}
-# fits <- readRDS("./Fits/Pseudo_abs_tests.rds")
-# behaviour <- ""
+fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds")
+rstanarm::logit(0.5) # 0
+fits[1]
+1 / (1 + exp(-(-6.3)))
+fits[2] # lui il ya bien un intercept qui peut etre à 0 en logit donc à 0.5 en inverse logit
+1 / (1 + exp(-(-1.26)))
+fits[7]
+fits[8]
+fits[13]
+fits[14]
+
 ```
 
 ```{r, eval=F}
-rm(a, include, includeSP, N1, N2, Na, Np, temperament, temperaments, simulatedata_PA)
+rm(a, include, includeSP, N1, N2, Na, Np, temperament, temperaments, simulatedata_PA, x, combinaisons)
 ```
 
 ```{r}
-plist <- plist[1:18] # only concave
-# faire le na.omit ici
+scenar <- names(plist)
+plist <- plist[1:12] # only concave
+scenar <- names(plist)
+
+# na.omit pour stan
+plist <- lapply(names(plist), function(name) {
+  plist[[name]] <- na.omit(plist[[name]])
+  plist[[name]]  # Return modified data frame
+})
+names(plist) <- scenar
+# View(plist[[1]])
+rm(scenarv, combinaisons)
 ```
 
 ```{r Create a liste with data definitions as in the rstan file}
@@ -405,7 +486,7 @@ dataM <- lapply(plist, function(x) list(N = nrow(x), #les noms des var doivent e
                                         Presence = x$Presence,
                                         Environment = x$logTransmittance))
 
-# dataM[[1]]$Presence
+# table(dataM[[1]]$Presence)
 
 
 Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan") # remove rds file if doest work
@@ -422,7 +503,7 @@ vec <- 1:length(dataM)
 # D=55
 # j=63
 
-for(D in split(vec, ceiling(seq_along(vec)/18))) {
+for(D in split(vec, ceiling(seq_along(vec)/12))) {
   
   j = max(D) # length(dataM)
   

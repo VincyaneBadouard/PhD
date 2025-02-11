@@ -1,0 +1,223 @@
+---
+title: "PA_graphs_check"
+format: html
+editor: visual
+---
+
+Check pseudo-absences tests graphicaly:
+
+-   Check presence: Presence density plot - obs vs est\
+-   Check niche form: Proba facet - obs vs est\
+-   Check extremum : Extremum plot
+
+# Packages
+
+```{r}
+library(tidyverse)
+```
+
+# Load data
+
+```{r}
+# Simulate data ----------------------------------------------------------------
+datalistwithNA <- readRDS("~/PhD/R_codes/PhD/Modelisation/Simdata/simulatedata_PA.rds")[1:12] # only concave
+datalist <- lapply(names(datalistwithNA), function(name) {
+  datalistwithNA[[name]] <- na.omit(datalistwithNA[[name]])
+  datalistwithNA[[name]]  # Return modified data frame
+})
+names(datalist) <- names(datalistwithNA)
+
+
+# dataS <- bind_rows(datalist, .id = "Scenario")
+
+# Estimations ------------------------------------------------------------------
+fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds")
+gc()
+```
+
+# Prepare data for plot
+
+```{r}
+Sys.time() # 30 s
+
+# scenario = 1
+data <- lapply(as.list(names(datalist)), function(scenario)
+  cbind(Scenario = scenario, datalist[[scenario]],
+        mu = apply(as.matrix(fits[[scenario]], pars = "p"), 2, median),
+        t(apply(as.matrix(fits[[scenario]], pars = "p"), 2,
+                quantile, probs = c(0.05, 0.95))),
+        Opt = apply(as.matrix(fits[[scenario]], pars = "o"), 2, median),
+        Opt = t(apply(as.matrix(fits[[scenario]], pars = "o"), 2,
+                      quantile, probs = c(0.05, 0.95)))
+  )) %>%
+  bind_rows()
+
+Sys.time() 
+gc()
+
+data <- data %>% 
+  rowwise() %>%
+  # Estimated presence from estimated proba
+  mutate(EstPresence = rbinom(1, size = 1, # Bernoulli = 1 trial
+                              prob = mu)) %>%
+  ungroup()
+
+save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
+gc()
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
+```
+
+# Check presence: Presence density plot - obs vs est
+
+```{r}
+plist <- vector('list', length(unique(data$Scenario)))
+
+for(p in 1:length(unique(data$Scenario))){
+  plist[[p]] <- local({
+    
+    dataS <- data %>% 
+      filter(Scenario==unique(data$Scenario)[p])
+    
+    ggplot(dataS, aes(x= logTransmittance, y= Presence)) +
+      xlim(min(data$logTransmittance), 0) +
+      
+      # Simulate data
+      ggridges::geom_density_ridges(data = (dataS %>% filter(!is.na(Presence) & Presence==1)), # Presence density
+                                    scale = 0.6,
+                                    jittered_points = T,
+                                    col = "darkgreen",
+                                    alpha=0.05, point_alpha  = 0.7) +
+      # Estimated
+      ggridges::geom_density_ridges(data = (dataS %>% filter(EstPresence==1)), # Presence density
+                                    aes(y= EstPresence), 
+                                    scale = 0.6,
+                                    jittered_points = T,
+                                    col = "black",
+                                    alpha=0.05, point_alpha  = 0.7) +
+      
+      
+      labs(title = unique(dataS$Scenario), y="Presence density") +
+      
+      theme_minimal() +
+      theme(axis.text.y = element_blank())
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+# plots
+
+ggsave("PA_presence_density_concaves.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+       plots, width = 15, height = 10)
+
+gc()
+```
+
+# Check niche form: Proba facet - obs vs est
+
+```{r}
+data_sim <- data %>% 
+  select(NSelectPres, NSelectAbs, logTransmittance, Probability, Presence) %>% 
+  mutate(Scenario = paste("Simuldata", NSelectPres, NSelectAbs, sep="_")) %>%
+  mutate(`5%`= NA) %>% mutate(`95%`= NA) %>% 
+  select(Scenario, logTransmittance, Probability, `5%`, `95%`, Presence)
+
+data_est <- data %>% 
+  select(Scenario, logTransmittance, mu, `5%`, `95%`, EstPresence) %>% 
+  rename(Probability = mu) %>% rename(Presence = EstPresence)
+
+test <- rbind(data_sim, data_est)
+nrow(test)==nrow(data_sim)+nrow(data_est)
+```
+
+```{r}
+plist <- vector('list', length(unique(test$Scenario)))
+
+for(p in 1:length(unique(test$Scenario))){
+  plist[[p]] <- local({
+    
+    testS <- test %>% 
+      filter(Scenario==unique(test$Scenario)[p])
+    
+    ggplot(testS, aes(x= logTransmittance, y= Presence)) +
+      xlim(min(test$logTransmittance), 0) +
+      
+      geom_point(aes(y = Probability), size =1.5) +
+      geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
+      
+      
+      labs(title = unique(testS$Scenario), y="Presence probability") +
+      
+      theme_minimal()
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+# plots
+
+ggsave("PA_proba_concaves.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+       plots, width = 15, height = 10)
+
+gc()
+```
+
+```{r}
+rm(data_est, data_sim, test, testS, plots, dataS) ; gc()
+```
+
+# Check extremum : Extremum plot
+
+```{r}
+# b= -4; c= -0.8
+# o = -b/(2*c) # simulated data optimum
+
+```
+
+```{r}
+data %>% 
+  select(Scenario, Opt, `Opt.5%`, `Opt.95%`) %>% 
+  unique()
+```
+
+```{r}
+# For concave and convex only
+# for rare and abundant sp
+plist <- vector('list', length(unique(test$temperament)))
+
+for(p in 1:length(unique(test$temperament))){
+  plist[[p]] <- local({
+    
+    data %>% 
+      select(temperament, Scenario, Opt_sim, Opt, `Opt.5%`, `Opt.95%`) %>% unique() %>% 
+      mutate(delta = abs(Opt-Opt_sim)) %>% 
+      arrange(desc(delta)) %>%
+      mutate(Scenario = factor(Scenario, levels=Scenario)) %>%
+      # mutate(Scenario = fct_reorder(as.factor(Scenario), delta)) %>%
+      ggplot(aes(y= Scenario)) +
+      # geom_point(aes(x= exp(`Opt.5%`)), color = 'red', alpha = 0.5) +
+      geom_point(aes(x= exp(Opt))) +
+      # geom_point(aes(x= exp(`Opt.95%`)), color = 'red', alpha = 0.5) +
+      geom_errorbarh(aes(xmin = exp(`Opt.5%`), xmax = exp(`Opt.95%`)), alpha = 0.5) +
+      
+      # geom_ribbon(aes(xmin = `Opt.5%`, xmax = `Opt.95%`), color = 'red', alpha = 0.2) +
+      # Optimum
+      geom_vline(aes(xintercept = exp(Opt_sim)), color = "#00AFBB", linewidth = 0.5) +
+      labs(title = unique(data$temperament), x= "Transmittance extremum", y="Scenario") +
+      
+      theme_minimal()
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+# plots
+
+ggsave("PA_extremum_concaves.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+       plots, width = 15, height = 10)
+
+gc()
+
+```
