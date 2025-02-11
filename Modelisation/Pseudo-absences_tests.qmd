@@ -15,16 +15,6 @@ Pseudo-absences were always generated without considering the species potential 
 
 ```{r, include = F}
 library(tidyverse)
-library(rstan)
-rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
-options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
-rstan_options(disable_march_warning = TRUE)
-
-library(rstanarm) # for Bayesian automatic regression modelling using stan
-library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
-library(foreach) # parallisation
-library(parallel)
-library(loo) # model evaluation
 ```
 
 # Data
@@ -176,11 +166,11 @@ test <- Inv %>%
 
 # Parameters
 # log(0) = -inf ; log(0.01) = -4.6 ; log(0.07) = -2.7 ; log(0.5) = -0.7 ; log(1) = 0
-opt <-log(0.07) # community median to have sufficient number of presence 
+opt <-log(median(Inv$Transmittance)) # community median to have sufficient number of presence 
 # a <- rstanarm::logit((700)/(700+10000)) # intercept ; logit(0.5)= 0) autant de 0 que de 1
 a <- rstanarm::logit(0.1)
-b <- 0.5 
-c <- -(-b/(opt*2))# ; pour une linéaire : inv_logit(-9) ~ 0
+b <- -4 
+c <- -b/(opt*2)# ; pour une linéaire : inv_logit(-9) ~ 0
 
 
 # Compute presence probability
@@ -234,63 +224,90 @@ Pseudo-absences selection method: random selection from all inventoried individu
 # possigmoid = 0.5; -(-b/(opt*2)) (=-0.09)
 
 
-# var = "logTransmittance"
 # N1 = 30 # n presence
-# N2 = 10000 # n absence
-# a = 0.1
-# temperament = "noeffect"
+# N2 = "*1" # n absence
+# temperament = "concavebell"
 # include=F
 
+
 Inv <- Inv %>% 
+  na.omit() %>% # to remove data without env data
   mutate(logTransmittance =  log(Transmittance))
 
-simulatedata_PA <- function(var = "logTransmittance",
-                            N1, # n presence
+simulatedata_PA <- function(N1, # n presence
                             N2, # n absence
-                            include = T, # include interest species in the absences
-                            a =  0.1, # intercept
+                            include, # include interest species in the absences
+                            # a =  rstanarm::logit(0.1), # intercept à 0.1 : rstanarm::logit(0.1) = -2.2
                             temperament = NULL, # character
                             b = NULL, c = NULL) {
   
-  # if(is.null(a)) {a = rstanarm::logit((N1)/(N1+N2))} # intercept
+  # print(temperament)
+  # print(paste("N1=",N1)); print((paste("N2=",N2)))
+  # print((paste("include=",include)))
+  
+  # # if(is.null(a)) {a = rstanarm::logit((N1)/(N1+N2))} # intercept
+  
   if(temperament == "noeffect") {b= 0; c= 0}
   if(temperament == "concavebell") {b= -4; c= -0.8} # {b= 15; c= -15}
   if(temperament == "convexbell") {b= 4; c= 0.8} # {b= -50; c= 50}
-  # if(temperament == "leftbell") {b= 50; c= -125}
   if(temperament == "negsigmoid") {b= -1; c= 0.2} # {b= -15; c= -15}
   if(temperament == "possigmoid") {b= 0.5; c= -0.09} # {b= 15; c= 15}
   
+  # Intercept at he median of light and for a proba of 0.2
+    # logit(P) = a + b*median(log(Transmittance)) - c*median(log(Transmittance))^2
+  a = rstanarm::logit(0.1) - (b*median(Inv$logTransmittance)) - (c*median(Inv$logTransmittance)^2) # 
+
+  # Na <- c("*1", "max/2", "max")
+  if(N2 == "*1") {N2= N1}
+  if(N2 == "max/2" & include) {N2= nrow(Inv)/2}
+  if(N2 == "max/2" & !include) {N2= (nrow(Inv)/2)-N1}
+  if(N2 == "max" & include) {N2= nrow(Inv)}
+  if(N2 == "max" & !include) {N2= nrow(Inv)-N1}
   
-  # print(temperament)
-  # print(paste("a=",a)); print(paste("b=",b)); print((paste("c=",c)))
-  # print(paste("N1=",N1)); print((paste("N2=",N2)))
+  print(temperament)
+  print(paste("a=",a)); print(paste("b=",b)); print((paste("c=",c)))
+  print(paste("N1=",N1)); print((paste("N2=",N2))) ; print((paste("include=",include)))
   
   repeat { # repeat until there is sufficient number of presences
-    test <- na.omit(Inv) %>% 
-      select(idTree, as.name(var)) %>% 
-      rowwise() %>% 
-      mutate(Probability = 1 / (1 + exp(-(
-        a + b * get(var) + c * get(var)^2)))) %>% # (inverse logit(Eq))
+    test <- try(
+        Inv %>%
+      select(idTree, logTransmittance) %>%
+      rowwise() %>%
+      # Full community 
+      mutate(TotProbability = 1 / (1 + exp(-(
+        a + b * logTransmittance + c * logTransmittance^2)))) %>% # (inverse logit(Eq))
       mutate(TotPresence = rbinom(1, size = 1, # Bernoulli = 1 trial
-                                  prob = Probability)) %>% 
-      ungroup() %>% 
+                                  prob = TotProbability)) %>%
+      ungroup() %>%
+      # Sampling
       mutate(SelectPres = if_else(rownames(.) %in% sample(which(TotPresence==1), N1, replace=F), 1, NA)) # among the presences
-    if(include==T){
-      test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(1:nrow(.), N2, replace=F), 0, NA)) # among all the community
-    }else if(include==F){
-      test <- test %>% mutate(SelectAbs = if_else(is.na(SelectPres), 0, NA)) # all except presence
-    }
+    )
     
-    if (!(inherits(test,"try-error"))) 
+     if (!(inherits(test,"try-error")))
       break
   }
-  test_piv <- test %>% 
+    
+    # Include interest psecies or not
+    if(include==T){
+      test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(1:nrow(.), N2, replace=F), 0, NA)) # N2 absences among all the community
+    }else if(include==F){
+      test <- test %>% mutate(SelectAbs = if_else(rownames(.) %in% sample(which(is.na(SelectPres)), N2, replace=F), 0, NA)) # N2 absences among all exept the presences
+      
+    }
+    
+  test_piv <- test %>%
     pivot_longer(cols = c("SelectPres", "SelectAbs"),
-                 values_to = "Presence") %>% 
-    # na.omit() %>% 
-    mutate(temperament = temperament) %>% 
-    mutate(NSelectPres = N1) %>% 
-    mutate(NSelectAbs = nrow(test[!is.na(test$SelectAbs) & test$SelectAbs==0,]))
+                 values_to = "Presence") %>%
+    # Recompute proba of the sampling
+    # courbe verte : intercept = N1/(N1+N2), b1 b2 je garde et on recalcule les proba
+    mutate(Probability = 1 / (1 + exp(-(
+      ( rstanarm::logit((N1)/(N1+N2)) ) + b * logTransmittance + c * logTransmittance^2)))) %>% # (inverse logit(Eq))
+    
+    na.omit() %>%
+    mutate(temperament = temperament) %>%
+    mutate(NSelectPres = N1) %>%
+    mutate(NSelectAbs = nrow(test[!is.na(test$SelectAbs) & test$SelectAbs==0,])) %>% 
+    mutate(IncludeSp = include)
   
   
   # checks
@@ -311,28 +328,32 @@ simulatedata_PA <- function(var = "logTransmittance",
 ```
 
 ```{r, eval=F}
-temperaments <- c("noeffect", "concavebell","convexbell", "possigmoid", "negsigmoid") 
-Np <- c(30, 100, 700)
-Na <- c(30, 100, 300, 700, 1000, 3000, 7000, 10000) # , 26 758
-includeSP <- c(T, F) # with or without interest sp
-
 # lapply(temperaments, function(t)
 #     simulatedata_PA(var = "logTransmittance",
 #                     N1 = 30, # n presence
-#                     N2 = 100, # n absence
+#                     N2 = 100), # n absence
 #                     temperament = t) # character
 # )
 
+# Generates all combination of variables ; 90
+combinaisons <- tidyr::crossing(
+  temperaments =  c("noeffect", "concavebell","convexbell", "possigmoid", "negsigmoid"),
+  Np = c(30, 100, 700),
+  Na = factor(c("*1", "max/2", "max"), levels= c("*1", "max/2", "max")),
+  includeSP = c(T, F) # with or without interest sp
+)
+
 plist <- mapply(FUN = simulatedata_PA,
-                N1 = rep(Np, (5*9)), # 5 t * 8 Na + max
-                N2 = c(rep(Na, (5*3)), rep(nrow(na.omit(Inv)), 5*3)), # 5 t * 3 Np
-                include = c(rep(T, 120), rep(F, (5*3))), 
-                temperament = sort(rep(temperaments, (8*3+3))), SIMPLIFY = F) # 8 Na * 3 Np +3 for F
-# ->120 +15 for all abs -> 135
+                N1 = combinaisons$Np, 
+                N2 = combinaisons$Na, 
+                include = combinaisons$includeSP, 
+                temperament = combinaisons$temperaments,
+                SIMPLIFY = F) 
 
 names(plist) <- lapply(1:length(plist), \(x) paste(
-  unique(plist[[x]]$temperament), unique(plist[[x]]$NSelectPres), unique(plist[[x]]$NSelectAbs), sep = "-")
+  unique(plist[[x]]$temperament), unique(plist[[x]]$NSelectPres), unique(plist[[x]]$NSelectAbs), unique(plist[[x]]$IncludeSp), sep = "-")
 )
+names(plist)
 plist[[1]]
 
 # plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
@@ -342,18 +363,41 @@ plist[[1]]
 #        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
 #        plots, width = 15, height = 10)
 
-save(plist, file = "./Simdata/simulatedata_PA.Rdata")
+saveRDS(plist, file = "./Simdata/simulatedata_PA.rds")
+
+View(plist[[1]])
 ```
 
 ```{r}
-load("./Simdata/simulatedata_PA.Rdata")
+plist <- readRDS("./Simdata/simulatedata_PA.rds")
 ```
 
 # Run models
 
+```{r}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+```
+
 ```{r, eval=F}
-# load("./Fits/Pseudo_abs_tests.Rdata")
+# fits <- readRDS("./Fits/Pseudo_abs_tests.rds")
 # behaviour <- ""
+```
+
+```{r, eval=F}
+rm(a, include, includeSP, N1, N2, Na, Np, temperament, temperaments, simulatedata_PA)
+```
+
+```{r}
+plist <- plist[1:18] # only concave
+# faire le na.omit ici
 ```
 
 ```{r Create a liste with data definitions as in the rstan file}
@@ -361,48 +405,92 @@ dataM <- lapply(plist, function(x) list(N = nrow(x), #les noms des var doivent e
                                         Presence = x$Presence,
                                         Environment = x$logTransmittance))
 
+# dataM[[1]]$Presence
+
+
 Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan") # remove rds file if doest work
 # fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[["concavebell-30-100"]], chains = 4, iter = 2000)
 # fit
-
+gc()
 cores = 5 # nbr of cores to use
 # parallel::detectCores() # 8
 i <- NULL
-j = 10 #length(dataM)
 
-# L'enregistrement des clusters
-cl <- parallel::makeCluster(cores, outfile = "")
-doSNOW::registerDoSNOW(cl)
+vec <- 1:length(dataM)
+# vec <- 64:length(dataM)
 
-writeLines(c(""), "log.txt") # to create a log file
+# D=55
+# j=63
 
-# Progress bar:
-# pb <- txtProgressBar(min = 0, max = j, style = 3)
-pb <- txtProgressBar(max=j)
-# progress <- function(n) setTxtProgressBar(pb, n)
-progress <- function(n) cat(sprintf("Run %d is complete\n", n))
-opts <- list(progress = progress)
-
-gc()
-fits <- foreach::foreach(
-  i=1:j,
-  .packages = c("rstan"), # necessary packages
-  .options.snow = opts, # ProgressBar
-  .combine = c
-) %dopar% {
-  sink("log.txt", append=TRUE) # for the log file
-  # the function to parallelise:
-  stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[i]], chains = 4, iter = 2000)
+for(D in split(vec, ceiling(seq_along(vec)/18))) {
+  
+  j = max(D) # length(dataM)
+  
+  # L'enregistrement des clusters
+  cl <- parallel::makeCluster(cores, outfile = "")
+  doSNOW::registerDoSNOW(cl)
+  
+  # writeLines(c(""), "PAlog.txt") # to create a log file
+  
+  # Progress bar:
+  # pb <- txtProgressBar(min = 0, max = j, style = 3)
+  pb <- txtProgressBar(max=j)
+  # progress <- function(n) setTxtProgressBar(pb, n)
+  progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+  opts <- list(progress = progress)
+  
+  fits <- foreach::foreach(
+    i=min(D):j,
+    .packages = c("rstan"), # necessary packages
+    .options.snow = opts, # ProgressBar
+    .combine = c
+  ) %dopar% {
+    # sink("PAlog.txt", append=TRUE) # for the log file
+    # the function to parallelise:
+    stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[i]], chains = 4, iter = 2000)
+  }
+  # close progressbar and cluster
+  close(pb)
+  stopCluster(cl)
+  
+  names(fits) <- names(dataM[min(D):j]) 
+  
+  saveRDS(fits, file = paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds", sep=""))
+  
 }
+gc()
+```
 
-fits[[1]]
-# close progressbar and cluster
-close(pb)
-stopCluster(cl)
+# Bind all the fits
 
-names(fits) <- names(dataM[1:10]) 
+```{r, eval=F}
+# rm(fits, cores, cl, pb, Model, opts, i, j) ; gc()
+# 
+# files <- list.files("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits", pattern = "Pseudo_abs_tests_", full.names = T)# 10 files
+# 
+# allfits <- list() #create empty list
+# 
+# #loop through the files
+# gc()
+# for (i in files) {
+#   print(i)
+#   allfits[[i]] <- get(load(i)) #add files to list position
+# }
+# gc()
+# save(allfits, file ="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_all.Rdata")
+# rm(D, files, vec) ; gc()  
 
-save(fits, file = "./Fits/Pseudo_abs_tests_1-10.Rdata")
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_all.Rdata")
+# gc()
+# 
+# my_list_new <- unlist(allfits, recursive = FALSE)
+# names(my_list_new) <- gsub(".*Rdata.", "", names(my_list_new))
+# rm(allfits,names);gc()
+
+# save(my_list_new, file ="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests.Rdata")
+
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests.Rdata")
+
 ```
 
 # Evaluation - Goodness of fit
@@ -410,6 +498,8 @@ save(fits, file = "./Fits/Pseudo_abs_tests_1-10.Rdata")
 loo_R2 bayes_R2 https://avehtari.github.io/bayes_R2/bayes_R2.html#References
 
 ```{r}
+library(loo) # model evaluation
+
 loo_R2(fits[1]) # A real value per response variable indicating the LOO-adjusted R-squared.
 
 # compute R2 with new data

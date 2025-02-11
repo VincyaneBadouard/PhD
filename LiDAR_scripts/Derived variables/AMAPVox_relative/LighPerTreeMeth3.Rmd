@@ -88,6 +88,8 @@ Distribution plagiophile des feuilles
 Pendant 1 an
 ```{r, eval=F}
 warning("changer le xml avec les coordonnées arbres pour 25ha")
+# laz pour 25 ha high alt intensity : !! "Y:\users\VincyaneBadouard\Lidar\ALS2023\HighAltitudeFlight\ForTrees\Vox\P16_2023_HighAlt_25ha_buffer_intensity1m_testnewEB.vox"
+
 xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/XML/Light/P16_2023_HighAlt_4ha_buffer_Light_TreeLightplus1mZ_intensity1m.xml"
 gc()
 AMAPVox::run(jvm.option = "-Xms16g") # v. 2.3.2

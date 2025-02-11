@@ -670,6 +670,8 @@ Only the principal stem
 Only measured trees
 Only botanical identified
 Take only sp >= 30 ind
+**ne pas enlever 1 seul arbre de l'inventaire !! Ce sont nos absences !**
+on veut juste un vecteur d'espèce à étudier
 ```{r}
 SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2]) # 64
 

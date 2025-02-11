@@ -1,10 +1,12 @@
 *.Rproj.user
 *.Rhistory
 *.RData
+*.rds
 *.Ruserdata
 *.pdf
 *.html
 *.tex
+*.xls
 test/*
 pdf/*
 .Rproj.user

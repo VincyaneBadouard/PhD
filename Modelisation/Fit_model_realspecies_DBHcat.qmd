@@ -11,15 +11,13 @@ Run the logistic quadratic model for real species, with the log of the transmitt
 
 For different form of species niche: 2 convex, sigmo, 2 concaves, 2 no-effects
 
-Which species:  
-- 2 convex: Licania_alba, Licania_membranacea
-- sigmo: no ones
-- 2 concaves: Oxandra_asbeckii, Iryanthera_hostmannii
-- 2 no-effects: Lecythis_persistens, Eschweilera_sagotiana
+Which species:\
+- 2 convex: Licania_alba, Licania_membranacea - sigmo: no ones - 2 concaves: Oxandra_asbeckii, Iryanthera_hostmannii - 2 no-effects: Lecythis_persistens, Eschweilera_sagotiana
 
-DBH categories : 1-5, 10-20, >20
+DBH categories : 1-5, 10-20, \>20
 
 # Packages
+
 ```{r, include = F}
 library(tidyverse)
 library(rstan)
@@ -42,7 +40,8 @@ Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Para
   select(-`...1`)
 ```
 
-## Only sp enough abundant in < and > 10 cm DBH
+## Only sp enough abundant in \< and \> 10 cm DBH
+
 ```{r}
 Inv <- Inv %>% 
   na.omit() %>% 
@@ -93,7 +92,9 @@ rm(Inv, ALT, Guyafor, s)
 ```
 
 # Attribute DBH categories
-1-10, 10-20, >20
+
+1-10, 10-20, \>20
+
 ```{r}
 data <- data %>%
   mutate(Size = factor(case_when(
@@ -159,7 +160,8 @@ datalist <- Filter(\(df) any(df$Presence==1), datalist) # 60
 
 ```
 
-# Species filter 
+# Species filter
+
 ```{r, eval = F}
 sp <- c("Licania_alba" , "Licania_membranacea", "Oxandra_asbeckii",
         "Iryanthera_hostmannii", "Lecythis_persistens", "Eschweilera_sagotiana") # 6
@@ -231,12 +233,13 @@ save(fits, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light
 ```
 
 ```{r}
+# names(fits)
 # summaryfits <- lapply(names(fits), function(x)
-as.data.frame(summary(fits[["Licania_membranacea"]],
+as.data.frame(summary(fits[["Lecythis_persistens - 10-20"]],
                       pars = c("alpha", "beta1", "beta2", "o"))$summary[, c("50%", "2.5%", "97.5%")]) %>% 
   tibble::rownames_to_column("Parameters")
 # )
-names(summaryfits) <- names(fits)
+# names(summaryfits) <- names(fits)
 # summaryfits <- bind_rows(summaryfits, .id = "type")
 # 
 # summaryM <- dataParamL %>% 
@@ -348,10 +351,18 @@ ggsave(paste(S,"_Predicts median.png", sep=""),
 # 
 # save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat_mediandata.Rdata")
 
-load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat_mediandata.Rdata")
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_DBHcat_mediandata.Rdata") 
+data$InterestSp <- data.table::tstrsplit(data$speciesSt, split = " - ")[[1]]
+data$Stratum <- data.table::tstrsplit(data$speciesSt, split = " - ")[[2]] # 2nd
+
+data <- data %>% 
+  mutate(Stratum = factor(Stratum, levels = c("1-10", "10-20",">20"))) %>%
+    mutate(InterestSp = as.factor(InterestSp)) %>% 
+       arrange(InterestSp)
 ```
 
-# log
+### log
+
 ```{r}
 plist <- vector('list', length(unique(data$speciesSt)))
 
@@ -373,7 +384,7 @@ for(p in 1:length(unique(data$speciesSt))){
     NSt <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$NSt)
     
     ggplot(dataS, aes(x = logTransmittance)) +
-      # xlim(0,1) +
+      xlim(min(data$logTransmittance), 0) + # fix x
       theme_classic() +
       theme(plot.title = element_text(colour = cl)) +
       # Presences
@@ -396,10 +407,9 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 ggsave("RealspPredictsMedian_DBHcat_log.pdf",
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
        plots, width = 15, height = 10)
-Sys.time()
 ```
 
-# Delog
+### Delog
 
 ```{r}
 plist <- vector('list', length(unique(data$speciesSt)))
@@ -411,13 +421,6 @@ for(p in 1:length(unique(data$speciesSt))){
       filter(speciesSt==unique(data$speciesSt)[p])
     
     cl <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$cl)
-    
-    # label <- dataS %>% 
-    #   mutate(NSt = ifelse(
-    #     ScientificName == data.table::tstrsplit(speciesSt,
-    #                                             split = " - ")[[1]],
-    #     paste("N: ", n()), NA)) %>% 
-    #   filter(!is.na(NSt))
     
     NSt <- unique((dataS[dataS$ScientificName == data.table::tstrsplit(dataS$speciesSt, split = " - ")[[1]],])$NSt)
     
@@ -445,5 +448,101 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 ggsave("RealspPredictsMedian_DBHcat_notlog.pdf",
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
        plots, width = 15, height = 10)
-Sys.time()
+```
+
+### All the species in the same plot
+
+### log
+
+```{r}
+plist <- vector('list', length(unique(data$InterestSp)))
+
+for(p in 1:length(unique(data$InterestSp))){
+  plist[[p]] <- local({
+    
+    dataS <- data %>% 
+      filter(InterestSp==unique(data$InterestSp)[p])
+    
+    cl <- unique((dataS[dataS$ScientificName == dataS$InterestSp,])$cl)
+    
+    label <- dataS %>% filter(ScientificName == InterestSp) %>% select(NSt, Size, Opt) %>% unique()
+    
+    ggplot(dataS, aes(x = logTransmittance, col=Size)) +
+      xlim(NA, 0) +
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl)) +
+      # Presences
+      # geom_point(aes(y = Presence, col = as.factor(Presence))) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `5%`, ymax = `95%`), alpha = 0.2) +
+      # Optimum
+      geom_vline(aes(xintercept = Opt, col=Size), linewidth=1) + # exp to delog
+      # geom_vline(aes(xintercept = `Opt.5%`, col=Size), linetype="dashed") +
+      # geom_vline(aes(xintercept = `Opt.95%`, col=Size), linetype="dashed") +
+      # Abundances label
+      geom_text(data = label, aes(label = NSt, color=Size, x=Opt),
+                y = Inf, hjust = 1.5, vjust = 3, show.legend = F) + 
+      
+      
+      labs(title = unique(dataS$InterestSp), y = "Presence probability", col= "Size (cm DBH)")
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave("RealspPredictsMedian_DBHcat_log_per_sp.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+       plots, width = 15, height = 10)
+```
+
+### delog
+
+```{r}
+plist <- vector('list', length(unique(data$InterestSp)))
+
+for(p in 1:length(unique(data$InterestSp))){
+  plist[[p]] <- local({
+    
+    dataS <- data %>% 
+      filter(InterestSp==unique(data$InterestSp)[p])
+    
+    cl <- unique((dataS[dataS$ScientificName == dataS$InterestSp,])$cl)
+    
+    label <- dataS %>% filter(ScientificName == InterestSp) %>% select(NSt, Size) %>% unique() %>% 
+      mutate(NSt = paste("N=", NSt)) %>% 
+      arrange(Size) %>% 
+      mutate(x= c(0.65, 0.8, 1))
+    
+    ggplot(dataS, aes(x = Transmittance, col=Size)) +
+      xlim(0, 1) +
+      theme_classic() +
+      theme(plot.title = element_text(colour = cl)) +
+      # Presences
+      # geom_point(aes(y = Presence, col = as.factor(Presence))) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `5%`, ymax = `95%`), alpha = 0.2) +
+      # Optimum
+      geom_vline(aes(xintercept = exp(Opt), col=Size), linewidth=1) + # exp to delog
+      # geom_vline(aes(xintercept = exp(`Opt.5%`), col=Size), linetype="dashed") +
+      # geom_vline(aes(xintercept = exp(`Opt.95%`), col=Size), linetype="dashed") +
+      # Abundances label
+      geom_text(data = label, aes(label = NSt, color=Size, x=x),
+                y = Inf, hjust = 1, vjust = 3, show.legend = F) + 
+      
+      
+      labs(title = unique(dataS$InterestSp), y = "Presence probability", col= "Size (cm DBH)")
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 3)
+# plots
+
+ggsave("RealspPredictsMedian_DBHcat_delog_per_sp.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+       plots, width = 15, height = 10)
 ```
