@@ -1,24 +1,50 @@
 ---
 title: "PA_graphs_check"
 format: html
-editor: visual
+theme: cosmo
+editor: source
+code-fold: true
 ---
 
-Check pseudo-absences tests graphicaly:
+**Parameters to evaluate:**\
+- presence-absence ratio\
+- interest species inclusion\
+- according to the species abundance
 
--   Check presence: Presence density plot - obs vs est\
--   Check niche form: Proba facet - obs vs est\
--   Check extremum : Extremum plot
+**Scenarios:**
+
+-   [Niche form]{.underline}: "noeffect", "concavebell","convexbell", "possigmoid", "negsigmoid"
+-   [Species abundance]{.underline}: "rare", "abundant"
+-   [Absence]{.underline} = "\*1", "max/2", "max"
+-   [includeSP]{.underline}: T, F (with or without interest sp)
+
+**Data simulation:**
+
+We simulate presence-absence data for each niche form and for each species abundance (rare, abundant) according to environmental value (transmittance). We keep all the presences, and sampled a number of absences according to the scenario (\*1, max/2, max ), including or not the species of interest in the absences (*includeSP*).
+
+**Evaluation criteria:**\
+- presence distribution\
+- niche form\
+- close optimum
+
+**Check pseudo-absences tests graphicaly:**\
+- Check presence: Presence density plot - obs vs est\
+- Check niche form: Proba facet - obs vs est\
+- Check optimum : Extremum plot
+
+**Color code:**\
+- turquoise: simulated data\
+- black: estimated data by bayesian inference
 
 # Packages
 
-```{r}
+```{r, include = F}
 library(tidyverse)
 ```
 
 # Load data
 
-```{r}
+```{r,include = F, results = 'hide'}
 # Simulate data ----------------------------------------------------------------
 datalistwithNA <- readRDS("~/PhD/R_codes/PhD/Modelisation/Simdata/simulatedata_PA.rds")[1:12] # only concave
 datalist <- lapply(names(datalistwithNA), function(name) {
@@ -28,7 +54,8 @@ datalist <- lapply(names(datalistwithNA), function(name) {
 names(datalist) <- names(datalistwithNA)
 
 
-# dataS <- bind_rows(datalist, .id = "Scenario")
+datalistwithNA <- bind_rows(datalistwithNA, .id = "Scenario") %>% 
+  filter(is.na(Presence))
 
 # Estimations ------------------------------------------------------------------
 fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds")
@@ -37,7 +64,7 @@ gc()
 
 # Prepare data for plot
 
-```{r}
+```{r, include = F, results = 'hide'}
 Sys.time() # 30 s
 
 # scenario = 1
@@ -62,14 +89,21 @@ data <- data %>%
                               prob = mu)) %>%
   ungroup()
 
-save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
+# save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
 gc()
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
 ```
 
+```{r}
+data <- data %>% bind_rows(datalistwithNA) %>% 
+  distinct(Scenario, idTree, .keep_all = T) %>% 
+  mutate(Species = paste(temperament, Abundance, sep="-"))
+nrow(data)==10181*length(fits)
+```
+
 # Check presence: Presence density plot - obs vs est
 
-```{r}
+```{r, message=F}
 plist <- vector('list', length(unique(data$Scenario)))
 
 for(p in 1:length(unique(data$Scenario))){
@@ -78,14 +112,14 @@ for(p in 1:length(unique(data$Scenario))){
     dataS <- data %>% 
       filter(Scenario==unique(data$Scenario)[p])
     
-    ggplot(dataS, aes(x= logTransmittance, y= Presence)) +
+    ggplot(dataS, aes(x= logTransmittance, y= TotPresence)) +
       xlim(min(data$logTransmittance), 0) +
       
       # Simulate data
-      ggridges::geom_density_ridges(data = (dataS %>% filter(!is.na(Presence) & Presence==1)), # Presence density
+      ggridges::geom_density_ridges(data = (dataS %>% filter(TotPresence==1)), # Presence density
                                     scale = 0.6,
                                     jittered_points = T,
-                                    col = "darkgreen",
+                                    col = "#00AFBB",
                                     alpha=0.05, point_alpha  = 0.7) +
       # Estimated
       ggridges::geom_density_ridges(data = (dataS %>% filter(EstPresence==1)), # Presence density
@@ -105,33 +139,45 @@ for(p in 1:length(unique(data$Scenario))){
 }
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-# plots
+plots
 
-ggsave("PA_presence_density_concaves.pdf",
-       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-       plots, width = 15, height = 10)
+# ggsave("PA_presence_density_concaves.pdf",
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+#        plots, width = 15, height = 10)
+```
 
+```{r, echo = F, eval=F}
 gc()
 ```
 
+## Results
+
+Concave:
+
+-   Estimated and simulated presences distribution overlap well, with a **better precision when the species is abundant**.
+-   There is no visible pattern to distinguish between the different scenarios (presence-absence ratio, including or not species of interest in the absences).
+-   The better overlap between estimated and simulated presences distribution seems to be for scenarios **abundant−\*1** and **abundant−max/2** **not including the interest species in the absences**.
+
 # Check niche form: Proba facet - obs vs est
 
-```{r}
+```{r, eval=F}
 data_sim <- data %>% 
-  select(NSelectPres, NSelectAbs, logTransmittance, Probability, Presence) %>% 
-  mutate(Scenario = paste("Simuldata", NSelectPres, NSelectAbs, sep="_")) %>%
-  mutate(`5%`= NA) %>% mutate(`95%`= NA) %>% 
-  select(Scenario, logTransmittance, Probability, `5%`, `95%`, Presence)
+  select(Species, logTransmittance, TotProbability, TotPresence) %>% 
+  mutate(Scenario = paste("Simuldata", Species, sep="_")) %>%
+  rename(Presence = TotPresence) %>% rename(Probability = TotProbability) %>%
+  mutate(`5%`= NA) %>% mutate(`95%`= NA) %>%
+  select(Species, Scenario, logTransmittance, Probability, `5%`, `95%`, Presence)
 
 data_est <- data %>% 
-  select(Scenario, logTransmittance, mu, `5%`, `95%`, EstPresence) %>% 
+  select(Species, Scenario, logTransmittance, mu, `5%`, `95%`, EstPresence) %>% 
   rename(Probability = mu) %>% rename(Presence = EstPresence)
 
-test <- rbind(data_sim, data_est)
+test <- rbind(data_sim, data_est) %>% 
+  arrange(desc(Species))
 nrow(test)==nrow(data_sim)+nrow(data_est)
 ```
 
-```{r}
+```{r, eval=F, message=F}
 plist <- vector('list', length(unique(test$Scenario)))
 
 for(p in 1:length(unique(test$Scenario))){
@@ -143,9 +189,8 @@ for(p in 1:length(unique(test$Scenario))){
     ggplot(testS, aes(x= logTransmittance, y= Presence)) +
       xlim(min(test$logTransmittance), 0) +
       
-      geom_point(aes(y = Probability), size =1.5) +
       geom_ribbon(aes(ymin = `5%`, ymax = `95%`), color = 'red', alpha = 0.2) +
-      
+      geom_point(aes(y = Probability), size =1.5) +
       
       labs(title = unique(testS$Scenario), y="Presence probability") +
       
@@ -155,69 +200,159 @@ for(p in 1:length(unique(test$Scenario))){
 }
 
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-# plots
+plots
 
-ggsave("PA_proba_concaves.pdf",
-       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-       plots, width = 15, height = 10)
+# ggsave("PA_proba_concaves.pdf",
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+#        plots, width = 15, height = 10)
 
 gc()
 ```
 
-```{r}
+```{r, warning=F}
+plist <- vector('list', length(unique(data$Scenario)))
+
+for(p in 1:length(unique(data$Scenario))){
+  plist[[p]] <- local({
+    
+    dataS <- data %>% 
+      filter(Scenario==unique(data$Scenario)[p]) %>% 
+      mutate(mumax = max(mu, na.rm = T)) %>% 
+      mutate(TotProbabilitymax = max(TotProbability)) %>% 
+      mutate(TotProbability_rescale = ifelse(TotProbabilitymax > mumax,
+                                             TotProbability/(TotProbabilitymax/mumax), TotProbability)) %>%
+      
+      mutate(mu_rescale = ifelse(!is.na(mu) & TotProbabilitymax < mumax,
+                                 mu/(mumax/TotProbabilitymax), mu)) %>% 
+      
+      mutate(`5%_rescale` = ifelse(!is.na(`5%`) & TotProbabilitymax < mumax,
+                                   `5%`/(mumax/TotProbabilitymax), `5%`)) %>% 
+      
+      mutate(`95%_rescale` = ifelse(!is.na(`95%`) & TotProbabilitymax < mumax,
+                                    `95%`/(mumax/TotProbabilitymax), `95%`))
+    
+    ggplot(dataS, aes(x= logTransmittance, y= Presence)) +
+      xlim(min(data$logTransmittance), 0) +
+      
+      # Total
+      geom_point(aes(y = TotProbability), col = "#00AFBB", size =1.5) +
+      # Probas estimated
+      geom_point(aes(y = mu_rescale), size=0.7) +
+      geom_ribbon(aes(ymin = `5%_rescale`, ymax = `95%_rescale`), na.rm = T, color = 'red', alpha = 0.2) +
+      
+      labs(title = unique(dataS$Scenario), y="Presence probability rescaled") +
+      
+      theme_minimal()
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+plots
+
+# ggsave("PA_proba_concaves_rescaled.pdf",
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+#        plots, width = 15, height = 10)
+```
+
+```{r, echo = F, eval=F}
+gc()
+```
+
+## Results
+
+Concave:
+
+-   all scenarios permit to retrieve a concave form.
+-   Estimated and simulated presence probabilities distribution overlap more or less well depending on the scenario:
+
+<!-- -->
+
+-   The scenarios with the **most absences (max/2 and max) perform better** (overlap between estimated and simulated) than the balanced scenarios (\*1), for both rare and abundant species.
+
+-   Scenarios that **include the species of interest in absences perform less well** than equivalent scenarios that do not include the species of interest in absences.
+
+-   The best overlap between estimated and simulated distribution of presence probabilities, is for scenarios **abundant−max** **not including the interest species in the absences**.
+
+```{r, warning=F, echo = F, results = 'hide'}
 rm(data_est, data_sim, test, testS, plots, dataS) ; gc()
 ```
 
 # Check extremum : Extremum plot
 
-```{r}
-# b= -4; c= -0.8
-# o = -b/(2*c) # simulated data optimum
+For concave and convex only
 
+```{r}
+test <- data %>% 
+  select(Presence,temperament, Abundance, Scenario, Opt_sim, Opt, `Opt.5%`, `Opt.95%`) %>%
+  filter(!is.na(Presence)) %>% select(-Presence) %>% 
+  unique() %>% 
+  mutate(Species = paste(temperament, Abundance, sep="-")) %>% 
+  mutate(delta = abs(Opt-Opt_sim)) %>% 
+  mutate(envelop = round(exp(`Opt.95%`)-exp(`Opt.5%`), 3)) %>% 
+  select(Species, Scenario, Opt_sim, Opt, `Opt.5%`, `Opt.95%`, delta, envelop)
 ```
 
-```{r}
-data %>% 
-  select(Scenario, Opt, `Opt.5%`, `Opt.95%`) %>% 
-  unique()
-```
-
-```{r}
+```{r, message=F}
 # For concave and convex only
 # for rare and abundant sp
-plist <- vector('list', length(unique(test$temperament)))
+plist <- vector('list', length(unique(test$Species)))
 
-for(p in 1:length(unique(test$temperament))){
+for(p in 1:length(unique(test$Species))){
   plist[[p]] <- local({
     
-    data %>% 
-      select(temperament, Scenario, Opt_sim, Opt, `Opt.5%`, `Opt.95%`) %>% unique() %>% 
-      mutate(delta = abs(Opt-Opt_sim)) %>% 
+    testS <- test %>% 
+      filter(Species==unique(test$Species)[p]) %>% 
       arrange(desc(delta)) %>%
-      mutate(Scenario = factor(Scenario, levels=Scenario)) %>%
-      # mutate(Scenario = fct_reorder(as.factor(Scenario), delta)) %>%
-      ggplot(aes(y= Scenario)) +
-      # geom_point(aes(x= exp(`Opt.5%`)), color = 'red', alpha = 0.5) +
+      mutate(Scenario = factor(Scenario, levels=Scenario))
+    
+    ggplot(testS, aes(y= Scenario)) +
+      # xlim(0,1) +
+      # Simulated optimum
+      geom_vline(aes(xintercept = exp(Opt_sim)), color = "#00AFBB", linewidth = 1) +
+      # Estimated optimum
       geom_point(aes(x= exp(Opt))) +
-      # geom_point(aes(x= exp(`Opt.95%`)), color = 'red', alpha = 0.5) +
       geom_errorbarh(aes(xmin = exp(`Opt.5%`), xmax = exp(`Opt.95%`)), alpha = 0.5) +
       
-      # geom_ribbon(aes(xmin = `Opt.5%`, xmax = `Opt.95%`), color = 'red', alpha = 0.2) +
-      # Optimum
-      geom_vline(aes(xintercept = exp(Opt_sim)), color = "#00AFBB", linewidth = 0.5) +
-      labs(title = unique(data$temperament), x= "Transmittance extremum", y="Scenario") +
+      labs(title = unique(testS$Species), x= "Transmittance extremum", y="Scenario") +
       
-      theme_minimal()
+      theme_minimal() +
+    
+    # theme(title= element_text(size=16),
+    #       axis.title= element_text(size=16), axis.text= element_text(size=14)) +
+    
+    geom_text(aes(label = envelop, x= exp(`Opt.95%`), y= Scenario), col="grey",
+              hjust = 1.2, vjust = -1, show.legend = F)
+      
+      
   })
 }
 
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-# plots
+plots <- gridExtra::marrangeGrob(plist, nrow = 1, ncol = 2)
+plots
 
-ggsave("PA_extremum_concaves.pdf",
-       path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-       plots, width = 15, height = 10)
-
-gc()
+# ggsave("PA_extremum_concaves.pdf",
+#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
+#        plots, width = 15, height = 10)
 
 ```
+
+```{r, echo = F, eval=F}
+gc()
+```
+
+## Results
+
+Concave:
+
+-   Only the **rare−max−TRUE** scenario doesn't include the simulated optimum in the estimated optimum at 95% confidence interval. - The scenarios that **include the species of interest in absences have the estimated median optimum furthest from the simulated optimum**, for both rare and abundant species.
+-   When the species of interest is not included in the absences, whatever the abundance of the species, the **estimated median optimum is closest to the simulated optimum in the case of a balanced presence-absence ratio**, followed closely by the other two scenarios (max/2 and max). However, in the case of the balanced scenario, the estimated distribution of the optimum is wider and therefore **more uncertain** than in the scenarios with more absences (max/2 and max).
+-   The estimated optimum uncertainty is smaller for the abundant species than for the rare species, and negligible compared to the range of variation of the environmental variable (uncertainty of 0.01 on a 0-1 range).
+-   The estimated optimum uncertainty of the rare species can be up to **0.07** on a 0-1 range for the balanced scenario. At best, by excluding scenarios including the species of interest, the uncertainty is **0.05** by adding absences (max/2 and max).
+
+# Bilan
+
+-   **In all the scenarios, the estimated species niche is close to the simulated species niche**.
+-   The abundant species is less sensible to the different tested parameters, than the rare species.
+-   Scenarios with **most absences (max/2 and max) permit to estimate the niche closer to the simulated niche**
+-   **Include the species of interest in absences shift the niche optimum**

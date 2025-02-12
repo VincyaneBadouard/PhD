@@ -4,9 +4,10 @@
 *.rds
 *.Ruserdata
 *.pdf
-*.html
 *.tex
 *.xls
+*.rdb
+*.rdx
 test/*
 pdf/*
 .Rproj.user

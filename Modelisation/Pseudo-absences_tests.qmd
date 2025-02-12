@@ -1,7 +1,7 @@
 ---
 title: "Pseudo-absences_tests"
 format: html
-editor: visual
+editor: source
 ---
 
 # Objectives
@@ -387,6 +387,7 @@ plist <- mapply(FUN = simulatedata_PA,
 ```
 
 ## Check
+
 ```{r, eval=F}
 for(x in 1:length(plist)){
   if(unique(plist[[x]]$Abundance)=="rare"){
@@ -407,6 +408,7 @@ for(x in 1:length(plist)){
 ```
 
 ## Rename and save
+
 ```{r, eval=F}
 names(plist) <- lapply(1:length(plist), \(x) paste(
   unique(plist[[x]]$temperament),
@@ -428,7 +430,6 @@ saveRDS(plist, file = "./Simdata/simulatedata_PA.rds")
 
 View(plist[[1]])
 ```
-
 
 ```{r}
 plist <- readRDS("./Simdata/simulatedata_PA.rds")
