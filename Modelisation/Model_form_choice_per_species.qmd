@@ -1,0 +1,218 @@
+---
+title: "Model_form_choice_per_species"
+format: html
+editor: source
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+**Objectives:**
+
+Compare different forms of model of light temperament for each species, without taking into account the ontogeny.
+
+**Which forms:**
+
+-   Null model: without environment (only intercept)
+-    affine
+-    quadratic- développed form
+-    (quadratic - canonic form)
+-    quadratic forcing the bell form
+-    (light not loged)
+
+**On which species:**
+
+-    convex (Licania_membranacea)
+-    sigmoid (Lecythis_persistens)
+-    no effect (Piparea_multiflora)
+-    concave (Iryanthera_hostmannii)
+
+# Prepare data
+
+```{r}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+
+# load real presence-absences data on 4ha 
+load(paste(path, "Realdata/Realsp_4ha.Rdata", sep=''))
+```
+
+```{r}
+sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora", "Iryanthera_hostmannii") # 4
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# View(datalist[["Licania_membranacea"]])
+```
+
+# Run models
+
+-   Null model: without environment (only intercept)
+-   affine
+-   quadratic - développed form
+-   (quadratic - canonic form)
+-   quadratic forcing the bell form
+-   when x is loged, a concave is obtain when the parameters are negative.
+-   when x is not loged, a concave is obtain when beta1 is positive and beta2 is negative.
+-   (light not loged)
+
+```{r, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+```
+
+```{r}
+# 4 models:
+# Null model: without environment (only intercept)
+M_Null <- stan_model(model_name = "Null",
+                     paste(path, "Stanfiles/Bernoulli_null.stan", sep='')) # remove rds file if doest work
+# affine
+M_Affine <- stan_model(model_name = "Affine",
+                       paste(path, "Stanfiles/Bernoulli_EnvOnly_linear.stan", sep='')) 
+# quadratic - développed form
+M_Quadra_dvp <- stan_model(model_name = "Quadra_dvp",
+                           paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic.stan", sep='')) 
+# (quadratic - canonic form)
+# M_Quadra_can <- stan_model(model_name = "Quadra_can",
+#                            paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep='')) 
+# quadratic forcing the bell form
+M_Quadra_forced <- stan_model(model_name = "Quadra_forced",
+                              paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_forced.stan", sep=''))
+
+Models <- list(Null= M_Null,
+               Affine= M_Affine,
+               Quadra_dvp= M_Quadra_dvp,
+               Quadra_forced= M_Quadra_forced) # a list of models to parallelise
+
+# rm(M_Null, M_Affine, M_Quadra_dvp, M_Quadra_forced)
+```
+
+```{r}
+# logTransmittance
+dataM <- lapply(datalist, function(x) list(N = nrow(x), 
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance))
+names(dataM)
+# Transmittance
+dataM_notloged <- lapply(datalist, function(x) list(N = nrow(x), 
+                                                    Presence = x$Presence,
+                                                    Environment = x$Transmittance))
+```
+
+## Models launch
+
+## test
+```{r, eval=FALSE}
+any(is.na(dataM[[1]]$Presence))
+i=1
+Null <- sampling(M_Null, data = dataM[[i]], chains = 4, iter = 2000)
+Affine <- sampling(M_Affine, data = dataM[[i]], chains = 4, iter = 2000)
+Quadra_dvp <- sampling(M_Quadra_dvp, data = dataM[[i]], chains = 4, iter = 2000)
+Quadra_forced <- sampling(M_Quadra_forced, data = dataM[[i]], chains = 4, iter = 2000)
+
+# rm(Null, Affine, Quadra_dvp, Quadra_forced)
+```
+
+
+```{r, eval=F}
+# 16 models to run (4 sp * 4 model forms)
+gc()
+Sys.time() # h
+cores = min(length(Models), 5) # nbr of cores to use
+i <- NULL
+j = length(Models)
+
+for(S in sp) {
+  # S=sp[1]
+  
+  # L'enregistrement des clusters
+  cl <- parallel::makeCluster(cores, outfile = "")
+  doSNOW::registerDoSNOW(cl)
+  
+  # Progress bar:
+  pb <- txtProgressBar(max=j)
+  progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+  opts <- list(progress = progress)
+  
+  fits <- foreach::foreach(
+    i=1:j, # j
+    .packages = c("rstan"), # necessary packages
+    .options.snow = opts, # ProgressBar
+    .combine=c) %dopar% {
+      # the function to parallelise:
+       sampling(Models[[i]], data = dataM[[S]], chains = 4, iter = 2000)
+    }
+  # close progressbar and cluster
+  close(pb)
+  stopCluster(cl)
+  
+  names(fits) <- names(Models[1:j])
+  
+  saveRDS(fits, file = paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/ModelsFormsChoicePerSp/ModelsFormsChoice_",S,".rds", sep=""))
+  
+}
+
+gc()
+Sys.time()
+```
+
+# Evaluation - Goodness of fit
+
+https://campus.datacamp.com/courses/bayesian-regression-modeling-with-rstanarm/assessing-model-fit?ex=10
+
+loo package which implements fast Pareto smoothed leave-one-out cross-validation (PSIS-LOO) (Vehtari, Gelman and Gabry, 2017) to compute expected log predictive density (elpd) PSIS : Pareto smoothed importance sampling the user needs to explicitly code the factors of the likelihood (actually, the terms of the log-likelihood) as a vector (see generated quantities in the stan file).
+```{r}
+files <- list.files("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/ModelsFormsChoicePerSp", full.names = T)#  files
+files
+# 4 species and 4 models each
+
+fits_list <- lapply(files, readRDS) # read files
+names(fits_list) <- sp
+names(fits_list[["Licania_membranacea"]])
+```
+
+```{r}
+library(loo) ; ?loo
+class(fits_list[["Licania_membranacea"]][[1]])
+# Extract log likelihood
+log_lik_1 <- extract_log_lik(fits_list[["Licania_membranacea"]][["Null"]])
+log_lik_2 <- extract_log_lik(fits_list[["Licania_membranacea"]][["Affine"]])
+
+# Compute LOO (leave-one-out cross-validation)
+# all Pareto k estimates have to be small (k< 0.5)
+loo_1 <- loo(log_lik_1, save_psis = TRUE, cores=1) # Pareto-Smoothed Importance Sampling (PSIS)
+print(loo_1)
+plot(loo_1)
+
+loo_2 <- loo(log_lik_2, save_psis = TRUE)
+print(loo_2)
+plot(loo_2)
+
+loos <- list(loo_1, loo_2) # , loo3, loo4
+names(loos) <- names(fits_list[["Licania_membranacea"]])
+
+help('pareto-k-diagnostic') # for details.
+#elpd_loo = the expected log pointwise predictive density
+#p_loo = the effective number of parameters
+#looic = the LOO information criterion 
+
+
+# Model comparaison
+?loo_compare
+loo_diff <- loo_compare(loos) # , loo3, loo4
+print(loo_diff, simplify=F)
+```
+
+```{r}
+# Widely Applicable or Watanabe-Akaike Information Criterion (WAIC; Watanabe 2010)
+waic_1 <- waic(log_lik_1)
+waic_2 <- waic(log_lik_2)
+waic_diff <- compare(waic_1, waic_2)
+print(waic_diff)
+```
+

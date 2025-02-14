@@ -432,7 +432,7 @@ View(plist[[1]])
 ```
 
 ```{r}
-plist <- readRDS("./Simdata/simulatedata_PA.rds")
+plist <- readRDS("~/PhD/R_codes/PhD/Modelisation/Simdata/simulatedata_PA.rds")
 ```
 
 # Run models
@@ -450,17 +450,9 @@ library(parallel)
 ```
 
 ```{r, eval=F}
-fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds")
-rstanarm::logit(0.5) # 0
-fits[1]
-1 / (1 + exp(-(-6.3)))
-fits[2] # lui il ya bien un intercept qui peut etre à 0 en logit donc à 0.5 en inverse logit
-1 / (1 + exp(-(-1.26)))
-fits[7]
-fits[8]
-fits[13]
-fits[14]
-
+# fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds")
+# rstanarm::logit(0.5) # 0
+# fits[1]
 ```
 
 ```{r, eval=F}
@@ -468,8 +460,6 @@ rm(a, include, includeSP, N1, N2, Na, Np, temperament, temperaments, simulatedat
 ```
 
 ```{r}
-scenar <- names(plist)
-plist <- plist[1:12] # only concave
 scenar <- names(plist)
 
 # na.omit pour stan
@@ -479,33 +469,35 @@ plist <- lapply(names(plist), function(name) {
 })
 names(plist) <- scenar
 # View(plist[[1]])
-rm(scenarv, combinaisons)
+rm(scenar, combinaisons)
 ```
 
 ```{r Create a liste with data definitions as in the rstan file}
 dataM <- lapply(plist, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
                                         Presence = x$Presence,
-                                        Environment = x$logTransmittance))
+                                        Environment = x$logTransmittance)) # doit etre entier pour n'importe quel run!
 
 # table(dataM[[1]]$Presence)
 
 
-Model <- stan_model("Bernoulli_EnvOnly_quadratic.stan") # remove rds file if doest work
+Model <- stan_model("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Bernoulli_EnvOnly_quadratic.stan") # remove rds file if doest work
 # fit <- stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[["concavebell-30-100"]], chains = 4, iter = 2000)
 # fit
 gc()
+Sys.time() # 3h
 cores = 5 # nbr of cores to use
 # parallel::detectCores() # 8
 i <- NULL
 
-vec <- 1:length(dataM)
-# vec <- 64:length(dataM)
+# vec <- 1:length(dataM)
+vec <- 13:60 # 60
 
 # D=55
 # j=63
 
 for(D in split(vec, ceiling(seq_along(vec)/12))) {
   
+  # D = split(vec, ceiling(seq_along(vec)/12))
   j = max(D) # length(dataM)
   
   # L'enregistrement des clusters
@@ -522,14 +514,15 @@ for(D in split(vec, ceiling(seq_along(vec)/12))) {
   opts <- list(progress = progress)
   
   fits <- foreach::foreach(
-    i=min(D):j,
+    i=min(unlist(D)):j,
     .packages = c("rstan"), # necessary packages
     .options.snow = opts, # ProgressBar
     .combine = c
   ) %dopar% {
     # sink("PAlog.txt", append=TRUE) # for the log file
     # the function to parallelise:
-    stan(file= "Bernoulli_EnvOnly_quadratic.stan", data = dataM[[i]], chains = 4, iter = 2000)
+    sampling(Model,
+         data = dataM[[i]], chains = 4, iter = 2000)
   }
   # close progressbar and cluster
   close(pb)
@@ -537,45 +530,47 @@ for(D in split(vec, ceiling(seq_along(vec)/12))) {
   
   names(fits) <- names(dataM[min(D):j]) 
   
-  saveRDS(fits, file = paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds", sep=""))
+  saveRDS(fits, file = paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/PA/Pseudo_abs_tests_",min(D),"_",j,".rds", sep=""))
   
 }
 gc()
+Sys.time()
 ```
 
 # Bind all the fits
 
 ```{r, eval=F}
-# rm(fits, cores, cl, pb, Model, opts, i, j) ; gc()
-# 
-# files <- list.files("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits", pattern = "Pseudo_abs_tests_", full.names = T)# 10 files
-# 
-# allfits <- list() #create empty list
-# 
-# #loop through the files
-# gc()
-# for (i in files) {
-#   print(i)
-#   allfits[[i]] <- get(load(i)) #add files to list position
-# }
-# gc()
-# save(allfits, file ="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_all.Rdata")
-# rm(D, files, vec) ; gc()  
+rm(cl, fits, Model, opts, pb, cores, D, i,j,vec,progress) ; gc()
 
-# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_all.Rdata")
-# gc()
-# 
-# my_list_new <- unlist(allfits, recursive = FALSE)
-# names(my_list_new) <- gsub(".*Rdata.", "", names(my_list_new))
-# rm(allfits,names);gc()
+files <- list.files("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/PA", pattern = "Pseudo_abs_tests_", full.names = T)# 10 files
 
-# save(my_list_new, file ="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests.Rdata")
+# files <- files[grepl('[[:digit:]]', files)]
+# files <- files[grepl('.rds', files)]
+files <- files[order(c(2,3,4,5,1))]#[1:5]
 
-load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests.Rdata")
+allfits <- list() #create empty list
+
+#loop through the files
+gc()
+for (i in files) {
+  print(i)
+  allfits[[i]] <- (readRDS(i)) #add files to list position
+}
+names(allfits)
+my_list_new <- unlist(allfits, recursive = FALSE)
+names(my_list_new)
+names(my_list_new) <- gsub(".*rds.", "", names(my_list_new))
+names(my_list_new)==names(plist)
+rm(allfits, dataM, plist, files, i);gc()
+
+saveRDS(my_list_new, file ="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/PA/Pseudo_abs_tests_all.rds")
+gc()
+
+# readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests.Rdata")
 
 ```
 
-# Evaluation - Goodness of fit
+# Evaluation - Goodness of fit (not did)
 
 loo_R2 bayes_R2 https://avehtari.github.io/bayes_R2/bayes_R2.html#References
 

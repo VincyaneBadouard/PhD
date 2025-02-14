@@ -1,4 +1,4 @@
-// Bernoulli environment only - quadratic
+// Bernoulli environment only - quadratic - concave form forced
 
 data {
   int<lower=1> N ; // obs
@@ -7,8 +7,9 @@ data {
 }
 parameters {
   real alpha ; // intercept
-  real beta1 ; // sigmoidal slope
-  real beta2 ; // quadratic form
+  // when x is loged, a concave is obtain when the parameters are negative:
+  real<upper=0> beta1 ; // sigmoidal slope
+  real<upper=0> beta2 ; // quadratic form
 }
 model {
   target += bernoulli_logit_lpmf(Presence | alpha + beta1*Environment + beta2*Environment.*Environment) ; // Likelihood
@@ -21,8 +22,8 @@ generated quantities {
   o = -beta1/(2*beta2) ; // Optimum
   
   // For model evaluation with loo;
-  // vector[N] log_lik; // factors of the log-likelihood as a vector
-  // for (n in 1:N) {
-  //   log_lik[n] = bernoulli_logit_lpmf(Presence[n] | alpha + beta1*Environment[n] + beta2*Environment[n].*Environment[n]);
-  // } // to produce the log posterior density
+  vector[N] log_lik; // factors of the log-likelihood as a vector
+  for (n in 1:N) {
+    log_lik[n] = bernoulli_logit_lpmf(Presence[n] | alpha + beta1*Environment[n] + beta2*Environment[n].*Environment[n]);
+  } // to produce the log posterior density
 }
