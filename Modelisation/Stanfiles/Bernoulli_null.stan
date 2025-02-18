@@ -8,7 +8,7 @@ parameters {
   real alpha ; // intercept
 }
 model {
-  target += bernoulli_logit_lpmf(Presence | alpha) ; // Likelihood
+  Presence ~ bernoulli_logit(alpha) ; // Likelihood
 }
 generated quantities {
   vector<lower=0, upper=1>[N] p ;

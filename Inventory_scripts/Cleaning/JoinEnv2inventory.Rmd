@@ -74,11 +74,26 @@ Inventory <- cbind(Inventory, XY) %>% # bind XY coord
 Inventory <- Inventory %>% left_join(Light, by=c("idTree","Xutm","Yutm"))
 ```
 
+# Too small values of transmittance
 ```{r}
 write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
 ```
 
-```{r}
+```{r, eval=F}
+Inventory <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv") %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup()
 
+```
+
+```{r, eval=F}
+toodark <- Inventory %>% filter(!is.na(Transmittance) & Transmittance < 0.001)
+length(unique(toodark$ScientificName))
+
+table(toodark$ScientificName)
+
+smallOxandra <- Inventory %>% filter(ScientificName == "Oxandra_asbeckii" & DBHcor<10)
+length(smallOxandra$idTree)
 ```
 

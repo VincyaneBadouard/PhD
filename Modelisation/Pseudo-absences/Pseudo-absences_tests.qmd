@@ -169,8 +169,8 @@ test <- Inv %>%
 opt <-log(median(Inv$Transmittance)) # community median to have sufficient number of presence 
 # a <- rstanarm::logit((700)/(700+10000)) # intercept ; logit(0.5)= 0) autant de 0 que de 1
 a <- rstanarm::logit(0.1)
-b <- -4 
-c <- -b/(opt*2)# ; pour une linéaire : inv_logit(-9) ~ 0
+b <- 4 
+c <- -4#-b/(opt*2)# ; pour une linéaire : inv_logit(-9) ~ 0
 
 
 # Compute presence probability

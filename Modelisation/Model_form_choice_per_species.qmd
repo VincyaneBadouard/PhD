@@ -1,7 +1,7 @@
 ---
 title: "Model_form_choice_per_species"
 format: html
-editor: source
+self-contained: true
 theme: cosmo
 editor: source
 code-fold: true
@@ -34,6 +34,7 @@ path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 
 # load real presence-absences data on 4ha 
 load(paste(path, "Realdata/Realsp_4ha.Rdata", sep=''))
+# View(datalist[[1]])
 ```
 
 ```{r}
@@ -78,8 +79,8 @@ M_Affine <- stan_model(model_name = "Affine",
 M_Quadra_dvp <- stan_model(model_name = "Quadra_dvp",
                            paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic.stan", sep='')) 
 # (quadratic - canonic form)
-# M_Quadra_can <- stan_model(model_name = "Quadra_can",
-#                            paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep='')) 
+M_Quadra_can <- stan_model(model_name = "Quadra_can",
+                           paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep=''))
 # quadratic forcing the bell form
 M_Quadra_forced <- stan_model(model_name = "Quadra_forced",
                               paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_forced.stan", sep=''))
@@ -93,15 +94,34 @@ Models <- list(Null= M_Null,
 ```
 
 ```{r}
+x <- datalist[[1]]
 # logTransmittance
 dataM <- lapply(datalist, function(x) list(N = nrow(x), 
                                            Presence = x$Presence,
-                                           Environment = x$logTransmittance))
+                                           Environment = x$logTransmittance,
+                                           # environment of predictions
+                                           Environmentp = seq(from=min(x$logTransmittance), 
+                                                              to= max(x$logTransmittance),
+                                                              by=0.01), 
+                                            # number of predictions
+                                           Np = length(seq(from=min(x$logTransmittance),
+                                                           to= max(x$logTransmittance),
+                                                           by=0.01)))
+)
+
 names(dataM)
 # Transmittance
 dataM_notloged <- lapply(datalist, function(x) list(N = nrow(x), 
                                                     Presence = x$Presence,
-                                                    Environment = x$Transmittance))
+                                                    Environment = x$Transmittance,
+                                                    Environmentp = seq(from=min(x$Transmittance),
+                                                                       to= max(x$Transmittance),
+                                                                       by=0.001), 
+                                                    Np = length(seq(from=min(x$Transmittance),
+                                                                    to= max(x$Transmittance),
+                                                                    by=0.001)))
+) 
+
 ```
 
 ## Models launch
@@ -145,7 +165,7 @@ for(S in sp) {
     .options.snow = opts, # ProgressBar
     .combine=c) %dopar% {
       # the function to parallelise:
-       sampling(Models[[i]], data = dataM[[S]], chains = 4, iter = 2000)
+      sampling(Models[[i]], data = dataM[[S]], chains = 4, iter = 2000)
     }
   # close progressbar and cluster
   close(pb)

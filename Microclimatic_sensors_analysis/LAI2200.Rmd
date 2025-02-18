@@ -540,6 +540,8 @@ Attribute stakes coordinates to the sensors
 each 10 m
 Theorical_coordinates_P16.Rmd
 ```{r}
+LAI2200 <- read_csv("D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/LAI2200_data.csv")
+
 # stakes coordinates data
 
 

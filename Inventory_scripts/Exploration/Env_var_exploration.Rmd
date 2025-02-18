@@ -258,10 +258,22 @@ ggsave("Paracou_P16_HAND_distrib_filtr6m.png",
 
 # Light
 range(Light$Transmittance) # 5.16304e-05 - 1.00000e+00
+toodark <- Light[Light$Transmittance < 0.001,]
+nrow(toodark) # 110/10315 trees (=1%)
 mean(Light$Transmittance) # 0.07
 median(Light$Transmittance) # 0.014
 var(Light$Transmittance) # 0.03
 hist(Light$Transmittance) 
+
+ggplot(Light, aes(x=Transmittance)) +
+  xlim(0,0.001)+
+  geom_histogram(binwidth=0.0001, fill="grey", color="#e9ecef", alpha=0.9) +
+  labs(title="< 0.001 estimated transmittance")
+
+ggplot(toodark, aes(x=Z)) + # light height
+  geom_histogram(binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
+  labs(title="Height (m) of the < 0.001 estimated transmittance")
+
 ggplot(Light, aes(x=Transmittance)) +
   geom_histogram(binwidth=0.01, fill="grey", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(breaks = seq(0, 1, 0.1))
@@ -272,6 +284,46 @@ ggsave("Paracou_P16_Light_distrib.png",
 ```
 
 
+# Data transformation
+```{r}
+NotT <- ggplot(Light, aes(x=Transmittance)) +
+  theme_minimal() +
+  geom_histogram(binwidth=0.01, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(breaks = c(0.001, seq(0.1, 1, 0.1)),
+                     labels = as.character(c(0.001, seq(0.1, 1, 0.1))) ) +
+  geom_vline(xintercept = 0.001, col= "darkgreen") +
+  labs(title = "not transformed")
+
+log <- ggplot(Light, aes(x=Transmittance)) +
+  theme_minimal() +
+  geom_histogram(binwidth=0.25, closed ="left", fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="log",
+                     breaks = c(0, min(Light$Transmittance),
+                                0.001, 0.01, 0.1, 1),
+                     labels = as.character(c(0,                                             format(round(min(Light$Transmittance),5), scientific=FALSE),
+                                             0.001, 0.01, 0.1, 1)) ) +
+  geom_vline(xintercept =  0.001, col= "darkgreen") +
+  labs(title = "log transformed")
+
+sqrt <- ggplot(Light, aes(x=Transmittance)) +
+  theme_minimal() +
+  geom_histogram(binwidth=0.06, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="sqrt",
+                     breaks = c(0.001, 0.01,
+                                seq(0.1, 1, 0.1)),
+                     labels = as.character(c(0.001, 0.01, seq(0.1, 1, 0.1))) ) +
+  geom_vline(xintercept =  0.001, col= "darkgreen") +
+  labs(title = "sqrt transformed")
+
+ggpubr::ggarrange(NotT, sqrt, log, 
+                  # labels = c("not transformed", "sqrt transformed", "log transformed"),
+                  ncol = 1, nrow = 3)
+
+ggsave("Light_distrib_transformation.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
+       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+
+```
 
 # Join env data
 ```{r}

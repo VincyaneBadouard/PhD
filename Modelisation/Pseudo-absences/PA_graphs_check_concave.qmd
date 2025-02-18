@@ -1,6 +1,7 @@
 ---
 title: "PA_graphs_check"
 format: html
+self-contained: true
 theme: cosmo
 editor: source
 code-fold: true
@@ -58,7 +59,7 @@ datalistwithNA <- bind_rows(datalistwithNA, .id = "Scenario") %>%
   filter(is.na(Presence))
 
 # Estimations ------------------------------------------------------------------
-fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves.rds")
+fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/PA/Pseudo_abs_tests_concaves.rds")
 gc()
 ```
 

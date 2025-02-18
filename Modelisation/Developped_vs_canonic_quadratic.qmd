@@ -1,0 +1,164 @@
+---
+title: "Developped_vs_canonic_quadratic"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+**Objectives:**
+
+Compare developed and canonical forms of the quadratic equation of model of species light temperament, on a simulated concave species niche.
+
+Developed form: *alpha* + *beta1*\*Environment *+ beta2\**Environment^2^\
+Canonical form: *a* \* (Environment - *O*)\^2 + *gamma*
+
+*a* = *beta2*\
+*O* = extremum : -*beta1*/(2\**beta2)\
+gamma = alpha*-(*beta1^2^/*4*\**beta2)
+
+```{r, packages, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+library(tidyverse)
+```
+
+# Prepare data
+
+```{r}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+```
+
+```{r, create concave data}
+n <- 500 # abs + pres
+X <- seq(0, 1, length.out = n) # env var
+# Parameters
+a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
+opt <- 0.5
+b <- 15
+c <- -b/(opt*2) 
+
+data <- data.frame(Environment = X,
+                   # Generate presence-absence data from probability
+                   Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                                     # logistique transformation (inverse logit)
+                                     prob = 1 / (1 + exp(-(a + b * X + c * X^2)))))
+
+# Visualisation of simulated data
+ggplot(data, aes(x= Environment, y= Presence)) +
+  geom_point() +
+  theme_minimal() +
+  stat_function(fun=function(x) 1 / (1 + exp(-(a + b * x + c * x^2))), col = "blue", linewidth = 1) +
+  labs(y="Presence (1) / Absence (0)", x="Explicative variable (X)")
+
+```
+
+# Run models
+
+-   quadratic - developed form
+-   quadratic - canonical form
+
+```{r, models}
+# 2 models:
+# quadratic - développed form
+M_Quadra_dvp <- stan_model(model_name = "Quadra_dvp",
+                           paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic.stan", sep='')) 
+# quadratic - canonic form
+M_Quadra_can <- stan_model(model_name = "Quadra_can",
+                           paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep=''))
+
+gc()
+# Models <- list(Quadra_dvp= M_Quadra_dvp,
+#                M_Quadra_can= M_Quadra_can) # a list of models to parallelise
+
+# rm(M_Null, M_Affine, M_Quadra_dvp, M_Quadra_forced)
+```
+
+```{r, data list}
+Np <- 200 # number of predictions
+Environmentp <- seq(0, 1, length.out = Np)
+
+dataM <- list(N = nrow(data), 
+              Presence = data$Presence,
+              Environment = data$Environment,
+              # number of predictions
+              Np = Np,
+              # environment of predictions
+              Environmentp = Environmentp 
+)
+# dataM
+```
+
+## Models launch
+
+```{r}
+Sys.time() # 1min
+Quadra_dvp <- sampling(M_Quadra_dvp, data = dataM, chains = 4, iter = 2000)
+saveRDS(Quadra_dvp, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/ModelsFormsChoicePerSp/Quadra_dvp_on_concave.rds")
+
+Quadra_can <- sampling(M_Quadra_can, data = dataM, chains = 4, iter = 2000)
+saveRDS(Quadra_can, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/ModelsFormsChoicePerSp/Quadra_canonic_on_concave.rds")
+Sys.time() 
+```
+
+```{r}
+fits <- list(Quadra_dvp, Quadra_can)
+names(fits) <- c("Quadra_dvp", "Quadra_can")
+```
+
+## Chains
+
+```{r, visualiser la progression des chaînes pour chaque paramètres}
+mcmc_trace(as.array(Quadra_dvp), 
+           pars = c("alpha", "beta1", "beta2"),
+           np = nuts_params(Quadra_dvp)) +
+  ggplot2::labs(title = "Quadratic developped form")
+
+mcmc_trace(as.array(Quadra_can), 
+           pars = c("a", "O", "gamma"),
+           np = nuts_params(Quadra_dvp)) +
+  labs(title = "Quadratic canonical form")
+```
+
+-\> Good mix of chains
+
+## Parameters link
+
+```{r, visualiser la relation entre chaque paramètre}
+mcmc_pairs(as.array(Quadra_dvp), pars = c("alpha", "beta1", "beta2"))
+
+mcmc_pairs(as.array(Quadra_can), pars = c("a", "O", "gamma"))
+```
+
+-\> In the developed form: all the parameters are linked.\
+-\> In the canonical form: a and gamma are linked, but not with O.
+
+# Predictions
+
+```{r}
+# form= "Quadra_dvp"
+lapply(as.list(names(fits)), function(form)
+  data.frame(form = form, 
+             Environmentp = Environmentp,
+             mu = apply(as.matrix(fits[[form]], pars = "p"), 2, median),
+             t(apply(as.matrix(fits[[form]], pars = "p"), 2, 
+                     quantile, probs = c(0.05, 0.95)))
+  )) %>% 
+  bind_rows() %>% 
+  ggplot(aes(x = Environmentp)) +
+  # Probas
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
+  facet_wrap(~ form, scales = "free", nrow = 1)
+
+# ggsave("Developped_vs_canonic_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
+```

@@ -10,7 +10,7 @@ parameters {
   real beta1 ; // sigmoidal slope
 }
 model {
- target += bernoulli_logit_lpmf(Presence | alpha + beta1*Environment) ; // Likelihood
+ Presence ~ bernoulli_logit(alpha + beta1*Environment) ; // Likelihood
 }
 generated quantities {
   vector<lower=0, upper=1>[N] p ;

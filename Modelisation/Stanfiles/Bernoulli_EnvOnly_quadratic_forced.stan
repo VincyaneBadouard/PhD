@@ -7,12 +7,12 @@ data {
 }
 parameters {
   real alpha ; // intercept
-  // when x is loged, a concave is obtain when the parameters are negative:
-  real<upper=0> beta1 ; // sigmoidal slope
+  // A concave is obtain when the beta2 parameter is strictly negative:
+  real beta1 ; // sigmoidal slope
   real<upper=0> beta2 ; // quadratic form
 }
 model {
-  target += bernoulli_logit_lpmf(Presence | alpha + beta1*Environment + beta2*Environment.*Environment) ; // Likelihood
+  Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment) ; // Likelihood
 }
 generated quantities {
   vector<lower=0, upper=1>[N] p ;
