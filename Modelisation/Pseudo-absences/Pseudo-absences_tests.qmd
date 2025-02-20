@@ -1,7 +1,12 @@
 ---
 title: "Pseudo-absences_tests"
 format: html
+self-contained: true
+theme: cosmo
 editor: source
+code-fold: true
+execute: 
+  cache: true
 ---
 
 # Objectives

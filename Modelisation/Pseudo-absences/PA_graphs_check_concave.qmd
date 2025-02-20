@@ -5,6 +5,8 @@ self-contained: true
 theme: cosmo
 editor: source
 code-fold: true
+execute: 
+  cache: true
 ---
 
 **Parameters to evaluate:**\

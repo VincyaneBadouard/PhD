@@ -1,7 +1,12 @@
 ---
 title: "Equation_exploration"
 format: html
+self-contained: true
+theme: cosmo
 editor: source
+code-fold: true
+execute: 
+  cache: true
 ---
 
 # *Parametres exploration*

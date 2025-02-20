@@ -4,6 +4,8 @@
 *.rds
 *.Ruserdata
 *.pdf
+*.png
+*.html
 *.tex
 *.xls
 *.rdb

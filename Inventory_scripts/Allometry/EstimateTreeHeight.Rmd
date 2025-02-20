@@ -6,9 +6,10 @@ echo: true
 code-fold: true
 message: false
 warning: false
-output:
-  html_document:
-    df_print: paged
+format: html
+self-contained: true
+execute: 
+  cache: true
 ---
 
 Arbres communs avec ceux de Claudia -> prendre l'estimation de Claudia de la hauteur de l'arbre et du rayon de la couronne  
@@ -23,7 +24,7 @@ Pour tout le monde :
 **Sauf pour les multistems : il faut prendre DBH de la 1ère tige**  
 
 # Packages
-```{r Setup, include = F}
+```{r Setup}
 library(tidyverse)
 library(data.table)
 library(readr)
@@ -31,13 +32,17 @@ library(BIOMASS)
 ```
 
 # Import cleaned inventory data
-```{r,include = F, message=F}
+```{r, message=F}
 Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv") %>% 
   rename(idTree = IdTree) %>% # 28 711
   rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
   mutate(idTree = as.character(idTree)) %>% 
   filter(ScientificName %in% Understory$ScientificName)
+```
+
+```{r}
+FTH <- read_csv("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_20240125.csv")
 ```
 
 # Import allometry data
@@ -47,7 +52,8 @@ CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/Adults/CanopyConstructorD
   select(idTree, DBH, Height, CrownRadius) %>% 
   rename(TreeHeight = Height) %>% 
   mutate(idTree = as.character(idTree)) %>% 
-  mutate(HeightHow = "CanopyConstructor")
+  mutate(HeightHow = "CanopyConstructor") %>% 
+  filter(DBH >20) # only trees >20 cm besause cc is not less good under the canopy
 
 # Giacomo FTH data
 FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% # 931
@@ -73,7 +79,7 @@ data <- CC %>%
 ```
 
 # Plot H-D data
-```{r, eval=F}
+```{r}
 data %>%
   ggplot() +
   aes(x = DBH, y = TreeHeight, colour=HeightHow) +
@@ -104,7 +110,7 @@ data %>%
 #        width = 20, height = 20, units = "cm", dpi=800, bg="white")
 ```
 # Plot crown dimensions data
-```{r, eval=F}
+```{r}
 data %>%
   mutate(CrownHeight = TreeHeight*0.3) %>% 
   ggplot() +
@@ -116,18 +122,19 @@ data %>%
   geom_point(size = 0.2, aes(TreeHeight - CrownBase, col = "Crown height measured")) +
   geom_smooth(span = 0.75, linewidth = 0.8, aes(TreeHeight - CrownBase, col = "Crown height measured")) +
   # Measured diameter
-  geom_point(size = 0.2, aes(y = CrownRadius*2, color = "Crown diameter")) + 
-  geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, color = "Crown diameter")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
+  geom_point(size = 0.2, aes(y = CrownRadius*2, color = "Crown diameter estimated")) + 
+  geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, color = "Crown diameter estimated")) + # using method = 'gam' and formula 'y ~ s(x, bs = "cs")'
   
   theme_minimal() +
   scale_color_manual(values = c("Crown height estimated" = "#CC79A7",
                                 "Crown height measured" = "#00AFBB",
-                                "Crown diameter"= "#E7B800")) +
-  labs(x ="DBH (cm)", y = "Crown dimension (m)") +
+                                "Crown diameter estimated"= "#E7B800")) +
+  labs(title = "Canopy Constructor & FTH data - crown dimensions", x ="DBH (cm)", y = "Crown dimension (m)") +
   scale_x_continuous(limits = c(0, 150), breaks = seq(0, 150, by=10)) +
-  theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
-        legend.title= element_blank(), legend.text= element_text(size=16),
-        legend.position="bottom")
+  theme(legend.position="bottom",
+        # axis.title= element_text(size=16), axis.text= element_text(size=16), legend.text= element_text(size=16),
+        legend.title= element_blank() 
+  )
 
 # ggsave("CrownDimensions-FTH_Claudiasdata.png", path= "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
@@ -137,39 +144,47 @@ FTH %>%
   ggplot() +
   # Estimated height
   aes(x = DBH, y = CrownHeight) +
-  geom_point(aes(col = "Crown height estimated"), size = 0.2) + 
-  geom_smooth(span = 0.75, linewidth = 0.8, aes(col = "Crown height estimated")) +
+  geom_point(aes(col = "Crown height estimated (TreeHeight*0.3)"), size = 0.2) + 
+  geom_smooth(span = 0.75, linewidth = 0.8, aes(col = "Crown height estimated (TreeHeight*0.3)")) +
   # Measured height
   geom_point(aes(y = TreeHeight - CrownBase, col = "Crown height measured"), size = 0.2) +
   geom_smooth(span = 0.75, linewidth = 0.8, aes(y = TreeHeight - CrownBase, col = "Crown height measured")) +
   # Measured diameter
-  geom_point(size = 0.2, aes(y = CrownRadius*2, col = "Crown diameter")) + 
-  geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, col = "Crown diameter")) + 
+  geom_point(size = 0.2, aes(y = CrownRadius*2, col = "Crown diameter measured")) + 
+  geom_smooth(span = 0.75, linewidth = 0.8, aes(y = CrownRadius*2, col = "Crown diameter measured")) + 
   
   theme_minimal() +
-  scale_color_manual(values = c("Crown height estimated" = "#CC79A7",
+  scale_color_manual(values = c("Crown height estimated (TreeHeight*0.3)" = "#CC79A7",
                                 "Crown height measured" = "#00AFBB",
-                                "Crown diameter"= "#E7B800")) +
-  labs(x ="DBH (cm)", y = "Crown dimension (m)") +
+                                "Crown diameter measured"= "#E7B800")) +
+  labs(title = "FTH data", x ="DBH (cm)", y = "Crown dimension (m)") +
   # scale_x_continuous(limits = c(1, 10), breaks = seq(1, 10, by=1)) +
   #   scale_y_continuous(limits = c(1, 13), breaks = seq(1, 13, by=2)) +
-  theme(axis.title= element_text(size=16), axis.text= element_text(size=16),
-        legend.title= element_blank(), legend.text= element_text(size=16),
-        legend.position="bottom")
+  theme(legend.position="bottom",
+        # axis.title= element_text(size=16), axis.text= element_text(size=16), legend.text= element_text(size=16),
+        legend.title= element_blank() 
+  )
 ```
 
-# Known trees
-## Claudia's trees
+# Estimate tree height
+## Known trees
+### Claudia's trees
 ```{r}
 Adults <- Adults %>% 
-  left_join((CC %>% select(-DBH)), by="idTree") # + TreeHeight, CrownRadius
+  left_join((CC %>% select(-DBH)), by="idTree") %>% # + TreeHeight, CrownRadius
+  left_join((FTH %>% select(-c(DBH, Family, ScientificName))), by=c("idTree"))
+
+Measuredtrees <- Adults %>% filter(!is.na(TreeHeight))  # 445 trees
+range(Measuredtrees$DBHcor) # 1 - 9.7
 ```
 
-## FTH trees
+### FTH trees
 ```{r}
 Understory <- Understory %>% 
   left_join((FTH %>% select(-c(DBH, Family, ScientificName))), by=c("idTree")) # + TreeHeight, CrownRadius # 28 711
 
+Measuredtrees <- Understory %>% filter(!is.na(TreeHeight) & !is.na(CrownRadius))  # 445 trees
+range(Measuredtrees$DBHcor) # 1 - 9.7
 # Understory %>% filter(is.na(TreeHeight) & is.na(CrownRadius))  # 28 043 trees
 # filter(idTree %in% FTH$idTree) # 48 trees not recognised
 
@@ -180,9 +195,9 @@ Understory <- Understory %>%
 # 15_0068: pas de scentificname
 ```
 
-# Other trees
+## Other trees
 
-## Fits and compares height-diameter models (BIOMASS)
+### Fits and compares height-diameter models (BIOMASS)
 toutes espèces confondues
 ```{r}
 ModelsresultGuiana <- modelHD( # fits and compares (optional) height-diameter models
@@ -232,7 +247,7 @@ Understory %>% filter(is.na(TreeHeight))
 ```
 
 ## Plot Tree and crown heights estimation
-```{r, eval=F}
+```{r}
 Adults %>%
   ggplot() +
   aes(x = DBHcor, y = TreeHeight, colour= HeightHow) +
@@ -303,7 +318,7 @@ Understory %>%
 
 ## Crown radius allometry
 ### Plot data - relation CrownRadius-DBH
-```{r, eval=F}
+```{r}
 data %>%
   ggplot() +
   aes(x = DBH) +
@@ -365,7 +380,7 @@ data %>%
 ```
 
 ### Plot data - relation CrownRadius-TreeHeight
-```{r, eval=F}
+```{r}
 data %>%
   ggplot() +
   aes(x = TreeHeight) +
@@ -427,7 +442,7 @@ data %>%
 ```
 
 ### Plot crown base height
-```{r, eval=F}
+```{r}
 FTH %>%
   ggplot() +
   aes(x = DBH, y = CrownBase) +
@@ -531,7 +546,7 @@ FTH <- FTH %>%
 ```
 
 ### Check
-```{r, eval=F}
+```{r}
 FTH %>%
   ggplot() +
   aes(x = DBH, y = CrownRadius) +
@@ -568,7 +583,7 @@ CC %>%
 ```
 
 ### Plot Crown radius estimation
-```{r, eval=F}
+```{r}
 Adults %>%
   ggplot() +
   aes(x = DBHcor, y = CrownRadius, colour= HeightHow) +

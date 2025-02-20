@@ -2,7 +2,12 @@
 title: "Fit_model_realspecies_DBHcat"
 author: "Vincyane Badouard"
 format: html
-editor: visual
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
 ---
 
 # Objectives

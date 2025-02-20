@@ -1,0 +1,258 @@
+---
+title: "Canonical_all_niche_forms"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+**Objectives:**
+Check if the canonical form of the quadratic equation permit to fit different form of light spceies niche (concave, convex, positive or negative linear, flat), when the model force a concave form of probabilities predictions.    
+
+Canonical form: *a* \* (Environment - *O*)\^2 + *gamma*  
+
+*a* = *beta2*\
+*O* = extremum : -*beta1*/(2\**beta2)\
+gamma = alpha*-(*beta1^2^/*(4*\**beta2))
+
+
+```{r, packages, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois - gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+library(tidyverse)
+```
+
+# Prepare data
+
+```{r}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+```
+linear, convex or flat 
+```{r, initial parameters}
+dataParam <- data.frame(
+  type = c("noeffect", "concave", "convexbell", "negsigmoid", "possigmoid"),
+  alpha=0) %>% 
+  mutate(beta1 = case_when(
+    type == "noeffect" ~ 0,
+    type == "concave" ~ 15,
+    type == "convexbell" ~ -15,
+    type == "negsigmoid" ~ -15,
+    type == "possigmoid" ~ 15) 
+  ) %>% 
+  mutate(beta2 = case_when(
+    type == "noeffect" ~ 0,
+    type == "concave" ~ -15,
+    type == "convexbell" ~ 15,
+    type == "negsigmoid" ~ 0,
+    type == "possigmoid" ~ 0) 
+  ) %>% 
+  mutate(a = beta2) %>% # Extremum
+  mutate(O = -beta1/(2*beta2)) %>% # Extremum
+  mutate(gamma = alpha-(beta1^2/(4*beta2)))
+
+dataParamL <- dataParam %>% pivot_longer(cols = c("alpha", "beta1", "beta2", "a", "O", "gamma"),
+                                         names_to = "Parameters",
+                                         values_to = "Initial")
+
+```
+
+```{r, simulate data}
+n <- 500 # abs + pres
+X <- seq(0, 1, length.out = n) # env var
+# Parameters
+a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
+
+data <- list(
+  # data.frame of simulated data
+  noeffect = data.frame(b= 0,
+                        c= 0, 
+                        Environment = X) %>% 
+    # Generate presence-absence data from probability
+    mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                             # logistique transformation (inverse logit)
+                             prob = 1 / (1 + exp(-(a + b * X + c * X^2))))),
+  
+  concave = data.frame(b= 15,
+                       c= -15, 
+                       Environment = X) %>% 
+    # Generate presence-absence data from probability
+    mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                             # logistique transformation (inverse logit)
+                             prob = 1 / (1 + exp(-(a + b * X + c * X^2))))), 
+  
+  
+  convexbell = data.frame(b=-15,
+                          c= 15,
+                          Environment = X) %>% 
+    # Generate presence-absence data from probability
+    mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                             # logistique transformation (inverse logit)
+                             prob = 1 / (1 + exp(-(a + b * X + c * X^2))))), 
+  
+  negsigmoid = data.frame(b= -15,
+                          c= 0,
+                          Environment = X) %>% 
+    # Generate presence-absence data from probability
+    mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                             # logistique transformation (inverse logit)
+                             prob = 1 / (1 + exp(-(a + b * X + c * X^2))))), 
+  
+  possigmoid = data.frame(b= 15,
+                          c= 0,
+                          Environment = X) %>% 
+    # Generate presence-absence data from probability
+    mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
+                             # logistique transformation (inverse logit)
+                             prob = 1 / (1 + exp(-(a + b * X + c * X^2))))) 
+)
+
+# Visualisation of simulated data
+for(x in names(data)){
+  b <- unique(data[[x]]$b)
+  c <- unique(data[[x]]$c)
+  
+  p <- ggplot(data[[x]], aes(x= Environment, y= Presence)) +
+    geom_point() +
+    theme_minimal() +
+    stat_function(fun=function(x) 1 / (1 + exp(-(a + b * x + c * x^2))), col = "blue", linewidth = 1) +
+    labs(title= x, y="Presence (1) / Absence (0)", x="Explicative variable (X)")
+  
+  print(p)
+}
+
+```
+
+# Model
+```{r, Model}
+# quadratic - canonic form
+M_Quadra_can <- stan_model(model_name = "Quadra_can",
+                           paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep=''))
+
+```
+
+```{r, dataM}
+Np <- 200 # number of predictions
+Environmentp <- seq(0, 1, length.out = Np) # environment of predictions
+
+dataM <- lapply(data, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
+                                       Presence = x$Presence,
+                                       Environment = x$Environment,
+                                       # number of predictions
+                                       Np = Np,
+                                       # environment of predictions
+                                       Environmentp = Environmentp)
+)
+
+names(dataM) <- names(data)
+```
+
+```{r, fit}
+fits <- lapply(dataM, function(x) sampling(M_Quadra_can, data = x, chains = 4, iter = 2000))
+names(fits) <- names(dataM)
+```
+-> There were **899 divergent transitions** after warmup.   
+-> The largest **R-hat is 1.63, indicating chains have not mixed**.  
+Running the chains for more iterations may help. Bulk Effective Samples Size (ESS) is too low, indicating **posterior means and medians may be unreliable**.  
+Tail Effective Samples Size (ESS) is too low, indicating **posterior variances and tail quantiles may be unreliable**.  
+
+-> There were 59 divergent transitions after warmup.   
+Avis : The largest R-hat is 1.69, indicating chains have not mixed.  
+Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.  
+Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.  
+-> There were 40 divergent transitions after warmup.  
+-> The largest R-hat is 1.78, indicating chains have not mixed.  
+Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.  
+Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.  
+
+# Chains
+
+```{r, chains}
+lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), 
+                                           pars = c("a", "O", "gamma"),
+                                           np = nuts_params(fits[[x]])) + # np pour afficher la divergeance
+         labs(title = x)
+)
+```
+-> apart from concave and convex, not all chains are mixed  
+
+# Compare initial vs estimated parameters values
+
+```{r, initial vs estimated parameters}
+summaryfits <- lapply(names(fits), function(x) as.data.frame(summary(fits[[x]], 
+                                                                     pars = c("a", "O", "gamma"))$summary[, c("50%", "2.5%", "97.5%")]) %>% 
+                        tibble::rownames_to_column("Parameters")
+)
+names(summaryfits) <- names(fits)
+summaryfits <- bind_rows(summaryfits, .id = "type")
+
+summaryM <- dataParamL %>% 
+  filter(Parameters %in% c("a", "O", "gamma")) %>% 
+  left_join(summaryfits, by = c("type", "Parameters")) %>% 
+  mutate(Difference = round(`50%`-Initial,2))
+
+summaryM
+```
+Parameters estimation:    
+-> noeffect: good  
+-> concave: good  
+-> convex: *a* is underestimated (-5,36), the rest is good.  
+-> negsigmoid: *a* median is overestimated (6.28)  
+
+
+# Parameters link
+
+```{r, Parameters link}
+lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), pars = c("a", "O", "gamma")))
+```
+-> very bad except for concave an convex forms  
+
+# Predictions
+```{r, Predictions}
+dataplot <- lapply(as.list(names(fits)), function(type)
+  data.frame(type = type, 
+             Environmentp = Environmentp,
+             mu = apply(as.matrix(fits[[type]], pars = "p"), 2, median),
+             t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
+                     quantile, probs = c(0.05, 0.95))),
+        Opt = apply(as.matrix(fits[[type]], pars = "O"), 2, median),
+        Opt = t(apply(as.matrix(fits[[type]], pars = "O"), 2,
+                      quantile, probs = c(0.05, 0.95)))
+             
+  )) %>% 
+  bind_rows()
+
+ggplot(dataplot, aes(x = Environmentp)) +
+  # Probas
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
+  facet_wrap(~ type, scales = "fixed", nrow = 1)
+
+ggplot(dataplot, aes(x = Environmentp)) +
+  # Probas
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+  
+  # Optimum
+  geom_vline(aes(xintercept = Opt), color = "#00AFBB", linewidth=1) + # exp to delog
+  geom_vline(aes(xintercept = `Opt.5.`), linetype="dashed") +
+  geom_vline(aes(xintercept = `Opt.95.`), linetype="dashed") +
+  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
+  facet_wrap(~ type, scales = "free_x", nrow = 1)
+
+ggsave("Canonical_all_niche_forms.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 35, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+-> The distributions forms are well predicted   
+-> The median extremum is interpretable is well positioned  
