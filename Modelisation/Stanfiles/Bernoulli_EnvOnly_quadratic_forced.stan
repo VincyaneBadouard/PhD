@@ -4,19 +4,21 @@ data {
   int<lower=1> N ; // obs
   array[N] int<lower=0, upper=1> Presence ;
   vector[N] Environment ;
+  int<lower=1> Np ; // number of predictions 
+  vector[Np] Environmentp ; // environment of predictions
 }
 parameters {
   real alpha ; // intercept
   // A concave is obtain when the beta2 parameter is strictly negative:
   real beta1 ; // sigmoidal slope
-  real<upper=0> beta2 ; // quadratic form
+  real<upper=-10e-10> beta2 ; // quadratic form
 }
 model {
   Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment) ; // Likelihood
 }
 generated quantities {
-  vector<lower=0, upper=1>[N] p ;
-  p = inv_logit(alpha + beta1 * Environment + beta2*Environment.*Environment) ; // predictions
+  vector<lower=0, upper=1>[Np] p ;
+  p = inv_logit(alpha + beta1 * Environmentp + beta2*Environmentp.*Environmentp) ; // predictions
   
   real o ; // Optimum
   o = -beta1/(2*beta2) ; // Optimum

@@ -1,5 +1,5 @@
 ---
-title: "Canonical_all_niche_forms"
+title: "Canonical_forced_all_niche_forms"
 date: "`r Sys.Date()`"
 format: html
 self-contained: true
@@ -11,7 +11,7 @@ execute:
 ---
 
 **Objectives:**
-Check if the canonical form of the quadratic equation permit to fit different form of light spceies niche (concave, convex, positive or negative linear, flat), when the model force a concave form of probabilities predictions.    
+Check if the canonical form of the quadratic equation permit to fit different form of light species niche (concave, convex, positive or negative sigmoid, flat), when the model force a concave form of probabilities predictions.    
 
 Canonical form: *a* \* (Environment - *O*)\^2 + *gamma*  
 
@@ -38,7 +38,7 @@ library(tidyverse)
 ```{r}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 ```
-linear, convex or flat 
+sigmoid, convex or flat 
 ```{r, initial parameters}
 dataParam <- data.frame(
   type = c("noeffect", "concave", "convexbell", "negsigmoid", "possigmoid"),
@@ -158,11 +158,13 @@ names(dataM) <- names(data)
 ```
 
 ```{r, fit}
+# convex <- sampling(M_Quadra_can, data = dataM[["convexbell"]], chains = 4, iter = 2000)
+
 fits <- lapply(dataM, function(x) sampling(M_Quadra_can, data = x, chains = 4, iter = 2000))
 names(fits) <- names(dataM)
 ```
--> **1075 divergent transitions** after warmup.   
--> The largest **R-hat is 1.4, indicating chains have not mixed**.  
+-> **always problems of divergent transitions** after warmup.   
+-> and of **largest R-hat, indicating chains have not mixed**.  
 Running the chains for more iterations may help. Bulk Effective Samples Size (ESS) is too low, indicating **posterior means and medians may be unreliable**.  
 Tail Effective Samples Size (ESS) is too low, indicating **posterior variances and tail quantiles may be unreliable**.  
 
@@ -198,7 +200,7 @@ Parameters estimation:
 -> noeffect: good  
 -> concave: good  
 -> convex: initial *a* (>0) can't be retreived because *a* is forced to be <0 to form a concave.  
--> sigmoid: *a* medians are underestimated but weel <0 as asked by the model.   
+-> sigmoid: *a* medians are underestimated but well <0 as asked by the model.   
 
 
 # Parameters link
@@ -246,4 +248,4 @@ ggsave("Canonical_all_niche_forms.png", path = "D:/Mes Donnees/PhD/Figures/Model
 ```
 
 -> The distributions forms are well predicted, excpect the convexbell  
--> The median extremum is interpretable and well positioned  
+-> The median extremum is interpretable and well positioned, except for the convexbell and the noeffect  

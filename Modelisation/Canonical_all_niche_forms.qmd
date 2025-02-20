@@ -11,7 +11,7 @@ execute:
 ---
 
 **Objectives:**
-Check if the canonical form of the quadratic equation permit to fit different form of light spceies niche (concave, convex, positive or negative linear, flat), when the model force a concave form of probabilities predictions.    
+Check if the canonical form of the quadratic equation permit to fit different form of light spceies niche (concave, convex, positive or negative sigmoid, flat), when the model force a concave form of probabilities predictions.    
 
 Canonical form: *a* \* (Environment - *O*)\^2 + *gamma*  
 
@@ -38,7 +38,7 @@ library(tidyverse)
 ```{r}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 ```
-linear, convex or flat 
+sigmoid, convex or flat 
 ```{r, initial parameters}
 dataParam <- data.frame(
   type = c("noeffect", "concave", "convexbell", "negsigmoid", "possigmoid"),

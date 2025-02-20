@@ -1,5 +1,5 @@
 ---
-title: "Concave_forced_vs_free"
+title: "Concave_forced_vs_free (developped form)"
 format: html
 self-contained: true
 theme: cosmo
@@ -10,7 +10,7 @@ execute:
 ---
 
 **Objectives:**
-We model a species light temperament with a quadratic equation in the developed form, and we want to compare a model forced to a concave form of the presence probabilites estimated, vs a free model, on a simulated linear, convex or flat species niche.
+We model a species light temperament with a quadratic equation in the developed form, and we want to compare a model forced to a concave form of the presence probabilites estimated, vs a free model, on a simulated sigmoid, convex or flat species niche.
 
 
 ```{r, packages, include = F}
@@ -31,7 +31,7 @@ library(tidyverse)
 ```{r}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 ```
-linear, convex or flat 
+sigmoid, convex or flat 
 ```{r}
 dataParam <- data.frame(
   type = c("noeffect", "convexbell", "negsigmoid", "possigmoid"),

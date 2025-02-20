@@ -1,0 +1,140 @@
+---
+title: "H-D allometries"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+echo: true
+code-fold: true
+message: false
+warning: false
+format: html
+self-contained: true
+execute: 
+  cache: true
+---
+
+Objective:  
+Faire igurer sur le même graphe, les allométries H-D établies pour :
+- CC seul
+- CC avec FTH
+- CC> 20cm dbh avec FTH
+
+à chaque fois de 1 cm à 50cm
+
+# Packages
+```{r Setup, include=F}
+library(tidyverse)
+library(readr)
+library(BIOMASS)
+```
+
+# Data
+# Import cleaned inventory data
+```{r, message=F}
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv") %>% 
+  rename(idTree = IdTree) %>% # 28 711
+  rename(SubPlot = Subplot)
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
+  mutate(idTree = as.character(idTree)) %>% 
+  filter(ScientificName %in% Understory$ScientificName)
+```
+
+# Import allometry data
+```{r, include = F}
+# Claudia's CanopyConstructor data (simulations average)
+CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/Adults/CanopyConstructorDataP16.csv") %>% 
+  select(idTree, DBH, Height, CrownRadius) %>% 
+  rename(TreeHeight = Height) %>% 
+  mutate(idTree = as.character(idTree)) %>% 
+  mutate(HeightHow = "CanopyConstructor") 
+
+CCsup20 <- filter(CC, DBH>20)
+
+# Giacomo FTH data
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
+  mutate(HeightHow = "Trigonometry (FTH)") %>% 
+  mutate(DBH = as.numeric(gsub(",", ".", DBH))) %>% 
+  mutate(r2 = as.numeric(r2)) %>% 
+  mutate(r4 = as.numeric(r4)) %>% 
+  mutate(CrownRadius = rowMeans(select(., r1,r2,r3,r4), na.rm=T))  # average of the 4 measurements (north, south, east, west)
+
+dataall <- CC %>%
+  bind_rows(FTH) %>% 
+  filter(!is.na(DBH)) %>% filter(!is.na(TreeHeight))
+
+dataCCsup20 <- CCsup20 %>%
+  bind_rows(FTH) %>% 
+  filter(!is.na(DBH)) %>% filter(!is.na(TreeHeight))
+
+```
+
+### Fits and compares height-diameter models (BIOMASS)
+toutes espèces confondues
+```{r}
+# allodata = dataall
+# Ad = Adults
+# Und = Understory 
+
+fitallometry <- function(allodata, Ad, Und){
+  HDmodelGuiana <- modelHD(
+    D = allodata$DBH,
+    H = allodata$TreeHeight,
+    method = "michaelis", # Compute the H-D model with the lowest RSE.
+    useWeight = F # T = larger trees have a stronger influence during the construction of the model 
+  )
+  HDmodelGuiana$coefficients
+  
+  EstimA <- Ad %>%
+    mutate(TreeHeight = retrieveH(D= DBHcor, model = HDmodelGuiana)$H) %>% 
+    mutate(HeightHow = "Local allometry")
+  
+  EstimU <- Und %>% # 28 711
+    mutate(TreeHeight = retrieveH(D= DBHcor, model = HDmodelGuiana)$H) %>% 
+    mutate(HeightHow = "Local allometry")
+  
+  dataest <- EstimA %>% bind_rows(EstimU)
+  
+  return(dataest)
+}
+```
+
+```{r}
+dataest_CC <- fitallometry(CC, Adults, Understory)
+dataest_all <- fitallometry(dataall, Adults, Understory)
+dataest_CCsup20 <- fitallometry(dataCCsup20, Adults, Understory)
+
+```
+
+# Plot
+```{r}
+ggplot(dataest_all, aes(y = TreeHeight)) +
+  xlim(1,50) +
+  # Measurments
+  geom_point(data= CC, aes(x = DBH), shape = "circle", size = 0.2, col = "#CC79A7", alpha =0.2) +
+  geom_smooth(data= CC, aes(x = DBH), span = 0.75, linewidth = 0.8, col = "#CC79A7", alpha =0.2) +
+  
+  geom_point(data= FTH, aes(x = DBH), shape = "circle", size = 0.2, col = "#0072B2", alpha =0.2) +
+  geom_smooth(data= FTH, aes(x = DBH), span = 0.75, linewidth = 0.8, col = "#0072B2", alpha =0.2) +
+  
+  # Estimation
+  geom_point(data= dataest_CC, aes(x = DBHcor, col = "CC only"), size = 0.2) + 
+  geom_smooth(data= dataest_CC, aes(x = DBHcor, col = "CC only"), span = 0.75, linewidth = 0.8) +
+  
+  geom_point(data= dataest_all, aes(x = DBHcor, col = "CC & FTH"), size = 0.2) + 
+  geom_smooth(data= dataest_all, aes(x = DBHcor, col = "CC & FTH"), span = 0.75, linewidth = 0.8) +
+  
+  geom_point(data= dataest_CCsup20, aes(x = DBHcor, col = "CC>20 & FTH"), size = 0.2) + 
+  geom_smooth(data= dataest_CCsup20, aes(x = DBHcor, col = "CC>20 & FTH"), span = 0.75, linewidth = 0.8) +
+  
+  
+  theme_minimal() +
+  scale_color_manual(values = c("CC only" = "#FC4E07",
+                                "CC & FTH"= "#00AFBB", 
+                                "CC>20 & FTH"= "#E7B800")) +
+  labs(x ="DBH (cm)", y = "Tree height (m)", colour = "Method") +
+  theme(legend.position="bottom"
+        # axis.title= element_text(size=16), axis.text= element_text(size=16),
+        # legend.title= element_text(size=16), legend.text= element_text(size=16)
+  )
+
+```
+

@@ -1,0 +1,76 @@
+---
+title: "Retreive_FTH_trees_idTree"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+echo: true
+code-fold: true
+message: false
+warning: false
+format: html
+self-contained: true
+execute: 
+  cache: true
+---
+
+**Objective**:  
+Catch the ids (idTree, Guyafor.nb) informations of the trees measured by the FTH
+
+# Packages
+```{r Setup, include=F}
+library(tidyverse)
+library(readr)
+```
+
+# FTH data
+```{r}
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% # 931
+  # read_csv("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_20240125.csv") %>% 
+  # select(Genus, species, DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
+  unite(col = "ScientificName", c("Genus", "species"),
+        sep = "_", na.rm = TRUE, remove = T) %>%
+  rename(idTree = TreeID, TreeHeight = Htot, CrownBase = Hbranch) %>% 
+  mutate(HeightHow = "Trigonometry (FTH)") %>% 
+  mutate(DBH = as.numeric(gsub(",", ".", DBH))) %>% 
+  mutate(r2 = as.numeric(r2)) %>% 
+  mutate(r4 = as.numeric(r4)) %>% 
+  mutate(CrownRadius = rowMeans(select(., r1,r2,r3,r4), na.rm=T))  # average of the 4 measurements (north, south, east, west)
+
+```
+
+# Import raw ALT inventory data
+```{r, message=F}
+Understory <- 
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20250107.csv") %>% # last raw data
+  unique() %>% 
+  filter(Stem.nb==1) %>% 
+  rename(idTree = IdTree) %>% 
+  select(idTree, Guyafor.nb, Stem.nb, Diameter, Comments, Comment) %>% 
+  separate(col = "Guyafor.nb", sep = "_", into = c("TreeFieldNum", "SubPlot"), remove = F)
+
+stems <- Understory %>% filter(!is.na(Guyafor.nb) & Diameter<10)
+bigwithoutGuyafornb <- Understory %>% filter(is.na(Guyafor.nb) & Diameter>15) # max dbh 229.0
+
+```
+
+# Join
+```{r}
+test <- FTH %>% 
+  left_join(Understory, by="idTree") %>% # 931
+  mutate(D_diff = abs(DBH-Diameter))
+```
+
+# Check that the informations are unique and the join is good
+```{r}
+test[duplicated(test$idTree), ] 
+test %>% filter(D_diff>5)
+```
+
+```{r}
+FTH_idTree <- test %>% select(-c(D_diff, Stem.nb, Diameter, Comments, Comment))
+```
+
+# Write
+```{r}
+write.csv(FTH_idTree, "~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv")
+```
+

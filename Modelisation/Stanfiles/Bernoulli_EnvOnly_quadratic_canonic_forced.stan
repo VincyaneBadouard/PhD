@@ -8,14 +8,16 @@ data {
   vector[Np] Environmentp ; // environment of predictions
 }
 parameters {
-  real<upper=-10e-10> a ; // beta2 forced for a concave form
+  real<upper=0> a ; // beta2 forced for a concave form (-10e-10)
   real O ; // extremum : -beta1/(2*beta2)
   real gamma ; // alpha-(beta1^2/4*beta2)
 }
 model {
   // Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment); // developped Likelihood
   Presence ~ bernoulli_logit(a * (Environment - O)^2 + gamma); // canonic Likelihood
-  
+  // Priors
+  a ~ cauchy(0,1); 
+  O ~ normal(0.5, 1);
 }
 generated quantities {
   vector<lower=0, upper=1>[Np] p ;
