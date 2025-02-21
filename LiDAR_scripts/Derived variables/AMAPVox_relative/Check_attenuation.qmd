@@ -1,0 +1,97 @@
+---
+title: "Check_attenuation"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+Objective:  
+check if the attenuation is <2 before and after filling the empty voxels.  
+
+HLE : hierarchical local estimation  
+HLE = bsIntercepted/weightedFreepathLength (default attenuation)  
+
+```{r, include=F}
+library(AMAPVox)
+library(ggplot2)
+```
+
+# Load voxel spaces
+```{r, include=F}
+VX_beforefill <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_HighAlt_4ha_buffer_intensity1m.vox")
+
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity1m.vox")
+```
+
+# Extract x,y,z coordinates
+```{r}
+VX_beforefill@data[, c("x", "y", "z") := getPosition(VX_beforefill)[, .(x, y, z)]]
+VX@data[, c("x", "y", "z") := getPosition(VX)[, .(x, y, z)]]
+
+range(VX_beforefill@data$z)  # 0.0000 102.6534
+
+VX_beforefill <- VX_beforefill@data
+VX <- VX@data
+```
+
+# Check attenuation range
+```{r}
+names(VX_beforefill)
+# "attenuation_FPL_biasedMLE"       "attenuation_FPL_biasCorrection" 
+# "attenuation_FPL_unbiasedMLE"     "weightedEffectiveFreepathLength"
+#  "weightedFreepathLength"          "attenuation_PPL_MLE"  "bsIntercepted"
+
+VX_beforefill$HLE <- VX_beforefill$bsIntercepted/VX_beforefill$weightedFreepathLength
+
+paste("HLE before filling empty vxl:",min(na.omit(VX_beforefill$HLE)), "-", round(max(na.omit(VX_beforefill$HLE)))) # 0.00 74838.36
+hist(VX_beforefill$HLE)
+
+paste("attenuation_FPL_unbiasedMLE:", round(min(na.omit(VX_beforefill$attenuation_FPL_unbiasedMLE))), "-", round(max(na.omit(VX_beforefill$attenuation_FPL_unbiasedMLE)))) # -21 342
+
+paste("attenuation_FPL_biasCorrection:",min(na.omit(VX_beforefill$attenuation_FPL_biasCorrection)), "-", round(max(na.omit(VX_beforefill$attenuation_FPL_biasCorrection)))) # 0 76298
+
+paste("attenuation_PPL_MLE:",min(na.omit(VX_beforefill$attenuation_PPL_MLE)), "-", round(max(na.omit(VX_beforefill$attenuation_PPL_MLE)))) # 0 20
+
+paste(round(nrow(VX_beforefill[HLE>2,])/nrow(VX_beforefill)*100, 1), "% of HLE >2 before filling empty vxl") # 0.8 % HLE >2
+
+
+paste("HLE after filling empty vxl:",min(na.omit(VX$HLE)), "-", round(max(na.omit(VX$HLE)))) # 0 562
+
+hist(VX$HLE)
+paste(round(nrow(VX[HLE>2,])/nrow(VX)*100, 1), "% of HLE >2 after filling empty vxl") # 0.4 % HLE >2
+```
+# Plot HLE on the height vertical gradient
+```{r}
+ggplot(VX_beforefill, aes(y=as.factor(as.integer(z)), x=HLE)) +
+  theme_minimal() +
+  geom_boxplot() +
+  scale_y_discrete(limits = as.character(c(4, seq(5,60, by=5)))) +
+  labs(title= "Before filling empty vxls", y="Z (m)")
+
+ggplot(VX_beforefill, aes(y=as.factor(as.integer(z)), x=HLE)) +
+  theme_minimal() +
+  geom_boxplot() +
+  scale_x_continuous(trans="log", labels = scales::comma) +
+  scale_y_discrete(limits = as.character(c(4, seq(5,60, by=5)))) +
+  labs(title= "Before filling empty vxls - log x axis", y="Z (m)")
+
+ggplot(VX, aes(y=as.factor(as.integer(z)), x=HLE)) +
+  theme_minimal() +
+  geom_boxplot() +
+  scale_y_discrete(limits = as.character(c(4, seq(5,60, by=5)))) +
+  labs(title= "After filling empty vxls", y="Z (m)")
+
+ggplot(VX, aes(y=as.factor(as.integer(z)), x=HLE)) +
+  theme_minimal() +
+  geom_boxplot() +
+  scale_x_continuous(trans="log", labels = scales::comma) +
+  scale_y_discrete(limits = as.character(c(4, seq(5,60, by=5)))) +
+  labs(title= "After filling empty vxls - log x axis", y="Z (m)")
+
+```
+
