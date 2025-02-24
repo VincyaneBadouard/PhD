@@ -1,0 +1,148 @@
+---
+title: "Attribute_strategy"
+format: html
+editor: source
+---
+
+Methode Giacomo :   
+Espèces de sous-bois = toutes les espèces dont 95% des individus ont un DBH inférieur à 15cm sur l'ensemble de la base de données Guyafor.  
+Espèce de canopée = toutes les espèces qui ont des individus >= 20 cm DBH.  
+
+"Néanmoins, il existe (au moins) une autre façon de classer les espèces en sous-bois ou en canopée. Nous en avons discuté avec Stuart Davies et Geraldine. Cette méthode calcule avec une estimation bayésienne le taux de croissance et la mortalité de chaque espèce et crée ensuite un groupe comprenant également la hauteur maximale."  
+
+J'ai pris toute la base de donnée Guyafor (1968-2024) pour avoir le DBHmax de l'espèce et intégré "toutes les espèces qui ont des individus >= 20 cm DBH -> espèce de canopée"
+Et pour calculer le quantile à 95% j'ai pris la dernière mesure de chaque arbre dans tout Guyafor et considéré que les inventaires à partir de 2020 (pcq les inventaires de chaque site n'est pas fait au même moment)
+tout ça sans ALT du coup.
+Et pour les espèces de ALT qui n'étaient pas dans Guyafor , j'ai calculé leur DBHmax et leur Q95% à l'échelle de ALT uniquement.  
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(readr)
+library(sf)
+```
+
+```{r,include = F, message=F}
+Understory <- 
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20250107.csv") # last raw data
+
+SpeciesALT <- unique(Understory$ScientificName) # 688
+SpeciesALT <- SpeciesALT[!is.na(SpeciesALT) & !grepl("indet", SpeciesALT) & !grepl("Indet", SpeciesALT) & !grepl("aceae", SpeciesALT) & !(grepl("_sp", SpeciesALT) & grepl("\\.", SpeciesALT)) & !(grepl("_aff", SpeciesALT) & grepl("\\.", SpeciesALT)) & !grepl("_cf_", SpeciesALT) 
+]
+
+# Guyafor <- vroom::vroom("~/PhD/Inventories/Data/Adults/AllGuyafor.csv") %>% 
+#   filter(!(Plot=="16" & SubPlot %in% c(13,14,15,18,19,20,23,24,25))) %>% # without ALT
+#   select(Genus, Species, CircCorr, Circ) %>% 
+#   unite(col = "ScientificName", c("Genus", "Species"),
+#         sep = "_", na.rm = TRUE, remove = F) %>%
+#   filter(!grepl("indet", ScientificName)) %>%
+#   filter(!grepl("Indet", ScientificName)) %>%
+#   mutate(Diameter = ifelse(!is.na(CircCorr), CircCorr/pi, Circ/pi)) %>% 
+#   select(ScientificName, Diameter) %>% 
+#   filter(ScientificName %in% Species)
+# 
+# data <- bind_rows(Understory, Guyafor)
+# nrow(data) == (nrow(Understory) + nrow(Guyafor))
+# rm(Guyafor)
+```
+
+
+```{r}
+Guyafor <- vroom::vroom("~/PhD/Inventories/Data/Adults/AllGuyafor.csv")
+
+data <- Guyafor %>% 
+  select(Forest, CensusYear, idTree, Genus, Species, CircCorr, Circ) %>% 
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  filter(!grepl("indet", ScientificName)) %>%
+  filter(!grepl("Indet", ScientificName)) %>%
+  
+  # Only ALT species
+  filter(ScientificName %in% SpeciesALT) %>% 
+  
+  mutate(Diameter = ifelse(!is.na(CircCorr), CircCorr/pi, Circ/pi)) %>% 
+  
+  # DBHmax on all Guayfor (1968-2024)
+  group_by(ScientificName) %>% 
+  mutate(DBHmax = max(Diameter, na.rm=T)) %>% 
+  ungroup() %>% 
+  
+  # Take the last measurement of each tree
+  group_by(idTree) %>% 
+  mutate(maxYear = max(CensusYear, na.rm = T)) %>% 
+  ungroup() %>% 
+  filter(CensusYear == maxYear) %>%
+  filter(CensusYear>=2020) %>%
+  select(Forest, CensusYear, maxYear, ScientificName, Diameter) 
+
+# sort(unique(data$CensusYear))
+
+```
+
+```{r, include=F}
+strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", # Giacomo data (437)
+                       delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
+  select(genre_esp, Strategy) %>%
+  rename(ScientificName = genre_esp) %>%
+  mutate(Strategy = ifelse(Strategy== "#N/A", NA, Strategy)) %>%
+  mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
+  unique()
+unique(strategy$Strategy)
+
+```
+
+
+```{r}
+test <- data %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  mutate(Q95 = quantile(Diameter, 0.95, na.rm=T)) %>% 
+  mutate(DBHmax = max(Diameter, na.rm=T)) %>% 
+  mutate(Strategy = ifelse(Q95 <15, "Understory species", "Canopy species")) %>% 
+  mutate(Strategy = ifelse(DBHmax>=20, "Canopy species", Strategy)) %>% 
+  ungroup() %>% 
+  select(ScientificName, N, Q95, DBHmax, Strategy) %>% 
+  unique() %>% 
+  mutate(Origine = "Guyafor") # 688 ; 1377 with guyafor
+
+# Species in ALT and not in Guyafor
+ALTonlysp <- Understory %>% 
+  filter(!is.na(Diameter)) %>% 
+  filter(!ScientificName %in% test$ScientificName & (ScientificName %in% SpeciesALT)) %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  filter(N>=30) %>%
+  mutate(Q95 = quantile(Diameter, 0.95, na.rm=T)) %>% 
+  mutate(DBHmax = max(Diameter, na.rm=T)) %>% 
+  mutate(Strategy = ifelse(Q95 <15, "Understory species", "Canopy species")) %>% 
+  mutate(Strategy = ifelse(DBHmax>=20, "Canopy species", Strategy)) %>% 
+  ungroup() %>% 
+  select(ScientificName, N, Q95, DBHmax, Strategy) %>% 
+  unique() %>% # 214
+  mutate(Origine = "ALTonly")
+
+test <- bind_rows(test, ALTonlysp)
+
+```
+
+# Mismatch
+```{r}
+check <- test %>% left_join(strategy, by="ScientificName", suffix = c("_VB", "_GS")) %>% 
+    mutate(Strategy_VB = ifelse(Strategy_GS=="liane", Strategy_GS, Strategy_VB)) 
+
+write.csv(check, "~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv")
+
+
+mismatch <- test %>% left_join(strategy, by="ScientificName", suffix = c("_VB", "_GS")) %>% 
+  filter(Strategy_VB != Strategy_GS | is.na(Strategy_GS)) %>% # 12 non-NA
+  arrange(N) %>% 
+  filter(N>=30)
+
+mismatch
+
+write.csv(mismatch, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Strategy_mismatch.csv")
+```
+
+# Modulo des sp qui ne respectent pas cette méthode ?
+
