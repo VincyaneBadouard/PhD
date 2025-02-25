@@ -177,6 +177,13 @@ length(Data$Comment[grepl("Duplicated row", Data$Comment)])/nrow(Data)*100 # 0.3
 
 # Bota
 ```{r}
+# Endilcheria multiflora est une erreur d'orthographe d'Endlicheria melinonii 
+# Maytenus_oblongata -> Monteverdia_oblongata
+Data <- Data %>% 
+  mutate(ScientificName = recode(ScientificName,
+                                 "Endilcheria_multiflora" = "Endlicheria_melinonii",
+                                 "Maytenus_oblongata" = "Monteverdia_oblongata"))
+
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
 Data <- BotanicalCorrection(Data, DetectOnly = T)
 
@@ -185,6 +192,7 @@ length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nr
 test <- Data %>%
   filter(grepl("Different botanical informations", Comment)) %>% # 16
   select(Comment, IdTree, IdStem, Guyafor.nb, Diameter, Family, Genus, Species, ScientificName, Code_problem)
+
 
 # Check the scientific names list
 sort(unique(data$ScientificName))

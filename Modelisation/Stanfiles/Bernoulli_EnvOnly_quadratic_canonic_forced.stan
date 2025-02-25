@@ -17,7 +17,7 @@ model {
   Presence ~ bernoulli_logit(a * (Environment - O)^2 + gamma); // canonic Likelihood
   // Priors
   a ~ cauchy(0,1); 
-  O ~ normal(0.5, 1);
+  O ~ normal(0.5, 1); // O ~ uniform(0.5, 1);
 }
 generated quantities {
   vector<lower=0, upper=1>[Np] p ;

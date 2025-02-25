@@ -1,0 +1,243 @@
+---
+title: "Compare_FTH_and_Chave"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+Objective:  
+
+
+# Packages
+```{r Setup, include=F}
+library(tidyverse)
+library(readr)
+library(BIOMASS)
+```
+
+# Import allometry data
+```{r, include = F}
+# Giacomo FTH data
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
+  mutate(HeightHow = "Trigonometry (FTH)") %>% 
+  mutate(DBH = as.numeric(gsub(",", ".", DBH))) %>% 
+  mutate(r2 = as.numeric(r2)) %>% 
+  mutate(r4 = as.numeric(r4)) %>% 
+  mutate(CrownRadius = rowMeans(select(., r1,r2,r3,r4), na.rm=T))  # average of the 4 measurements (north, south, east, west)
+
+# Claudia's CanopyConstructor data (simulations average)
+CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/Adults/CanopyConstructorDataP16.csv") %>% 
+  select(idTree, DBH, Height, CrownRadius) %>% 
+  rename(TreeHeight = Height) %>% 
+  mutate(idTree = as.character(idTree)) %>% 
+  mutate(HeightHow = "CanopyConstructor") 
+
+```
+
+
+# CC model 
+```{r, CC model}
+CC_allometry <- modelHD(
+  D = CC$DBH,
+  H = CC$TreeHeight,
+  method = "michaelis", # Compute the H-D model with the lowest RSE.
+  useWeight = F # T = larger trees have a stronger influence during the construction of the model 
+)
+CC_allometry$coefficients
+```
+
+# The Pantropical diameter–height allometric model (Chave et al. (2014))
+```{r}
+# E is a measure of environmental stress. Indeed, E increases with temperature seasonality, which relates to the amount of time a plant is exposed to stressful temperature
+# TS (temperature seasonality)
+# CWD (climatic water deﬁcit)P
+# PS (precipitation seasonality)
+# E = (0.178*TS -0.938*CWD -6.61*PS)*10^(-3)
+lat <- 5.25 
+long <- -52.9
+coord <- cbind(long, lat) 
+
+E <- computeE(coord) # -0.1091637
+# ln(H) = 0.893 -E + 0.760*ln(D) -0.0340*ln(D)^2
+```
+
+```{r}
+data <- FTH %>%
+  # Pantropical Chave et al. (2014)
+  mutate(TreeHeight_Chave = exp(0.893 -E + 0.760*log(DBH) -0.0340*(log(DBH))^2)) %>% 
+  
+  # CC
+  mutate(TreeHeight_CC = retrieveH(D= DBH, model = CC_allometry)$H) 
+
+```
+
+# Plot
+```{r, warning=F}
+ggplot(data, aes(x = DBH)) +
+  xlim(1,20) +
+  
+  # Pantropical Chave et al. (2014)
+  geom_point(aes(y = TreeHeight_Chave, col = "Chave"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_Chave, col = "Chave"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  # CC
+  geom_point(aes(y = TreeHeight_CC, col = "CC"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_CC, col = "CC"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  # Measurments
+  geom_point(aes(y = TreeHeight, col = "FTH"), size = 0.5, alpha =0.5) +
+  geom_smooth(aes(y = TreeHeight, col = "FTH"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  theme_minimal() +
+  scale_color_manual(values = c("Pantropical" = "#FC4E07",
+                                "GuianaShield" = "#E7B800",
+                                "Chave" = "#009E73",
+                                "CC" = "#CC79A7",
+                                "FTH"= "black")) +
+  labs(x ="DBH (cm)", y = "Tree height (m)") +
+  theme(legend.position="bottom"
+        # axis.title= element_text(size=16), axis.text= element_text(size=16),
+        # legend.title= element_text(size=16), legend.text= element_text(size=16)
+  )
+
+```
+
+# Create a composite allometry 
+Create a composite allometry:  
+- with 100% FTH data until 5cm  
+- FTH mix with Chave until 10cm  
+- Chave mix with CC until 20cm  
+- CC up to 20cm  
+```{r}
+samplewithproportion <- function(DBH, a, b){
+  
+  n <- length(DBH)  
+  
+  # Définition des classes de DBH et des pondérations correspondantes
+  breaks <- seq((min(DBH)), round(max(DBH)+1))  # Classes de DBH
+  weights <- seq(0.1, 1, length.out = length(breaks))  # Proportion de b par classe
+  
+  # Attribution des classes de DBH
+  DBH_classes <- cut(DBH, breaks = breaks, include.lowest = TRUE, labels = FALSE)
+  
+  # Initialisation de c avec a
+  c <- a  
+  
+  # Parcours des classes pour appliquer la pondération
+  for (i in 1:length(breaks)) {
+    indices <- which(DBH_classes == i)  # Indices des éléments dans la classe
+    nb_total <- length(indices)  # Nombre total d'éléments dans la classe
+    nb_b <- round(weights[i] * nb_total)  # Nombre d'éléments à remplacer par b
+    
+    if (nb_b > 0 & nb_total > 0) {
+      indices_b <- sample(indices, size = nb_b)  # Sélection aléatoire des valeurs à remplacer
+      c[indices_b] <- b[indices_b]  # Remplacement des valeurs
+    }
+  }
+  
+  # Création du data frame final
+  resultats_df <- data.frame(DBH, Classe_DBH = DBH_classes, Proportion_b = weights[DBH_classes], c=c, a=a, b=b)
+  
+  # Affichage des résultats
+  return(resultats_df)
+  
+}
+```
+
+```{r}
+data <- data %>% 
+  rename(TreeHeight_FTH = TreeHeight) %>% 
+  select(DBH, TreeHeight_FTH, TreeHeight_Chave, TreeHeight_CC)
+
+cinq <- data %>% 
+  filter(DBH<5) %>% 
+  mutate(TreeHeight = TreeHeight_FTH)
+
+vingt <- data %>% 
+  filter(DBH>20) %>% 
+  mutate(TreeHeight = TreeHeight_CC)
+
+cinq10 <- data %>% 
+  filter(DBH>=5 & DBH<10)
+
+dix20 <- data %>% 
+  filter(DBH>=10 & DBH<=20)
+
+cinq10 <- samplewithproportion(cinq10$DBH, cinq10$TreeHeight_FTH, cinq10$TreeHeight_Chave) %>% 
+  rename(TreeHeight=c, TreeHeight_FTH=a, TreeHeight_Chave=b) %>% 
+  select(-Classe_DBH)
+
+dix20 <- samplewithproportion(dix20$DBH, dix20$TreeHeight_Chave, dix20$TreeHeight_CC) %>% 
+  rename(TreeHeight=c, TreeHeight_Chave=a, TreeHeight_CC=b) %>% 
+  select(-Classe_DBH)
+
+composite <- bind_rows(cinq, cinq10, dix20, vingt)
+
+# data[!data$DBH %in% composite$DBH,]
+```
+
+## Fit allometry on this data
+```{r, composite model}
+composite_allometry <- modelHD(
+  D = composite$DBH,
+  H = composite$TreeHeight,
+  method = "michaelis", # Compute the H-D model with the lowest RSE.
+  useWeight = F # T = larger trees have a stronger influence during the construction of the model 
+)
+composite_allometry$coefficients
+```
+
+```{r}
+data <- FTH %>%
+  # Pantropical Chave et al. (2014)
+  mutate(TreeHeight_Chave = exp(0.893 -E + 0.760*log(DBH) -0.0340*(log(DBH))^2)) %>% 
+  
+  # CC
+  mutate(TreeHeight_CC = retrieveH(D= DBH, model = CC_allometry)$H) %>% 
+  
+  # Composite allometry
+  mutate(TreeHeight_composite = retrieveH(D= DBH, model = composite_allometry)$H) 
+
+
+```
+
+# Plot
+```{r, warning=F}
+ggplot(data, aes(x = DBH)) +
+  # xlim(1,20) +
+  
+  # Pantropical Chave et al. (2014)
+  geom_point(aes(y = TreeHeight_Chave, col = "Chave"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_Chave, col = "Chave"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  # CC
+  geom_point(aes(y = TreeHeight_CC, col = "CC"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_CC, col = "CC"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+    # Composite allometry
+  geom_point(aes(y = TreeHeight_composite, col = "Composite allometry"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_composite, col = "Composite allometry"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  # Measurements
+  geom_point(aes(y = TreeHeight, col = "FTH"), size = 0.5, alpha =0.5) +
+  geom_smooth(aes(y = TreeHeight, col = "FTH"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  theme_minimal() +
+  scale_color_manual(values = c("Pantropical" = "#FC4E07",
+                                "GuianaShield" = "#E7B800",
+                                "Chave" = "#009E73",
+                                "CC" = "#CC79A7",
+                                "Composite allometry" = "red",
+                                "FTH"= "black")) +
+  labs(x ="DBH (cm)", y = "Tree height (m)") +
+  theme(legend.position="bottom"
+        # axis.title= element_text(size=16), axis.text= element_text(size=16),
+        # legend.title= element_text(size=16), legend.text= element_text(size=16)
+  )
+
+```

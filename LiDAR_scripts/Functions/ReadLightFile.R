@@ -12,7 +12,7 @@
 #' path_tree <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/ByTree/Tree_Light/P16_2023_25ha_HighAlt_Light_intensity1m_template.txt"
 #' Light_Tree <- ReadLightFile(path_tree, skiplines=9)
 #' 
-ReadLightFile <- function(path, skiplines=10){
+ReadLightFile <- function(path, skiplines=9){
   # Light <- fread(path, skip=skiplines) # skip the 10 1st lines of header
   
   Light <- setDT(read_delim(path, 

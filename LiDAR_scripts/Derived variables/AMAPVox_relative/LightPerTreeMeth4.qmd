@@ -1,0 +1,111 @@
+---
+title: "Check_attenuation"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+Objective:  
+- voxélisation à 1m de résolution
+- calculer la lumière tous les 1m en x,y,z sur 25ha avec 46 orientations
+- enlever les colonnes dont on a pas besoin (data.table)
+- arbres hauteur x,y,z → quel voxel, 8 voisins (en ijk)
+-
+- essayer d’abord sur 1ha 
+- plus coûteux en calcul et temps mais ce sera fait si on veut ajuster la méthode
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(lidR)
+library(readr)
+library(data.table)
+library(AMAPVox)
+library(terra)
+library(sf)
+```
+
+# Read light file
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
+
+# P16_2023_1ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 10201 obs
+# P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 491 401 obs
+
+Light <- ReadLightFile(path, skiplines=9)
+
+setnames(Light, "Period 1", "Transmittance")
+
+range(Light$Transmittance) # 0.000206811 - 1
+any(is.na(Light$Transmittance))
+
+```
+
+# Trees coordinates
+All the cirad trees on 25ha + ALT on 9 ha
+```{r}
+warning("put 25ha complete data")
+data <- read.csv(
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv" # 28 049 rows
+  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
+) %>% 
+  # rename(SubPlot = Subplot) %>%
+  filter(SubPlot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 10 315 rows
+  select(idTree, Xutm, Yutm, TreeHeight, CrownHeight, CrownRadius)
+
+idTrees <- unique(data$idTree)
+data[!is.na(data$idTree) & duplicated(data$idTree),] 
+
+# IDtrees <- data %>% select(idTree)
+```
+
+## Extract Zutm for each tree
+```{r}
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc") 
+crs(MNT) <- crs("EPSG:2972")
+
+datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
+datasf <- st_set_crs(datasf, st_crs(MNT)) 
+
+alt <- extract(MNT, datasf) %>% # extract z
+  rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
+
+data <- data %>% cbind(alt) %>% setDT()
+```
+
+## Coordinates in local positions (use VOP)
+```{r}
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_25ha.txt"))
+
+matrix <- as.matrix(data[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
+names(datalocal) <- c("x","y","z")
+datalocal <- datalocal %>% cbind(data[,.(idTree, Xutm,Yutm,Zutm, TreeHeight)]) %>% setDT()
+```
+
+## Coordinates 1m above each tree
+```{r}
+datalocal[,z := z+TreeHeight+1]
+```
+
+# Light per tree - 8 neighboors
+```{r}
+# Get neighbors in immediate neighborhood (27 nearest voxels including target)
+
+neighbors <- RANN::nn2(data = getPosition(vxsp, vx.pool), # Nearest Neighbor Search
+                       query = getPosition(vxsp, vx.na),
+                       k = 27, # k = 27 : 3 voisins
+                       searchtype = "radius", radius = radius)
+
+neighbors <- neighbors$nn.idx # keep list of indices only
+```
+
