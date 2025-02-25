@@ -1,0 +1,212 @@
+---
+title: "Compare_FTH_and_Chave"
+format: html
+editor: source
+---
+
+Objective:  
+
+
+# Packages
+```{r Setup, include=F}
+library(tidyverse)
+library(readr)
+library(BIOMASS)
+```
+
+# Import allometry data
+```{r, include = F}
+# Giacomo FTH data
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
+  mutate(HeightHow = "Trigonometry (FTH)") %>% 
+  mutate(DBH = as.numeric(gsub(",", ".", DBH))) %>% 
+  mutate(r2 = as.numeric(r2)) %>% 
+  mutate(r4 = as.numeric(r4)) %>% 
+  mutate(CrownRadius = rowMeans(select(., r1,r2,r3,r4), na.rm=T))  # average of the 4 measurements (north, south, east, west)
+
+# Claudia's CanopyConstructor data (simulations average)
+CC <- read_csv("~/PhD/Inventories/Data/Height-Diameter/Adults/CanopyConstructorDataP16.csv") %>% 
+  select(idTree, DBH, Height, CrownRadius) %>% 
+  rename(TreeHeight = Height) %>% 
+  mutate(idTree = as.character(idTree)) %>% 
+  mutate(HeightHow = "CanopyConstructor") 
+
+```
+
+
+# CC model 
+```{r, CC model}
+HDmodelGuiana <- modelHD(
+  D = CC$DBH,
+  H = CC$TreeHeight,
+  method = "michaelis", # Compute the H-D model with the lowest RSE.
+  useWeight = F # T = larger trees have a stronger influence during the construction of the model 
+)
+HDmodelGuiana$coefficients
+```
+
+# The Pantropical diameter–height allometric model (Chave et al. (2014))
+```{r}
+# E is a measure of environmental stress. Indeed, E increases with temperature seasonality, which relates to the amount of time a plant is exposed to stressful temperature
+# TS (temperature seasonality)
+# CWD (climatic water deﬁcit)P
+# PS (precipitation seasonality)
+# E = (0.178*TS -0.938*CWD -6.61*PS)*10^(-3)
+lat <- 5.25 
+long <- -52.9
+coord <- cbind(long, lat) 
+
+E <- computeE(coord) # -0.1091637
+# ln(H) = 0.893 -E + 0.760*ln(D) -0.0340*ln(D)^2
+```
+
+```{r}
+data <- FTH %>%
+  # Pantropical Chave et al. (2014)
+  mutate(TreeHeight_Chave = exp(0.893 -E + 0.760*log(DBH) -0.0340*(log(DBH))^2)) %>% 
+  
+  # CC
+  mutate(TreeHeight_CC = retrieveH(D= DBH, model = HDmodelGuiana)$H) 
+
+```
+
+# Plot
+```{r}
+ggplot(data, aes(x = DBH)) +
+  xlim(1,20) +
+  
+  # Pantropical Chave et al. (2014)
+  geom_point(aes(y = TreeHeight_Chave, col = "Chave"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_Chave, col = "Chave"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  # CC
+  geom_point(aes(y = TreeHeight_CC, col = "CC"), size = 0.2, alpha =0.2) +
+  geom_smooth(aes(y = TreeHeight_CC, col = "CC"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  # Measurments
+  geom_point(aes(y = TreeHeight, col = "FTH"), size = 0.5, alpha =0.5) +
+  geom_smooth(aes(y = TreeHeight, col = "FTH"), span = 0.75, linewidth = 0.8, alpha =0.2) +
+  
+  theme_minimal() +
+  scale_color_manual(values = c("Pantropical" = "#FC4E07",
+                                "GuianaShield" = "#E7B800",
+                                "Chave" = "#009E73",
+                                "CC" = "#CC79A7",
+                                "FTH"= "black")) +
+  labs(x ="DBH (cm)", y = "Tree height (m)") +
+  theme(legend.position="bottom"
+        # axis.title= element_text(size=16), axis.text= element_text(size=16),
+        # legend.title= element_text(size=16), legend.text= element_text(size=16)
+  )
+
+```
+
+# Create a composite allometry 
+Create a composite allometry:  
+- with 100% FTH data until 5cm  
+- FTH mix with Chave until 10cm  
+- Chave mix with CC until 20cm  
+- CC up to 20cm  
+```{r}
+data <- data %>% 
+  rename(TreeHeight_FTH = TreeHeight) %>% 
+  select(DBH, TreeHeight_FTH, TreeHeight_Chave, TreeHeight_CC) %>% 
+  mutate(TreeHeight = ifelse(DBH<5, TreeHeight_FTH, NA)) %>% 
+  mutate(TreeHeight = ifelse(DBH>20, TreeHeight_CC, TreeHeight)) 
+
+sum(is.na(check$TreeHeight)) # 219
+
+cinq <- data %>% 
+  filter(DBH<5)
+
+cinq10 <- data %>% 
+  filter(DBH>=5 & DBH<10)
+
+cinq10$TreeHeight_FTH
+cinq10$TreeHeight_Chave
+
+```
+
+```{r}
+n <- 10  # Nombre d'observations
+a <- runif(n, min = 10, max = 20)  # Valeurs de a entre 10 et 20
+b <- runif(n, min = 30, max = 40)  # Valeurs de b entre 30 et 40
+
+samplewithproportion <- function(n, a, b, c){
+
+# Génération des proportions de b attribuées à c (de 0% à 100%)
+proportions <- seq(0, 1, length.out = 11)  # 11 étapes de 0% à 100%
+
+sample(1:n, size = round(0.5 * n))  # Sélection aléatoire de p% des indices
+
+# Création de la liste des résultats
+resultats <- lapply(proportions, function(p) {
+  
+  c <- a  # Initialement, c est entièrement a
+  indices_b <- sample(1:n, size = round(p * n))  # Sélection aléatoire de p% des indices
+  c[indices_b] <- b[indices_b]  # Remplacement des valeurs de a par celles de b
+  return(data.frame(Proportion = p, c=c, a=a, b=b))
+  
+})
+
+# Conversion en data frame
+resultats_df <- do.call(rbind, resultats)
+}
+
+```
+
+
+```{r}
+n <- 10  # Nombre d'observations
+a <- runif(n, min = 10, max = 20)  # Valeurs de a entre 10 et 20
+b <- runif(n, min = 30, max = 40)  # Valeurs de b entre 30 et 40
+
+# Génération des proportions de b attribuées à c (de 0% à 100%)
+proportions <- seq(0, 1, length.out = 11)  # 11 étapes de 0% à 100%
+
+sample(1:n, size = round(0.5 * n))  # Sélection aléatoire de p% des indices
+
+# Création de la liste des résultats
+resultats <- lapply(proportions, function(p) {
+  
+  c <- a  # Initialement, c est entièrement a
+  indices_b <- sample(1:n, size = round(p * n))  # Sélection aléatoire de p% des indices
+  c[indices_b] <- b[indices_b]  # Remplacement des valeurs de a par celles de b
+  return(data.frame(Proportion = p, c=c, a=a, b=b))
+  
+})
+
+# Conversion en data frame
+resultats_df <- do.call(rbind, resultats)
+```
+```{r}
+n <- 20  # Nombre d'observations
+DBH <- runif(n, min = 1, max = 10)  # Valeurs de DBH entre 1 et 10
+a <- runif(n, min = 10, max = 20)  # Valeurs de a
+b <- runif(n, min = 30, max = 40)  # Valeurs de b
+
+# Définition des seuils de DBH et des pondérations associées
+breaks <- c(1, 2, 4, 6, 8, 10)  # Seuils de DBH
+weights <- c(0, 0.2, 0.4, 0.6, 0.8, 1)  # Proportions de b correspondantes
+
+# Attribution des pondérations en fonction de DBH
+proportions <- cut(DBH, breaks = breaks, labels = weights[-1], include.lowest = TRUE)
+proportions <- as.numeric(as.character(proportions))  # Convertir en numérique
+
+# Création de la variable c
+c <- a  # Initialement, c prend toutes les valeurs de a
+for (i in 1:n) {
+  nb_b <- round(proportions[i])  # Nombre de valeurs b à attribuer
+  if (nb_b > 0) {
+    indices_b <- sample(1:n, size = round(proportions[i] * n))  # Sélection aléatoire
+    c[indices_b] <- b[indices_b]  # Remplacement de a par b selon la pondération
+  }
+}
+
+# Création du data frame final
+resultats_df <- data.frame(DBH, Proportion = proportions, c=c, a=a, b=b)
+
+# Affichage des résultats
+print(resultats_df)
+```
+

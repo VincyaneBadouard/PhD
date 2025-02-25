@@ -12,6 +12,9 @@ execute:
   cache: true
 ---
 
+Terryn et al., 2024 : forest inventory-based H:D allometries underestimated H.
+very low bias of the Chave et al. (2014) model for trees smaller than 20 m. Most of the trees (1766, 60%) used to calibrate Chave et al. (2014) their model were less than 20 m tall.
+
 Arbres communs avec ceux de Claudia -> prendre l'estimation de Claudia de la hauteur de l'arbre et du rayon de la couronne  
 Autres arbres :  
 - **TreeHeight** : par une allométrie issue des données de Claudia et FTH  
