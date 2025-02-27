@@ -162,6 +162,7 @@ vingt <- data %>%
   filter(DBH>20) %>% 
   mutate(TreeHeight = TreeHeight_CC)
 
+
 cinq10 <- data %>% 
   filter(DBH>=5 & DBH<10)
 
