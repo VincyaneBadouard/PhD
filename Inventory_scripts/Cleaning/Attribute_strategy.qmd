@@ -17,6 +17,8 @@ Et pour calculer le quantile à 95% j'ai pris la dernière mesure de chaque arbr
 tout ça sans ALT du coup.
 Et pour les espèces de ALT qui n'étaient pas dans Guyafor , j'ai calculé leur DBHmax et leur Q95% à l'échelle de ALT uniquement.  
 
+-> ok pour cette méthode stratégie de l’spcar utilisée uniquement pour la selection d'espèce
+
 # Packages
 ```{r Setup, include = F}
 library(tidyverse)

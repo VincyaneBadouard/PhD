@@ -14,8 +14,8 @@ Objective:
 - voxélisation à 1m de résolution
 - calculer la lumière tous les 1m en x,y,z sur 25ha avec 46 orientations
 - enlever les colonnes dont on a pas besoin (data.table)
-- arbres hauteur x,y,z → quel voxel, 8 voisins (en ijk)
--
+- arbres hauteur x,y,z → quel voxel, 8 voisins (3x3, 9 valeurs moyennées) (en coordonnées locales) 
+
 - essayer d’abord sur 1ha 
 - plus coûteux en calcul et temps mais ce sera fait si on veut ajuster la méthode
 
@@ -97,7 +97,7 @@ datalocal <- datalocal %>% cbind(data[,.(idTree, Xutm,Yutm,Zutm, TreeHeight)]) %
 datalocal[,z := z+TreeHeight+1]
 ```
 
-# Light per tree - 8 neighboors
+# Light per tree - 8 neighboors (3x3, 9 valeurs moyennées)
 ```{r}
 # Get neighbors in immediate neighborhood (27 nearest voxels including target)
 
