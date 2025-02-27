@@ -137,7 +137,19 @@ GeneralErrorsDetection <- function(
     
   } else message("No duplicated IdStem in a census")
   
-  # Check unique combinaison between IdTree, IdStem and Guyafor.nb -------------
+  # Check the stem nbr coherence -----------------------------------------------
+  stems <- Data[!is.na(Data$IdTree) & Data$Stem.nb!=1,]$IdTree # stem id >1
+  stem1 <- Data[Data$IdTree %in% stems & Data$Stem.nb==1,]$IdTree 
+  
+  Data %>%
+    filter(IdTree %in% stems[!stems %in% stem1]) 
+  
+  Data[IdTree %in% stems[!stems %in% stem1],
+       Comment := paste0(Comment, paste0("Trees without stem 1"), sep ="/")]
+  
+  
+  
+  # Check unique combination between IdTree, IdStem and Guyafor.nb -------------
   
   for (i in c("IdStem", "Guyafor.nb")) {
     
@@ -158,10 +170,10 @@ GeneralErrorsDetection <- function(
         
         
         Data[Site == s & get(i) %in% duplicated_ID,
-             Comment := paste0(Comment, "Non-unique combinaison of IdTree and ",i, sep ="/")]
+             Comment := paste0(Comment, "Non-unique combination of IdTree and ",i, sep ="/")]
         
         
-        warning(paste("Non-unique combinaison of IdTree and ",i))
+        warning(paste("Non-unique combination of IdTree and ",i))
         
       } else message("Unique IdTree-",i,"associations")
     } # end site loop

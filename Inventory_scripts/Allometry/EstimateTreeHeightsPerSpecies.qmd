@@ -1,0 +1,47 @@
+---
+title: "Estimate TreeHeights Per Species"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+  markdown: 
+    wrap: 72
+code-fold: true
+execute: 
+  cache: true
+---
+
+Objective:
+
+-   allométrie unique
+-   utiliser l’allométrie de Claudia global avec posteriors par espèce plutôt que ces données tant que le paramètre existe pour l’espèce et avec allométrie générale de Claudia si on n’a pas l’espèce
+-   https://github.com/chuertas18/public/blob/main/Paracou_allometry_models.R (MM4)
+-   pour les petits comparer modèle spécifique ou général
+-   prédire avec fct de brms (predict)
+-   https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/
+
+**\\amap-data.cirad.fr\work\users\VincyaneBadouard\modèlesAlloClaudia**
+
+voisinage des arbres
+```{r}
+# > disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61,
+# > ncol=61)), 30, type = "circle")
+# > disk_weights[disk_weights[]>0]<-1
+# >
+# > CHMPP_median30sqr<-focal(CHMPP1m, w=61, fun="median",na.policy="all",
+# > fillvalue=NA,
+# >                       expand=FALSE, silent=TRUE)
+# 
+# CHMPP_median30cir<-focal(CHMPP1m, w=disk_weights,
+
+```
+
+
+# Packages
+
+```{r Setup, include=F}
+library(tidyverse)
+library(readr)
+library(BIOMASS)
+```

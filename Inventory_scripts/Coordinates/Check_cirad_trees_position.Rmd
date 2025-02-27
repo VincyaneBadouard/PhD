@@ -30,15 +30,15 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP
   filter(CodeAlive == T) %>%
   filter(!is.na(TreeFieldNum) & !is.na(SubPlot) & !is.na(Xutm) & !is.na(Yutm)) %>%
   mutate(TreeFieldNum = as.character(TreeFieldNum)) %>% 
-  # unite(col = "Guyafor.nb", c("TreeFieldNum", "SubPlot"),
-  #       sep = "_", na.rm = TRUE, remove = F) %>%
+  unite(col = "Guyafor.nb", c("TreeFieldNum", "SubPlot"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
   # Scientific name
   mutate(Genus = ifelse(Genus=="Indet.MalvaceaeBombacoideae", 'Malvaceae-Bombacoideae', Genus)) %>% 
   unite(col = "ScientificName", c("Genus", "Species"),
         sep = "_", na.rm = TRUE, remove = F) %>% 
   # Circ to DBH
   mutate(Diameter = CircCorr/pi) %>% 
-  select(TreeFieldNum, SubPlot, ScientificName, Genus, Diameter, Xutm, Yutm) # Guyafor.nb, 
+  select(Guyafor.nb, TreeFieldNum, SubPlot, ScientificName, Genus, Diameter, Xutm, Yutm) # Guyafor.nb, 
 
 # AdultsPP <- read_csv("~/PhD/Inventories/Data/Adults/NouraguesPetitPlateau_2022.csv")
 ```
@@ -46,19 +46,18 @@ AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP
 ```{r,include = F, message=F}
 Understory <- 
   # read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
-  # read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20240906F.csv") %>% # raw data
-  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20241126.csv") %>% # last raw data
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20250129.csv") %>% # last raw data
   rename(Xutm = XTreeUTM, Yutm = YTreeUTM) %>%
   rename(DBH = Diameter) %>%
   separate(col = "Guyafor.nb", sep = "_", into = c("TreeFieldNum", "SubPlot"), remove = F) %>% 
   # filter(Stem.nb == 1) %>% 
   filter(!is.na(Guyafor.nb)) %>% # only cirad trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% # coordonnées relatives au quadrat
-  select(IdTree, Guyafor.nb, TreeFieldNum, SubPlot, IdStem, Subplot, Stem.nb, ScientificName, Genus, DBH, Xutm, Yutm)
+  select(IdTree, Guyafor.nb, TreeFieldNum, SubPlot, IdStem, Subplot, Stem.nb, ScientificName, Genus, Species, DBH, Xutm, Yutm, Comments)
 
-range(na.omit(Understory$DBH)) # 1.1 196.0 ya des arbres dits cirad <10 alors que ce sont les tiges principales
+range(na.omit(Understory$DBH)) # 1 196.0 ya des arbres dits cirad <10 alors que ce sont les tiges principales
 length(unique((Understory %>% 
-                 filter(is.na(ScientificName)))$Guyafor.nb)) # 225 arbres sans identification bota
+                 filter(is.na(ScientificName)))$Guyafor.nb)) # 221 arbres cirad sans identification bota
 ```
 
 # Compute coordinates difference (euclidian distance)
@@ -67,8 +66,8 @@ options(scipen = 999)
 
 all <- Understory %>% 
   filter(Stem.nb == 1) %>%
-  left_join(AdultsP16, by = "TreeFieldNum", suffix = c("U","A")) %>% 
-  # left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>% 
+  # left_join(AdultsP16, by = "TreeFieldNum", suffix = c("U","A")) %>% 
+  left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>%
   mutate(Dist = sqrt((XutmU - XutmA)^2 + (YutmU - YutmA)^2)) %>% # Compute coordinates difference (euclidian distance)
   # Homogenise bota names
   mutate(ScientificNameA = str_replace(ScientificNameA, "_Indet.", "_sp")) %>% 
@@ -94,7 +93,7 @@ length(unique(all$Guyafor.nb)) == nrow(all)
 length(unique(all$IdTree)) == nrow(all)
 
 length(unique((all %>% 
-                 filter(is.na(GenusA)))$IdTree)) # 1096 arbres sans identification bota
+                 filter(is.na(GenusA)))$IdTree)) # 479 arbres sans nom de genre
 
 ```
 
@@ -103,7 +102,6 @@ length(unique((all %>%
 library(data.table)
 setDT(all)
 if(!"Comment" %in% names(all)) all[, Comment := ""]
-
 
 for (i in c("IdStem", "Guyafor.nb")) {
   
@@ -133,6 +131,48 @@ for (i in c("IdStem", "Guyafor.nb")) {
 # write.csv(all, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Cirad_trees_positions_diff_ALTvsGuyafor.csv")
 ```
 
+```{r}
+length(all$Comment[grepl("Non-unique combinaison of IdTree", all$Comment)])/nrow(all)*100 # 0.3% of cirad trees
+
+all[grepl("Non-unique combinaison of IdTree", all$Comment)]
+
+length(unique((all[grepl("Non-unique combinaison of IdTree and Guyafor.nb", all$Comment)])$IdTree)) # 12 trees
+```
+```{r}
+# Botanical name diff
+nrow(all %>% filter(ScientificNameA != ScientificNameU)) # 47
+nrow(all %>% filter(GenusA != GenusU)) # 26
+
+
+nrow(all %>% 
+       filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>%
+       filter(ScientificNameA != ScientificNameU)) # 2
+
+
+# Coordinates diff
+range(all$Dist, na.rm = T) # 0.01875 114.30519 !
+
+nrow(all %>% filter(Dist>5)) # 190
+
+nrow(all %>% 
+       filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>% 
+       filter(Dist>2)) # 6
+
+# DBH diff
+range(all$DBHdiff, na.rm = T) # -94.53381 178.01549 !
+
+nrow(all %>% filter(DBHdiff > 15 | DBHdiff <(- 6))) # 56 arbres
+
+nrow(all %>% filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>% filter(DBHdiff > 15 | DBHdiff <(- 6))) # 0 arbres
+
+# Together
+nrow( all %>% 
+        filter(ScientificNameA != ScientificNameU) %>% 
+        filter(Dist>2) %>% # 15
+        filter(DBHdiff > 15 | DBHdiff <(- 6)) ) # 
+
+```
+
 # Check in other Subplots
 ```{r}
 test <- all %>% 
@@ -150,40 +190,41 @@ test <- all %>%
 # Checks
 ## Combien de matchs
 match <- test %>% 
-  filter(SelectedCoord==T) # 4420/4537
+  filter(SelectedCoord==T) # 4355/4485
+
 ## Combien sans match (pcq pas bonne sp)
 test %>% 
-  filter(NbSelectedSp==0) %>% select(IdTree) %>% unique() # 61
+  filter(NbSelectedSp==0) %>% select(IdTree) %>% unique() # 26
 
 
 ## Dans les matchs, quelle range dist, quelle range de diff de DBH
-range(match$Dist) # 0.01875 361.90586 !
+range(match$Dist) # 0.01875 114.30519 !
 range(match$DBHdiff, na.rm = T) # -94.53381 178.01549 !
 ## Dans les matchs, combien de changement de subplot, quelle range dist, quelle range de diff de DBH
 testchange <- test %>%
-  filter(SelectedCoord & SubPlotU!=SubPlotA) 
+  filter(SelectedCoord & SubPlotU!=SubPlotA) # 0
 length(unique(testchange$IdTree)) # 71
 range(testchange$Dist) #  0.5579328 361.9058622 !
 range(testchange$DBHdiff, na.rm = T) # -36.28733  39.28028
 
 ## Quest-ce qu'il ya de satisfaisant :
 OK <- test %>% 
-  filter(SelectedCoord==T & Dist<5 & GenusA==GenusU & (DBHdiff < 15 & DBHdiff >(- 6)))  # 3714/4537 -> 82%
-range(OK$DBHdiff, na.rm = T) #  -38.41268 178.01549
+  filter(SelectedCoord==T & Dist<5 & GenusA==GenusU & (DBHdiff < 15 & DBHdiff >(- 6)))  # 3743/4485 -> 83%
+range(OK$DBHdiff, na.rm = T) #  -5.797791 13.701407
 OKchange <- OK %>%
-  filter(SelectedCoord & SubPlotU!=SubPlotA) # 10 parmis les ok ont changé de plot
+  filter(SelectedCoord & SubPlotU!=SubPlotA) # 0 parmis les ok ont changé de plot
 
 # Combien étaient mal identifiés
 badbota <- test %>%
-  filter(GenusA!=GenusU & SubPlotU==SubPlotA) %>% select(IdTree) %>% unique() # 39 
+  filter(GenusA!=GenusU & SubPlotU==SubPlotA) %>% select(IdTree) %>% unique() # 26 
 
 # Combien étaient très loin
 loin <- test %>%
-  filter(Dist>10 & SubPlotU==SubPlotA) %>% select(IdTree) %>% unique() # 115 (- ce qui ont été mis dans un autre subplot)
+  filter(Dist>10 & SubPlotU==SubPlotA) %>% select(IdTree) %>% unique() # 79 (- ce qui ont été mis dans un autre subplot)
 
 # Combien avient des taux de croissance aberrants
 growthpb <- test %>%
-  filter(SubPlotU==SubPlotA & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 69 
+  filter(SubPlotU==SubPlotA & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 56 
 
 # Combien sont encore mal identifiés
 badbota <- test %>%
@@ -191,40 +232,40 @@ badbota <- test %>%
 
 # Combien sont encore très loin
 loin <- test %>%
-  filter(SelectedCoord==T & Dist>10) %>% select(IdTree) %>% unique() # 154 
+  filter(SelectedCoord==T & Dist>10) %>% select(IdTree) %>% unique() # 77 
 
 # Combien ont encore des taux de croissance aberrants
 growthpb <- test %>%
-  filter(SelectedCoord==T & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 88 
+  filter(SelectedCoord==T & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 56 
 
 test0 <- test %>% 
-  filter(NbSelectedCoord==0) # 61/4537 arbres cirad n’ont pas un bon match
+  filter(NbSelectedCoord==0) # 26/4485 arbres cirad n’ont pas un bon match
 length(unique(test0$IdTree)) 
 
 test0sp <- test %>% 
-  filter(NbSelectedSp==0) #%>% # 61 arbres sans aucun match de nom de genre entre ALT et Guyafor...sans compter les NA
+  filter(NbSelectedSp==0) #%>% # 26 arbres sans aucun match de nom de genre entre ALT et Guyafor...sans compter les NA
 length(unique(test0sp$IdTree)) 
 
 testsup <- test %>% 
   filter(NbSelectedCoord>1) # 0 -> 1 seul match final youhou! 
 testsup <- test %>% 
   group_by(IdTree) %>% 
-  filter(SelectedCoord==T) # 0 -> 1 seul match final youhou! 
+  filter(NbSelectedCoord>1) # 0 -> 1 seul match final youhou! 
 
 checkchange <- test %>%
-  filter(IdTree %in% testchange$IdTree)
+  filter(IdTree %in% testchange$IdTree) # 0
 
 testgrand <- test %>%
-  filter(SelectedCoord & DBHdiff >15) # 25 arbres qui ont grandit vachement vite en 3 ans
+  filter(SelectedCoord & DBHdiff >15) # 17 arbres qui ont grandit vachement vite en 3 ans
 length(unique(testgrand$IdTree))
 range(testgrand$DBHdiff) # 15.02253 178.01549
-range(testgrand$Dist) # 0.05303301 263.88947356 ...
+range(testgrand$Dist) # 0.05303301  2.66866218
 
 testloin <- test %>%
-  filter(SelectedCoord & Dist >3) # 705 qui commencent à etre loin..
+  filter(SelectedCoord & Dist >3) # 613 qui commencent à etre loin..
 length(unique(testloin$IdTree))
-range(testloin$Dist) #  3.0000 361.9059
-range(testloin$DBHdiff, na.rm = T) # -35.33236  39.28028
+range(testloin$Dist) #  3.0000 114.3052
+range(testloin$DBHdiff, na.rm = T) # -35.33236  11.75672
 
 test %>% filter(SelectedCoord) %>%
   ggplot(aes(x=Dist))+
