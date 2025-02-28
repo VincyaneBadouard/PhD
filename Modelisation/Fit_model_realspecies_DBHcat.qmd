@@ -17,7 +17,10 @@ Run the logistic quadratic model for real species, with the log of the transmitt
 For different form of species niche: 2 convex, sigmo, 2 concaves, 2 no-effects
 
 Which species:\
-- 2 convex: Licania_alba, Licania_membranacea - sigmo: no ones - 2 concaves: Oxandra_asbeckii, Iryanthera_hostmannii - 2 no-effects: Lecythis_persistens, Eschweilera_sagotiana
+- 2 convex: Licania_alba, Licania_membranacea  
+- sigmo: no ones  
+- 2 concaves: Oxandra_asbeckii, Iryanthera_hostmannii  
+- 2 no-effects: Lecythis_persistens, Eschweilera_sagotiana
 
 DBH categories : 1-5, 10-20, \>20
 

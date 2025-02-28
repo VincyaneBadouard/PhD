@@ -4,6 +4,8 @@ data {
   int<lower=1> N ; // obs
   array[N] int<lower=0, upper=1> Presence ;
   vector[N] Environment ;
+  int<lower=1> Np ; // number of predictions 
+  vector[Np] Environmentp ; // environment of predictions
 }
 parameters {
   real alpha ; // intercept
@@ -13,8 +15,8 @@ model {
  Presence ~ bernoulli_logit(alpha + beta1*Environment) ; // Likelihood
 }
 generated quantities {
-  vector<lower=0, upper=1>[N] p ;
-  p = inv_logit(alpha + beta1 * Environment) ; // predictions
+  vector<lower=0, upper=1>[Np] p ;
+  p = inv_logit(alpha + beta1 * Environmentp) ; // predictions
   
     // For model evaluation with loo;
   vector[N] log_lik; // factors of the log-likelihood as a vector

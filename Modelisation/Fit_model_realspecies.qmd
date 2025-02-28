@@ -9,7 +9,8 @@ editor: source
 
 Run the logistic quadratic model for real species, with the log of the transmittance as explanatory variable.
 
-Which species: - Anaxagorea_dolichocarpa : sciaphile et sous-bois (626)\
+Which species:  
+- Anaxagorea_dolichocarpa : sciaphile et sous-bois (626)\
 - Xylopia_crinita (1 bosse) (32)\
 - Oxandra_asbeckii : canopée cloche (1307)\
 - Lecythis_persistens : canopée cloche (N=468)

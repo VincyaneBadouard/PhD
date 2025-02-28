@@ -1,0 +1,223 @@
+---
+title: "Sigmoid_ontogeny_quadratic_vs_affine"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+**Objectives:**  
+Tester ontogénie sur modèle affine et model forcée concave pour des espèces sigmoïdes
+
+Espèces sigmoides : Lecythis_persistens, Eschweilera_sagotiana
+
+# Prepare data
+
+```{r, include = F, message=F}
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
+
+sp <- c("Lecythis_persistens", "Eschweilera_sagotiana")
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+view(datalist[["Lecythis_persistens"]])
+```
+
+# Models
+```{r, Models}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+
+# quadratic - canonic form - concave forced
+M_Quadra_forced <- stan_model(model_name = "Quadra_can_forced",
+                              paste(path, "Stanfiles/Bernoulli_LightOnto_quadratic_canonic_forced.stan", sep=''))
+
+# modèle affine
+M_linear <- stan_model(model_name = "linear",
+                       paste(path, "Stanfiles/Bernoulli_LightOnto_linear.stan", sep=''))
+
+Models <- list(Affine= M_linear,
+               Quadra_forced= M_Quadra_forced) # a list of models to parallelise
+
+# rm(M_linear, M_Quadra_forced)
+```
+
+```{r, data list}
+# 2 species
+Np <- 200 # number of predictions
+Environmentp <- seq(0, 1, length.out = Np)
+
+dataM <- lapply(datalist, function(x) list(N = nrow(x), 
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance,
+                                           DBH = log(x$DBHcor),
+                                           # number of predictions
+                                           Np = Np,
+                                           # environment of predictions
+                                           Environmentp = Environmentp,
+                                           DBHp = log(seq(min(x$DBHcor), max(x$DBHcor), length.out = Np))
+)
+)
+# dataM
+```
+
+# Sampling
+2 species and 2 models
+```{r, Sampling}
+# 16 models to run (4 sp * 4 model forms)
+gc()
+Sys.time() # h
+cores = min(length(Models), 5) # nbr of cores to use
+i <- NULL
+j = length(Models) # 2
+
+for(S in sp) {
+  # S=sp[1]
+  
+  # L'enregistrement des clusters
+  cl <- parallel::makeCluster(cores, outfile = "")
+  doSNOW::registerDoSNOW(cl)
+  
+  # Progress bar:
+  pb <- txtProgressBar(max=j)
+  progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+  opts <- list(progress = progress)
+  
+  fits <- foreach::foreach(
+    i=1:j, # j
+    .packages = c("rstan"), # necessary packages
+    .options.snow = opts, # ProgressBar
+    .combine=c) %dopar% {
+      # the function to parallelise:
+      sampling(Models[[i]], data = dataM[[S]], chains = 4, iter = 2000)
+    }
+  # close progressbar and cluster
+  close(pb)
+  stopCluster(cl)
+  
+  names(fits) <- names(Models[1:j])
+  
+  saveRDS(fits, file = paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/SigmoidOntogeny/QuadravsAffine",S,".rds", sep=""))
+  
+}
+
+gc()
+Sys.time()
+```
+
+```{r}
+files <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/SigmoidOntogeny",
+                    pattern = "QuadravsAffine",full.names = T)#  files
+files
+# 4 species and 4 models each
+
+fits_list <- lapply(files, readRDS) # read files
+names(fits_list) <- sp
+names(fits_list[["Lecythis_persistens"]])
+```
+
+# Predictions
+**Ajouter le DBH dans les plots**
+```{r}
+# form= "Quadra_dvp"
+for(S in names(fits_list)){
+  dataplot[[S]] <- lapply(as.list(names(fits_list[[S]])), function(form)
+    data.frame(form = form, 
+               Environmentp = Environmentp,
+               DBHp = dataM[[S]]$DBHp,
+               mu = apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, median),
+               t(apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, 
+                       quantile, probs = c(0.05, 0.95))) #,
+               # Opt = apply(as.matrix(fits_list[[form]], pars = "O"), 2, median),
+               # Opt = t(apply(as.matrix(fits_list[[form]], pars = "O"), 2,
+               #               quantile, probs = c(0.05, 0.95)))
+               
+    )) %>% 
+    bind_rows()
+}
+
+# heatmap
+for(S in names(fits_list)){
+  S= "Lecythis_persistens"
+  
+  ggplot(dataplot[[S]], aes(DBHp, Environmentp, fill = mu)) + 
+    geom_tile() # heatmap
+    # geom_bin2d(bins = 50) # for counts
+  
+}
+
+
+for(S in names(fits_list)){
+  
+  print(
+    ggplot(dataplot[[S]], aes(x = Environmentp)) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+      labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
+      facet_wrap(~ form, scales = "free", nrow = 1)
+  )
+  
+  print(
+    ggplot(dataplot[[S]], aes(x = Environmentp)) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+      labs(title =  paste("Simulations median ",S," - y fixed"), y = "Presence probability", col= "Presence-absence") +
+      facet_wrap(~ form, scales = "fixed", nrow = 1)
+  )
+  
+}
+```
+
+```{r, include=F}
+rm(dataM, data, dataplot, M_linear,M_Quadra_forced, M_Quadra_free, Environmentp, Np, sp); gc()
+```
+
+# Model comparaison
+```{r, loo}
+# ?loo
+# class(fits_list[[1]])
+# names(fits_list)
+# Extract log likelihood
+
+for(S in names(fits_list)){
+  fits_list[[S]][[form]] 
+  
+  log_lik_1 <- extract_log_lik(fits_list[[S]][["Quadra_free"]])
+  log_lik_2 <- extract_log_lik(fits_list[[S]][["Quadra_forced"]])
+  log_lik_3 <- extract_log_lik(fits_list[[S]][["linear"]])
+  
+  # Compute LOO (leave-one-out cross-validation)
+  # all Pareto k estimates have to be small (k< 0.5)
+  Quadrafree <- loo(log_lik_1, save_psis = TRUE, cores=1) # Pareto-Smoothed Importance Sampling (PSIS)
+  # print(Quadrafree)
+  # plot(Quadrafree)
+  
+  Quadraforced <- loo(log_lik_2, save_psis = TRUE)
+  # print(Quadraforced)
+  # plot(Quadraforced)
+  
+  affine <- loo(log_lik_3, save_psis = TRUE)
+  # print(affine)
+  # plot(affine)
+  
+  loos <- list(Quadrafree, Quadraforced, affine)
+  names(loos) <- names(fits_list[[S]])
+  
+  # help('pareto-k-diagnostic') # for details.
+  #elpd_loo = the expected log pointwise predictive density
+  #p_loo = the effective number of parameters
+  #looic = the LOO information criterion 
+  
+  
+  # Model comparaison
+  # ?loo_compare
+  loo_diff <- loo_compare(loos)
+  
+  print(S)
+  print(loo_diff, simplify=F)
+}
+```

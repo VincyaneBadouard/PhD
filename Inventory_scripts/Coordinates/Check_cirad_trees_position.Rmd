@@ -53,6 +53,13 @@ Understory <-
   # filter(Stem.nb == 1) %>% 
   filter(!is.na(Guyafor.nb)) %>% # only cirad trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% # coordonnées relatives au quadrat
+  
+  mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
+  mutate(Species = ifelse(Species=="amboty"& Genus=="Annona", "ambotay", Species)) %>%
+  mutate(Family = ifelse(Family=="Lecithidaceae", "Lecythidaceae", Family)) %>%
+  mutate(Genus = ifelse(Genus=="Lecithidaceae", "Lecythidaceae", Genus)) %>%
+  mutate(ScientificName = str_replace(ScientificName, "Lecithidaceae", "Lecythidaceae")) %>%
+  
   select(IdTree, Guyafor.nb, TreeFieldNum, SubPlot, IdStem, Subplot, Stem.nb, ScientificName, Genus, Species, DBH, Xutm, Yutm, Comments)
 
 range(na.omit(Understory$DBH)) # 1 196.0 ya des arbres dits cirad <10 alors que ce sont les tiges principales
@@ -70,16 +77,23 @@ all <- Understory %>%
   left_join(AdultsP16, by = "Guyafor.nb", suffix = c("U","A")) %>%
   mutate(Dist = sqrt((XutmU - XutmA)^2 + (YutmU - YutmA)^2)) %>% # Compute coordinates difference (euclidian distance)
   # Homogenise bota names
-  mutate(ScientificNameA = str_replace(ScientificNameA, "_Indet.", "_sp")) %>% 
-  mutate(ScientificNameU = gsub("\\.", "", ScientificNameU)) %>%
+  
+  mutate(ScientificNameA = str_replace(ScientificNameA, "_Indet.", "_sp")) %>%
+  mutate(ScientificNameU = str_replace(ScientificNameU, "_indet", "_sp")) %>%
+  
   mutate(ScientificNameA = str_remove(ScientificNameA, "Indet.")) %>% 
   mutate(GenusA = str_remove(GenusA, "Indet.")) %>% 
+  mutate(ScientificNameU = str_remove(ScientificNameU, "Indet.")) %>% 
+  mutate(GenusU = str_remove(GenusU, "Indet.")) %>% 
   
   mutate(ScientificNameU = str_remove(ScientificNameU, "-CAY")) %>% 
-  mutate(ScientificNameU = gsub("FG-Holst", "", ScientificNameU)) %>% 
   mutate(ScientificNameU = str_remove(ScientificNameU, "Guyafor")) %>% 
-  mutate(ScientificNameU = gsub("[[:digit:]]", "", ScientificNameU)) %>% 
+  mutate(ScientificNameU = sub("\\..*", "", ScientificNameU)) %>% # after the dot
   mutate(ScientificNameA = sub("\\..*", "", ScientificNameA)) %>% 
+  mutate(ScientificNameU = gsub("[[:digit:]]", "", ScientificNameU)) %>% # the digit
+  mutate(ScientificNameU = gsub("FG-Holst", "", ScientificNameU)) %>% 
+  # mutate(ScientificNameU = gsub("\\.", "", ScientificNameU)) %>%
+  
   mutate(ScientificNameA = str_remove(ScientificNameA, "_subsp")) %>%
   mutate(ScientificNameU = str_remove(ScientificNameU, "Indet")) %>% 
   mutate(GenusU = str_remove(GenusU, "Indet.")) %>% 
@@ -140,9 +154,13 @@ length(unique((all[grepl("Non-unique combinaison of IdTree and Guyafor.nb", all$
 ```
 ```{r}
 # Botanical name diff
-nrow(all %>% filter(ScientificNameA != ScientificNameU)) # 47
+nrow(all %>% filter(ScientificNameA != ScientificNameU)) # 41
 nrow(all %>% filter(GenusA != GenusU)) # 26
 
+botacheck <- all %>% filter(ScientificNameA != ScientificNameU) %>%
+  select(ScientificNameA,ScientificNameU,GenusA,GenusU, Species, Dist, DBHdiff)
+Genuscheck <- all %>% filter(GenusA != GenusU) %>%
+  select(ScientificNameA,ScientificNameU,GenusA,GenusU, Species, Dist, DBHdiff)
 
 nrow(all %>% 
        filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>%
@@ -154,6 +172,10 @@ range(all$Dist, na.rm = T) # 0.01875 114.30519 !
 
 nrow(all %>% filter(Dist>5)) # 190
 
+loin <- all %>% filter(Dist>5)%>%
+  select(ScientificNameA,ScientificNameU,GenusA,GenusU, Species, Dist, DBHdiff)
+
+
 nrow(all %>% 
        filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>% 
        filter(Dist>2)) # 6
@@ -163,13 +185,17 @@ range(all$DBHdiff, na.rm = T) # -94.53381 178.01549 !
 
 nrow(all %>% filter(DBHdiff > 15 | DBHdiff <(- 6))) # 56 arbres
 
+growthpb <- all %>% filter(DBHdiff > 15 | DBHdiff <(- 6))%>%
+  select(ScientificNameA,ScientificNameU,GenusA,GenusU, Species, Dist, DBHdiff)
+
+
 nrow(all %>% filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>% filter(DBHdiff > 15 | DBHdiff <(- 6))) # 0 arbres
 
 # Together
 nrow( all %>% 
         filter(ScientificNameA != ScientificNameU) %>% 
         filter(Dist>2) %>% # 15
-        filter(DBHdiff > 15 | DBHdiff <(- 6)) ) # 
+        filter(DBHdiff > 15 | DBHdiff <(- 6)) ) # 0
 
 ```
 

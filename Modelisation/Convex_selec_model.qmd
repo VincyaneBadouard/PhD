@@ -1,0 +1,287 @@
+---
+title: "Convex - models selection"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+**Objectives:**
+Essayer sur de vraies données convexes, si un modèle forcée concave est drastiquement moins bon qu’un modèle libre ou un modèle affine
+
+Convex species: Licania_alba, Licania_membranacea, Bocoa_prouacensis, Iryanthera_sagotiana, Symphonia_sp.1, Pogonophora_schomburgkiana  
+
+
+```{r, packages, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois - gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+library(tidyverse)
+library(loo)
+```
+
+# Prepare data
+
+```{r, include = F, message=F}
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
+
+sp <- c("Licania_alba", "Licania_membranacea", "Bocoa_prouacensis", "Iryanthera_sagotiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# view(datalist[["Licania_alba"]])
+# data <- datalist[["Licania_alba"]]
+# rm(datalist)
+```
+
+# Models
+modèle forcée concave
+modèle libre
+modèle affine
+```{r, Models}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+
+# quadratic - canonic form
+M_Quadra_free <- stan_model(model_name = "Quadra_can_free",
+                            paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep=''))
+
+# quadratic - canonic form - concave forced
+M_Quadra_forced <- stan_model(model_name = "Quadra_can_forced",
+                              paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic_forced.stan", sep=''))
+
+# modèle affine
+M_linear <- stan_model(model_name = "linear",
+                       paste(path, "Stanfiles/Bernoulli_EnvOnly_linear.stan", sep=''))
+
+Models <- list(Affine= M_linear,
+               Quadra_free = M_Quadra_free,
+               Quadra_forced= M_Quadra_forced) # a list of models to parallelise
+
+# rm(M_linear, M_Quadra_forced, Quadra_free)
+```
+
+# Run models
+```{r, data list}
+# 6 species
+Np <- 200 # number of predictions
+Environmentp <- seq(0, 1, length.out = Np)
+
+dataM <- lapply(datalist, function(x) list(N = nrow(x), 
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance,
+                                           # number of predictions
+                                           Np = Np,
+                                           # environment of predictions
+                                           Environmentp = Environmentp 
+)
+)
+# dataM
+```
+
+6 species * 3 models
+```{r, eval=F}
+# 18 models to run (6 sp * 3 model forms)
+gc()
+Sys.time() # 40 min
+cores = min(length(Models), 5) # nbr of cores to use
+i <- NULL
+j = length(Models) # 3
+
+for(S in sp) {
+  # S=sp[1]
+  
+  # L'enregistrement des clusters
+  cl <- parallel::makeCluster(cores, outfile = "")
+  doSNOW::registerDoSNOW(cl)
+  
+  # Progress bar:
+  pb <- txtProgressBar(max=j)
+  progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+  opts <- list(progress = progress)
+  
+  fits <- foreach::foreach(
+    i=1:j, # j
+    .packages = c("rstan"), # necessary packages
+    .options.snow = opts, # ProgressBar
+    .combine=c) %dopar% {
+      # the function to parallelise:
+      sampling(Models[[i]], data = dataM[[S]], chains = 4, iter = 2000)
+    }
+  # close progressbar and cluster
+  close(pb)
+  stopCluster(cl)
+  
+  names(fits) <- names(Models[1:j])
+  
+  saveRDS(fits, file = paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/ConvexSelecModel/QuadrafreevsforcedvsAffine",S,".rds", sep=""))
+  
+}
+
+gc()
+Sys.time()
+```
+
+-> Free :
+There were 155 divergent transitions after warmup
+The largest R-hat is 1.44, indicating chains have not mixed.
+Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+
+```{r}
+files <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/ConvexSelecModel",
+                    pattern = "QuadrafreevsforcedvsAffine",full.names = T)#  files
+files
+# 4 species and 4 models each
+
+fits_list <- lapply(files, readRDS) # read files
+names(fits_list) <- sp
+names(fits_list[["Licania_alba"]])
+```
+
+```{r, include=F}
+rm(dataM, M_linear,M_Quadra_forced, M_Quadra_free, fits, opts, pb, cores, files, i, j,S, progress); gc()
+```
+
+## Chains
+
+```{r, eval=F}
+mcmc_trace(as.array(Quadra_free), 
+           pars = c("a", "O", "gamma"),
+           np = nuts_params(Quadra_free)) +
+  ggplot2::labs(title = "Quadratic free form")
+
+mcmc_trace(as.array(Quadra_forced), 
+           pars = c("a", "O", "gamma"),
+           np = nuts_params(Quadra_forced)) +
+  labs(title = "Quadratic concave forced form")
+
+mcmc_trace(as.array(linear), 
+           pars = c("alpha", "beta1"),
+           np = nuts_params(linear)) +
+  labs(title = "Linear form")
+```
+
+--> quadratic free form : divergences (pourquoi ?)
+
+## Parameters link
+
+```{r, eval=F}
+mcmc_pairs(as.array(Quadra_free), pars = c("a", "O", "gamma"))
+
+mcmc_pairs(as.array(Quadra_forced), pars = c("a", "O", "gamma"))
+
+mcmc_pairs(as.array(linear), pars = c("alpha", "beta1"))
+```
+
+# Predictions
+```{r}
+# form= "Quadra_dvp"
+dataplot <- list()
+for(S in names(fits_list)){
+  dataplot[[S]] <- lapply(as.list(names(fits_list[[S]])), function(form)
+    data.frame(form = form, 
+               Environmentp = Environmentp,
+               mu = apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, median),
+               t(apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, 
+                       quantile, probs = c(0.05, 0.95))) #,
+               # Opt = apply(as.matrix(fits_list[[form]], pars = "O"), 2, median),
+               # Opt = t(apply(as.matrix(fits_list[[form]], pars = "O"), 2,
+               #               quantile, probs = c(0.05, 0.95)))
+               
+    )) %>% 
+    bind_rows()
+}
+View(dataplot[[S]])
+
+for(S in names(fits_list)){
+  
+  print(
+    ggplot(dataplot[[S]], aes(x = Environmentp)) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+      labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
+      facet_wrap(~ form, scales = "free", nrow = 1)
+  )
+  
+  print(
+    ggplot(dataplot[[S]], aes(x = Environmentp)) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+      labs(title =  paste("Simulations median ",S," - y fixed"), y = "Presence probability", col= "Presence-absence") +
+      facet_wrap(~ form, scales = "fixed", nrow = 1)
+  )
+  
+}
+```
+
+# Model comparaison
+```{r, loo}
+# ?loo
+# class(fits_list[[1]][[1]])
+# names(fits_list[[1]])
+# Extract log likelihood
+
+for(S in names(fits_list)){
+
+log_lik_1 <- extract_log_lik(fits_list[[S]][["Quadra_free"]])
+log_lik_2 <- extract_log_lik(fits_list[[S]][["Quadra_forced"]])
+log_lik_3 <- extract_log_lik(fits_list[[S]][["Affine"]])
+
+# Compute LOO (leave-one-out cross-validation)
+# all Pareto k estimates have to be small (k< 0.5)
+Quadrafree <- loo(log_lik_1, save_psis = TRUE, cores=1) # Pareto-Smoothed Importance Sampling (PSIS)
+# print(Quadrafree)
+# plot(Quadrafree)
+
+Quadraforced <- loo(log_lik_2, save_psis = TRUE)
+# print(Quadraforced)
+# plot(Quadraforced)
+
+affine <- loo(log_lik_3, save_psis = TRUE)
+# print(affine)
+# plot(affine)
+
+loos <- list(Quadrafree, Quadraforced, affine)
+names(loos) <- names(fits_list[[S]])
+
+# help('pareto-k-diagnostic') # for details.
+#elpd_loo = the expected log pointwise predictive density
+#p_loo = the effective number of parameters
+#looic = the LOO information criterion 
+
+
+# Model comparaison
+# ?loo_compare
+loo_diff <- loo_compare(loos)
+
+print(S)
+print(loo_diff, simplify=F)
+}
+```
+We can estimate the difference in their expected predictive accuracy by the difference in elpd_loo.  
+
+The first row = model with the largest ELPD.  
+
+A positive difference score like in this example, means that the second model is favored (the model with both predictors), whereas a negative score (elpd_diff) would indicate a preference for the first model.  
+
+The standard error (se_diff) helps us decide if the difference in meaningful.  
+If absolute value of the difference (elpd_diff) is less than the standard error (se_diff), the models don't perform differently, and we should choose the simpler model (the one with fewer parameters) because it is more parsimonious. If the absolute value of the difference is greater than the standard error, then we will prefer the model indicated by the test.  
+
+-> linear model is better for convex form. Quadradic forced is the worse model for convex.
+
+
+```{r}
+
+```
+

@@ -415,6 +415,11 @@ https://campus.datacamp.com/courses/bayesian-regression-modeling-with-rstanarm/a
 
 loo package which implements fast Pareto smoothed leave-one-out cross-validation (PSIS-LOO) (Vehtari, Gelman and Gabry, 2017) to compute expected log predictive density (elpd) PSIS : Pareto smoothed importance sampling the user needs to explicitly code the factors of the likelihood (actually, the terms of the log-likelihood) as a vector (see generated quantities in the stan file).
 
+A positive difference score like in this example, means that the second model is favored (the model with both predictors), whereas a negative score (elpd_diff) would indicate a preference for the first model.  
+
+The standard error (se_diff) helps us decide if the difference in meaningful.  
+If absolute value of the difference (elpd_diff) is less than the standard error (se_diff), the models don't perform differently, and we should choose the simpler model (the one with fewer parameters) because it is more parsimonious. If the absolute value of the difference is greater than the standard error, then we will prefer the model indicated by the test. 
+
 ```{r}
 # Fit the model with Stan
 fit_1 <- stan("logistic.stan")
@@ -444,3 +449,4 @@ print(waic_diff)
 loo_diff <- loo_compare(loo1, loo2)
 print(loo_diff)
 ```
+

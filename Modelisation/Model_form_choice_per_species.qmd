@@ -197,6 +197,10 @@ fits_list <- lapply(files, readRDS) # read files
 names(fits_list) <- sp
 names(fits_list[["Licania_membranacea"]])
 ```
+A positive difference score like in this example, means that the second model is favored (the model with both predictors), whereas a negative score (elpd_diff) would indicate a preference for the first model.  
+
+The standard error (se_diff) helps us decide if the difference in meaningful.  
+If absolute value of the difference (elpd_diff) is less than the standard error (se_diff), the models don't perform differently, and we should choose the simpler model (the one with fewer parameters) because it is more parsimonious. If the absolute value of the difference is greater than the standard error, then we will prefer the model indicated by the test.  
 
 ```{r}
 library(loo) ; ?loo

@@ -180,7 +180,7 @@ length(Data$Comment[grepl("Non-unique combinaison", Data$Comment)])/nrow(Data)*1
 ```{r}
 # check if ScientificName is coherent with Genus and Species column ...
 ScfcNamecheck <- Data %>% 
-unite(col = "ScfcName", c("Genus", "Species"),
+  unite(col = "ScfcName", c("Genus", "Species"),
         sep = "_", na.rm = TRUE, remove = F)
 
 ScfcNamecheck %>% 
@@ -194,9 +194,16 @@ ScfcNamecheck %>%
 Data <- Data %>% 
   mutate(ScientificName = recode(ScientificName,
                                  "Endilcheria_multiflora" = "Endlicheria_melinonii",
-                                 "Maytenus_oblongata" = "Monteverdia_oblongata"))
-
-source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
+                                 "Maytenus_oblongata" = "Monteverdia_oblongata")) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
+  mutate(Species = ifelse(Species=="amboty"&Genus=="Annona", "ambotay", Species)) %>%
+  
+  mutate(Family = ifelse(Family=="Lecithidaceae", "Lecythidaceae", Family)) %>%
+  mutate(Genus = ifelse(Genus=="Lecithidaceae", "Lecythidaceae", Genus)) %>%
+  mutate(ScientificName = str_replace(ScientificName, "Lecithidaceae", "Lecythidaceae"))
+  
+  
+  source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
 Data <- BotanicalCorrection(Data, DetectOnly = T)
 
 length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nrow(Data)*100 # 0.02%
@@ -577,6 +584,35 @@ test5 <- data %>%
 
 ```
 
+# Multistems %
+```{r}
+# Sure multistem
+nrow(data %>% 
+  filter(Multistem & !is.na(Multistem)))/nrow(data)*100 # 3.2% 
+stemssup1 <- data %>% 
+  filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb>1) #tiges surnuméraires
+range(stemssup1$DBH) # 0.9 10.2
+
+stem1 <- data %>% 
+  filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb==1) #tiges surnuméraires
+range(stem1$DBH) # 1.0 45.9
+
+ 
+# unique(data$Cod.CTFS)
+
+# Cod.CTFS M
+nrow(data %>% 
+  filter(grepl("M", Cod.CTFS)))/nrow(data)*100 # 3.5%
+
+stemssup1 <- data %>% 
+  filter(grepl("M", Cod.CTFS)) %>% filter(Stem.nb>1)
+range(stemssup1$DBH)
+
+# not sure multistem
+nrow(data %>% 
+  filter(is.na(Multistem)))/nrow(data)*100 # 0.2%
+```
+
 # Manage multistems (sum the basal area, and keep only 1 stem) (Stem.nb pas codé)
 **que fait on des Multistems= NA ?!** !!! pour l'instant je les ai considéré comme des multistems
 ```{r}
@@ -586,7 +622,7 @@ test5 <- data %>%
 
 dupliMultistems <- data %>%
   filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
-    filter(grepl("Duplicated 'IdStem'", Comment)) # 14
+  filter(grepl("Duplicated 'IdStem'", Comment)) # 14
 
 
 Multistems <- data %>% # 1 245
