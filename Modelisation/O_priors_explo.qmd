@@ -1,0 +1,56 @@
+---
+title: " O priors exploration"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+**Objectives:**
+Sigmoid optimum can be estimated outside of the environmental range.  
+To have a reasonable quadratic optimum for the sigmoid case, we want to bound O for that we need to explore what are acceptable bounds.  
+
+- without model fit
+- a : 0, -10, -100
+- gamma : -2, 0.2
+- O à piocher dans chaque seq (1 ligne par itération) (-10, -5, 0)
+- iota (interaction parameter) after
+- plot lines on env in abscissa
+
+```{r, packages, include = F}
+library(tidyverse)
+```
+
+# Parameters table
+```{r}
+# Generates all combination of parmeters (12)
+parameters <- tidyr::crossing(
+  a = c(0, -10, -100),
+  O = c(-10, -5, 0),
+  gamma = c( -2, 0.2),
+  Environment = (seq(0.001,1, length.out =50)) # log
+) %>% 
+  mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
+  unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
+  mutate(Combinaison = as.factor(Combinaison))
+```
+
+# Plot
+```{r}
+ggplot(parameters, aes(x=Environment, y=P, col = as.factor(a))) +
+  theme_minimal() +
+  geom_point(aes(shape= as.factor(gamma))) +
+  facet_wrap(~ O, scales = "free", nrow = 1)
+
+parameters %>% 
+  filter(Combinaison=="-100 -10 0.2") %>% 
+ggplot(aes(x=Environment, y=P, col = as.factor(a))) +
+  theme_minimal() +
+  geom_point(aes(shape= as.factor(gamma)))
+```
+-> gamma influence l'intercept et la pente
+-> a c'est la pente, si a = 0 c'est plat, la proba ne change pas avec l'environnment
+-> Tout est plat tant que l'otimum est <0
+-> si a est à -100 et O negatif, la proba est nulle

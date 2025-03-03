@@ -4,10 +4,10 @@ data {
   int<lower=1> N ; // obs
   array[N] int<lower=0, upper=1> Presence ;
   vector[N] Environment ;
-  vector<lower=1>[N] DBH ; // tree diameter as ontogeny 
+  vector[N] DBH ; // tree diameter as ontogeny 
   int<lower=1> Np ; // number of predictions 
   vector[Np] Environmentp ; // environment of predictions
-  vector<lower=1>[Np] DBHp ; // tree diameter of predictions 
+  vector[Np] DBHp ; // tree diameter of predictions 
 }
 parameters {
   real alpha ; // intercept

@@ -6,8 +6,6 @@ self-contained: true
 theme: cosmo
 editor: source
 code-fold: true
-execute: 
-  cache: true
 ---
 
 **Objectives:**
@@ -32,7 +30,7 @@ library(loo)
 
 # Prepare data
 
-```{r, include = F, message=F}
+```{r, include = F, message=F, eval=F}
 load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
 
 sp <- c("Licania_alba", "Licania_membranacea", "Bocoa_prouacensis", "Iryanthera_sagotiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
@@ -47,7 +45,7 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 modèle forcée concave
 modèle libre
 modèle affine
-```{r, Models}
+```{r, eval=F}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 
 # quadratic - canonic form
@@ -70,10 +68,9 @@ Models <- list(Affine= M_linear,
 ```
 
 # Run models
-```{r, data list}
+```{r, data list, eval=F}
 # 6 species
 Np <- 200 # number of predictions
-Environmentp <- seq(0, 1, length.out = Np)
 
 dataM <- lapply(datalist, function(x) list(N = nrow(x), 
                                            Presence = x$Presence,
@@ -81,7 +78,7 @@ dataM <- lapply(datalist, function(x) list(N = nrow(x),
                                            # number of predictions
                                            Np = Np,
                                            # environment of predictions
-                                           Environmentp = Environmentp 
+                                           Environmentp = seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np) 
 )
 )
 # dataM
@@ -136,10 +133,10 @@ The largest R-hat is 1.44, indicating chains have not mixed.
 Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
 Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
 
-```{r}
+```{r, eval=F}
 files <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/ConvexSelecModel",
                     pattern = "QuadrafreevsforcedvsAffine",full.names = T)#  files
-files
+# files
 # 4 species and 4 models each
 
 fits_list <- lapply(files, readRDS) # read files
@@ -148,7 +145,7 @@ names(fits_list[["Licania_alba"]])
 ```
 
 ```{r, include=F}
-rm(dataM, M_linear,M_Quadra_forced, M_Quadra_free, fits, opts, pb, cores, files, i, j,S, progress); gc()
+rm(M_linear,M_Quadra_forced, M_Quadra_free, fits, opts, pb, cores, files, i, j,S, progress); gc()
 ```
 
 ## Chains
@@ -183,13 +180,13 @@ mcmc_pairs(as.array(linear), pars = c("alpha", "beta1"))
 ```
 
 # Predictions
-```{r}
+```{r, eval=F}
 # form= "Quadra_dvp"
 dataplot <- list()
 for(S in names(fits_list)){
   dataplot[[S]] <- lapply(as.list(names(fits_list[[S]])), function(form)
     data.frame(form = form, 
-               Environmentp = Environmentp,
+               Environmentp = dataM[[S]]$Environmentp,
                mu = apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, median),
                t(apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, 
                        quantile, probs = c(0.05, 0.95))) #,
@@ -202,73 +199,99 @@ for(S in names(fits_list)){
 }
 View(dataplot[[S]])
 
+plist <- vector('list')
+
 for(S in names(fits_list)){
   
-  print(
-    ggplot(dataplot[[S]], aes(x = Environmentp)) +
-      # Probas
-      geom_point(aes(y = mu), size=0.7) +
-      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
-      labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
-      facet_wrap(~ form, scales = "free", nrow = 1)
-  )
-  
-  print(
-    ggplot(dataplot[[S]], aes(x = Environmentp)) +
-      # Probas
-      geom_point(aes(y = mu), size=0.7) +
-      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
-      labs(title =  paste("Simulations median ",S," - y fixed"), y = "Presence probability", col= "Presence-absence") +
-      facet_wrap(~ form, scales = "fixed", nrow = 1)
-  )
-  
+  plist[[S]] <- local({
+    
+    # print(
+    #   ggplot(dataplot[[S]], aes(x = Environmentp)) +
+    #     # Probas
+    #     geom_point(aes(y = mu), size=0.7) +
+    #     geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+    #     labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
+    #     facet_wrap(~ form, scales = "free", nrow = 1)
+    # )
+    
+    print(
+      ggplot(dataplot[[S]], aes(x = Environmentp)) +
+        # Probas
+        geom_point(aes(y = mu), size=0.7) +
+        geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+        labs(title =  paste("Simulations median ",S," - y fixed"), y = "Presence probability", col= "Presence-absence") +
+        facet_wrap(~ form, scales = "fixed", nrow = 1)
+    )
+    
+  })
 }
+plist
+
+saveRDS(plist, file = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Plots_convex.rds")
+```
+
+```{r}
+readRDS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Plots_convex.rds")
 ```
 
 # Model comparaison
-```{r, loo}
+```{r, loo, eval=F}
 # ?loo
 # class(fits_list[[1]][[1]])
 # names(fits_list[[1]])
 # Extract log likelihood
 
-for(S in names(fits_list)){
+capture.output(
+  
+  for(S in names(fits_list)){
+    # S="Licania_alba"
+    
+    print(S)
+    
+    log_lik_1 <- extract_log_lik(fits_list[[S]][["Quadra_free"]])
+    log_lik_2 <- extract_log_lik(fits_list[[S]][["Quadra_forced"]])
+    log_lik_3 <- extract_log_lik(fits_list[[S]][["Affine"]])
+    
+    # Compute LOO (leave-one-out cross-validation)
+    # all Pareto k estimates have to be small (k< 0.5)
+    Quadrafree <- loo(log_lik_1, is_method = "psis", cores=5) # Pareto-Smoothed Importance Sampling (PSIS)
+    print(Quadrafree)
+    # plot(Quadrafree)
+    
+    Quadraforced <- loo(log_lik_2, is_method = "psis", cores=5)
+    print(Quadraforced)
+    # plot(Quadraforced)
+    
+    affine <- loo(log_lik_3, is_method = "psis", cores=5)
+    print(affine)
+    # plot(affine)
+    
+    loos <- list(Quadrafree, Quadraforced, affine)
+    names(loos) <- names(fits_list[[S]])
+    
+    # help('pareto-k-diagnostic') # for details.
+    #elpd_loo = the expected log pointwise predictive density
+    #p_loo = the effective number of parameters
+    #looic = the LOO information criterion 
+    
+    
+    # Model comparaison
+    # ?loo_compare
+    loo_diff <- loo_compare(loos)
+    
+    
+    print(loo_diff, simplify=F)
+    
+  },
+  
+  file = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Loo/Loo_convex.txt")
 
-log_lik_1 <- extract_log_lik(fits_list[[S]][["Quadra_free"]])
-log_lik_2 <- extract_log_lik(fits_list[[S]][["Quadra_forced"]])
-log_lik_3 <- extract_log_lik(fits_list[[S]][["Affine"]])
-
-# Compute LOO (leave-one-out cross-validation)
-# all Pareto k estimates have to be small (k< 0.5)
-Quadrafree <- loo(log_lik_1, save_psis = TRUE, cores=1) # Pareto-Smoothed Importance Sampling (PSIS)
-# print(Quadrafree)
-# plot(Quadrafree)
-
-Quadraforced <- loo(log_lik_2, save_psis = TRUE)
-# print(Quadraforced)
-# plot(Quadraforced)
-
-affine <- loo(log_lik_3, save_psis = TRUE)
-# print(affine)
-# plot(affine)
-
-loos <- list(Quadrafree, Quadraforced, affine)
-names(loos) <- names(fits_list[[S]])
-
-# help('pareto-k-diagnostic') # for details.
-#elpd_loo = the expected log pointwise predictive density
-#p_loo = the effective number of parameters
-#looic = the LOO information criterion 
-
-
-# Model comparaison
-# ?loo_compare
-loo_diff <- loo_compare(loos)
-
-print(S)
-print(loo_diff, simplify=F)
-}
 ```
+
+```{r}
+readLines("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Loo/Loo_convex.txt")
+```
+
 We can estimate the difference in their expected predictive accuracy by the difference in elpd_loo.  
 
 The first row = model with the largest ELPD.  
@@ -278,8 +301,26 @@ A positive difference score like in this example, means that the second model is
 The standard error (se_diff) helps us decide if the difference in meaningful.  
 If absolute value of the difference (elpd_diff) is less than the standard error (se_diff), the models don't perform differently, and we should choose the simpler model (the one with fewer parameters) because it is more parsimonious. If the absolute value of the difference is greater than the standard error, then we will prefer the model indicated by the test.  
 
--> linear model is better for convex form. Quadradic forced is the worse model for convex.
+"Licania_alba":  
+-> first run: affine model is the best model. Quadradic forced is the worse model for convex. Now, Quadradic forced is the better model, and quadra free the worse.  
 
+"Licania_membranacea":  
+-> all models arge good, Affine is the best  
+
+"Bocoa_prouacensis":  
+-> affine model is the best model and the quadra free the worse.  
+
+"Iryanthera_sagotiana":  
+-> affine model is the best model  
+
+"Symphonia_sp.1":  
+-> all models arge good, Affine is the best 
+
+"Pogonophora_schomburgkiana":  
+-> affine model is the best model and the quadra free the worse with some K estimates too high.  
+
+-> linear model is better for convex form. 
+se_diff is close to elpd_diff absolute value so quadra forced is also a good model.  
 
 ```{r}
 

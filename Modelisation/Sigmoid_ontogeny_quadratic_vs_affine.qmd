@@ -15,6 +15,20 @@ Tester ontogénie sur modèle affine et model forcée concave pour des espèces 
 
 Espèces sigmoides : Lecythis_persistens, Eschweilera_sagotiana
 
+```{r, packages, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois - gain de temps
+options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+library(tidyverse)
+library(loo)
+```
+
 # Prepare data
 
 ```{r, include = F, message=F}
@@ -23,7 +37,7 @@ load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
 sp <- c("Lecythis_persistens", "Eschweilera_sagotiana")
 
 datalist <- datalist[names(datalist) %in% sp] # only species in sp
-view(datalist[["Lecythis_persistens"]])
+# View(datalist[["Lecythis_persistens"]])
 ```
 
 # Models
@@ -47,7 +61,6 @@ Models <- list(Affine= M_linear,
 ```{r, data list}
 # 2 species
 Np <- 200 # number of predictions
-Environmentp <- seq(0, 1, length.out = Np)
 
 dataM <- lapply(datalist, function(x) list(N = nrow(x), 
                                            Presence = x$Presence,
@@ -56,19 +69,24 @@ dataM <- lapply(datalist, function(x) list(N = nrow(x),
                                            # number of predictions
                                            Np = Np,
                                            # environment of predictions
-                                           Environmentp = Environmentp,
+                                           Environmentp = 
+                                             seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np),
                                            DBHp = log(seq(min(x$DBHcor), max(x$DBHcor), length.out = Np))
 )
 )
 # dataM
 ```
 
+```{r, eval=F}
+test <- sampling(Models[[1]], data = dataM[[1]], chains = 1, iter = 2000)
+```
+
 # Sampling
 2 species and 2 models
 ```{r, Sampling}
-# 16 models to run (4 sp * 4 model forms)
+# 4 models to run (2 sp * 2 model forms)
 gc()
-Sys.time() # h
+Sys.time() # 9 min
 cores = min(length(Models), 5) # nbr of cores to use
 i <- NULL
 j = length(Models) # 2
@@ -110,29 +128,37 @@ Sys.time()
 ```{r}
 files <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/SigmoidOntogeny",
                     pattern = "QuadravsAffine",full.names = T)#  files
-files
-# 4 species and 4 models each
+# files
+# 2 species and 2 models each
 
 fits_list <- lapply(files, readRDS) # read files
 names(fits_list) <- sp
 names(fits_list[["Lecythis_persistens"]])
 ```
+```{r}
+mcmc_trace(as.array(fits_list[[1]][[2]]), 
+           pars = c("a", "O", "gamma"))
+```
 
 # Predictions
 **Ajouter le DBH dans les plots**
 ```{r}
-# form= "Quadra_dvp"
+form= "Quadra_forced"
+S= "Lecythis_persistens"
+# apply(as.matrix(test, pars = "p"), 2, median)
+
+dataplot <- list()
 for(S in names(fits_list)){
   dataplot[[S]] <- lapply(as.list(names(fits_list[[S]])), function(form)
     data.frame(form = form, 
-               Environmentp = Environmentp,
+               Environmentp = dataM[[S]]$Environmentp,
                DBHp = dataM[[S]]$DBHp,
                mu = apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, median),
                t(apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, 
-                       quantile, probs = c(0.05, 0.95))) #,
-               # Opt = apply(as.matrix(fits_list[[form]], pars = "O"), 2, median),
-               # Opt = t(apply(as.matrix(fits_list[[form]], pars = "O"), 2,
-               #               quantile, probs = c(0.05, 0.95)))
+                       quantile, probs = c(0.05, 0.95))),
+               Opt = ifelse(form=="Quadra_forced", apply(as.matrix(fits_list[[S]][[form]], pars = "O"), 2, median), NA),
+               Opt = ifelse(form=="Quadra_forced", t(apply(as.matrix(fits_list[[S]][[form]], pars = "O"), 2,
+                             quantile, probs = c(0.05, 0.95))), NA)
                
     )) %>% 
     bind_rows()
@@ -140,10 +166,14 @@ for(S in names(fits_list)){
 
 # heatmap
 for(S in names(fits_list)){
-  S= "Lecythis_persistens"
+  S= "Eschweilera_sagotiana"
+  form= "Affine"
+
   
-  ggplot(dataplot[[S]], aes(DBHp, Environmentp, fill = mu)) + 
-    geom_tile() # heatmap
+  ggplot(dataplot[[S]], aes(x=DBHp, y=Environmentp, fill = mu)) + 
+    theme_minimal() +
+    geom_tile()  + # heatmap
+    facet_wrap(~ form, scales = "fixed", nrow = 1) 
     # geom_bin2d(bins = 50) # for counts
   
 }
@@ -151,14 +181,14 @@ for(S in names(fits_list)){
 
 for(S in names(fits_list)){
   
-  print(
-    ggplot(dataplot[[S]], aes(x = Environmentp)) +
-      # Probas
-      geom_point(aes(y = mu), size=0.7) +
-      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
-      labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
-      facet_wrap(~ form, scales = "free", nrow = 1)
-  )
+  # print(
+  #   ggplot(dataplot[[S]], aes(x = Environmentp)) +
+  #     # Probas
+  #     geom_point(aes(y = mu), size=0.7) +
+  #     geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+  #     labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
+  #     facet_wrap(~ form, scales = "free", nrow = 1)
+  # )
   
   print(
     ggplot(dataplot[[S]], aes(x = Environmentp)) +
@@ -170,6 +200,17 @@ for(S in names(fits_list)){
   )
   
 }
+
+form= "Affine"
+S= "Lecythis_persistens"
+ggplot(dataplot[[S]], aes(x=DBHp, y= mu, col= Environmentp)) +
+  geom_point() +
+  facet_wrap(~ form, scales = "fixed", nrow = 1)
+
+ggplot(dataplot[[S]], aes(x=DBHp, y= Opt, col= Environmentp)) +
+  geom_point() 
+
+  
 ```
 
 ```{r, include=F}
