@@ -9,24 +9,20 @@ data {
 }
 parameters {
   real<upper=0> a ; // beta2 forced for a concave form
-  real O ; // extremum : -beta1/(2*beta2)
+  real<lower=-100, upper=100> O ; // extremum : -beta1/(2*beta2)
   real gamma ; // alpha-(beta1^2/4*beta2)
 }
 model {
   // Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment); // developped Likelihood
   Presence ~ bernoulli_logit(a * (Environment - O)^2 + gamma); // canonic Likelihood
-  // Priors
-  a ~ cauchy(0,1); 
-  O ~ normal(0.5, 1); // O ~ cauchy(0.5, 1) ; O ~ uniform(0.5, 1);
 }
 generated quantities {
-  vector<lower=0, upper=1>[Np] p ;
-  p = inv_logit(a * (Environmentp - O)^2 + gamma) ; // predictions
+  vector<lower=0, upper=1>[Np] p = inv_logit(a * (Environmentp - O)^2 + gamma) ; // predictions
   
   // For model evaluation with loo;
-  vector[N] log_lik; // factors of the log-likelihood as a vector
-  for (n in 1:N) {
-    log_lik[n] = bernoulli_logit_lpmf(Presence[n] | a * (Environment[n] - O)^2 + gamma);
-  } // to produce the log posterior density
+  // vector[N] log_lik; // factors of the log-likelihood as a vector
+  // for (n in 1:N) {
+  //   log_lik[n] = bernoulli_logit_lpmf(Presence[n] | a * (Environment[n] - O)^2 + gamma);
+  // } // to produce the log posterior density
 }
 

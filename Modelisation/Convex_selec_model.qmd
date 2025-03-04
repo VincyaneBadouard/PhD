@@ -48,7 +48,8 @@ modèle affine
 ```{r, eval=F}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 
-# quadratic - canonic form
+# without explicite priors
+# quadratic - canonic form 
 M_Quadra_free <- stan_model(model_name = "Quadra_can_free",
                             paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic.stan", sep=''))
 
@@ -88,8 +89,8 @@ dataM <- lapply(datalist, function(x) list(N = nrow(x),
 ```{r, eval=F}
 # 18 models to run (6 sp * 3 model forms)
 gc()
-Sys.time() # 40 min
-cores = min(length(Models), 5) # nbr of cores to use
+Sys.time() # 2h10
+cores = min(length(Models), (7-4)) # nbr of cores to use
 i <- NULL
 j = length(Models) # 3
 
@@ -137,7 +138,7 @@ Tail Effective Samples Size (ESS) is too low, indicating posterior variances and
 files <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/ConvexSelecModel",
                     pattern = "QuadrafreevsforcedvsAffine",full.names = T)#  files
 # files
-# 4 species and 4 models each
+# 6 species and 3 models each
 
 fits_list <- lapply(files, readRDS) # read files
 names(fits_list) <- sp
@@ -197,7 +198,7 @@ for(S in names(fits_list)){
     )) %>% 
     bind_rows()
 }
-View(dataplot[[S]])
+# View(dataplot[[S]])
 
 plist <- vector('list')
 
@@ -302,27 +303,31 @@ The standard error (se_diff) helps us decide if the difference in meaningful.
 If absolute value of the difference (elpd_diff) is less than the standard error (se_diff), the models don't perform differently, and we should choose the simpler model (the one with fewer parameters) because it is more parsimonious. If the absolute value of the difference is greater than the standard error, then we will prefer the model indicated by the test.  
 
 "Licania_alba":  
--> first run: affine model is the best model. Quadradic forced is the worse model for convex. Now, Quadradic forced is the better model, and quadra free the worse.  
+->  all models are good.   
 
 "Licania_membranacea":  
--> all models arge good, Affine is the best  
+-> all models are good  
 
-"Bocoa_prouacensis":  
--> affine model is the best model and the quadra free the worse.  
+"Bocoa_prouacensis":    
+-> all models are good   
 
-"Iryanthera_sagotiana":  
--> affine model is the best model  
+"Iryanthera_sagotiana":   
+->  all models are good  
 
 "Symphonia_sp.1":  
--> all models arge good, Affine is the best 
+-> all models are good  
 
-"Pogonophora_schomburgkiana":  
--> affine model is the best model and the quadra free the worse with some K estimates too high.  
+"Pogonophora_schomburgkiana":   
+-> all models are good  
 
--> linear model is better for convex form. 
-se_diff is close to elpd_diff absolute value so quadra forced is also a good model.  
+**linear 1st: 4/6**  
+quadra forced 1st: 1/6  
+quadra free 1st: 1/6  
 
-```{r}
+linear last: 2/6  
+quadra forced last: 0/6  
+**quadra free last: 4/6**   
 
-```
+-> all models are good   
+-> linear model is most often the best, and quadra free is most often the least good  
 

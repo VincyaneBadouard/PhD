@@ -1,0 +1,68 @@
+---
+title: "O bounds exploration"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+**Objectives:**
+Sigmoid optimum can be estimated outside of the environmental range.  
+To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O", for that we need to explore what are acceptable bounds.  
+
+a = beta2  
+O = extremum : -beta1/(2*beta2)  
+gamma = alpha-(beta1^2/4*beta2)  
+
+
+- without model fit  
+- a : -10, -100 (<0 to force concave form)  
+- gamma : -2, 0.2  
+- O : -0.75, -0.5, -0.25, 0 (<0 to simulate a negativ sigmoid on 0-1)  
+- iota (interaction parameter) after  
+- plot lines on env in abscissa  
+
+https://www.alloprof.qc.ca/fr/eleves/bv/mathematiques/le-role-des-parametres-dans-une-fonction-polynom-m1127  
+
+```{r, packages, include = F}
+library(tidyverse)
+```
+
+# Parameters table
+```{r}
+# Generates all combination of parmeters (12)
+
+# a = c(-1, -5, -10),
+#   gamma = c(-1, 0, 1)
+
+tidyr::crossing(
+  a = c(-1, -5, -10, -25), #c(-10, -25, -50, -100),
+  O = c(-0.75, -0.5, -0.25, 0),
+  gamma = c(-2, -1, 0, 1, 2),
+  Environment = (seq(-1,1, length.out =50)) # 0.001
+) %>% 
+  mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
+  unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
+  mutate(Combinaison = as.factor(Combinaison)) %>% 
+  
+  ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
+  xlim(0,1) +
+  geom_line(linewidth=1) +
+  facet_grid(a ~ gamma, labeller = label_both) +
+  theme_bw()  #+
+# scale_color_viridis_c()
+```
+-> gamma = hauteur de la parabole
+-> a = ouverture de la parabole
+-> O : valeur en x sur laquelle est centrée la parabole
+
+-> acceptable bounds for "O":  
+Dépend de gamma et de a,  
+plus gamma est fort plus on peut prendre des bornes de "O" larges,    
+plus a est faible en absolu, plus on peut prendre des bornes de "O" larges.  
+-> il vaut mieux prendre les bornes les plus proches possible du range environnemental
+
+
+
