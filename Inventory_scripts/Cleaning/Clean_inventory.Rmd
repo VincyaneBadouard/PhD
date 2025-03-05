@@ -160,9 +160,10 @@ length(Data$Comment[grepl("Missing value in IdStem", Data$Comment)])/nrow(Data)*
 - Unique IdStem-coordinates association
 ```{r}
 length(Data$Comment[grepl("Duplicated 'IdStem'", Data$Comment)])/nrow(Data)*100 # 0.5%
-length(Data$Comment[grepl("Duplicated row", Data$Comment)])/nrow(Data)*100 # 0.3%
+length(Data$Comment[grepl("Duplicated row", Data$Comment)])/nrow(Data)*100 # 0%
 
-Duplistems <- Data[grepl("Duplicated 'IdStem'", Data$Comment)]
+Duplistems <- Data[grepl("Duplicated 'IdStem'", Data$Comment)] %>%
+  select(IdTree, IdStem, ScientificName, Diameter, X,Y, Comment)
 
 length(unique(Duplistems$IdTree))
 
@@ -171,9 +172,10 @@ length(unique(Duplistems$IdTree))
 ```
 
 ```{r}
-length(Data$Comment[grepl("Different coordinates", Data$Comment)])/nrow(Data)*100 # 0.009%
-length(Data$Comment[grepl("Non-unique combinaison", Data$Comment)])/nrow(Data)*100 # 0.03%
-# combination 
+length(Data$Comment[grepl("Different coordinates", Data$Comment)])/nrow(Data)*100 # 0.009% (4 stems, 2 trees, 4 guyafor.nb.., 4 noms différents)
+length(Data$Comment[grepl("Non-unique combination of IdTree and Guyafor.nb", Data$Comment)])/nrow(Data)*100 # 0.03% (12 idtree, 6 guyafor.nb)
+
+diffcoord <- Data[grepl("Different coordinates", Data$Comment)]
 ```
 
 # Bota
@@ -208,7 +210,7 @@ Data <- BotanicalCorrection(Data, DetectOnly = T)
 
 length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nrow(Data)*100 # 0.02%
 
-test <- Data %>%
+Botadiff <- Data %>%
   filter(grepl("Different botanical informations", Comment)) %>% # 16
   select(Comment, IdTree, IdStem, Guyafor.nb, Diameter, Family, Genus, Species, ScientificName, Code_problem)
 

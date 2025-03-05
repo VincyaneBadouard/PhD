@@ -8,6 +8,9 @@ editor: source
 code-fold: true
 ---
 
+mais l'idée là c'est de le refaire pour une autre gamme de l'enviro puisqu'on le logge (genre -8; 0). Et de tester si on peut retrouver toutes les formes, pas que la sigmoide negative. Et pour élargir a et gamma, explore, l'idée est de tester si tu peux retrouver toutes les formes. Si au dela (ou plutôt en deça) d'une certaine valeur de a toutes les courbes sont pareilles pour une valeur fixe des autres paramètres, ça ne vaut plus la peine d'explorer plus loin
+
+
 **Objectives:**
 Sigmoid optimum can be estimated outside of the environmental range.  
 To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O", for that we need to explore what are acceptable bounds.  
@@ -15,7 +18,6 @@ To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O
 a = beta2  
 O = extremum : -beta1/(2*beta2)  
 gamma = alpha-(beta1^2/4*beta2)  
-
 
 - without model fit  
 - a : -10, -100 (<0 to force concave form)  

@@ -45,8 +45,9 @@ Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Para
 ```{r}
 Abs <- data.frame(
   Transmittance = seq(min(Inv$Transmittance), max(Inv$Transmittance), length.out=nrow(Inv)),
+  logTransmittance = seq(min(Inv$logTransmittance), max(Inv$logTransmittance), length.out=nrow(Inv)),
   Presence = 0
-) %>% mutate(logTransmittance = log(Transmittance)) 
+) 
 
 All <- bind_rows(Inv, Abs)
 ```
@@ -62,6 +63,9 @@ for(d in c("Inv", "Abs")){
     )
 }
 median(Inv$logTransmittance) # -4
+median(Inv$Transmittance) # 0.01
+exp(-4)
+
 rm(Abs, Inv)
 ```
 
@@ -92,14 +96,15 @@ dataM_log <- list(N = nrow(All),
 
 
 # Model
-```{r}
+```{r, eval=F}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 
 # quadratic - canonic form - concave forced without explicite priors
 M_Quadra_forced <- stan_model(model_name = "Quadra_can_forced",
                               paste(path, "Stanfiles/Bernoulli_EnvOnly_quadratic_canonic_forced.stan", sep=''))
-
-M_Quadra_forced
+```
+```{r}
+readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Bernoulli_EnvOnly_quadratic_canonic_forced.stan")
 ```
 
 
@@ -121,14 +126,6 @@ https://mc-stan.org/misc/warnings.html#bulk-essAvis : Tail Effective Samples Siz
 Running the chains for more iterations may help. See
 https://mc-stan.org/misc/warnings.html#tail-ess
 
--> log 
-Avis : There were 674 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See
-https://mc-stan.org/misc/warnings.html#maximum-treedepth-exceededAvis : Examine the pairs() plot to diagnose sampling problems
-Avis : Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
-Running the chains for more iterations may help. See
-https://mc-stan.org/misc/warnings.html#bulk-essAvis : Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
-Running the chains for more iterations may help. See
-https://mc-stan.org/misc/warnings.html#tail-ess
 
 ```{r, eval=F}
 fits <- list(fit_notlog, fit_log)
@@ -156,24 +153,26 @@ mcmc_trace(as.array(fits[["log"]]),
 
 # Predictions
 ```{r}
-form="log"
+# form="log"
 dataplot <- 
   lapply(as.list(names(fits)), function(form)
-  data.frame(form = form, 
-             x = dataM_notlog$Environmentp,
-             logx = dataM_log$Environmentp,
-             mu = apply(as.matrix(fits[[form]], pars = "p"), 2, median),
-             t(apply(as.matrix(fits[[form]], pars = "p"), 2, 
-                     quantile, probs = c(0.05, 0.95))),
-             Opt = apply(as.matrix(fits[[form]], pars = "O"), 2, median),
-             Opt = t(apply(as.matrix(fits[[form]], pars = "O"), 2,
-                           quantile, probs = c(0.05, 0.95)))
-             
-  )) %>% 
+    data.frame(form = form, 
+               x = dataM_notlog$Environmentp,
+               logx = dataM_log$Environmentp,
+               mu = apply(as.matrix(fits[[form]], pars = "p"), 2, median),
+               t(apply(as.matrix(fits[[form]], pars = "p"), 2, 
+                       quantile, probs = c(0.05, 0.95))),
+               Opt = apply(as.matrix(fits[[form]], pars = "O"), 2, median),
+               Opt = t(apply(as.matrix(fits[[form]], pars = "O"), 2,
+                             quantile, probs = c(0.05, 0.95)))
+               
+    )) %>% 
   bind_rows()
 
 # View(dataplot[[Log]])
+```
 
+```{r}
 plot1 <- dataplot %>% filter(form=="log") %>% 
   ggplot(aes(x = logx)) +
   theme_minimal() +
@@ -181,19 +180,29 @@ plot1 <- dataplot %>% filter(form=="log") %>%
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
   
+  # Optimum
+  geom_vline(aes(xintercept = Opt), color = "#00AFBB", linewidth=1) + # exp to delog
+  geom_vline(aes(xintercept = `Opt.5.`), linetype="dashed") +
+  geom_vline(aes(xintercept = `Opt.95.`), linetype="dashed") +
+  
+  
   labs(title =  paste("Log"), y = "Presence probability", col= "Presence-absence")
 # facet_wrap(~ form, scales = "fixed", nrow = 1)
 
 plot2 <- dataplot %>% filter(form=="log") %>% 
-  ggplot(aes(x = logx)) +
+  ggplot(aes(x = exp(logx))) +
   theme_minimal() +
   # Proba
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
   
-  scale_x_continuous(trans="exp") +
+    # Optimum
+  geom_vline(aes(xintercept = exp(Opt)), color = "#00AFBB", linewidth=1) + # exp to delog
+  geom_vline(aes(xintercept = exp(`Opt.5.`)), linetype="dashed") +
+  geom_vline(aes(xintercept = exp(`Opt.95.`)), linetype="dashed") +
+
   
-  labs(title =  paste("Log - délog"), y = "Presence probability", col= "Presence-absence")
+  labs(title =  paste("Log - delog"), y = "Presence probability", col= "Presence-absence")
 
 plot3 <- dataplot %>% filter(form=="notlog") %>% 
   ggplot(aes(x = x)) +
@@ -202,17 +211,27 @@ plot3 <- dataplot %>% filter(form=="notlog") %>%
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
   
+    # Optimum
+  # geom_vline(aes(xintercept = Opt), color = "#00AFBB", linewidth=1) + # exp to delog
+  # geom_vline(aes(xintercept = `Opt.5.`), linetype="dashed") +
+  # geom_vline(aes(xintercept = `Opt.95.`), linetype="dashed") +
+
+  
   labs(title =  paste("Not log"), y = "Presence probability", col= "Presence-absence")
 # facet_wrap(~ form, scales = "fixed", nrow = 1)
 
 plot4 <- dataplot %>% filter(form=="notlog") %>% 
-  ggplot(aes(x = x)) +
+  ggplot(aes(x = log(x))) +
   theme_minimal() +
   # Proba
   geom_point(aes(y = mu), size=0.7) +
   geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
   
-  scale_x_continuous(trans="log") +
+    # Optimum
+  # geom_vline(aes(xintercept = log(Opt)), color = "#00AFBB", linewidth=1) + # exp to delog
+  # geom_vline(aes(xintercept = log(`Opt.5.`)), linetype="dashed") +
+  # geom_vline(aes(xintercept = log(`Opt.95.`)), linetype="dashed") +
+
   
   labs(title =  paste("Not log - log"), y = "Presence probability", col= "Presence-absence")
 
@@ -220,5 +239,8 @@ plot4 <- dataplot %>% filter(form=="notlog") %>%
 ggpubr::ggarrange(plot1, plot2, plot3, plot4, ncol = 2, nrow = 2)
 ```
 
-Pq la niche du modèle Log n'est pas en cloche centrée sur -4 comme l'histogramme ? à cause des absences ?  
+-> Optimum outside of the environmental range in the the non logged case.  
+-> logged the transmittance permit a parabola and so to define an optimum defined at the real presence probability maximum.  
+
+-> The log transformation of transmittance produces a parabola which can be used to define an optimum for the maximum presence of the community here.  In fact, the log transformation reduces the probability of a ‘sigmoid/concave at the extremes’, which is a form that goes beyond the definition of the environment and does not allow a precise definition of the niche optimum.
 
