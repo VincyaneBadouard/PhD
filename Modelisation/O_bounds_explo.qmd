@@ -10,6 +10,9 @@ code-fold: true
 
 mais l'idée là c'est de le refaire pour une autre gamme de l'enviro puisqu'on le logge (genre -8; 0). Et de tester si on peut retrouver toutes les formes, pas que la sigmoide negative. Et pour élargir a et gamma, explore, l'idée est de tester si tu peux retrouver toutes les formes. Si au dela (ou plutôt en deça) d'une certaine valeur de a toutes les courbes sont pareilles pour une valeur fixe des autres paramètres, ça ne vaut plus la peine d'explorer plus loin
 
+refaire pour une autre gamme de l'enviro puisqu'on le logge (genre -8; 0). Et de tester si on peut **retrouver toutes les formes**, pas que la sigmoide negative. Et pour élargir a et gamma, explore, l'idée est de tester si tu peux retrouver toutes les formes. Si au dela (ou plutôt en deça) d'une **certaine valeur de a toutes les courbes sont pareilles** pour une valeur fixe des autres paramètres, ça ne vaut plus la peine d'explorer plus loin
+
+log ou log 10 ?
 
 **Objectives:**
 Sigmoid optimum can be estimated outside of the environmental range.  
@@ -40,9 +43,9 @@ library(tidyverse)
 #   gamma = c(-1, 0, 1)
 
 tidyr::crossing(
-  a = c(-1, -5, -10, -25), #c(-10, -25, -50, -100),
-  O = c(-0.75, -0.5, -0.25, 0),
-  gamma = c(-2, -1, 0, 1, 2),
+  a = c(300, 10, 5, 1, -0.5, -1, -5, -10, -25), #c(-10, -25, -50, -100),
+  O = c(-.75, -.5, -.25, 0, .25, .5, .75, 1),
+  gamma = c(-20, -10, -4, -2, -1, 0, 1, 2, 10, 15, 50, 100),
   Environment = (seq(-1,1, length.out =50)) # 0.001
 ) %>% 
   mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
@@ -50,11 +53,13 @@ tidyr::crossing(
   mutate(Combinaison = as.factor(Combinaison)) %>% 
   
   ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
-  xlim(0,1) +
+  # xlim(0,1) +
   geom_line(linewidth=1) +
   facet_grid(a ~ gamma, labeller = label_both) +
   theme_bw()  #+
 # scale_color_viridis_c()
+
+# ggsave("Explo_parameters_canonic_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Art", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 -> gamma = hauteur de la parabole
 -> a = ouverture de la parabole

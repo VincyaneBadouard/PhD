@@ -40,7 +40,7 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 ```
 
 # Models
-```{r, Models}
+```{r, Models, eval=F}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/"
 
 # quadratic - canonic form - concave forced
@@ -55,6 +55,11 @@ Models <- list(Affine= M_linear,
                Quadra_forced= M_Quadra_forced) # a list of models to parallelise
 
 # rm(M_linear, M_Quadra_forced)
+```
+
+```{r, display models}
+readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/Bernoulli_LightOnto_linear.stan")
+readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/Bernoulli_LightOnto_quadratic_canonic_forced.stan")
 ```
 
 ```{r, data list}
@@ -87,7 +92,7 @@ test <- sampling(Models[[1]], data = dataM[[1]], chains = 1, cores = 1, iter = 2
 
 # Sampling
 2 species and 2 models
-```{r, Sampling}
+```{r, Sampling, eval=F}
 # 4 models to run (2 sp * 2 model forms)
 gc()
 Sys.time() # 7 min
@@ -160,11 +165,28 @@ for(S in sp){
 
 -> divergence and chain mix problem with quadra forced because there is no priors  
 
+```{r}
+for(S in sp){
+  print(
+    mcmc_intervals(as.array(fits_list[[S]][["Affine"]]), prob=0.95,
+                   pars = c("alpha", "beta1", "iota")) +
+      ggplot2::labs(title = paste(S, "Affine", sep=" - "))
+  )
+  print(
+    mcmc_intervals(as.array(fits_list[[S]][["Quadra_forced"]]), prob=0.95,
+                   pars = c("a", "O", "gamma", "iota")) +
+      labs(title = paste(S, "Quadra_forced", sep=" - "))
+  )
+}
+```
+
+
 # Predictions
 **Ajouter le DBH dans les plots**
 ```{r}
 form= "Quadra_forced"
 S= "Lecythis_persistens"
+S= "Eschweilera_sagotiana"
 # apply(as.matrix(test, pars = "p"), 2, median)
 
 dataplot <- list()
@@ -190,7 +212,7 @@ for(S in names(fits_list)){
     bind_rows()
 }
 
-
+View(dataplot[[S]])
 
 # 50 env * 5 DBH
 # tidyr::crossing(
@@ -206,42 +228,51 @@ for(S in names(fits_list)){
     ggplot(dataplot[[S]], aes(x=DBHp, y=Environmentp, fill = mu)) + 
       theme_minimal() +
       geom_tile()  + # heatmap
-      facet_wrap(~ form, scales = "fixed", nrow = 1) 
-    # geom_bin2d(bins = 50) # for counts
+      facet_wrap(~ form, scales = "fixed", nrow = 1) + 
+      labs(title = S)
   )
+}
+```
+```{r}
+for(S in names(fits_list)){
+  for(form in names(fits_list[[S]])){
+    print(
+      
+      dataplot[[S]] %>% filter(form=="Quadra_forced") %>% 
+        ggplot(aes(x = (Environmentp))) +
+        theme_classic() +
+        # Probas
+        geom_point(aes(y = mu), size=0.7) +
+        geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+        labs(title =  paste("Simulations median ",S, form, sep=" - "), y = "Presence probability", col= "Presence-absence")  +
+        facet_wrap(~ exp(DBHp), scales = "free", labeller = "label_both") #  scales = "free", nrow = 1
+      
+    )
+  }
 }
 ```
 
 ```{r}
 for(S in names(fits_list)){
-  
-  # print(
-  #   ggplot(dataplot[[S]], aes(x = Environmentp)) +
-  #     # Probas
-  #     geom_point(aes(y = mu), size=0.7) +
-  #     geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
-  #     labs(title = paste("Simulations median ",S," - y free"), y = "Presence probability", col= "Presence-absence") +
-  #     facet_wrap(~ form, scales = "free", nrow = 1)
-  # )
-  
   print(
     ggplot(dataplot[[S]], aes(x = Environmentp)) +
       # Probas
       geom_point(aes(y = mu), size=0.7) +
       geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
-      labs(title =  paste("Simulations median ",S," - y fixed"), y = "Presence probability", col= "Presence-absence") +
-      facet_wrap(~ form, scales = "fixed", nrow = 1)
+      labs(title =  paste("Simulations median ",S, sep=" - "), y = "Presence probability", col= "Presence-absence") +
+      facet_grid(DBHp ~ form, scales = "free", labeller = label_both) #  scales = "free", nrow = 1
   )
   
 }
 
 form= "Affine"
 S= "Lecythis_persistens"
-ggplot(dataplot[[S]], aes(x=DBHp, y= mu, col= Environmentp)) +
+ggplot(dataplot[[S]], aes(x=exp(DBHp), y= mu, col= exp(Environmentp))) +
   geom_point() +
   facet_wrap(~ form, scales = "fixed", nrow = 1)
 
-ggplot(dataplot[[S]], aes(x=DBHp, y= Opt, col= Environmentp)) +
+# Optimum move
+ggplot(dataplot[[S]][["Quadra_forced"]], aes(x=DBHp, y= Opt)) +
   geom_point() 
 
 

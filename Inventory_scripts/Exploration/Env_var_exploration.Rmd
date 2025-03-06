@@ -305,6 +305,17 @@ log <- ggplot(Light, aes(x=Transmittance)) +
   geom_vline(xintercept =  0.001, col= "darkgreen") +
   labs(title = "log transformed")
 
+log10 <- ggplot(Light, aes(x=Transmittance)) +
+  theme_minimal() +
+  geom_histogram(binwidth=0.25, closed ="left", fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="log10",
+                     breaks = c(0, min(Light$Transmittance),
+                                0.001, 0.01, 0.1, 1),
+                     labels = as.character(c(0,                                             format(round(min(Light$Transmittance),5), scientific=FALSE),
+                                             0.001, 0.01, 0.1, 1)) ) +
+  geom_vline(xintercept =  0.001, col= "darkgreen") +
+  labs(title = "log10 transformed")
+
 sqrt <- ggplot(Light, aes(x=Transmittance)) +
   theme_minimal() +
   geom_histogram(binwidth=0.06, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
@@ -315,8 +326,11 @@ sqrt <- ggplot(Light, aes(x=Transmittance)) +
   geom_vline(xintercept =  0.001, col= "darkgreen") +
   labs(title = "sqrt transformed")
 
-ggpubr::ggarrange(NotT, sqrt, log, 
+ggpubr::ggarrange(NotT, sqrt, log, log10,
                   # labels = c("not transformed", "sqrt transformed", "log transformed"),
+                  ncol = 1, nrow = 4)
+
+ggpubr::ggarrange(NotT, log, log10,
                   ncol = 1, nrow = 3)
 
 ggsave("Light_distrib_transformation.png",

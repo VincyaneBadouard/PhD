@@ -183,19 +183,19 @@ nrow(all %>%
 # DBH diff
 range(all$DBHdiff, na.rm = T) # -94.53381 178.01549 !
 
-nrow(all %>% filter(DBHdiff > 15 | DBHdiff <(- 6))) # 56 arbres
+nrow(all %>% filter(DBHdiff > 15 | DBHdiff <(- 2))) # 56 arbres
 
-growthpb <- all %>% filter(DBHdiff > 15 | DBHdiff <(- 6))%>%
+growthpb <- all %>% filter(DBHdiff > 15 | DBHdiff <(- 2))%>%
   select(ScientificNameA,ScientificNameU,GenusA,GenusU, Species, Dist, DBHdiff)
 
 
-nrow(all %>% filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>% filter(DBHdiff > 15 | DBHdiff <(- 6))) # 0 arbres
+nrow(all %>% filter(grepl("Non-unique combinaison of IdTree and Guyafor.nb", Comment)) %>% filter(DBHdiff > 15 | DBHdiff <(- 2))) # 0 arbres
 
 # Together
 nrow( all %>% 
         filter(ScientificNameA != ScientificNameU) %>% 
         filter(Dist>2) %>% # 15
-        filter(DBHdiff > 15 | DBHdiff <(- 6)) ) # 0
+        filter(DBHdiff > 15 | DBHdiff <(- 2)) ) # 0
 
 ```
 
@@ -235,7 +235,7 @@ range(testchange$DBHdiff, na.rm = T) # -36.28733  39.28028
 
 ## Quest-ce qu'il ya de satisfaisant :
 OK <- test %>% 
-  filter(SelectedCoord==T & Dist<5 & GenusA==GenusU & (DBHdiff < 15 & DBHdiff >(- 6)))  # 3743/4485 -> 83%
+  filter(SelectedCoord==T & Dist<5 & GenusA==GenusU & (DBHdiff < 15 & DBHdiff >(- 2)))  # 3743/4485 -> 83%
 range(OK$DBHdiff, na.rm = T) #  -5.797791 13.701407
 OKchange <- OK %>%
   filter(SelectedCoord & SubPlotU!=SubPlotA) # 0 parmis les ok ont changé de plot
@@ -250,7 +250,7 @@ loin <- test %>%
 
 # Combien avient des taux de croissance aberrants
 growthpb <- test %>%
-  filter(SubPlotU==SubPlotA & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 56 
+  filter(SubPlotU==SubPlotA & (DBHdiff > 15 | DBHdiff <(- 2))) %>% select(IdTree) %>% unique() # 56 
 
 # Combien sont encore mal identifiés
 badbota <- test %>%
@@ -262,7 +262,7 @@ loin <- test %>%
 
 # Combien ont encore des taux de croissance aberrants
 growthpb <- test %>%
-  filter(SelectedCoord==T & (DBHdiff > 15 | DBHdiff <(- 6))) %>% select(IdTree) %>% unique() # 56 
+  filter(SelectedCoord==T & (DBHdiff > 15 | DBHdiff <(- 2))) %>% select(IdTree) %>% unique() # 56 
 
 test0 <- test %>% 
   filter(NbSelectedCoord==0) # 26/4485 arbres cirad n’ont pas un bon match
@@ -312,14 +312,14 @@ write.csv(test, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Nonunique_co
 test <- all %>% 
   filter(grepl("Non-unique combinaison", Comment)) %>% 
   # filter(ScientificNameA != ScientificNameU) %>%   # 25/4 537 arbres
-  filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
+  filter(DBHdiff > 15 | DBHdiff <(- 2)) # 0 arbres
 
 
 test <- all %>% 
   filter(grepl("Non-unique combinaison", Comment)) %>% 
   filter(ScientificNameA == ScientificNameU)  # 94/4 537 arbres
 # filter(ScientificNameA!="Indet") %>%   
-# filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
+# filter(DBHdiff > 15 | DBHdiff <(- 2)) # 0 arbres
 
 
 test <- all %>% 
@@ -330,7 +330,7 @@ test <- all %>%
 test <- all %>% 
   # filter(DBH < Diameter) %>% 
   mutate(DBHdiff = DBH - Diameter) %>%
-  filter(DBHdiff > 15 | DBHdiff <(- 6)) # 85/4 537 arbres
+  filter(DBHdiff > 15 | DBHdiff <(- 2)) # 85/4 537 arbres
 
 test <- all %>% 
   filter(Dist>2) %>%   
@@ -338,7 +338,7 @@ test <- all %>%
   mutate(ScientificNameU = str_remove(ScientificNameU, "Indet")) %>% 
   filter(ScientificNameA != ScientificNameU) %>%  # 98/4 537 arbres
   # filter(ScientificNameA!="Indet") %>%   
-  filter(DBHdiff > 15 | DBHdiff <(- 6)) # 0 arbres
+  filter(DBHdiff > 15 | DBHdiff <(- 2)) # 0 arbres
 
 
 
