@@ -16,16 +16,17 @@ log ou log 10 ?
 
 **Objectives:**
 Sigmoid optimum can be estimated outside of the environmental range.  
-To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O", for that we need to explore what are acceptable bounds.  
+To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O", for that we need to explore what are a and gamma values to visualize the curve on then environment bounds.  
 
 a = beta2  
 O = extremum : -beta1/(2*beta2)  
 gamma = alpha-(beta1^2/4*beta2)  
 
-- without model fit  
-- a : -10, -100 (<0 to force concave form)  
-- gamma : -2, 0.2  
-- O : -0.75, -0.5, -0.25, 0 (<0 to simulate a negativ sigmoid on 0-1)  
+- without model fit 
+- on x [0,1] logged
+- a :  (<0 to force concave form)  
+- gamma :  
+- O :   
 - iota (interaction parameter) after  
 - plot lines on env in abscissa  
 
@@ -43,10 +44,10 @@ library(tidyverse)
 #   gamma = c(-1, 0, 1)
 
 tidyr::crossing(
-  a = c(300, 10, 5, 1, -0.5, -1, -5, -10, -25), #c(-10, -25, -50, -100),
-  O = c(-.75, -.5, -.25, 0, .25, .5, .75, 1),
-  gamma = c(-20, -10, -4, -2, -1, 0, 1, 2, 10, 15, 50, 100),
-  Environment = (seq(-1,1, length.out =50)) # 0.001
+  a = c(-0.001, -0.02, -0.05, -0.1, -0.25, -0.5, -1, -5, -10, -1000000000000000), #c(-10, -25, -50, -100),
+  O = -6, #c(-6, -3, -1),
+  gamma = c(-3, -1, 1, 5, 10, 15, 400, 480, 490, 495, 10000000000000000),
+  Environment = (seq(-6,1, length.out =50)) # 0.001
 ) %>% 
   mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
   unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
@@ -64,6 +65,11 @@ tidyr::crossing(
 -> gamma = hauteur de la parabole
 -> a = ouverture de la parabole
 -> O : valeur en x sur laquelle est centrée la parabole
+
+Ola courbe est plate si gamma < (-3)
+voir les proportions nécessaires pour que a et gamma donne du plat dans la case en haut à droite
+
+
 
 -> acceptable bounds for "O":  
 Dépend de gamma et de a,  

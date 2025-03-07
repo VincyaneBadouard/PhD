@@ -137,6 +137,9 @@ ggplot() +
 ```{r}
 data <- Inventory %>% 
   select(idTree, SubPlot, ScientificName, Strategy, DBHcor, Xutm, Yutm, TreeHeight) %>% 
+  mutate(cl = ifelse(Strategy =="Understory species" & !is.na(Strategy), "#009E73",
+                     "#E7B800")) %>%  # color per sp strategy
+
   # filter(ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
   #                                  "Oxandra_asbeckii", "Hymenopus_heteromorphus", "Unonopsis_stipitata")) %>%
   # filter(!is.na(Xutm)) %>% 
@@ -989,6 +992,12 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 ```
 
 # Relation between transmittance and tree height 
+```{r}
+data <- data %>% 
+  filter(!is.na(Transmittance)) %>% 
+  filter(!is.na(DBHcor))
+```
+
 ```{r, eval=F}
 COR <- round(cor(data$TreeHeight, data$Transmittance),2) # 0.76
 
@@ -1043,6 +1052,63 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 #        plots, width = 15, height = 10)
 
 ```
+
+
+# Relation between transmittance and DBH 
+```{r, eval=F}
+COR <- round(cor(data$DBHcor, data$Transmittance),2) # 0.81
+
+ggplot(data, aes(x= DBHcor, y= Transmittance)) + 
+  geom_point() +
+  geom_smooth(col="red") +
+  geom_text(aes(label = paste("r =",COR)), size = 8, 
+            x = -Inf, y = Inf, hjust = -0.2, vjust = 3, show.legend = F) + # hjust = -2, vjust = 1.5
+  theme_classic() +
+  theme(axis.title= element_text(size=18), axis.text= element_text(size=18)) +
+  labs(x= "DBH (cm)", y= "Transmittance")
+
+ggsave("D:/Mes Donnees/PhD/Figures/EnvVar_explo/DBH_vs_Transmittance.png",
+       width = 15, height = 10)
+
+```
+
+## Per species
+```{r, eval=F}
+plist <- vector('list', length(unique(data$ScientificName)))
+
+for(p in 1:length(unique(data$ScientificName))){
+  # message(s)
+  plist[[p]] <- local({
+    # s <- s
+    Data <- data %>% 
+      # na.omit() %>% 
+      filter(ScientificName==unique(data$ScientificName)[p]) %>% 
+      mutate(med = median(get(var)))
+    
+    COR <- round(cor(Data$DBHcor, Data$Transmittance),2) # correlation
+    
+    ggplot(Data, aes(x= DBHcor, y= Transmittance)) + 
+      geom_point() +
+      geom_smooth(method = "lm", col="red") +
+      geom_text(aes(label = paste("r =",COR)), size = 5, 
+                x = -Inf, y = Inf, hjust = -0.2, vjust = 3, show.legend = F) + # hjust = -2, vjust = 1.5
+      theme_classic() +
+      theme(plot.title = element_text(colour = unique(Data$cl)),
+            axis.title= element_text(size=18), axis.text= element_text(size=18)) +
+      labs(title = unique(Data$ScientificName), x= "DBH (cm)", y= "Transmittance")
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+# plots
+
+ggsave("Species_DBH_vs_Transmittance.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+
+```
+
 
 ## MaxTreeHeight
 ```{r}
