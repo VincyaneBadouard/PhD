@@ -168,7 +168,7 @@ elev <- elev %>%
 # plot(elev)
 ```
 # Where are MNT values <6 m (in the same zone or dispatched)
-```{r}
+```{r, eval=F}
 MNT[MNT[] < 6] = NA 
 # plot(MNT)
 
@@ -286,12 +286,23 @@ ggsave("Paracou_P16_Light_distrib.png",
 
 # Data transformation
 ```{r}
+Quantiles <- data.frame(Q =c("50%", "5%", "mean", "95%"),
+                        x = c(quantile(Light$Transmittance, .5),
+                              quantile(Light$Transmittance, .05),
+                              mean(Light$Transmittance),
+                              quantile(Light$Transmittance, .95)))
+
+
 NotT <- ggplot(Light, aes(x=Transmittance)) +
   theme_minimal() +
   geom_histogram(binwidth=0.01, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(breaks = c(0.001, seq(0.1, 1, 0.1)),
                      labels = as.character(c(0.001, seq(0.1, 1, 0.1))) ) +
   geom_vline(xintercept = 0.001, col= "darkgreen") +
+  geom_vline(xintercept = mean(Light$Transmittance)) +
+  geom_vline(xintercept = quantile(Light$Transmittance, .05), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Light$Transmittance, .95), linetype = "dashed") +
+  geom_text(data = Quantiles[2:4,], mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=1.2, size = 3) +
   labs(title = "not transformed")
 
 log <- ggplot(Light, aes(x=Transmittance)) +
@@ -299,10 +310,15 @@ log <- ggplot(Light, aes(x=Transmittance)) +
   geom_histogram(binwidth=0.25, closed ="left", fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(trans="log",
                      breaks = c(0, min(Light$Transmittance),
-                                0.001, 0.01, 0.1, 1),
+                                0.001, 0.002, 0.01, 0.02, 0.07, 0.1, 0.4, 1),
                      labels = as.character(c(0,                                             format(round(min(Light$Transmittance),5), scientific=FALSE),
-                                             0.001, 0.01, 0.1, 1)) ) +
+                                             0.001, 0.002, 0.01, 0.02, 0.07, 0.1, 0.4, 1)) ) +
   geom_vline(xintercept =  0.001, col= "darkgreen") +
+  geom_vline(xintercept = mean(Light$Transmittance)) +
+  geom_vline(xintercept = quantile(Light$Transmittance, .05), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Light$Transmittance, .5), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Light$Transmittance, .95), linetype = "dashed") +
+  geom_text(data = Quantiles, mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=-.2, size = 3) +
   labs(title = "log transformed")
 
 log10 <- ggplot(Light, aes(x=Transmittance)) +
@@ -324,19 +340,21 @@ sqrt <- ggplot(Light, aes(x=Transmittance)) +
                                 seq(0.1, 1, 0.1)),
                      labels = as.character(c(0.001, 0.01, seq(0.1, 1, 0.1))) ) +
   geom_vline(xintercept =  0.001, col= "darkgreen") +
+    geom_vline(xintercept = mean(Light$Transmittance)) +
+  geom_vline(xintercept = quantile(Light$Transmittance, .05), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Light$Transmittance, .95), linetype = "dashed") +
+  geom_text(data = Quantiles[2:4,], mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=-0.2, size = 3) +
   labs(title = "sqrt transformed")
 
-ggpubr::ggarrange(NotT, sqrt, log, log10,
-                  # labels = c("not transformed", "sqrt transformed", "log transformed"),
-                  ncol = 1, nrow = 4)
-
-ggpubr::ggarrange(NotT, log, log10,
+ggpubr::ggarrange(NotT, sqrt, log,
                   ncol = 1, nrow = 3)
 
 ggsave("Light_distrib_transformation.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
+ggpubr::ggarrange(NotT, log, log10,
+                  ncol = 1, nrow = 3)
 ```
 
 # Join env data

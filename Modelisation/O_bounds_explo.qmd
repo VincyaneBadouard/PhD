@@ -8,15 +8,13 @@ editor: source
 code-fold: true
 ---
 
-mais l'idée là c'est de le refaire pour une autre gamme de l'enviro puisqu'on le logge (genre -8; 0). Et de tester si on peut retrouver toutes les formes, pas que la sigmoide negative. Et pour élargir a et gamma, explore, l'idée est de tester si tu peux retrouver toutes les formes. Si au dela (ou plutôt en deça) d'une certaine valeur de a toutes les courbes sont pareilles pour une valeur fixe des autres paramètres, ça ne vaut plus la peine d'explorer plus loin
-
-refaire pour une autre gamme de l'enviro puisqu'on le logge (genre -8; 0). Et de tester si on peut **retrouver toutes les formes**, pas que la sigmoide negative. Et pour élargir a et gamma, explore, l'idée est de tester si tu peux retrouver toutes les formes. Si au dela (ou plutôt en deça) d'une **certaine valeur de a toutes les courbes sont pareilles** pour une valeur fixe des autres paramètres, ça ne vaut plus la peine d'explorer plus loin
-
-log ou log 10 ?
-
 **Objectives:**
 Sigmoid optimum can be estimated outside of the environmental range.  
-To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O", for that we need to explore what are a and gamma values to visualize the curve on then environment bounds.  
+To have a reasonable quadratic optimum for the sigmoid case, we want to bound "O", for that we need to explore what neet to be a and gamma values to visualize the curve between the environment bounds.  
+
+Pour moi la question est : peut-on permettre des bornes de O plus large, quels a et gamma ça nécessite pour les voir et est-ce que ces valeurs de paramètres sont de même ordre que pour des O sur le range environnementale (pour éviter les cas de divergence) ? 
+
+Pour Géraldine la question est : si on restreint O à la gamme observable, est-ce qu'on peut quand même avoir toutes les formes, et en particulier toutes les formes de signmoides.
 
 a = beta2  
 O = extremum : -beta1/(2*beta2)  
@@ -24,11 +22,10 @@ gamma = alpha-(beta1^2/4*beta2)
 
 - without model fit 
 - on x [0,1] logged
-- a :  (<0 to force concave form)  
-- gamma :  
-- O :   
-- iota (interaction parameter) after  
-- plot lines on env in abscissa  
+- a <0 to force concave form   
+- O at the environment bounds and between   
+- (iota (interaction parameter) after)  
+- plot lines on environment in abscissa  
 
 https://www.alloprof.qc.ca/fr/eleves/bv/mathematiques/le-role-des-parametres-dans-une-fonction-polynom-m1127  
 
@@ -36,46 +33,102 @@ https://www.alloprof.qc.ca/fr/eleves/bv/mathematiques/le-role-des-parametres-dan
 library(tidyverse)
 ```
 
-# Parameters table
+# Minimum Optimum value
 ```{r}
-# Generates all combination of parmeters (12)
-
-# a = c(-1, -5, -10),
-#   gamma = c(-1, 0, 1)
+# Generates all combination of parameters
 
 tidyr::crossing(
-  a = c(-0.001, -0.02, -0.05, -0.1, -0.25, -0.5, -1, -5, -10, -1000000000000000), #c(-10, -25, -50, -100),
-  O = -6, #c(-6, -3, -1),
-  gamma = c(-3, -1, 1, 5, 10, 15, 400, 480, 490, 495, 10000000000000000),
-  Environment = (seq(-6,1, length.out =50)) # 0.001
+  a = c(-0.001, -0.02, -0.05, -0.25, -1, -5), 
+  O = c(-8, -6, -3, 0),
+  gamma = c(-3, -1, -0.5, 1, 2, 3, 4, 5, 7, 10, 15, 30, 60, 100, 200, 300, 500, 1000),
+  Environment = (seq(-6,0, length.out =50)) 
 ) %>% 
   mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
-  unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
-  mutate(Combinaison = as.factor(Combinaison)) %>% 
+  # unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
+  # mutate(Combinaison = as.factor(Combinaison)) %>% 
   
   ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
-  # xlim(0,1) +
   geom_line(linewidth=1) +
   facet_grid(a ~ gamma, labeller = label_both) +
-  theme_bw()  #+
-# scale_color_viridis_c()
+  theme_bw()
+
+ggsave("Explo_O_bounds.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+       width = 45, height = 25, units = "cm", dpi=800, bg="white")
+```
+-> gamma = hauteur de la parabole (quand gamma croit la hauteur de la parabole croit)  
+-> a = ouverture de la parabole (quand a croit la parabole s'élargit)  
+-> O : valeur en x sur laquelle est centrée la parabole  
+
+On peut voir que la courbe rouge (O=-8) n'apparait qu'après la disparition de la courbe bleue (O intermédiaire) et pour des gamma élévés, pour a = -5 (et nous souhaitons favoriser un a <0 pour forcer la forme concave), alors que les courbes dont l'optimum est la borne minimale ou maximale de x, sont toujours visibles avec la courbe bleu.  
+-> donc il vaut mieux prendre pour O les **bornes les plus proches possible du range environnemental**  
+
+# First O = -6 only
+```{r}
+# Generates all combination of parameters
+
+tidyr::crossing(
+  a = c(-0.001, -0.02, -0.05, -0.1, -0.25, -1, -5, -10, -1000000000000000), 
+  O = -6, #c(-6, -3, -1),
+  gamma = c(-3, -1, -0.5, 1, 2, 3, 4, 5, 7, 10, 15, 400, 480, 490, 495, 10000000000000000),
+  Environment = (seq(-6,0, length.out =50)) 
+) %>% 
+  mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
+  # unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
+  # mutate(Combinaison = as.factor(Combinaison)) %>% 
+  
+  ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
+  geom_line(linewidth=1) +
+  facet_grid(a ~ gamma, labeller = label_both) +
+  theme_bw()
 
 # ggsave("Explo_parameters_canonic_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Art", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
--> gamma = hauteur de la parabole
--> a = ouverture de la parabole
--> O : valeur en x sur laquelle est centrée la parabole
 
-Ola courbe est plate si gamma < (-3)
-voir les proportions nécessaires pour que a et gamma donne du plat dans la case en haut à droite
+Pour tout a <0 et O = -6 (=borne inférieure de la variable loguée), la courbe sur l'intervale x observé, est **plate si gamma < (-3)**  
+
+Plus **a est proche de 0** plus la courbe est plate et seuls de **faibles gamma** permettent de voir la courbe (car la parabole générée est trop grande pour la voir sur l'intervale x observé)  
+
+Pour tout a <0, si **gamma est trop élévé** la courbe s'aplatit à y=1 sur l'intervale x observé, car quand la parabole ne peut plus grandir en hauteur elle s'élargit et s'écrase au y max.  
+
+**Plus a est petit, plus gamma peut etre grand**  
+
+# Optimum at the environment bounds and between
+```{r}
+# Generates all combination of parameters
+
+tidyr::crossing(
+  a = c(-0.001, -0.02, -0.05, -0.1, -0.25, -1, -5, -10, -20, -60, -100, -300, -100000, -1000000000000000000000), 
+  O = c(-6, -3, 0),
+  gamma = c(-3, -1, -0.5, 1, 2, 3, 4, 5, 7, 10, 15, 30, 60, 100, 2000, 3000),
+  Environment = (seq(-6,0, length.out =50)) 
+) %>% 
+  mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
+  # unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
+  # mutate(Combinaison = as.factor(Combinaison)) %>% 
+  
+  ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
+  geom_line(linewidth=1) +
+  facet_grid(a ~ gamma, labeller = label_both) +
+  theme_bw()
+
+# ggsave("Explo_parameters_canonic_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/", 
+#        width = 45, height = 25, units = "cm", dpi=800, bg="white")
+```
+-> la parabole (verte) centrée sur l'intervale x observé est la 1ère à s'applatir lorsque gamma augmente, et la derniere à s'applatir lorsque gamma diminue  
+
+-> a peut etre infiniment petit, les paraboles d'optimum egale au bornes mimimum ou maximum de l'intervale x observé seront toujours visibles tant que gamma est > -3, par contre les paraboles intermédiaires ne pourront etre visibles que si gamma est extremement grand  
+
+-> Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et 300**, et plus a sera proche de 0, plus il faudra un gamma faible pour voir toutes les paraboles.
 
 
 
--> acceptable bounds for "O":  
-Dépend de gamma et de a,  
-plus gamma est fort plus on peut prendre des bornes de "O" larges,    
-plus a est faible en absolu, plus on peut prendre des bornes de "O" larges.  
--> il vaut mieux prendre les bornes les plus proches possible du range environnemental
+Bilan:
+-> gamma = hauteur de la parabole (quand gamma croit la hauteur de la parabole croit)  
+-> a = ouverture de la parabole (quand a croit la parabole s'élargit)  
+-> O : valeur en x sur laquelle est centrée la parabole  
 
-
+- Nous devons borner O sur l'intervale environnmental observé pour s'assurer de voir les courbes sur cet interval (Fig 1.).  
+- gamma dot etre > -3 pour pourvoir observer les courbes.  
+- Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et 300**.  
+- Plus a sera proche de 0, plus il faudra un gamma faible pour voir toutes les paraboles.  
 

@@ -1,0 +1,329 @@
+---
+title: "Sigmoid_ontogeny_quadratic_vs_affine"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+**Objectives:**  
+Tester ontogénie sur modèle affine et model forcée concave pour des espèces sigmoïdes
+
+Espèces sigmoides : Lecythis_persistens, Eschweilera_sagotiana
+
+```{r, packages, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois - gain de temps
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+library(tidyverse)
+library(loo)
+```
+
+# Prepare data
+
+```{r, include = F, message=F}
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
+
+sp <- c("Lecythis_persistens", "Eschweilera_sagotiana")
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# View(datalist[["Eschweilera_sagotiana"]])
+```
+
+# Models
+```{r, Models, eval=F}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/"
+
+# quadratic - canonic form - concave forced
+M_Quadra_forced <- stan_model(model_name = "Quadra_can_forced",
+                              paste(path, "Bernoulli_LightOnto_quadratic_canonic_forced.stan", sep=''))
+
+# modèle affine
+M_linear <- stan_model(model_name = "linear",
+                       paste(path, "Bernoulli_LightOnto_linear.stan", sep=''))
+
+Models <- list(Affine= M_linear,
+               Quadra_forced= M_Quadra_forced) # a list of models to parallelise
+
+# rm(M_linear, M_Quadra_forced)
+```
+
+```{r, display models}
+readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/Bernoulli_LightOnto_linear.stan")
+readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/Bernoulli_LightOnto_quadratic_canonic_forced.stan")
+```
+
+```{r, data list}
+# 2 species
+N_e_p = 50 # n env 
+N_d_p = 5 # n DBH
+
+dataM <- lapply(datalist, function(x) list(N = nrow(x), 
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance,
+                                           DBH = log(x$DBHcor),
+                                           # number of predictions
+                                           N_e_p = N_e_p, # n env 
+                                           N_d_p = N_d_p, # n DBH
+                                           # variables of predictions
+                                           Environmentp = 
+                                             seq(min(x$logTransmittance), max(x$logTransmittance), length.out = N_e_p),
+                                           DBHp = log(c(1, 5, 10, 20, 60))
+                                           # DBHp = log(seq(min(x$DBHcor), max(x$DBHcor), length.out = N_d_p))
+)
+)
+
+
+# dataM
+```
+
+```{r, eval=F}
+test <- sampling(Models[[1]], data = dataM[[1]], chains = 1, cores = 1, iter = 2000)
+```
+
+# Sampling
+2 species and 2 models
+```{r, Sampling, eval=F}
+# 4 models to run (2 sp * 2 model forms)
+gc()
+Sys.time() # 7 min
+cores = min(length(Models), (7-4)) # nbr of cores to use
+i <- NULL
+j = length(Models) # 2
+
+for(S in sp) {
+  # S=sp[1]
+  
+  # L'enregistrement des clusters
+  cl <- parallel::makeCluster(cores, outfile = "")
+  doSNOW::registerDoSNOW(cl)
+  
+  # Progress bar:
+  pb <- txtProgressBar(max=j)
+  progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+  opts <- list(progress = progress)
+  
+  fits <- foreach::foreach(
+    i=1:j, # j
+    .packages = c("rstan"), # necessary packages
+    .options.snow = opts, # ProgressBar
+    .combine=c) %dopar% {
+      # the function to parallelise:
+      sampling(Models[[i]], data = dataM[[S]], chains = 4, cores = 4, iter = 2000)
+    }
+  # close progressbar and cluster
+  close(pb)
+  stopCluster(cl)
+  
+  names(fits) <- names(Models[1:j])
+  
+  saveRDS(fits, file = paste("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/SigmoidOntogeny/QuadravsAffine",S,".rds", sep=""))
+  
+}
+
+gc()
+Sys.time()
+```
+
+```{r}
+files <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/SigmoidOntogeny",
+                    pattern = "QuadravsAffine",full.names = T)#  files
+# files
+# 2 species and 2 models each
+
+fits_list <- lapply(files, readRDS) # read files
+names(fits_list) <- sp
+names(fits_list[["Lecythis_persistens"]])
+```
+
+## Chains
+```{r}
+for(S in sp){
+  print(
+    mcmc_trace(as.array(fits_list[[S]][["Affine"]]), 
+               pars = c("alpha", "beta1", "iota"),
+               np = nuts_params(fits_list[[S]][["Affine"]])) +
+      ggplot2::labs(title = paste(S, "Affine", sep=" - "))
+  )
+  print(
+    mcmc_trace(as.array(fits_list[[S]][["Quadra_forced"]]), 
+               pars = c("a", "O", "gamma", "iota"),
+               np = nuts_params(fits_list[[S]][["Quadra_forced"]])) +
+      labs(title = paste(S, "Quadra_forced", sep=" - "))
+  )
+}
+```
+
+-> divergence and chain mix problem with quadra forced because there is no priors  
+
+```{r}
+for(S in sp){
+  print(
+    mcmc_intervals(as.array(fits_list[[S]][["Affine"]]), prob=0.95,
+                   pars = c("alpha", "beta1", "iota")) +
+      ggplot2::labs(title = paste(S, "Affine", sep=" - "))
+  )
+  print(
+    mcmc_intervals(as.array(fits_list[[S]][["Quadra_forced"]]), prob=0.95,
+                   pars = c("a", "O", "gamma", "iota")) +
+      labs(title = paste(S, "Quadra_forced", sep=" - "))
+  )
+}
+```
+
+
+# Predictions
+**Ajouter le DBH dans les plots**
+```{r}
+form= "Quadra_forced"
+S= "Lecythis_persistens"
+S= "Eschweilera_sagotiana"
+# apply(as.matrix(test, pars = "p"), 2, median)
+
+dataplot <- list()
+for(S in names(fits_list)){
+  dataplot[[S]] <- lapply(as.list(names(fits_list[[S]])), function(form)
+    data.frame(form = form, 
+               mu = apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, median),
+               t(apply(as.matrix(fits_list[[S]][[form]], pars = "p"), 2, 
+                       quantile, probs = c(0.05, 0.95))),
+               Opt = ifelse(form=="Quadra_forced", apply(as.matrix(fits_list[[S]][[form]], pars = "O"), 2, median), NA),
+               Opt = ifelse(form=="Quadra_forced", t(apply(as.matrix(fits_list[[S]][[form]], pars = "O"), 2,
+                                                           quantile, probs = c(0.05, 0.95))), NA)
+               
+    ) %>% 
+      rownames_to_column("Matrix") %>% 
+      rowwise() %>% 
+      mutate(Env = as.numeric(unlist(str_extract_all(Matrix, "\\d+"))[1])) %>% 
+      mutate(dbh = as.numeric(unlist(str_extract_all(Matrix, "\\d+"))[2])) %>% 
+      mutate(Environmentp = dataM[[S]]$Environmentp[Env]) %>% # 50
+      mutate(DBHp = dataM[[S]]$DBHp[dbh]) # 5
+    
+  ) %>% 
+    bind_rows()
+}
+
+View(dataplot[[S]])
+
+# 50 env * 5 DBH
+# tidyr::crossing(
+#   DBHp = dataM[[S]]$DBHp, # 5
+#   Environmentp = dataM[[S]]$Environmentp # 50
+# )
+```
+
+# Heatmap
+```{r}
+for(S in names(fits_list)){
+  print(
+    ggplot(dataplot[[S]], aes(x=DBHp, y=Environmentp, fill = mu)) + 
+      theme_minimal() +
+      geom_tile()  + # heatmap
+      facet_wrap(~ form, scales = "fixed", nrow = 1) + 
+      labs(title = S)
+  )
+}
+```
+```{r}
+for(S in names(fits_list)){
+  for(form in names(fits_list[[S]])){
+    print(
+      
+      dataplot[[S]] %>% filter(form=="Quadra_forced") %>% 
+        ggplot(aes(x = (Environmentp))) +
+        theme_classic() +
+        # Probas
+        geom_point(aes(y = mu), size=0.7) +
+        geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+        labs(title =  paste("Simulations median ",S, form, sep=" - "), y = "Presence probability", col= "Presence-absence")  +
+        facet_wrap(~ exp(DBHp), scales = "free", labeller = "label_both") #  scales = "free", nrow = 1
+      
+    )
+  }
+}
+```
+
+```{r}
+for(S in names(fits_list)){
+  print(
+    ggplot(dataplot[[S]], aes(x = Environmentp)) +
+      # Probas
+      geom_point(aes(y = mu), size=0.7) +
+      geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+      labs(title =  paste("Simulations median ",S, sep=" - "), y = "Presence probability", col= "Presence-absence") +
+      facet_grid(DBHp ~ form, scales = "free", labeller = label_both) #  scales = "free", nrow = 1
+  )
+  
+}
+
+form= "Affine"
+S= "Lecythis_persistens"
+ggplot(dataplot[[S]], aes(x=exp(DBHp), y= mu, col= exp(Environmentp))) +
+  geom_point() +
+  facet_wrap(~ form, scales = "fixed", nrow = 1)
+
+# Optimum move
+ggplot(dataplot[[S]][["Quadra_forced"]], aes(x=DBHp, y= Opt)) +
+  geom_point() 
+
+
+```
+
+```{r, include=F}
+rm(dataM, data, dataplot, M_linear,M_Quadra_forced, M_Quadra_free, Environmentp, Np, sp); gc()
+```
+
+# Model comparaison
+```{r, loo}
+# ?loo
+# class(fits_list[[1]])
+# names(fits_list)
+# Extract log likelihood
+
+for(S in names(fits_list)){
+  fits_list[[S]][[form]] 
+  
+  log_lik_1 <- extract_log_lik(fits_list[[S]][["Quadra_free"]])
+  log_lik_2 <- extract_log_lik(fits_list[[S]][["Quadra_forced"]])
+  log_lik_3 <- extract_log_lik(fits_list[[S]][["linear"]])
+  
+  # Compute LOO (leave-one-out cross-validation)
+  # all Pareto k estimates have to be small (k< 0.5)
+  Quadrafree <- loo(log_lik_1, save_psis = TRUE, cores=1) # Pareto-Smoothed Importance Sampling (PSIS)
+  # print(Quadrafree)
+  # plot(Quadrafree)
+  
+  Quadraforced <- loo(log_lik_2, save_psis = TRUE)
+  # print(Quadraforced)
+  # plot(Quadraforced)
+  
+  affine <- loo(log_lik_3, save_psis = TRUE)
+  # print(affine)
+  # plot(affine)
+  
+  loos <- list(Quadrafree, Quadraforced, affine)
+  names(loos) <- names(fits_list[[S]])
+  
+  # help('pareto-k-diagnostic') # for details.
+  #elpd_loo = the expected log pointwise predictive density
+  #p_loo = the effective number of parameters
+  #looic = the LOO information criterion 
+  
+  
+  # Model comparaison
+  # ?loo_compare
+  loo_diff <- loo_compare(loos)
+  
+  print(S)
+  print(loo_diff, simplify=F)
+}
+```

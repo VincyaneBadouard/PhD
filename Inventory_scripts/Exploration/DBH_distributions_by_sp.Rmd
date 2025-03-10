@@ -14,15 +14,97 @@ library(ggforce)
 
 # Import cleaned inventory data
 ```{r,include = F, message=F}
-Understory <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
-```
+Inventory <- read_csv(
+  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
+  "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
+  # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+) %>% 
+  filter(!is.na(DBHcor)) %>% 
+  arrange(DBHcor)
 
+```
 
 # Plot
 ```{r}
 # All
-ggplot(Understory, aes(x=DBH)) +
+ggplot(Inventory, aes(x=DBHcor)) +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9)
+```
+
+```{r}
+
+```
+
+# Data transformation
+```{r}
+Quantiles <- data.frame(Q =c("50%", "5%", "mean", "95%"),
+                        x = c(quantile(Inventory$DBHcor, .5),
+                              quantile(Inventory$DBHcor, .05),
+                              mean(Inventory$DBHcor),
+                              quantile(Inventory$DBHcor, .95)))
+
+
+NotT <- ggplot(Inventory, aes(x=DBHcor)) +
+  theme_minimal() +
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(breaks = c(1, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))),
+                     labels = as.character(c(1, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))))) +
+  geom_vline(xintercept = mean(Inventory$DBHcor)) +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .05), linetype = "dashed") +
+  # geom_vline(xintercept = quantile(Inventory$DBHcor, .5), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .95), linetype = "dashed") +
+  geom_text(data = Quantiles[2:4,], mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=-0.1, size = 2) +
+  labs(title = "not transformed")
+
+log <- ggplot(Inventory, aes(x=DBHcor)) +
+  theme_minimal() +
+  geom_histogram(closed ="left", fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="log",
+                     breaks = c(1, 2, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))),
+                     labels = as.character(c(1, 2, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))))) +
+  geom_vline(xintercept = mean(Inventory$DBHcor)) +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .05), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .5), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .95), linetype = "dashed") +
+  geom_text(data = Quantiles, mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=1.2, size = 3) +
+  labs(title = "log transformed")
+
+log10 <- ggplot(Inventory, aes(x=DBHcor)) +
+  theme_minimal() +
+  geom_histogram(closed ="left", fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="log10",
+                     breaks = c(1, 2, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))),
+                     labels = as.character(c(1, 2, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))))) +
+  geom_vline(xintercept = mean(Inventory$DBHcor)) +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .05), linetype = "dashed") +
+    geom_vline(xintercept = quantile(Inventory$DBHcor, .5), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .95), linetype = "dashed") +
+  geom_text(data = Quantiles, mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=1.2, size = 3) +
+  labs(title = "log10 transformed")
+
+sqrt <- ggplot(Inventory, aes(x=DBHcor)) +
+  theme_minimal() +
+  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="sqrt",
+                     breaks = c(1, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))),
+                     labels = as.character(c(1, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))))) +
+  geom_vline(xintercept = mean(Inventory$DBHcor)) +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .05), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .95), linetype = "dashed") +
+  geom_text(data = Quantiles[2:4,], mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=1.2, size = 3) +
+  labs(title = "sqrt transformed")
+
+ggpubr::ggarrange(NotT, sqrt, log,
+                  ncol = 1, nrow = 3)
+
+ggsave("DBH_distrib_transformation.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
+       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+
+
+ggpubr::ggarrange(NotT, log, log10,
+                  ncol = 1, nrow = 3)
+
 ```
 
 # Plot per species
@@ -32,20 +114,20 @@ ne prendre que :
 - les vivants
 - les mesures les plus récentes des arbres cirad 
 ```{r}
-sort(unique(Understory$ScientificName))
+sort(unique(Inventory$ScientificName))
 
-data <- Understory %>%
+data <- Inventory %>%
   filter(Genus=="Xylopia"|Genus=="Parkia"| Genus=="Ocotea")
 
 
-ggplot(data, aes(x=DBH)) +
+ggplot(data, aes(x=DBHcor)) +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   facet_wrap(vars(ScientificName, N, Strategy), scales = "free") +
   labs(x ="DBH (cm)", y = "Number of individuals")
 ```
 
 ```{r}
-sp <- Understory$ScientificName
+sp <- Inventory$ScientificName
 
 # Define nrow and ncol for the facet
 n <- length(unique(sp))
@@ -55,7 +137,7 @@ if(n<4) {i = 1}else{ i = 4}
 pdf("DBH_distributions_by_species.pdf", width = 15, height = 10)
 for(p in 1:(ceiling(length(unique(sp))/16))){
   print(
-    ggplot(Understory, aes(x=DBH)) +
+    ggplot(Inventory, aes(x=DBHcor)) +
       geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
       
       ggforce::facet_wrap_paginate(vars(ScientificName, N, Strategy),

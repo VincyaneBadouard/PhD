@@ -1,0 +1,222 @@
+---
+title: "Ontogeny - simulate concave data"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+**Objectives:**  
+Voir si on retrouve l'effet de l'ontogénie avec le modele quadratique sur des données simulées de niches concaves d'optimum différents aucours de l'ontogénie.
+
+
+```{r, packages, include = F}
+library(rstan)
+rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois - gain de temps
+rstan_options(disable_march_warning = TRUE)
+library(bayesplot)
+library(rstanarm) # for Bayesian automatic regression modelling using stan
+library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
+library(foreach) # parallisation
+library(parallel)
+library(tidyverse)
+```
+
+# Create simulate data
+
+DBH categories: 1-5, 5-10, 10-20, 20-30
+Their niche optimum: 0.001 ; 0.1 ; 0.5 ; 0.9
+```{r}
+n <- 500 # abs + pres
+X <- seq(0, 1, length.out = n) # env var
+# Parameters
+# opt <- 0.5 # 0.1 ; 0.5 ;0.9
+a <- -5 # intercept ; logit(0.5)= 0) autant de 0 que de 1
+b <- 10
+# c <- -b/(opt*2) 
+
+un5 <- data.frame(Environment = X,
+                  Cat = "1-5",
+                  DBH = seq(1, 5, length.out = n)) %>% 
+  mutate(P = 1 / (1 + exp(-(0 + 1 * X + (-1/(0.001*2)) * X^2)))) %>% 
+  mutate(Presence = rbinom(n, size = 1, 
+                           prob = P))
+
+cinq10 <- data.frame(Environment = X,
+                     Cat = "5-10",
+                     DBH = seq(5, 10, length.out = n)) %>% 
+  mutate(P = 1 / (1 + exp(-(a + 100 * X + (-100/(0.1*2)) * X^2)))) %>% 
+  mutate(Presence = rbinom(n, size = 1, 
+                           prob = P))
+
+dix20 <- data.frame(Environment = X,
+                    Cat = "10-20",
+                    DBH = seq(10, 20, length.out = n)) %>% 
+  mutate(P = 1 / (1 + exp(-(a + 20 * X + (-20/(0.5*2)) * X^2)))) %>% 
+  mutate(Presence = rbinom(n, size = 1, 
+                           prob = P))
+
+vingt30 <- data.frame(Environment = X,
+                      Cat = "20-30", 
+                      DBH = seq(20, 30, length.out = n)) %>% 
+  mutate(P = 1 / (1 + exp(-(-5 + 4 * X + (4/(0.9*2)) * X^2)))) %>% 
+  mutate(Presence = rbinom(n, size = 1, 
+                           prob = P))
+
+data <- bind_rows(un5, cinq10, dix20, vingt30)
+```
+
+# Visualisation of simulated data
+```{r}
+ggplot(data, aes(x= Environment, y= P, col=Cat)) +
+  theme_minimal() +
+  geom_point(aes(y= Presence), size=0.1) +
+  geom_line() +
+  labs(title= "Simulated ontogenic niches",
+       y="Presence (1) / Absence (0)", x="Environment", col="DBH categories")
+
+```
+
+# Models
+```{r, Models}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/"
+
+# quadratic - canonic form - concave forced
+M_Quadra_forced <- stan_model(model_name = "Quadra_can_forced",
+                              paste(path, "Bernoulli_LightOnto_quadratic_canonic_forced.stan", sep=''))
+
+# modèle affine
+# M_linear <- stan_model(model_name = "linear",
+#                        paste(path, "Bernoulli_LightOnto_linear.stan", sep=''))
+
+# Models <- list(Affine= M_linear,
+#                Quadra_forced= M_Quadra_forced) # a list of models to parallelise
+
+# rm(M_linear, M_Quadra_forced)
+```
+
+```{r, display models}
+# readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/Bernoulli_LightOnto_linear.stan")
+readLines("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Stanfiles/Ontogeny/Bernoulli_LightOnto_quadratic_canonic_forced.stan")
+```
+DBH categories: 1-5, 5-10, 10-20, 20-30
+```{r, data list}
+# 1 species
+N_e_p = 50 # n env 
+N_d_p = 4 # n DBH
+
+dataM <- list(N = nrow(data), 
+              Presence = data$Presence,
+              Environment = data$Environment,
+              DBH = data$DBH,
+              # number of predictions
+              N_e_p = N_e_p, # n env 
+              N_d_p = N_d_p, # n DBH
+              # variables of predictions
+              Environmentp = 
+                seq(min(data$Environment), max(data$Environment), length.out = N_e_p),
+              DBHp = c(2.5, 7.5, 15, 25)
+              # DBHp = log(seq(min(data$DBHcor), max(data$DBHcor), length.out = N_d_p))
+)
+
+
+# dataM
+```
+
+```{r, eval=F}
+fit <- sampling(M_Quadra_forced, data = dataM, chains = 4, cores = 4, iter = 2000)
+```
+-> Avis : There were 12 divergent transitions after warmup. 
+Avis : There were 24 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10.
+Avis : The largest R-hat is 2.11, indicating chains have not mixed.
+Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+
+## Chains
+```{r}
+# mcmc_trace(as.array(fit[["Affine"]]), 
+#            pars = c("alpha", "beta1", "iota"),
+#            np = nuts_params(fit[["Affine"]])) +
+#   ggplot2::labs(title = "Affine")
+
+mcmc_trace(as.array(fit), 
+           pars = c("a", "O", "gamma", "iota"),
+           np = nuts_params(fit))
+```
+
+-> divergence and chain mix problem because there is no priors  
+
+```{r}
+# mcmc_intervals(as.array(fit[["Affine"]]), prob=0.95,
+#                pars = c("alpha", "beta1", "iota")) +
+#   ggplot2::labs(title = "Affine")
+
+mcmc_intervals(as.array(fit), prob=0.95,
+               pars = c("a", "O", "gamma", "iota"))
+```
+-> c'est mauvais
+
+# Predictions
+```{r}
+dataplot <- data.frame( 
+  mu = apply(as.matrix(fit, pars = "p"), 2, median),
+  t(apply(as.matrix(fit, pars = "p"), 2, 
+          quantile, probs = c(0.05, 0.95))),
+  Opt = apply(as.matrix(fit, pars = "O"), 2, median),
+  Opt = t(apply(as.matrix(fit, pars = "O"), 2,
+                quantile, probs = c(0.05, 0.95)))
+  
+) %>% 
+  rownames_to_column("Matrix") %>% 
+  rowwise() %>% 
+  mutate(Env = as.numeric(unlist(str_extract_all(Matrix, "\\d+"))[1])) %>% 
+  mutate(dbh = as.numeric(unlist(str_extract_all(Matrix, "\\d+"))[2])) %>% 
+  mutate(Environmentp = dataM$Environmentp[Env]) %>% # 50
+  mutate(DBHp = dataM$DBHp[dbh]) # 5
+
+View(dataplot)
+
+# 50 env * 5 DBH
+# tidyr::crossing(
+#   DBHp = dataM$DBHp, # 5
+#   Environmentp = dataM$Environmentp # 50
+# )
+```
+
+# Heatmap
+```{r}
+ggplot(dataplot, aes(x=DBHp, y=Environmentp, fill = mu)) + 
+  theme_minimal() +
+  geom_tile() # heatmap
+```
+-> bon pour la 1ere classe le reste il est aveugle
+
+
+# Proba curves
+```{r}
+ggplot(dataplot, aes(x = (Environmentp))) +
+  theme_classic() +
+  # Probas
+  geom_point(aes(y = mu), size=0.7) +
+  geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence")  +
+  facet_wrap(~ DBHp, scales = "free", labeller = "label_both") #  scales = "free", nrow = 1
+
+```
+
+```{r}
+# Proba to be in the light across ontogeny
+ggplot(dataplot, aes(x=DBHp, y= mu, col= Environmentp)) +
+  geom_point()
+
+# Optimum move
+ggplot(dataplot, aes(x=DBHp, y= Opt)) +
+  geom_point() 
+
+```
+
+
