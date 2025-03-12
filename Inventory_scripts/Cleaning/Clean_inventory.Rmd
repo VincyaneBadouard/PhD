@@ -86,12 +86,10 @@ UnderstoryP <- UnderstoryP %>%
 
 # Strategy data (canopy vs understory species)
 ```{r}
-strategy <- read_delim("~/PhD/Inventories/EFT2023_Understory/dcl.csv", 
-                       delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% 
-  select(genre_esp, Strategy) %>%
-  rename(ScientificName = genre_esp) %>%
-  mutate(Strategy = ifelse(Strategy== "#N/A", NA, Strategy)) %>%
-  mutate(Strategy = recode(Strategy, "TallSp" = "Canopy species" , "UnderstorySp" = "Understory species")) %>% 
+# EFT2023_Understory/dcl.csv
+strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
+  select(ScientificName, Strategy_VB) %>%
+  rename(Strategy = Strategy_VB) %>% 
   unique()
 unique(strategy$Strategy)
 
@@ -203,9 +201,9 @@ Data <- Data %>%
   mutate(Family = ifelse(Family=="Lecithidaceae", "Lecythidaceae", Family)) %>%
   mutate(Genus = ifelse(Genus=="Lecithidaceae", "Lecythidaceae", Genus)) %>%
   mutate(ScientificName = str_replace(ScientificName, "Lecithidaceae", "Lecythidaceae"))
-  
-  
-  source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
+
+
+source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
 Data <- BotanicalCorrection(Data, DetectOnly = T)
 
 length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nrow(Data)*100 # 0.02%
@@ -384,143 +382,6 @@ for(p in c(13,14,15,18,19,20,23,24,25)){
 length(Data$Comment[grepl("Trees without stem 1", Data$Comment)])/nrow(Data)*100 # 0.02%
 ```
 
-# Size distribution
-```{r, eval = F}
-data %>% 
-  filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
-  ggplot(aes(x=DBH)) +
-  geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
-  scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
-  scale_y_continuous(breaks = seq(0,35000, by=5000)) +
-  theme_minimal() +
-  labs(title= paste("ALT", unique(data$Site), unique(data$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
-```
-
-## divide by hectares (à faire)
-```{r, eval = F}
-data %>% 
-  filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
-  ggplot(aes(x=DBH)) +
-  geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
-  scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
-  scale_y_continuous(breaks = seq(0,35000, by=5000)) +
-  theme_minimal() +
-  labs(title= paste("ALT", unique(data$Site), unique(data$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
-```
-
-
-```{r, eval = F}
-nrow(data[data$DBH<10,])/nrow(data) # 0.88 : les moins de 10 cm
-nrow(data[data$Strategy=="Understory species",])/nrow(data) # 0.28 : espèces de sous-bois
-nrow(data[data$DBH<10 & data$Strategy=="Canopy species",])/nrow(data) # 0.76 : juvéniles de canopée
-```
-
-# Species abundances
-y: n species
-x: n individuals
-```{r, eval = F}
-data %>%
-  filter(!is.na(ScientificName)) %>% 
-  filter(ScientificName!="Tres haut") %>% 
-  filter(!grepl("indet", ScientificName)) %>% 
-  filter(!grepl("Indet", ScientificName)) %>% 
-  filter(!grepl("aceae", ScientificName)) %>% 
-  group_by(ScientificName) %>%
-  summarise(N = n()) %>%
-  ungroup() %>% 
-  filter(N<200) %>% 
-  ggplot(aes(x= N)) + # fill = as.factor(Strategy)
-  geom_histogram(breaks= seq(0,200, by=10), fill="#69b3a2", color="#e9ecef",alpha=0.9) +
-  geom_vline(xintercept = 30) +
-  scale_x_continuous(limits = c(0, 200), breaks =  seq(0,200, by=10)) +
-  scale_y_continuous(breaks = seq(0,500, by=25)) +
-  labs(x ="Individuals number", y = "Species number")
-
-
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances.png", sep="_"),
-#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 50, height = 10, units = "cm", dpi=800, bg="white")
-```
-
-```{r, eval = F}
-# length(unique(test$ScientificName))
-
-data %>%
-  filter(!is.na(ScientificName)) %>% 
-  filter(ScientificName!="Tres haut") %>% 
-  filter(!grepl("indet", ScientificName)) %>% 
-  filter(!grepl("Indet", ScientificName)) %>% 
-  filter(!grepl("aceae", ScientificName)) %>% 
-  group_by(ScientificName) %>%
-  summarise(N = n()) %>%
-  ungroup() %>% 
-  ggplot(aes(x= N)) +
-  stat_ecdf(aes(y = (1 - after_stat(y))), geom = "point") +
-  stat_ecdf(aes(y = (1 - after_stat(y))), geom = "step") +
-  scale_y_continuous("Density", position = "right",
-                     sec.axis = sec_axis(name = "Decumulative species number", trans = ~.x*732, breaks = seq(1,732, by=25))) +
-  
-  geom_vline(xintercept = 30, col="red") +
-  scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,200, by=10))) +
-  labs(x ="Minimum individuals number")
-
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
-#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
-```
-
-# Species rank abundance
-```{r, eval = F}
-data %>%
-  filter(!is.na(ScientificName)) %>% 
-  filter(ScientificName!="Tres haut") %>% 
-  filter(!grepl("indet", ScientificName)) %>% 
-  filter(!grepl("Indet", ScientificName)) %>% 
-  filter(!grepl("aceae", ScientificName)) %>% 
-  group_by(ScientificName) %>%
-  summarise(N = n()) %>%
-  ungroup() %>% 
-  group_by(N) %>%
-  summarise(n_sp = n()) %>%
-  mutate(N = arrange(desc(N))) %>% 
-  mutate(n_sp_cum = cumsum(n_sp)) %>% 
-  
-  ggplot(aes(x= N)) +
-  geom_col(aes(y=n_sp_cum)) +
-  geom_vline(xintercept = 30, col="red") +
-  scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,220, by=10))) + #  2500
-  scale_y_continuous(breaks = seq(0,732, by=25)) +
-  labs(x ="Individuals number", y="Decumulative species number")
-
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr_geomcol.png", sep="_"),
-#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 30, height = 20, units = "cm", dpi=800, bg="white")
-```
-
-
-```{r, eval = F}
-data %>%
-  filter(!is.na(ScientificName)) %>% 
-  filter(ScientificName!="Tres haut") %>% 
-  filter(!grepl("indet", ScientificName)) %>% 
-  filter(!grepl("Indet", ScientificName)) %>% 
-  filter(!grepl("aceae", ScientificName)) %>% 
-  group_by(ScientificName) %>%
-  summarise(Anbundances = n()) %>%
-  ungroup() %>% 
-  mutate(Anbundances = sort(Anbundances, decreasing = T)) %>% 
-  # filter(Anbundances >=30) %>% 
-  mutate(rank = 1:n()) %>%  
-  ggplot(aes(x= rank, y=Anbundances)) +
-  geom_point(size=1) +
-  geom_line() +
-  geom_hline(yintercept = 30, col="red") +
-  # scale_x_continuous(limits = c(1, 732), breaks =  c(seq(10,100, by=25), seq(200,732, by=100))) +
-  scale_y_continuous(limits = c(1, 2500), breaks =  c(1, seq(100,2500, by=100))) + #  2500
-  labs(x="Species rank")
-
-# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_rank.png", sep="_"),
-#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
-```
 
 # Remove duplicated rows
 ```{r}
@@ -590,21 +451,21 @@ test5 <- data %>%
 ```{r}
 # Sure multistem
 nrow(data %>% 
-  filter(Multistem & !is.na(Multistem)))/nrow(data)*100 # 3.2% 
+       filter(Multistem & !is.na(Multistem)))/nrow(data)*100 # 3.2% 
 stemssup1 <- data %>% 
-  filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb>1) #tiges surnuméraires
+  filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb>1) # tiges surnuméraires
 range(stemssup1$DBH) # 0.9 10.2
 
 stem1 <- data %>% 
-  filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb==1) #tiges surnuméraires
+  filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb==1) # tiges surnuméraires
 range(stem1$DBH) # 1.0 45.9
 
- 
+
 # unique(data$Cod.CTFS)
 
 # Cod.CTFS M
 nrow(data %>% 
-  filter(grepl("M", Cod.CTFS)))/nrow(data)*100 # 3.5%
+       filter(grepl("M", Cod.CTFS)))/nrow(data)*100 # 3.5%
 
 stemssup1 <- data %>% 
   filter(grepl("M", Cod.CTFS)) %>% filter(Stem.nb>1)
@@ -612,8 +473,9 @@ range(stemssup1$DBH)
 
 # not sure multistem
 nrow(data %>% 
-  filter(is.na(Multistem)))/nrow(data)*100 # 0.2%
+       filter(is.na(Multistem)))/nrow(data)*100 # 0.2%
 ```
+
 
 # Manage multistems (sum the basal area, and keep only 1 stem) (Stem.nb pas codé)
 **que fait on des Multistems= NA ?!** !!! pour l'instant je les ai considéré comme des multistems
@@ -628,8 +490,8 @@ dupliMultistems <- data %>%
 
 
 Multistems <- data %>% # 1 245
-  # filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
-  filter(Multistem | is.na(Multistem)) %>% # sure and not sure multistems
+  filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
+  # filter(Multistem | is.na(Multistem)) %>% # sure and not sure multistems
   distinct(IdTree, DBH, .keep_all = T) %>% # Résolution cas 2: remove duplicates -> clean real multistems trop bourain pcq des DBH peuvent etre égaux par hasard
   mutate(BasalArea = pi*(DBH/2)^2) %>% 
   group_by(IdTree) %>% 
@@ -656,11 +518,81 @@ Multistems <- data %>% # 1 245
 # write.csv(test, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_DBHcor.csv")
 
 data <- data %>% 
-  filter(!(Multistem | is.na(Multistem))) %>% # supprimer les Multistem=T (40997)
+  # filter(!(Multistem | is.na(Multistem))) %>% # supprimer les Multistem=T ou NA (40997)
+  filter(!Multistem | is.na(Multistem)) %>% # supprimer les Multistem=T (40997)
   mutate(DBHcor = DBH) %>%
   bind_rows(Multistems)
 
 nrow(data)== nrow(UnderstoryP)
+```
+
+# % de multistems par sp d'intérêt ?
+```{r}
+multistem_interest <- data %>% 
+  filter(ScientificName %in% Sp$ScientificName) %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  mutate(MultistemInterest = ifelse(Multistem & !is.na(Multistem), T, F)) %>%
+  group_by(ScientificName, MultistemInterest) %>% 
+  mutate(N_multistems = n()) %>% 
+  mutate(`Multistems%` = (N_multistems/N)*100) %>% 
+  ungroup() %>% 
+  select(ScientificName, MultistemInterest, N, N_multistems, `Multistems%`) %>% 
+  unique() %>% 
+  mutate(MultistemInterest = ifelse(`Multistems%`==100, T, MultistemInterest)) %>%
+  mutate(N_multistems = ifelse(`Multistems%`==100, 0, N_multistems)) %>%
+  mutate(`Multistems%` = ifelse(`Multistems%`==100, 0, `Multistems%`)) %>%
+  filter(MultistemInterest) %>% 
+  mutate(N_withoutMultistems = N-N_multistems)
+# 59 sp / 86
+ggplot(multistem_interest, aes(x=`Multistems%`)) +
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef") +
+  labs(x = "Multistems % in each species of interest")
+
+write.csv(multistem_interest,
+          "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems%_per_interest_species.csv")
+```
+
+# Rrépartition spatiale des multistems
+```{r}
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
+
+Multistem_plot <- data %>% 
+  filter(ScientificName %in% Sp$ScientificName) %>% 
+  filter(Stem.nb ==1) %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(TopoLevels))
+
+ggplot() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.5) +
+  geom_sf(data = Multistem_plot %>% 
+            filter(Multistem & !is.na(Multistem)), size = 3, aes(col= Genus)) + # , aes(col= Genus)
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb",
+                               "Bottomland" = "#1f78b4")) +
+  theme_classic() +
+  labs(fill= "Topography")
+
+ggplot() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.3) +
+  geom_sf(data = Multistem_plot %>% 
+            filter(ScientificName %in% c("Abuta_grandifolia", "Guarea_costata", "Tabernaemontana_macrocalyx", "Miconia_argyrophylla")), size =0.5, aes(col= Multistem)) + # , aes(col= Genus)
+  scale_fill_manual(values = c("Plateau" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Lower slope"= "#bfe6eb",
+                               "Bottomland" = "#1f78b4")) +
+  theme_void() +
+  guides(fill = FALSE) +
+  # labs(title = S) +
+  facet_wrap(~ ScientificName)
+
+ggsave("Multistems_sup5%_interest_species.png", path = "D:/Mes Donnees/PhD/Figures/inventory/",
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 # Write cleaned data
@@ -682,14 +614,9 @@ Take only sp >= 30 ind
 **ne pas enlever 1 seul arbre de l'inventaire !! Ce sont nos absences !**
 on veut juste un vecteur d'espèce à étudier
 ```{r}
-SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2]) # 64
-
 data <- data %>% 
-  rowwise() %>% 
-  filter(ScientificName %in% SpeciesA | Strategy=="Understory species") %>%
-  ungroup() %>% 
   # & DBH<10 only ALT data for the moment
-  filter(DBH>=1 & DBH<10) %>%
+  filter(DBH>=1 & DBH<10) %>% # filter avec Guyafor.nb pas <10 !!!
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees
@@ -697,7 +624,34 @@ data <- data %>%
   # Only the principal stem
   filter(Stem.nb == 1) %>%
   # Only spatialised trees
-  filter(!is.na(Xutm) & !is.na(Yutm)) %>%
+  filter(!is.na(Xutm) & !is.na(Yutm))
+
+# "Chrysophyllum_prieurii", "Theobroma_guianense" : DBH >10 uniquement
+# "Caryocar_glabrum", "Eperua_rubiginosa", "Oenocarpus_bataua", "Goupia_glabra"         
+# "Carapa_surinamensis", "Chrysophyllum_prieurii", "Sterculia_speciosa", "Siparuna_decipiens"    
+# "Theobroma_guianense", "Ambelania_acida", "Euterpe_oleracea" # not enough >10     
+
+unique(data$Comment)
+SpeciesA[!SpeciesA %in% data$ScientificName]
+
+```
+
+# Write cleaned and filtred data
+```{r}
+nrow(data) # 35898
+length(unique(data$ScientificName)) # 579
+
+write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
+```
+
+# Species selection
+```{r}
+SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2]) # 64
+
+spSelection <- data %>% 
+  rowwise() %>% 
+  filter(ScientificName %in% SpeciesA | Strategy=="Understory species") %>%
+  ungroup() %>% 
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
   # filter(ScientificName!="Tres haut") %>%
@@ -713,7 +667,6 @@ data <- data %>%
   #        ScientificName = ScientificName_c) %>% 
   
   # attention Rinorea_idem181298 (138 individus)
-  
   # Count individuals by species
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
@@ -721,21 +674,12 @@ data <- data %>%
   # Take only sp >= 30 ind
   filter(N >= 30)
 
-unique(data$Comment)
-SpeciesA[!SpeciesA %in% data$ScientificName]
-# "Chrysophyllum_prieurii", "Theobroma_guianense" : DBH >10 uniquement
-# "Caryocar_glabrum", "Eperua_rubiginosa", "Oenocarpus_bataua", "Goupia_glabra"         
-# "Carapa_surinamensis", "Chrysophyllum_prieurii", "Sterculia_speciosa", "Siparuna_decipiens"    
-# "Theobroma_guianense", "Ambelania_acida", "Euterpe_oleracea" # not enough >10     
+Sp <- as.data.frame(sort(unique(spSelection$ScientificName))) # 86
+names(Sp) <- "ScientificName"
+
+write.csv(Sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")
 ```
 
-# Write cleaned and filtred data
-```{r}
-nrow(data) # 19827
-length(unique(data$ScientificName)) # 86
-
-write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
-```
 
 # Mis de coté pour l'instant (gestion noms scientifiques)
 ```{r, eval = F}

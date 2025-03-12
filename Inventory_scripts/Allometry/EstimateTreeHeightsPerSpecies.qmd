@@ -14,34 +14,120 @@ execute:
 
 Objective:
 
--   allométrie unique
--   utiliser l’allométrie de Claudia global avec posteriors par espèce plutôt que ces données tant que le paramètre existe pour l’espèce et avec allométrie générale de Claudia si on n’a pas l’espèce
--   https://github.com/chuertas18/public/blob/main/Paracou_allometry_models.R (MM4)
+-   utiliser l’allométrie complète de Claudia avec posteriors par espèce plutôt que ces données tant que le paramètre existe pour l’espèce et avec allométrie générale de Claudia si on n’a pas l’espèce
+-   https://github.com/chuertas18/local_allometries_LIDAR/blob/main/model_1_4_PW_MM.r (MM4 - Model 4 Michaelis-Menten)
 -   pour les petits comparer modèle spécifique ou général
 -   prédire avec fct de brms (predict)
 -   https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/
 
-**\\amap-data.cirad.fr\work\users\VincyaneBadouard\modèlesAlloClaudia**
-
-voisinage des arbres
-```{r}
-# > disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61,
-# > ncol=61)), 30, type = "circle")
-# > disk_weights[disk_weights[]>0]<-1
-# >
-# > CHMPP_median30sqr<-focal(CHMPP1m, w=61, fun="median",na.policy="all",
-# > fillvalue=NA,
-# >                       expand=FALSE, silent=TRUE)
-# 
-# CHMPP_median30cir<-focal(CHMPP1m, w=disk_weights,
-
-```
-
-
-# Packages
-
-```{r Setup, include=F}
+```{r, packages, include=F}
+library(terra)
 library(tidyverse)
-library(readr)
-library(BIOMASS)
+library(tidybayes)
 ```
+
+
+# Claudia fit - Michaelis-Menten LCH and species identity (MM4)
+**//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia**
+```{r}
+load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model4_MM_dataCCmean.Rdata")
+fit <- fit2_MM4_5s_2023
+rm(fit2_MM4_5s_2023)
+fit
+```
+Data : data_cc_cirad
+*data_cc_cirad = trees.final.PL + bd_paracou_HC*
+
+bd_paracou_HC = Dataset2.csv  Data from CIRAD plots (Dataset2), available for consultation with permission:
+Derroire, G., Hérault, B., Rossi, V., Blanc, L., Gourlet- Fleury, S., & Schmitt, L. (2023). Paracou permanent plots. CIRAD Dataverse. https://doi.org/10.18167/DVN1/8G8AHY
+
+trees.final.PL = "/Data/P1to16_00006_0010/P1to16.MM",pattern = "final.txt"
+
+*dbh.y>=20*
+
+Variables : 
+dbh.y
+"CHM2015_25ppm_fo_comp" -> 'HC'
+species_noSing
+"idtree","dbh", "wd",  "HC","species_allo", "plot","habitat","trait","square_125"
+
+# Cleaned inventory data
+```{r, message=F}
+# pas filtrer les données !!!
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+  rename(idTree = IdTree) %>% # 28 711
+  rename(SubPlot = Subplot)
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
+  mutate(idTree = as.character(idTree)) %>% 
+  filter(ScientificName %in% Understory$ScientificName)
+
+Inventory <- bind_rows(Understory, Adults)
+```
+
+# Predictions
+## Hauteur médiane de canopée avoisinante (LCH)
+Local canopy height (LCH) was defined as the **median** canopy height in a circular *30m* (= twice the radius of the largest crowns in the dataset) buffer (selected based on the smallest AIC value of the allometry)
+Pixels from the target tree itself were excluded from the local canopy height calculations to avoid a circular relationship with predicted height.  
+En mode prédiction on ne masque pas l'arbre cible (car on n'a pas en général de détourage de sa couronne : le cas échéant on aurait alors directement accès sa hauteur).  
+On utilise la hauteur dans un voisinage qui comprend l'arbre cible. L'idée est de capter la hauteur locale de la canopée sur une surface bien plus grande que la surface projetée de la couronne (~3000m2).  
+```{r}
+# P16 25ha CHM 1m res (SpatRaster) A CREER
+CHM <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif")
+
+#  focal ("moving window") weight matrix   
+disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=31, ncol=31)), 15, type = "circle") # 30m radius of the circle
+
+disk_weights[disk_weights[]>0] <- 1
+
+# Calculate focal ("moving window") values for each cell
+CHMPP_median30cir <- focal(CHM, w=disk_weights, fun="median", na.policy="all",
+                           fillvalue=NA, expand=FALSE, silent=TRUE)
+# values in the focal window will be multiplied by the corresponding weight prior to 'fun' being applied.
+
+plot(CHM) ; plot(CHMPP_median30cir)
+```
+```{r}
+LCH <- raster::extract(CHMPP_median30cir, Inventory) %>% 
+  rename(HC = focal_median) %>% dplyr::select(-ID)
+
+Inventory <- Inventory %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(CHM)) %>% 
+  cbind(LCH)
+```
+
+## Determination of singleton species
+mediane du posterior = mediane du posterior singleton
+```{r}
+singletons = names(table(data_cc_cirad$species_allo))[which(table(data_cc_cirad$species_allo)==1)]
+data_cc_cirad$singleton = F
+data_cc_cirad$singleton[which(data_cc_cirad$species_allo %in% singletons)] <- T
+data_cc_cirad$species_noSing <- data_cc_cirad$species_allo
+data_cc_cirad$species_noSing[data_cc_cirad$singleton==T] <- "bin" # Singletons are classified in the same class
+```
+
+**Prendre en compte l'espèce et la LCH**
+```{r, eval=F}
+# Sylvain - extraire les paramètres
+fit %>% 
+  tidybayes::spread_draws(b_hmax_Intercept, r_species__hmax[species,], # or manipulating posteriors directly; support a wider range of models
+               b_ah_Intercept, r_species__ah[species,]) %>% 
+  mutate(ah = b_ah_Intercept + r_species__ah) %>% 
+  mutate(hmax = b_hmax_Intercept + r_species__hmax) %>% 
+  group_by(species) %>% 
+  summarise(ah = median(ah), hmax = median(hmax)) %>% 
+  filter(species != "unknown") %>% 
+  mutate(species = gsub(".", " ", species, fixed = TRUE)) %>% 
+  left_join(read_csv("data/species/tallo.csv") %>% 
+  filter(longitude <= -39, longitude >= -79, latitude >= -18, latitude <= 10) %>% 
+    select(family, genus, species) %>% unique()) %>% 
+  write_tsv("outputs/tallo_pars.tsv")
+```
+
+```{r}
+?add_predicted_draws
+inventory %>%
+  add_predicted_draws(fit, re_formula = ~ (1 | species_noSing), value = ".pred") # Bayesian model fit
+```
+
+

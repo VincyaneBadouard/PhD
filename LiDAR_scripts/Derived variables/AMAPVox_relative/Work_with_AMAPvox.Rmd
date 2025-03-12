@@ -34,7 +34,7 @@ library(RColorBrewer)
 ```
 
 # Paths
-```{r}
+```{r, eval=F}
 local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
 
 folders <- 

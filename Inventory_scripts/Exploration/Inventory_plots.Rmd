@@ -1,0 +1,145 @@
+---
+title: "Inventory_plots"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Size distribution
+```{r, eval = F}
+data %>% 
+  filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
+  ggplot(aes(x=DBH)) +
+  geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
+  scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
+  scale_y_continuous(breaks = seq(0,35000, by=5000)) +
+  theme_minimal() +
+  labs(title= paste("ALT", unique(data$Site), unique(data$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+## divide by hectares (à faire)
+```{r, eval = F}
+data %>% 
+  filter(Liana!=TRUE | is.na(Liana)) %>% filter(Strategy!="liane"| is.na(Strategy)) %>% 
+  ggplot(aes(x=DBH)) +
+  geom_histogram(breaks=seq(0,60, by=5), aes(fill= Strategy), color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
+  scale_x_continuous(limits = c(0, 60), breaks = seq(0,60, by=5)) +
+  scale_y_continuous(breaks = seq(0,35000, by=5000)) +
+  theme_minimal() +
+  labs(title= paste("ALT", unique(data$Site), unique(data$Plot),"- Size distribution"), x ="DBH (cm)", y = "Individuals number")
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"- Size_distribution.png"), path = "D:/Mes Donnees/PhD/Figures/inventory", width = 20, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+
+```{r, eval = F}
+nrow(data[data$DBH<10,])/nrow(data) # 0.88 : les moins de 10 cm
+nrow(data[data$Strategy=="Understory species",])/nrow(data) # 0.28 : espèces de sous-bois
+nrow(data[data$DBH<10 & data$Strategy=="Canopy species",])/nrow(data) # 0.76 : juvéniles de canopée
+```
+
+# Species abundances
+y: n species
+x: n individuals
+```{r, eval = F}
+data %>%
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  filter(!grepl("aceae", ScientificName)) %>% 
+  group_by(ScientificName) %>%
+  summarise(N = n()) %>%
+  ungroup() %>% 
+  filter(N<200) %>% 
+  ggplot(aes(x= N)) + # fill = as.factor(Strategy)
+  geom_histogram(breaks= seq(0,200, by=10), fill="#69b3a2", color="#e9ecef",alpha=0.9) +
+  geom_vline(xintercept = 30) +
+  scale_x_continuous(limits = c(0, 200), breaks =  seq(0,200, by=10)) +
+  scale_y_continuous(breaks = seq(0,500, by=25)) +
+  labs(x ="Individuals number", y = "Species number")
+
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 50, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+```{r, eval = F}
+# length(unique(test$ScientificName))
+
+data %>%
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  filter(!grepl("aceae", ScientificName)) %>% 
+  group_by(ScientificName) %>%
+  summarise(N = n()) %>%
+  ungroup() %>% 
+  ggplot(aes(x= N)) +
+  stat_ecdf(aes(y = (1 - after_stat(y))), geom = "point") +
+  stat_ecdf(aes(y = (1 - after_stat(y))), geom = "step") +
+  scale_y_continuous("Density", position = "right",
+                     sec.axis = sec_axis(name = "Decumulative species number", trans = ~.x*732, breaks = seq(1,732, by=25))) +
+  
+  geom_vline(xintercept = 30, col="red") +
+  scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,200, by=10))) +
+  labs(x ="Minimum individuals number")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+```
+
+# Species rank abundance
+```{r, eval = F}
+data %>%
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  filter(!grepl("aceae", ScientificName)) %>% 
+  group_by(ScientificName) %>%
+  summarise(N = n()) %>%
+  ungroup() %>% 
+  group_by(N) %>%
+  summarise(n_sp = n()) %>%
+  mutate(N = arrange(desc(N))) %>% 
+  mutate(n_sp_cum = cumsum(n_sp)) %>% 
+  
+  ggplot(aes(x= N)) +
+  geom_col(aes(y=n_sp_cum)) +
+  geom_vline(xintercept = 30, col="red") +
+  scale_x_continuous(limits = c(1, 200), breaks =  c(1, seq(10,220, by=10))) + #  2500
+  scale_y_continuous(breaks = seq(0,732, by=25)) +
+  labs(x ="Individuals number", y="Decumulative species number")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Decumulative_speciesnbr_geomcol.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 30, height = 20, units = "cm", dpi=800, bg="white")
+```
+
+
+```{r, eval = F}
+data %>%
+  filter(!is.na(ScientificName)) %>% 
+  filter(ScientificName!="Tres haut") %>% 
+  filter(!grepl("indet", ScientificName)) %>% 
+  filter(!grepl("Indet", ScientificName)) %>% 
+  filter(!grepl("aceae", ScientificName)) %>% 
+  group_by(ScientificName) %>%
+  summarise(Anbundances = n()) %>%
+  ungroup() %>% 
+  mutate(Anbundances = sort(Anbundances, decreasing = T)) %>% 
+  # filter(Anbundances >=30) %>% 
+  mutate(rank = 1:n()) %>%  
+  ggplot(aes(x= rank, y=Anbundances)) +
+  geom_point(size=1) +
+  geom_line() +
+  geom_hline(yintercept = 30, col="red") +
+  # scale_x_continuous(limits = c(1, 732), breaks =  c(seq(10,100, by=25), seq(200,732, by=100))) +
+  scale_y_continuous(limits = c(1, 2500), breaks =  c(1, seq(100,2500, by=100))) + #  2500
+  labs(x="Species rank")
+
+# ggsave(paste("ALT", unique(data$Site), unique(data$Plot),"Species_abundances_rank.png", sep="_"),
+#        path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 20, units = "cm", dpi=800, bg="white")
+```
+
+

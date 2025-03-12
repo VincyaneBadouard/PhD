@@ -9,19 +9,21 @@ library(tidyterra)
 library(sf)
 
 # Catalog
-ST <- readLAScatalog( # # las catalog. filter only 1st returns
-  folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte", filter = "keep"
-) 
+# ST <- readLAScatalog( # # las catalog. filter only 1st returns
+#   folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte", filter = "keep"
+# ) 
+# LAZ
+ST <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/P16_2023_25ha_HighAlt_buffer_newEB.laz")
 ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
 
 # ROI
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_25ha_buffer.shp") # interest zone + 100m buffer
+ROI <- vect("Y:/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp") # interest zone + 100m buffer
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 
 # Clip the point cloud in region of interest
 gc()
-ST <- catalog_intersect(ST, ROI) # if laz catalog
+# ST <- catalog_intersect(ST, ROI) # if laz catalog
 PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
 
 rm(ST);gc()
@@ -30,7 +32,7 @@ rm(ST);gc()
 PC@data <- PC@data[Classification != 7,]
 
 # Classifier les points sol
-mntROI <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc")
+mntROI <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc")
 ## Normaliser la hauteur du sol
 PC_norm <- lidR::normalize_height(PC, mntROI) # applati le relief
 
@@ -59,6 +61,6 @@ PC@data[, Intensity := ifelse(Intensity == 0L, 1L, Intensity)] # != 0 and intege
 
 gc()
 writeLAS(PC,
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_intensitycor.laz"
+         "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_intensitycor.laz"
 )
 

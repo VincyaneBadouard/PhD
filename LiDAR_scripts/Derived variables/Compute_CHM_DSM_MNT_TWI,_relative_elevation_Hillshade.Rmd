@@ -23,19 +23,20 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Load LAS data
 ```{r}
-ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
+ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_newEB.laz")
+ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
 ```
 
 # CHM & DSM from LAS
 ```{r}
-ROI4 <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
-ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer50m.shp")) # 4 carrés + 50m buffer
+# ROI4 <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp")) # + 50m buffer
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) 
-mnt <- raster::raster("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+mnt <- raster::raster("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc") # de lALS ? croppé ?
 ST <- lidR::clip_roi(las = ST, geometry = ROI)
 ST
-ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
+# ST <- rbind(ST[[1]], ST[[2]], ST[[3]], ST[[4]])
 
 raster::crs(mnt) <- st_crs(ROI) # attribuer le crs
 
@@ -79,7 +80,7 @@ res = "1"
 ```
 
 ```{r}
-writeRaster(CHM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_CHM_1mres.tif")
+writeRaster(CHM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif")
 writeRaster(DSM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DSM_1mres.tif")
 writeRaster(MNT_buffer50m, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DEM_1mres.tif", overwrite=T)
 ```

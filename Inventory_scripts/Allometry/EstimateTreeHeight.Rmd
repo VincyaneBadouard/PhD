@@ -272,6 +272,11 @@ Understory <- Understory %>%
 Understory %>% filter(is.na(TreeHeight))
 ```
 
+## RMSE
+```{r}
+RMSE <- sqrt(mean((data$actual - data$predicted)^2))
+```
+
 ## Plot Tree and crown heights estimation
 ```{r}
 Adults %>%
