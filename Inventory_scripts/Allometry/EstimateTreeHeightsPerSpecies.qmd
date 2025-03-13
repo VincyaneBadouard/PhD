@@ -11,6 +11,7 @@ code-fold: true
 execute: 
   cache: true
 ---
+*pour vérifier que c'est tout bon, tu peux peut-être te faire un jeu de données de vérif avec 1 indiv par espèce, tous avec un même DBH => pour les espèces de Claudia, tu peux vérifier si le ranking et cohérent avec tes param. Et pour les autres espèces, elles devriant avoir toutes sensiblement la même hauteur*
 
 Objective:
 
@@ -22,6 +23,7 @@ Objective:
 
 ```{r, packages, include=F}
 library(terra)
+library(sf)
 library(tidyverse)
 library(tidybayes)
 ```
@@ -48,8 +50,24 @@ trees.final.PL = "/Data/P1to16_00006_0010/P1to16.MM",pattern = "final.txt"
 Variables : 
 dbh.y
 "CHM2015_25ppm_fo_comp" -> 'HC'
-species_noSing
+species_noSing (470)
 "idtree","dbh", "wd",  "HC","species_allo", "plot","habitat","trait","square_125"
+
+# Get model species names
+```{r}
+sp <- get_variables(fit) # character
+
+# sp_alpha <- sp[grepl('r_species_noSing__alpha', sp)]
+# sp_alpha_intercept <- sp_alpha[grepl(',Intercept', sp_alpha)]
+# sp_alpha_HC <- sp_alpha[grepl(',HC', sp_alpha)]
+
+sp_beta <- sp[grepl('r_species_noSing__beta', sp)]
+sp_beta <- str_remove(sp_beta, 'r_species_noSing__beta')
+sp_beta <- str_remove(sp_beta, ',Intercept')
+sp <- gsub("\\[|\\]", "", sp_beta)
+
+# 470
+```
 
 # Cleaned inventory data
 ```{r, message=F}
@@ -62,6 +80,12 @@ Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv"
   filter(ScientificName %in% Understory$ScientificName)
 
 Inventory <- bind_rows(Understory, Adults)
+```
+
+# Modify inventory for predictions
+```{r}
+Inventory <- Inventory %>% 
+  mutate(species_noSing = str_replace(ScientificName, "_", ".")) # 
 ```
 
 # Predictions
@@ -86,18 +110,28 @@ CHMPP_median30cir <- focal(CHM, w=disk_weights, fun="median", na.policy="all",
 
 plot(CHM) ; plot(CHMPP_median30cir)
 ```
+
 ```{r}
+Inventory <- Inventory %>% 
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(CHM))
+
 LCH <- raster::extract(CHMPP_median30cir, Inventory) %>% 
   rename(HC = focal_median) %>% dplyr::select(-ID)
 
 Inventory <- Inventory %>% 
-  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
-  st_set_crs(st_crs(CHM)) %>% 
   cbind(LCH)
 ```
 
+```{r}
+ggplot(Inventory, aes(x=DBHcor, y=HC)) +
+  geom_point() +
+  labs(x= "DBH (cm)", y= "Local canopy height (m)")
+```
+
 ## Determination of singleton species
-mediane du posterior = mediane du posterior singleton
+mediane du posterior = mediane du posterior singleton ?
 ```{r}
 singletons = names(table(data_cc_cirad$species_allo))[which(table(data_cc_cirad$species_allo)==1)]
 data_cc_cirad$singleton = F
@@ -106,7 +140,6 @@ data_cc_cirad$species_noSing <- data_cc_cirad$species_allo
 data_cc_cirad$species_noSing[data_cc_cirad$singleton==T] <- "bin" # Singletons are classified in the same class
 ```
 
-**Prendre en compte l'espèce et la LCH**
 ```{r, eval=F}
 # Sylvain - extraire les paramètres
 fit %>% 
@@ -124,10 +157,35 @@ fit %>%
   write_tsv("outputs/tallo_pars.tsv")
 ```
 
+prédire avec quelle incertitude paramètres et/ou distribution ?
+max de vraissemblance ou mediane ? mediane de toutes les itérations 
+
+uncertainty : une sp aléaitoire du jeu de données par tirage 
+gaussian : pioche une valeur dans la distribution par tirage
+old_levels : une sp aléaitoire du jeu de données pour tous les tirages
 ```{r}
+# tidybayes
 ?add_predicted_draws
-inventory %>%
-  add_predicted_draws(fit, re_formula = ~ (1 | species_noSing), value = ".pred") # Bayesian model fit
+same_sp %>%
+  add_predicted_draws(fit, re_formula = ~ (1 | species_noSing),
+                      allow_new_levels = F,
+                      value = ".pred") # Bayesian model fit
+# These have 360,000 rows because each row of newdata is repeated 4000 times, one for each of the posterior draws.
+# propage l'incertitude
+
+other_sp %>%
+  add_predicted_draws(fit, re_formula = NA,
+                      allow_new_levels = T,
+                      value = ".pred") 
+
+add_epred_draws() # for the expected value of the posterior (=mu)
+
+# brms
+brms::posterior_predict(fit, newdata = inventory, re_formula = ~ (1 | species_noSing), allow_new_levels = F)
+
+brms::posterior_epred(fit, newdata = inventory,) # gives you the distribution of the expected value of the posterior.
+# It has 4000 rows because the model fit by brm() uses an MCMC algorithm to sample the joint posterior distribution of the parameters. By default it does this with four Markov chains that return 1000 samples each, for a total of 4000. Why 90 columns? Because newdata in this case has 90 rows. The columns of pred1 and pred2 correspond to the rows of newdata, in the same order.
+# If re_formula = NULL (default), include all group-level effects; if NA or ~0, include no group-level effects.
 ```
 
 

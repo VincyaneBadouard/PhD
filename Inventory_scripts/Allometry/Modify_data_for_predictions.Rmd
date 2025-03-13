@@ -1,0 +1,117 @@
+---
+title: "Modify_data_for_predictions"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+J'y ai passé la journée ... saleté de points
+
+```{r, packages, include=F}
+library(tidyverse)
+```
+
+# Get the model fit
+```{r}
+load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model4_MM_dataCCmean.Rdata")
+fit <- fit2_MM4_5s_2023
+rm(fit2_MM4_5s_2023)
+fit
+```
+
+# Get model species names
+```{r}
+sp <- tidybayes::get_variables(fit) # character
+
+# sp_alpha <- sp[grepl('r_species_noSing__alpha', sp)]
+# sp_alpha_intercept <- sp_alpha[grepl(',Intercept', sp_alpha)]
+# sp_alpha_HC <- sp_alpha[grepl(',HC', sp_alpha)]
+
+sp_beta <- sp[grepl('r_species_noSing__beta', sp)]
+sp_beta <- str_remove(sp_beta, 'r_species_noSing__beta')
+sp_beta <- str_remove(sp_beta, ',Intercept')
+species_noSing <- gsub("\\[|\\]", "", sp_beta)
+sp <- data.frame(species_noSing,
+                 Match = T) %>% 
+  separate(species_noSing, sep = "\\.", into = c("Genus", "Species"), remove = F)
+# 470
+# bin # Singletons are classified in the same class
+```
+
+# Modify inventory for predictions
+```{r, message=F}
+# pas filtrer les données !!!
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+  rename(idTree = IdTree) %>% # 28 711
+  rename(SubPlot = Subplot)
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
+  mutate(idTree = as.character(idTree)) %>% 
+  filter(ScientificName %in% Understory$ScientificName)
+
+Inventory <- bind_rows(Understory, Adults)
+```
+
+```{r}
+test <- Inventory %>% 
+  select(ScientificName, Family) %>% 
+  unique() %>% 
+  mutate(ScientificName = str_replace(ScientificName, "indet", "sp\\.")) %>% # species have points between genus and species names in the model
+  separate(ScientificName, sep = ".subsp.", into = c("species_noSing", "Subspecies"), remove = F) %>% 
+  mutate(species_noSing = data.table::tstrsplit(species_noSing, split = ".var\\.")[[1]]) %>% 
+  mutate(species_noSing = str_remove(species_noSing, "_aff")) %>% 
+
+  mutate(species_noSing = ifelse(!grepl('[[:digit:]]', species_noSing), str_replace(species_noSing, "_sp\\.", "_Indet\\."), species_noSing))  %>% # s'il ya pas de chiffre 
+  mutate(species_noSing = str_replace(species_noSing, "_", ".")) %>% # species have points between genus and species names in the model
+  mutate(species_noSing = str_replace(species_noSing, "indet", "Indet")) %>% 
+  mutate(species_noSing = ifelse(grepl('aceae\\.', species_noSing), paste("Indet", species_noSing, sep = "."), species_noSing)) %>%   # Indet. devant les noms de famille 
+  mutate(species_noSing = str_replace(species_noSing, 'Indet\\.Indet\\.', "Indet\\.")) %>%
+  mutate(species_noSing = ifelse(is.na(ScientificName), "Indet.Indet..Indet.", species_noSing)) %>% 
+  separate(species_noSing, sep = "\\.", into = c("Genus", "Species"), remove = F) # regenerer genus et species pcq incohérent
+
+
+# Encoding(sp$species_noSing[sp$species_noSing=="Indet.Indet..Indet."])
+# Encoding(test$species_noSing[test$species_noSing=="Indet.Indet..Indet."])
+# charToRaw(sp$species_noSing[sp$species_noSing=="Indet.Indet..Indet."])
+# charToRaw(test$species_noSing[test$species_noSing=="Indet.Indet..Indet."][1])
+```
+
+# Test match 
+```{r}
+sp$species_noSing[!sp$species_noSing %in% test$species_noSing] # 120
+
+nomatch <- test %>%  # 325
+  left_join(sp, by= c("species_noSing")) %>% 
+  filter(is.na(Match))
+
+explore <- test %>%  
+  left_join(sp, by= c("species_noSing", "Genus", "Species")) %>% 
+  filter(is.na(Match)) %>% 
+  left_join(sp, by= "Genus") 
+
+match <- test %>%  # 417
+  left_join(sp, by= c("species_noSing")) %>% 
+  filter(Match)
+
+
+# un Symphonia_sp.1 dans Family (vérifier qu'il n'y aque du aceae dans Family sion mettre dans ScientificName)
+
+# En attente de Giacomo :
+# .sp.2-CAY et .sp.2 c'est la meme chose ?
+# Garcinia.benthaminia vs Garcinia.benthamiana -> Garcinia.benthamiana
+# Aniba.rosodora vs Aniba.rosaeodora -> Aniba.rosaeodora
+# Inga.graciliflora vs Inga.gracilifolia -> pas meme sp ?
+# Inga.melinonii vs Inga.melinonis -> pas meme sp ?
+# Eugenia.cucullata vs Eugenia.cupulata -> pas meme sp ?
+# Eschweilera.grandiflora vs Eschweilera.grandiflora_form2  -> pas meme sp ?
+# Eugenia.sp.FG9 vs Eugenia.sp.FG9-Holst  -> pas meme sp ?
+
+# Résolu : 
+# Indet.Indet..Indet.
+# Symphonia.sp.1 , Licania.Indet. , Inga.Indet. , Talisia.Indet. , Cecropia.Indet. , Sterculia.Indet. , Abarema.Indet. , ovomita.Indet. , 	
+# Mouriri.Indet. , Sloanea.Indet. , Pourouma.Indet. , Maytenus.Indet. , Iryanthera.Indet. , Chaetocarpus.Indet. , Swartzia.Indet. , Cupania.Indet.
+# Symphonia.Indet. , Lecythis.Indet. , Tachigali.Indet. ,  Tapirira.Indet. , Eschweilera.Indet. , Xylopia.Indet. , Garcinia.Indet. , Simaba.Indet. , Enterolobium.Indet. , Micropholis.Indet. Couratari.Indet. Parkia.Indet. Peltogyne.Indet. Glycydendron.Indet. Schefflera.Indet. Platymiscium.Indet.
+# Chrysophyllum_aff.pomiferum , Pouteria.torta.subsp.glabra , Pourouma.bicolor.subsp.digitata , Hirtella.bicornis.var.pubescens , Chrysophyllum.argenteum.subsp.nitidum , Protium.giganteum.var.crassifolium , Protium.opacum.subsp.rabelianum , Micropholis.guyanensis.subsp.duckeana
+#  Pouteria.sp.42-CAY , Sloanea.sp.14-CAY , Chaetocarpus.sp.1-CAY , Eugenia.sp.FG21-Holst , Eugenia.sp.FG9-Holst , Ilex.sp.2-CAY , Inga.sp.12-CAY , Sloanea.sp.8-CAY
+# Protium.opacum vs Protium.opacum
+#  Micropholis.guyanensis vs Micropholis.guyanensis
+```
+

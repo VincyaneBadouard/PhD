@@ -616,7 +616,7 @@ on veut juste un vecteur d'espèce à étudier
 ```{r}
 data <- data %>% 
   # & DBH<10 only ALT data for the moment
-  filter(DBH>=1 & DBH<10) %>% # filter avec Guyafor.nb pas <10 !!!
+  filter(DBH>=1 & is.na(Guyafor.nb) & DBH<20) %>% # filter ce qui a un guyafor.nb pas bcp plus grand que 10 cm( recrus) (pas sous le critère <10 cm dbh pcq recrus)
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees
@@ -654,7 +654,7 @@ spSelection <- data %>%
   ungroup() %>% 
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
-  # filter(ScientificName!="Tres haut") %>%
+  # filter(ScientificName!="Tres haut") %>% # on fait ça ? apriori oui
   # filter(!grepl("indet", ScientificName)) %>%
   # filter(!grepl("Indet", ScientificName)) %>%
   # filter(!grepl("aceae", ScientificName)) %>%
