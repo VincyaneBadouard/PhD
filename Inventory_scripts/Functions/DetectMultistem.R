@@ -36,13 +36,13 @@ DetectMultistem <- function(Data){
     Data[, IDYear := paste(Coord, ScientificName, CensusYear, sep = "/")] # code to detect
     
     Data[IDYear %in% DuplicatedID[, IDYear],
-         Comment := paste0(Comment, paste0("Multistem potential (same coordinates and species)"), sep ="/")]
+         Comment := paste0(Comment, paste0("Potential multistem (same coordinates and species)"), sep ="/")]
     
-    warning("Multistem potential")
+    warning("Potential multistem")
     
     Data[, IDYear := NULL]
     
-  } else message("No multistem potential detected")
+  } else message("No potential multistem detected")
   
   return(Data)
   

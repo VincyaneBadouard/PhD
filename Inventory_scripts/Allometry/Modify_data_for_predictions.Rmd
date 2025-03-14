@@ -65,8 +65,11 @@ test <- Inventory %>%
   mutate(species_noSing = ifelse(grepl('aceae\\.', species_noSing), paste("Indet", species_noSing, sep = "."), species_noSing)) %>%   # Indet. devant les noms de famille 
   mutate(species_noSing = str_replace(species_noSing, 'Indet\\.Indet\\.', "Indet\\.")) %>%
   mutate(species_noSing = ifelse(is.na(ScientificName), "Indet.Indet..Indet.", species_noSing)) %>% 
-  separate(species_noSing, sep = "\\.", into = c("Genus", "Species"), remove = F) # regenerer genus et species pcq incohérent
-
+  separate(species_noSing, sep = "\\.", into = c("Genus", "Species"), remove = F) %>%  # regenerer genus et species pcq incohérent
+  mutate(species_noSing = recode(species_noSing, 
+                                 "Eschweilera.grandiflora" = "Eschweilera.grandiflora_form2",
+                                 "Aniba.rosodora" = "Aniba.rosaeodora",
+                                 "Inga.melinonii" = "Inga.melinonis" ))
 
 # Encoding(sp$species_noSing[sp$species_noSing=="Indet.Indet..Indet."])
 # Encoding(test$species_noSing[test$species_noSing=="Indet.Indet..Indet."])
@@ -95,14 +98,15 @@ match <- test %>%  # 417
 # un Symphonia_sp.1 dans Family (vérifier qu'il n'y aque du aceae dans Family sion mettre dans ScientificName)
 
 # En attente de Giacomo :
-# .sp.2-CAY et .sp.2 c'est la meme chose ?
+# .sp.2-CAY et .sp.2 -> c'est la meme chose
 # Garcinia.benthaminia vs Garcinia.benthamiana -> Garcinia.benthamiana
-# Aniba.rosodora vs Aniba.rosaeodora -> Aniba.rosaeodora
-# Inga.graciliflora vs Inga.gracilifolia -> pas meme sp ?
-# Inga.melinonii vs Inga.melinonis -> pas meme sp ?
-# Eugenia.cucullata vs Eugenia.cupulata -> pas meme sp ?
-# Eschweilera.grandiflora vs Eschweilera.grandiflora_form2  -> pas meme sp ?
-# Eugenia.sp.FG9 vs Eugenia.sp.FG9-Holst  -> pas meme sp ?
+
+# Eugenia.sp.FG9 vs Eugenia.sp.FG9-Holst  -> même espece
+# Inga.graciliflora vs Inga.gracilifolia -> pas meme espese
+# Eugenia.cucullata vs Eugenia.cupulata -> pas même espèce
+
+
+
 
 # Résolu : 
 # Indet.Indet..Indet.
@@ -113,5 +117,9 @@ match <- test %>%  # 417
 #  Pouteria.sp.42-CAY , Sloanea.sp.14-CAY , Chaetocarpus.sp.1-CAY , Eugenia.sp.FG21-Holst , Eugenia.sp.FG9-Holst , Ilex.sp.2-CAY , Inga.sp.12-CAY , Sloanea.sp.8-CAY
 # Protium.opacum vs Protium.opacum
 #  Micropholis.guyanensis vs Micropholis.guyanensis
+# Eschweilera.grandiflora vs Eschweilera.grandiflora_form2  -> même espèce
+# Aniba.rosodora vs Aniba.rosaeodora -> Aniba.rosaeodora
+# Inga.melinonii vs Inga.melinonis -> même espèce
+
 ```
 

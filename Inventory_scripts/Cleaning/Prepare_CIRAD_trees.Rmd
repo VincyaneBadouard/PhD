@@ -4,7 +4,7 @@ author: "Vincyane"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-**25 ha - les 9ha**
+**25 ha**
 
 # Packages
 ```{r Setup, include = F}
@@ -12,7 +12,7 @@ library(tidyverse)
 library(data.table)
 library(readr)
 library(sf)
-library(TreeData)
+# library(TreeData)
 
 # remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
 # library(EcoFoG)
@@ -23,7 +23,7 @@ library(TreeData)
 
 AdultsP16 <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/2023-09-29_ParacouP16AllYears.csv") %>% # all P16 (25 ha)
   filter(CensusYear == 2020) %>% # last year
-  # filter(!SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # remove ALT zone
+  # filter(SubPlot %in% c(!13,14,15,18,19,20,23,24,25)) %>% # remove ALT zone
   # Only alive trees
   filter(CodeAlive == T) %>%
   # Scientific name
@@ -94,7 +94,7 @@ ggplot() +
 unique(adults_BF$ScientificName) # 137 sp dans la pinotière hors palmiers
 ```
 
-# Remove pinotière trees
+# Remove pinotière trees (finally not, we take an elevation limit)
 ```{r, eval=F}
 adults_BF <- AdultsP16 %>% 
   filter(!is.na(Xutm)) %>% 
@@ -120,7 +120,7 @@ ggplot() +
   labs(fill= "Topography")
 ```
 
-# Remove trees at <6m altitude
+# Remove trees at <6m altitude (=ALT minimum elevation limit)
 ```{r}
 datasf <- AdultsP16 %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% # as sf
@@ -133,11 +133,16 @@ alt <- raster::extract(MNT, datasf) %>% # extract z from MNT for each tree
 datasf <- datasf %>% cbind(alt) 
 XY <- st_coordinates(datasf) # stock coordinates
 st_geometry(datasf) <- NULL # no more sf object
+
+start <- nrow(AdultsP16)
 AdultsP16 <- cbind(datasf, XY) %>% # bind XY coord
   rename(Xutm = X, Yutm = Y) %>% 
   filter(Elevation >= 6) # Remove trees at <6m altitude
 
-range(AdultsP16$Elevation)
+filt <- nrow(AdultsP16)
+(filt/start)*100 # -> il reste 92% su jeu de données initial
+
+range(AdultsP16$Elevation) #  6.00 23.67
 
 # Reclasser en intervalles avec `cut()`
 MNT <- stars::st_as_stars(MNT)
@@ -161,9 +166,29 @@ ggplot() +
 #        path = "D:/Mes Donnees/PhD/Figures/inventory/",
 #        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
-
-# Apply taper correction if measured HOM
+# General and bota errors detection
 ```{r}
+source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/GeneralErrorsDetection.R")
+source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
+
+
+# rename columns for the function
+Data <- AdultsP16 %>%
+  # select(-Comment) %>% # remove previous Comments of my function of errors detection
+  rename(IdTree=idTree, XTreeUTM=Xutm, YTreeUTM=Yutm, Subplot=SubPlot, Year=CensusYear)
+
+Data <- GeneralErrorsDetection(Data) # 0 comments
+
+Data <- BotanicalCorrection(Data, DetectOnly = T)
+
+
+err <- Data %>% filter(Comment!="") %>% # 1479
+  filter(!grepl("Indet", ScientificName)) %>% # ce ne sont que des indet
+  select(Comment, IdTree, XTreeUTM, YTreeUTM, Family, Genus, Species, ScientificName, Diameter) 
+```
+
+# Apply taper correction if measured HOM (finally not)
+```{r, eval= F}
 # use "Diameter" and "HOM" columns to create -> "TaperDBH_TreeDataCor"
 # POMCertainty = 0: deduced ; 1: measured
 
@@ -211,11 +236,11 @@ AdultsP16 <- DetectMultistem(AdultsP16)
 ```
 
 ```{r}
-multistems <- AdultsP16 %>% 
-  filter(grepl("Multistem potential", Comment)) %>% # seulement les dupliqués
-  mutate(BasalArea = pi*(DBHcorTaper/2)^2) %>% 
+multistems <- AdultsP16 %>% # 8 stems -> 4 trees
+  filter(grepl("Potential multistem", Comment)) %>% # seulement les dupliqués
+  mutate(BasalArea = pi*(Diameter/2)^2) %>% 
   group_by(Coord) %>% 
-  arrange(desc(DBHcorTaper)) %>% 
+  arrange(desc(Diameter)) %>% 
   mutate(Stem.nb = 1:n()) %>% # numérote les stems par ordre décroissant de DBH
   mutate(BasalAreacor = sum(BasalArea)) %>% # somme des surfaces terrières
   mutate(DBHcor = 2*sqrt(BasalAreacor/pi)) %>% 
@@ -224,10 +249,10 @@ multistems <- AdultsP16 %>%
   mutate(Multistem = T)
 
 AdultsP16 <- AdultsP16 %>% 
-  filter(!grepl("Multistem potential", Comment)) %>% # supprimer les dupliqués
+  filter(!grepl("Potential multistem", Comment)) %>% # supprimer les dupliqués
   mutate(Multistem = F) %>% 
   mutate(Stem.nb = 1) %>%
-  mutate(DBHcor = DBHcorTaper) %>%
+  mutate(DBHcor = Diameter) %>%
   bind_rows(multistems)
 ```
 
@@ -236,6 +261,7 @@ AdultsP16 <- AdultsP16 %>%
 multistems %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # only 1 tree with 2 stems, not botanically identified
 ```
+
 # Subspecies
 ```{r}
 # unique(AdultsP16$ScientificName) # _subsp.
@@ -254,15 +280,19 @@ test <- AdultsP16 %>%
            grepl("indet", ScientificName) |
            grepl("Indet", ScientificName) |
            grepl("aceae", ScientificName) |
-           # grepl("_sp", ScientificName) & grepl("\\.", ScientificName) | 
+           grepl("_sp", ScientificName) & grepl("\\.", ScientificName) |
            grepl("_aff", ScientificName) & grepl("\\.", ScientificName) |
            grepl("_cf_", ScientificName)) # 1881, 2046 avec les sp.
 
 # unique(test$ScientificName)
 ```
 
-# My filters
-**faudra que ce soit le memes espèces que celles choisies dans ALT**
+# Filters for my analyses
+DBH>=1
+Only alive trees
+Only the principal stem
+Only measured trees
+Only spatialised trees
 ```{r}
 AdultsP16_filtred <- AdultsP16 %>%
   # Only spatialised trees
@@ -271,23 +301,37 @@ AdultsP16_filtred <- AdultsP16 %>%
   filter(Stem.nb == 1) %>%
   filter(DBHcor>=10) %>% # enlève 7 tiges
   # Only alive trees
-  # filter(CodeAlive == T) %>% # déjà fait avant
-  
+  filter(CodeAlive == T) %>% # déjà fait avant
   # Only measured trees
-  filter(!is.na(DBHcor)) %>% # aucun
-  
+  filter(!is.na(DBHcor)) # aucun
+
+nrow(AdultsP16_filtred)/nrow(AdultsP16)*100 # il reste 99.9% après filtre de la topo
+```
+
+```{r}
+nrow(AdultsP16) - nrow(AdultsP16_filtred) # 11
+length(unique(AdultsP16$ScientificName)) - length(unique(AdultsP16_filtred$ScientificName))  # 0 species lost
+
+write.csv(AdultsP16_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv")
+```
+
+# Species selection
+Only botanical identified
+Take only sp >= 30 ind
+```{r}
+spSelection <- AdultsP16_filtred %>% 
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
   filter(!grepl("indet", ScientificName)) %>%
   filter(!grepl("Indet", ScientificName)) %>%
   filter(!grepl("aceae", ScientificName)) %>%
-  # filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # On garde sp.chiffre ?
-  filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
-  filter(!grepl("_cf_", ScientificName)) %>%
+  # # filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # On garde sp.chiffre ?
+  # filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>%
+  # filter(!grepl("_cf_", ScientificName)) %>%
   mutate(ScientificName_c = sub("\\_subsp.*", "", ScientificName)) %>%
   mutate(SubSpecies = ifelse(grepl("_subsp", ScientificName), sub(".*_subsp.", "", ScientificName), NA)) %>%
   rename(ScientificName_old = ScientificName,
-         ScientificName = ScientificName_c) %>% 
+         ScientificName = ScientificName_c) %>%
   
   # Count individuals by species
   group_by(ScientificName) %>% 
@@ -295,18 +339,13 @@ AdultsP16_filtred <- AdultsP16 %>%
   ungroup() %>% # 10602
   # Take only sp >= 30 ind
   filter(N >= 30) # enlève 1887 tiges
-# 8294
-```
+# 9022
 
-```{r}
-nrow(AdultsP16) - nrow(AdultsP16_filtred) # 3959
-length(unique(AdultsP16$ScientificName)) - length(unique(AdultsP16_filtred$ScientificName)) # 394 species lost, 64 sp kept
+(nrow(spSelection)/nrow(AdultsP16))*100 # les sp selectionnées représentent 78% du jeu de données
+length(unique(spSelection$ScientificName)) # 64 selected species
 
-write.csv(AdultsP16_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv")
-```
-
-```{r}
-Species <- as.data.frame(unique(AdultsP16_filtred$ScientificName))
+Species <- as.data.frame(unique(spSelection$ScientificName))
+names(Species) <- "ScientificName"
 
 write.csv(Species, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")
 ```

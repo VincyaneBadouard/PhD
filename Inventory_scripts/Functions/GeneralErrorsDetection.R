@@ -86,9 +86,6 @@ GeneralErrorsDetection <- function(
         
         Data[is.na(get(Vars[v])), Comment := paste0(Comment, paste0("Missing value in ", Vars[v]), sep ="/")]
         
-        
-        warning(paste0("Missing value in ", Vars[v]))
-        
       } # not empty column
     } # column exists
   } # Vars loop
@@ -105,8 +102,6 @@ GeneralErrorsDetection <- function(
       
       Data[get(Vars[v])== 0, Comment := paste0(Comment, paste0(Vars[v]," cannot be 0"), sep ="/")]
       
-      
-      warning(paste0(Vars[v]," cannot be 0"))
     }
   }
   

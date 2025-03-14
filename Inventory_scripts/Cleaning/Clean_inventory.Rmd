@@ -43,7 +43,7 @@ Nouragues Petit Plateau
 
 ```{r,include = F, message=F}
 UnderstoryP <- 
-  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20250129.csv") # last raw data
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129.csv") # last raw data
 
 UnderstoryN <- read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_ALT_20240910.csv") 
 
@@ -191,12 +191,17 @@ ScfcNamecheck %>%
 ```{r}
 # Endilcheria multiflora est une erreur d'orthographe d'Endlicheria melinonii 
 # Maytenus_oblongata -> Monteverdia_oblongata
+# Eugenia.sp.FG9 vs Eugenia.sp.FG9-Holst  -> Eugenia.sp.FG9-Holst
+# Garcinia.benthaminia vs Garcinia.benthamiana -> Garcinia.benthamiana
+
 Data <- Data %>% 
   mutate(ScientificName = recode(ScientificName,
                                  "Endilcheria_multiflora" = "Endlicheria_melinonii",
-                                 "Maytenus_oblongata" = "Monteverdia_oblongata")) %>% 
+                                 "Maytenus_oblongata" = "Monteverdia_oblongata",
+                                 "Garcinia.benthaminia" = "Garcinia.benthamiana",
+                                 "Eugenia.sp.FG9" = "Eugenia.sp.FG9-Holst")) %>% 
   mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
-  mutate(Species = ifelse(Species=="amboty"&Genus=="Annona", "ambotay", Species)) %>%
+  mutate(Species = ifelse(Species=="amboty"& Genus=="Annona", "ambotay", Species)) %>%
   
   mutate(Family = ifelse(Family=="Lecithidaceae", "Lecythidaceae", Family)) %>%
   mutate(Genus = ifelse(Genus=="Lecithidaceae", "Lecythidaceae", Genus)) %>%
@@ -209,10 +214,17 @@ Data <- BotanicalCorrection(Data, DetectOnly = T)
 length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nrow(Data)*100 # 0.02%
 
 Botadiff <- Data %>%
-  filter(grepl("Different botanical informations", Comment)) %>% # 16
+  filter(grepl("Different botanical informations", Comment)) %>% # 8
   select(Comment, IdTree, IdStem, Guyafor.nb, Diameter, Family, Genus, Species, ScientificName, Code_problem)
 
+Data[grepl("The family name does not end in 'aceae'", Data$Comment)] # 1
 
+Data <- Data %>%
+  mutate(ScientificName = ifelse(grepl("The family name does not end in 'aceae'", Comment), Family, ScientificName)) %>% 
+  mutate(Family = ifelse(grepl("The family name does not end in 'aceae'", Comment), NA, Family))
+```
+
+```{r, eval=F}
 # Check the scientific names list
 sort(unique(data$ScientificName))
 
@@ -258,7 +270,7 @@ unique(Data$Comment)
 
 length(Data %>% filter(Comment!=""))/nrow(Data)*100 # 0.12%
 
-Data %>% filter(Comment!="") %>% # 21311
+Data %>% filter(Comment!="") %>% # 21 762
   select(Comment, IdTree, IdStem, XTreeUTM, YTreeUTM, Family, Genus, Species, ScientificName, Diameter, Code_problem)
 ```
 
@@ -382,16 +394,53 @@ for(p in c(13,14,15,18,19,20,23,24,25)){
 length(Data$Comment[grepl("Trees without stem 1", Data$Comment)])/nrow(Data)*100 # 0.02%
 ```
 
+# Remove doubtful rows
+- Duplicated IdStem: 0.5% (209 rows, 52 trees) -> virer que si le nom bota ou le DBH est diff, s’il est le même en garder 1  
+- Different botanical informations (Family, ScientificName) for a same IdTree: 0.02%  (8 trees)  
+- Different coordinates (XTreeUTM, YTreeUTM) for a same 'IdStem' :  0.009% (4 stems, 2 trees, 4 guyafor.nb.., 4 noms différents)  
 
-# Remove duplicated rows
 ```{r}
-# DuplicatedID <- unique(data[duplicated(data),]$IdStem)
-# 
-# data[data$IdStem%in%DuplicatedID,]
-# 
-# data <- data[!duplicated(data),]
-# P: 42524 -> 42366 (158 rows removed)
-# N: 29370 -> 29363 (7 rows removed)
+start <- nrow(UnderstoryP)
+startsp <- length(unique(UnderstoryP$ScientificName))
+
+Data %>% 
+  filter(grepl("Different botanical informations", Comment) | grepl("Different coordinates", Comment)) %>% 
+  select(IdTree, IdStem, Guyafor.nb, ScientificName, X, Y, Comment)
+
+Data <- Data %>% 
+  filter(!grepl("Different botanical informations", Comment)) %>% 
+  filter(!grepl("Different coordinates", Comment)) # 4 rows, 2 trees
+
+filt <- nrow(Data)
+filtsp <- length(unique(Data$ScientificName))
+start-filt # 8 lignes pcq info bota et coordonnées incohérentes
+startsp-filtsp # 3 sp pcq info bota et coordonnées incohérentes
+
+
+Duplistempurge <- Data %>% 
+  filter(grepl("Duplicated 'IdStem'", Comment)) %>% # 205
+  group_by(IdStem) %>% 
+  filter(length(table(ScientificName, useNA="no"))==1 & length(table(Diameter, useNA="no"))==1) %>% # remove incoherant rows -> 191 (14 rows removed)
+  # select(IdTree, IdStem, Guyafor.nb, ScientificName, X, Y, Diameter, Comment) %>% 
+  ungroup() %>% 
+  distinct(IdTree, IdStem, Guyafor.nb, ScientificName, X, Y, Diameter, .keep_all = T) %>% # remove duplicates -> 88 (103 rows removed)
+  mutate(Comment = str_replace(Comment, "Duplicated 'IdStem' in the census/", "")) # actualise comment column
+
+length(unique(Duplistempurge$IdStem)) == nrow(Duplistempurge) # if T IdStem are now unique
+any(is.na(Duplistempurge$ScientificName)) | any(is.na(Duplistempurge$Diameter)) # if F no NA to manage
+
+Data <- Data %>% # 42452
+  filter(!grepl("Duplicated 'IdStem'", Comment)) %>% 
+  bind_rows(Duplistempurge)
+
+filtdupli <- nrow(Data)
+filtduplisp <- length(unique(Data$ScientificName))
+filt-filtdupli # 117 lignes enlevées pour gérer les idstems dupliqués
+filtsp-filtduplisp # 0 sp enlevées pour gérer les idstems dupliqués
+
+nrow(Data)/nrow(UnderstoryP)*100 # il reste 99.7% par rapport au jeu de donnée brut
+
+
 ```
 
 ```{r}
@@ -434,16 +483,11 @@ data <- data %>%
 
 # Les NA : multistem_not sure !! -------
 test4 <- data %>% 
-  filter(is.na(Multistem)) %>% # the not sure cases (105) (soit pas même ScientificName ou coordonnées, soit memes DBHs pour tout l'idTree, soit certains DBH sont dupliqués mais pas tous)
-  filter(!grepl("Duplicated 'IdStem'", Comment))
+  filter(is.na(Multistem)) # the not sure cases (105) (soit pas même ScientificName ou coordonnées, soit memes DBHs pour tout l'idTree, soit certains DBH sont dupliqués mais pas tous)
 # Est-ce que je peux considérer que coctfs = M = multistem sure ?
 
 # write.csv(test4, "~/PhD/Inventories/Data/Understory/Paracou/Problems/Multistems_notsure.csv")
-length(unique(test4$IdTree)) # 34 trees
-
-test5 <- data %>% 
-  filter(is.na(Multistem)) %>% # the not sure cases (127) (soit pas même ScientificName ou coordonnées, soit memes DBHs pour tout l'idTree, soit certains DBH sont dupliqués mais pas tous)
-  filter(grepl("Duplicated 'IdStem'", Comment)) # 14
+length(unique(test4$IdTree)) # 31 trees
 
 ```
 
@@ -451,7 +495,7 @@ test5 <- data %>%
 ```{r}
 # Sure multistem
 nrow(data %>% 
-       filter(Multistem & !is.na(Multistem)))/nrow(data)*100 # 3.2% 
+       filter(Multistem & !is.na(Multistem)))/nrow(data)*100 # 2.9% 
 stemssup1 <- data %>% 
   filter(Multistem & !is.na(Multistem)) %>% filter(Stem.nb>1) # tiges surnuméraires
 range(stemssup1$DBH) # 0.9 10.2
@@ -465,7 +509,7 @@ range(stem1$DBH) # 1.0 45.9
 
 # Cod.CTFS M
 nrow(data %>% 
-       filter(grepl("M", Cod.CTFS)))/nrow(data)*100 # 3.5%
+       filter(grepl("M", Cod.CTFS)))/nrow(data)*100 # 3.2%
 
 stemssup1 <- data %>% 
   filter(grepl("M", Cod.CTFS)) %>% filter(Stem.nb>1)
@@ -478,21 +522,34 @@ nrow(data %>%
 
 
 # Manage multistems (sum the basal area, and keep only 1 stem) (Stem.nb pas codé)
-**que fait on des Multistems= NA ?!** !!! pour l'instant je les ai considéré comme des multistems
 ```{r}
 # pas codé si Stem.nb bien codé (1, 2, n)
 # unique(data$Comment) 
 # unique(data$Comments)
 
-dupliMultistems <- data %>%
-  filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
-  filter(grepl("Duplicated 'IdStem'", Comment)) # 14
+Multistems_notsure <- data %>% # 100
+  filter(is.na(Multistem)) %>% 
+  select(IdTree, IdStem, Guyafor.nb, Stem.nb, DBH, ScientificName, Comment, Comments) %>% 
+  # distinct(IdTree, IdStem, Guyafor.nb, ScientificName, DBH, .keep_all = T) %>% # tjrs 100
+  mutate(BasalArea = pi*(DBH/2)^2) %>% 
+  group_by(IdTree) %>% 
+  arrange(desc(DBH)) %>% 
+  mutate(Stem.nb = 1:n()) %>% # numérote les stems par ordre décroissant de DBH
+  unite(col = "IdStem", c("IdTree", "Stem.nb"), # recode the IdStem
+        sep = "_", na.rm = TRUE, remove = F) %>% # numérote les stems par ordre décroissant de DBH
+  mutate(BasalAreacor = sum(BasalArea)) %>% # somme des surfaces terrières
+  mutate(DBHcor = 2*sqrt(BasalAreacor/pi)) %>% 
+  mutate(Diff= DBHcor-DBH)
+
+length(unique(Multistems_notsure$IdStem)) # 100 stems
+length(unique(Multistems_notsure$IdTree)) # 31 trees
+range((filter(Multistems_notsure, Stem.nb==1))$Diff, na.rm=T) # 0.4142136 1.4272992 -> ça change pas grand chose
 
 
-Multistems <- data %>% # 1 245
-  filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
-  # filter(Multistem | is.na(Multistem)) %>% # sure and not sure multistems
-  distinct(IdTree, DBH, .keep_all = T) %>% # Résolution cas 2: remove duplicates -> clean real multistems trop bourain pcq des DBH peuvent etre égaux par hasard
+Multistems <- data %>% # 1 332
+  # filter(Multistem & !is.na(Multistem)) %>% # only sure multistems
+  filter(Multistem | is.na(Multistem)) %>% # sure and not sure multistems
+  # distinct(IdTree, IdStem, DBH, .keep_all = T) %>% # Résolution cas 2: remove duplicates (dupliidstems déjà réglé au dessus)
   mutate(BasalArea = pi*(DBH/2)^2) %>% 
   group_by(IdTree) %>% 
   arrange(desc(DBH)) %>% 
@@ -509,6 +566,8 @@ Multistems <- data %>% # 1 245
   ungroup() 
 # select(IdTree, Guyafor.nb, Stem.nb, DBH, DBHcor, ScientificName, Comment, Comments)
 
+
+
 # unique(Multistems$Comment)
 # Different botanical informations (Family, ScientificName) for a same IdTree"
 # Missing value in XTreeUTM
@@ -523,13 +582,15 @@ data <- data %>%
   mutate(DBHcor = DBH) %>%
   bind_rows(Multistems)
 
-nrow(data)== nrow(UnderstoryP)
+nrow(data)== nrow(Data)
 ```
 
 # % de multistems par sp d'intérêt ?
 ```{r}
+Sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 86
+
 multistem_interest <- data %>% 
-  filter(ScientificName %in% Sp$ScientificName) %>% 
+  filter(ScientificName %in% Sp) %>% 
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% 
@@ -560,7 +621,7 @@ TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels
   filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
 
 Multistem_plot <- data %>% 
-  filter(ScientificName %in% Sp$ScientificName) %>% 
+  filter(ScientificName %in% Sp) %>% 
   filter(Stem.nb ==1) %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
@@ -598,10 +659,8 @@ ggsave("Multistems_sup5%_interest_species.png", path = "D:/Mes Donnees/PhD/Figur
 # Write cleaned data
 **! vérifier que si ya DBH ya DBHcor !**
 ```{r}
-nrow(data) # 42460
-length(unique(data$ScientificName)) # 686
-
-write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
+nrow(data) # 42335
+length(unique(data$ScientificName)) # 684
 ```
 
 # Filters for my analyses
@@ -609,52 +668,52 @@ DBH>=1
 Only alive trees
 Only the principal stem
 Only measured trees
-Only botanical identified
-Take only sp >= 30 ind
-**ne pas enlever 1 seul arbre de l'inventaire !! Ce sont nos absences !**
-on veut juste un vecteur d'espèce à étudier
+Only spatialised trees
 ```{r}
-data <- data %>% 
+# test <- data %>% 
+#   # & DBH<10 only ALT data for the moment
+#   filter(DBH>=1 & is.na(Guyafor.nb)& DBH>20 & 
+#            # Family!="Arecaceae" & Comment != "PALMIER" &
+#            !Code_problem %in% c("No_num_cirad", "Not_ided", "CheckID"))
+
+data_filtred <- data %>% 
   # & DBH<10 only ALT data for the moment
-  filter(DBH>=1 & is.na(Guyafor.nb) & DBH<20) %>% # filter ce qui a un guyafor.nb pas bcp plus grand que 10 cm( recrus) (pas sous le critère <10 cm dbh pcq recrus)
+  filter(DBH>=1 & is.na(Guyafor.nb) & DBH<20 &
+           !grepl("num_cirad", Code_problem)) %>% # filter ce qui a un guyafor.nb pas bcp plus grand que 10 cm (recrus) (pas sous le critère <10 cm dbh pcq recrus) -> reste 88% par rapport aux filtres précédents
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees
   filter(!is.na(DBH)) %>% 
+    # Only spatialised trees
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% # -> reste 87% par rapport aux filtres précédents
   # Only the principal stem
-  filter(Stem.nb == 1) %>%
-  # Only spatialised trees
-  filter(!is.na(Xutm) & !is.na(Yutm))
+  filter(Stem.nb == 1)
 
-# "Chrysophyllum_prieurii", "Theobroma_guianense" : DBH >10 uniquement
-# "Caryocar_glabrum", "Eperua_rubiginosa", "Oenocarpus_bataua", "Goupia_glabra"         
-# "Carapa_surinamensis", "Chrysophyllum_prieurii", "Sterculia_speciosa", "Siparuna_decipiens"    
-# "Theobroma_guianense", "Ambelania_acida", "Euterpe_oleracea" # not enough >10     
-
-unique(data$Comment)
-SpeciesA[!SpeciesA %in% data$ScientificName]
-
+nrow(data_filtred)/nrow(data)*100 # il reste 86% par rapport aux filtres précédents
+nrow(data_filtred)/nrow(UnderstoryP)*100 # il reste 86% par rapport au jeu de donnée brut
 ```
 
-# Write cleaned and filtred data
+# Write cleaned data
 ```{r}
-nrow(data) # 35898
-length(unique(data$ScientificName)) # 579
+nrow(data_filtred) # 36310
+length(unique(data_filtred$ScientificName)) # 581
 
-write.csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv")
+write.csv(data_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
 ```
 
 # Species selection
+Only botanical identified
+Take only sp >= 30 ind
 ```{r}
 SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2]) # 64
 
-spSelection <- data %>% 
+spSelection <- data_filtred %>% 
   rowwise() %>% 
   filter(ScientificName %in% SpeciesA | Strategy=="Understory species") %>%
   ungroup() %>% 
   # Only botanical identified
   filter(!is.na(ScientificName)) %>%
-  # filter(ScientificName!="Tres haut") %>% # on fait ça ? apriori oui
+  # filter(ScientificName!="Tres haut") %>% # pas nécessaire
   # filter(!grepl("indet", ScientificName)) %>%
   # filter(!grepl("Indet", ScientificName)) %>%
   # filter(!grepl("aceae", ScientificName)) %>%
@@ -674,7 +733,17 @@ spSelection <- data %>%
   # Take only sp >= 30 ind
   filter(N >= 30)
 
-Sp <- as.data.frame(sort(unique(spSelection$ScientificName))) # 86
+# Lianes : Tabernaemontana_macrocalyx ?
+# il reste des infos douteuses dans les colonnes de Léa A GERER
+  
+unique(spSelection$Comment) # C'est le Symphonia.sp1 qui était initialment dans Family
+SpeciesA[!SpeciesA %in% spSelection$ScientificName]
+# "Chrysophyllum_prieurii" : DBH >10 uniquement
+# "Caryocar_glabrum" "Eperua_rubiginosa" "Oenocarpus_bataua" "Goupia_glabra"         
+# "Carapa_surinamensis"  "Sterculia_speciosa""Siparuna_decipiens" "Theobroma_guianense"
+
+
+Sp <- as.data.frame(sort(unique(spSelection$ScientificName))) # 75
 names(Sp) <- "ScientificName"
 
 write.csv(Sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")

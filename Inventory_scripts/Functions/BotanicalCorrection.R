@@ -193,6 +193,10 @@ BotanicalCorrection <- function(
                           comment = "Names ending in 'aceae' cannot be genus or species names")
   
   Data <- GenerateComment(Data,
+                          condition = !grepl("aceae", Data$Family) & !is.na(Data$Family) & !grepl("Indet", Data$Family),
+                          comment = "The family name does not end in 'aceae'")
+  
+  Data <- GenerateComment(Data,
                           condition = grepl('[[:punct:]]', Data$Genus), # TRUE if there are any special character
                           comment = "Special characters in the 'Genus'")
   
