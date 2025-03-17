@@ -194,12 +194,19 @@ ScfcNamecheck %>%
 # Eugenia.sp.FG9 vs Eugenia.sp.FG9-Holst  -> Eugenia.sp.FG9-Holst
 # Garcinia.benthaminia vs Garcinia.benthamiana -> Garcinia.benthamiana
 
+# Rinorea.idem181298 -> pas de bota au 18_1298
 Data <- Data %>% 
   mutate(ScientificName = recode(ScientificName,
                                  "Endilcheria_multiflora" = "Endlicheria_melinonii",
                                  "Maytenus_oblongata" = "Monteverdia_oblongata",
-                                 "Garcinia.benthaminia" = "Garcinia.benthamiana",
-                                 "Eugenia.sp.FG9" = "Eugenia.sp.FG9-Holst")) %>% 
+                                 "Garcinia_benthaminia" = "Garcinia_benthamiana",
+                                 "Eugenia_sp.FG9" = "Eugenia_sp.FG9-Holst",
+                                 "Sloanea_sp.8" = "Sloanea_sp.8-CAY",
+                                 "Sloanea_sp.14" = "Sloanea_sp.14-CAY",
+                                 "Inga_sp.18" = "Inga_sp.18-CAY")) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Caraipa_idem181381", Data[Data$IdTree=="18_1381"]$ScientificName,
+                                 ScientificName)) %>%
+  
   mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
   mutate(Species = ifelse(Species=="amboty"& Genus=="Annona", "ambotay", Species)) %>%
   
@@ -221,7 +228,9 @@ Data[grepl("The family name does not end in 'aceae'", Data$Comment)] # 1
 
 Data <- Data %>%
   mutate(ScientificName = ifelse(grepl("The family name does not end in 'aceae'", Comment), Family, ScientificName)) %>% 
-  mutate(Family = ifelse(grepl("The family name does not end in 'aceae'", Comment), NA, Family))
+  mutate(Family = ifelse(grepl("The family name does not end in 'aceae'", Comment), NA, Family)) %>% 
+  mutate(Family = ifelse(ScientificName == "Symphonia_sp.1", "Clusiaceae", Family))
+
 ```
 
 ```{r, eval=F}
@@ -304,7 +313,7 @@ Subplot
 **! ALT et Guyafor n’ont pas exactement les même limites de subplot -> ils ne sont pas considérés dans le même subplot dans ALT et Guyafor..!**
 
 ## Guyafor.nb
-```{r}
+```{r, eval=F}
 data <- data %>% 
   mutate(CIRADid= tstrsplit(Guyafor.nb, split = "_")[[1]]) %>% #1er elmt  
   mutate(CIRADplot= tstrsplit(Guyafor.nb, split = "_")[[2]]) %>%  #2nd
@@ -348,7 +357,7 @@ stems[!stems %in% stem1] # 1 cirad with multiple stems but without a stem 1
 ```
 
 # Missing cirad positions
-```{r}
+```{r, eval=F}
 data_sf <- data %>% 
   mutate(CIRAD = ifelse(!is.na(Guyafor.nb), T, F)) %>% 
   select(IdStem, CIRAD, SubPlot, Xutm, Yutm) %>% na.omit() %>% 
@@ -660,7 +669,7 @@ ggsave("Multistems_sup5%_interest_species.png", path = "D:/Mes Donnees/PhD/Figur
 **! vérifier que si ya DBH ya DBHcor !**
 ```{r}
 nrow(data) # 42335
-length(unique(data$ScientificName)) # 684
+length(unique(data$ScientificName)) # 678
 ```
 
 # Filters for my analyses
@@ -695,8 +704,8 @@ nrow(data_filtred)/nrow(UnderstoryP)*100 # il reste 86% par rapport au jeu de do
 
 # Write cleaned data
 ```{r}
-nrow(data_filtred) # 36310
-length(unique(data_filtred$ScientificName)) # 581
+nrow(data_filtred) # 36338
+length(unique(data_filtred$ScientificName)) # 576
 
 write.csv(data_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")
 ```
@@ -743,8 +752,9 @@ SpeciesA[!SpeciesA %in% spSelection$ScientificName]
 # "Carapa_surinamensis"  "Sterculia_speciosa""Siparuna_decipiens" "Theobroma_guianense"
 
 
-Sp <- as.data.frame(sort(unique(spSelection$ScientificName))) # 75
-names(Sp) <- "ScientificName"
+Sp <- spSelection %>% 
+  select(ScientificName, Family, N) %>% unique() %>% arrange(desc(N)) # 75
+length(unique(Sp$Family)) # 28 families
 
 write.csv(Sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")
 ```

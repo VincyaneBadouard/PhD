@@ -11,7 +11,6 @@ code-fold: true
 execute: 
   cache: true
 ---
-*pour vérifier que c'est tout bon, tu peux peut-être te faire un jeu de données de vérif avec 1 indiv par espèce, tous avec un même DBH => pour les espèces de Claudia, tu peux vérifier si le ranking et cohérent avec tes param. Et pour les autres espèces, elles devriant avoir toutes sensiblement la même hauteur*
 
 Objective:
 
@@ -36,6 +35,18 @@ load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model
 fit <- fit2_MM4_5s_2023
 rm(fit2_MM4_5s_2023)
 fit
+get_variables(fit)
+str(fit, maxlevels = 1)
+summary(fit)
+str(fit$fit) # stanfit
+options(max.print=1000000)
+fit$fit
+str(rstan::extract(fit$fit)) # matrix sp en col # $r_1_alpha_1
+str(fit$data$species_noSing) # character
+levels(as.factor(fit$data$species_noSing)) # à mettre en colonne et mettre dans la matrice
+# et verifier en fesant la moyenne avec la moyenne du fit$fit
+
+
 ```
 Data : data_cc_cirad
 *data_cc_cirad = trees.final.PL + bd_paracou_HC*
@@ -48,44 +59,50 @@ trees.final.PL = "/Data/P1to16_00006_0010/P1to16.MM",pattern = "final.txt"
 *dbh.y>=20*
 
 Variables : 
-dbh.y
-"CHM2015_25ppm_fo_comp" -> 'HC'
-species_noSing (470)
-"idtree","dbh", "wd",  "HC","species_allo", "plot","habitat","trait","square_125"
+- dbh.y
+- "CHM2015_25ppm_fo_comp" -> 'HC'
+- species_noSing (470)
+- "idtree","dbh", "wd",  "HC","species_allo", "plot","habitat","trait","square_125"
 
-# Get model species names
-```{r}
-sp <- get_variables(fit) # character
+# Create a developpment dataset
+*pour vérifier que c'est tout bon, tu peux peut-être te faire un jeu de données de vérif avec 1 indiv par espèce, tous avec un même DBH => pour les espèces de Claudia, tu peux vérifier si le ranking et cohérent avec tes param. Et pour les autres espèces, elles devraient avoir toutes sensiblement la même hauteur*
 
-# sp_alpha <- sp[grepl('r_species_noSing__alpha', sp)]
-# sp_alpha_intercept <- sp_alpha[grepl(',Intercept', sp_alpha)]
-# sp_alpha_HC <- sp_alpha[grepl(',HC', sp_alpha)]
+```{r, dvp dataset, eval=F}
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 398
 
-sp_beta <- sp[grepl('r_species_noSing__beta', sp)]
-sp_beta <- str_remove(sp_beta, 'r_species_noSing__beta')
-sp_beta <- str_remove(sp_beta, ',Intercept')
-sp <- gsub("\\[|\\]", "", sp_beta)
+same_sp <- match %>% 
+  mutate(dbh.y = 30) %>% 
+  mutate(HC = 30)
 
-# 470
+other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
+                       dbh.y = 30,
+                       HC = 30)
 ```
 
 # Cleaned inventory data
 ```{r, message=F}
-# pas filtrer les données !!!
 Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
   rename(idTree = IdTree) %>% # 28 711
   rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
-  mutate(idTree = as.character(idTree)) %>% 
-  filter(ScientificName %in% Understory$ScientificName)
+  mutate(idTree = as.character(idTree))
 
 Inventory <- bind_rows(Understory, Adults)
 ```
 
 # Modify inventory for predictions
 ```{r}
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 398
+
+sum(duplicated(match$species_noSing)) # 19
+
 Inventory <- Inventory %>% 
-  mutate(species_noSing = str_replace(ScientificName, "_", ".")) # 
+  left_join(match, by= "ScientificName")
+
+length(!is.na(unique(Inventory$species_noSing))) # 380 (=398-19-NA)
+
+all(sort(unique(Inventory$species_noSing)) == sort(unique(match$species_noSing))) # TRUE
+match$species_noSing[!match$species_noSing %in% unique(Inventory$species_noSing)] # 0
 ```
 
 # Predictions
@@ -130,21 +147,11 @@ ggplot(Inventory, aes(x=DBHcor, y=HC)) +
   labs(x= "DBH (cm)", y= "Local canopy height (m)")
 ```
 
-## Determination of singleton species
-mediane du posterior = mediane du posterior singleton ?
-```{r}
-singletons = names(table(data_cc_cirad$species_allo))[which(table(data_cc_cirad$species_allo)==1)]
-data_cc_cirad$singleton = F
-data_cc_cirad$singleton[which(data_cc_cirad$species_allo %in% singletons)] <- T
-data_cc_cirad$species_noSing <- data_cc_cirad$species_allo
-data_cc_cirad$species_noSing[data_cc_cirad$singleton==T] <- "bin" # Singletons are classified in the same class
-```
-
 ```{r, eval=F}
 # Sylvain - extraire les paramètres
 fit %>% 
   tidybayes::spread_draws(b_hmax_Intercept, r_species__hmax[species,], # or manipulating posteriors directly; support a wider range of models
-               b_ah_Intercept, r_species__ah[species,]) %>% 
+                          b_ah_Intercept, r_species__ah[species,]) %>% 
   mutate(ah = b_ah_Intercept + r_species__ah) %>% 
   mutate(hmax = b_hmax_Intercept + r_species__hmax) %>% 
   group_by(species) %>% 
@@ -152,40 +159,99 @@ fit %>%
   filter(species != "unknown") %>% 
   mutate(species = gsub(".", " ", species, fixed = TRUE)) %>% 
   left_join(read_csv("data/species/tallo.csv") %>% 
-  filter(longitude <= -39, longitude >= -79, latitude >= -18, latitude <= 10) %>% 
-    select(family, genus, species) %>% unique()) %>% 
+              filter(longitude <= -39, longitude >= -79, latitude >= -18, latitude <= 10) %>% 
+              select(family, genus, species) %>% unique()) %>% 
   write_tsv("outputs/tallo_pars.tsv")
 ```
 
-prédire avec quelle incertitude paramètres et/ou distribution ?
+prédire avec quelle incertitude paramètres et/ou distribution ? incertitude paramètres seulement
 max de vraissemblance ou mediane ? mediane de toutes les itérations 
 
-uncertainty : une sp aléaitoire du jeu de données par tirage 
-gaussian : pioche une valeur dans la distribution par tirage
-old_levels : une sp aléaitoire du jeu de données pour tous les tirages
+# Predict tree height for  Claudia's species
 ```{r}
-# tidybayes
 ?add_predicted_draws
-same_sp %>%
-  add_predicted_draws(fit, re_formula = ~ (1 | species_noSing),
-                      allow_new_levels = F,
-                      value = ".pred") # Bayesian model fit
-# These have 360,000 rows because each row of newdata is repeated 4000 times, one for each of the posterior draws.
-# propage l'incertitude
+truc <- brms::bf(height~(alpha*dbh.y)/(beta+dbh.y),
+                 alpha ~ HC + 1|species_noSing,
+                 beta ~ 1|species_noSing, # que cette ligne donne des valeurs négatives
+                 nl = TRUE) # donne la meme valeur pour ttes les espèces
 
-other_sp %>%
-  add_predicted_draws(fit, re_formula = NA,
-                      allow_new_levels = T,
-                      value = ".pred") 
+same_sp_pred <- same_sp %>%
+  add_epred_draws(fit, re_formula = ~ (HC + 1|species_noSing), 
+                  allow_new_levels = F, 
+                  value = "pred") %>% # 398 sp * 6000 iterations
+  group_by(species_noSing) %>% 
+  mutate(TreeHeight = round(median(pred), 1)) %>% # compute median of the iterations
+  ungroup() %>% 
+  select(-c(".row", ".chain", ".iteration", ".draw", "pred")) %>% 
+  unique()
 
-add_epred_draws() # for the expected value of the posterior (=mu)
-
-# brms
-brms::posterior_predict(fit, newdata = inventory, re_formula = ~ (1 | species_noSing), allow_new_levels = F)
-
-brms::posterior_epred(fit, newdata = inventory,) # gives you the distribution of the expected value of the posterior.
-# It has 4000 rows because the model fit by brm() uses an MCMC algorithm to sample the joint posterior distribution of the parameters. By default it does this with four Markov chains that return 1000 samples each, for a total of 4000. Why 90 columns? Because newdata in this case has 90 rows. The columns of pred1 and pred2 correspond to the rows of newdata, in the same order.
-# If re_formula = NULL (default), include all group-level effects; if NA or ~0, include no group-level effects.
+# add_predicted_draws propage l'incertitude
+# add_epred_draws gives you the posterior expectation (the predicted average value, excluding residual variance)
 ```
 
+```{r, eval=F}
+# Abarema jupunba 24.6
+
+# MEAN
+dbh.y = 30
+HC = 30
+alpha_intercept = 42.79
+beta_intercept = 14.57
+# alpha_HC = -0.98
+
+alpha_intercept_sp = -8.35
+alpha_HC_sp = 0.07
+beta_sp = -0.30
+alpha = (alpha_HC_sp)*HC + alpha_intercept + alpha_intercept_sp
+beta = beta_intercept + beta_sp
+
+(alpha * dbh.y)/(beta + dbh.y) # mean 22.7
+
+# MEDIAN
+dbh.y = 30
+HC = 30
+alpha_intercept = 42.78
+beta_intercept = 14.57
+alpha_HC = -0.98
+
+alpha_intercept_sp = -8.41
+alpha_HC_sp = 0.07
+beta_sp = -0.34
+alpha = (alpha_HC + alpha_HC_sp)*HC + alpha_intercept + alpha_intercept_sp
+beta = beta_intercept + beta_sp
+
+(alpha * dbh.y)/(beta + dbh.y) # median 22.7
+
+# Agonandra silvatica 27.2
+
+# MEAN
+dbh.y = 30
+HC = 30
+alpha_intercept = 42.79
+beta_intercept = 14.57
+# alpha_HC = -0.98 # cor_species_noSing__alpha_Intercept__alpha_HC
+
+alpha_intercept_sp = -7.54
+alpha_HC_sp = 0.21
+beta_sp = 2.24
+alpha = (alpha_HC_sp)*HC + alpha_intercept + alpha_intercept_sp
+beta = beta_intercept + beta_sp
+
+(alpha * dbh.y)/(beta + dbh.y) # mean 22.1
+```
+
+# Predict tree height for species absent of the Claudia's selection (works)
+si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen entre espèce (le mu de ta distribution des effets aléatoires des espèces). Donc tu considères toutes les espèces comme des espèces "moyennes"
+```{r}
+other_sp_pred <- other_sp %>%
+  add_epred_draws(fit, re_formula = NA,
+                  allow_new_levels = T,
+                  value = "pred") %>%  # n sp * 6000 iterations
+  group_by(species_noSing) %>% 
+  mutate(TreeHeight = round(median(pred), 1)) %>% # compute median of the iterations
+  ungroup() %>% 
+  select(-c(".row", ".chain", ".iteration", ".draw", "pred")) %>% 
+  unique()
+
+```
 

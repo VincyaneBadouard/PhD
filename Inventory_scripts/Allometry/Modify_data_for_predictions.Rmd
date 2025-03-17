@@ -19,7 +19,7 @@ fit
 ```
 
 # Get model species names
-```{r}
+```{r, eval=F}
 sp <- tidybayes::get_variables(fit) # character
 
 # sp_alpha <- sp[grepl('r_species_noSing__alpha', sp)]
@@ -37,6 +37,12 @@ sp <- data.frame(species_noSing,
 # bin # Singletons are classified in the same class
 ```
 
+```{r}
+sp <- data.frame(species_noSing = unique(fit$data$species_noSing),
+                 Match = T) %>% 
+  separate(species_noSing, sep = " ", into = c("Genus", "Species"), remove = F) # 470
+```
+
 # Modify inventory for predictions
 ```{r, message=F}
 # pas filtrer les données !!!
@@ -44,8 +50,8 @@ Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9h
   rename(idTree = IdTree) %>% # 28 711
   rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
-  mutate(idTree = as.character(idTree)) %>% 
-  filter(ScientificName %in% Understory$ScientificName)
+  mutate(idTree = as.character(idTree)) # %>% 
+  # filter(ScientificName %in% Understory$ScientificName)
 
 Inventory <- bind_rows(Understory, Adults)
 ```
@@ -54,22 +60,30 @@ Inventory <- bind_rows(Understory, Adults)
 test <- Inventory %>% 
   select(ScientificName, Family) %>% 
   unique() %>% 
-  mutate(ScientificName = str_replace(ScientificName, "indet", "sp\\.")) %>% # species have points between genus and species names in the model
-  separate(ScientificName, sep = ".subsp.", into = c("species_noSing", "Subspecies"), remove = F) %>% 
+  mutate(species_noSing = str_replace(ScientificName, "indet", "sp\\.")) %>% # species have points between genus and species names in the model
+  separate(species_noSing, sep = ".subsp.", into = c("species_noSing", "Subspecies"), remove = F) %>% 
   mutate(species_noSing = data.table::tstrsplit(species_noSing, split = ".var\\.")[[1]]) %>% 
-  mutate(species_noSing = str_remove(species_noSing, "_aff")) %>% 
-
+  mutate(species_noSing = str_replace(species_noSing, "_aff.", "_")) %>% 
+  
   mutate(species_noSing = ifelse(!grepl('[[:digit:]]', species_noSing), str_replace(species_noSing, "_sp\\.", "_Indet\\."), species_noSing))  %>% # s'il ya pas de chiffre 
-  mutate(species_noSing = str_replace(species_noSing, "_", ".")) %>% # species have points between genus and species names in the model
+  mutate(species_noSing = str_replace(species_noSing, "_", " ")) %>% # species have points between genus and species names in the model
   mutate(species_noSing = str_replace(species_noSing, "indet", "Indet")) %>% 
-  mutate(species_noSing = ifelse(grepl('aceae\\.', species_noSing), paste("Indet", species_noSing, sep = "."), species_noSing)) %>%   # Indet. devant les noms de famille 
+  mutate(species_noSing = ifelse(grepl('aceae', species_noSing), paste("Indet", species_noSing, sep = "."), species_noSing)) %>%   # Indet. devant les noms de famille 
   mutate(species_noSing = str_replace(species_noSing, 'Indet\\.Indet\\.', "Indet\\.")) %>%
-  mutate(species_noSing = ifelse(is.na(ScientificName), "Indet.Indet..Indet.", species_noSing)) %>% 
-  separate(species_noSing, sep = "\\.", into = c("Genus", "Species"), remove = F) %>%  # regenerer genus et species pcq incohérent
+  mutate(species_noSing = ifelse(ScientificName=="Indet.Indet._Indet.", "Indet.Indet. Indet.", species_noSing)) %>% 
+  mutate(species_noSing = ifelse(is.na(ScientificName), "Indet.Indet. Indet.", species_noSing)) %>% 
+  separate(species_noSing, sep = " ", into = c("Genus", "Species"), remove = F) %>%  # regenerer genus et species pcq incohérent
   mutate(species_noSing = recode(species_noSing, 
-                                 "Eschweilera.grandiflora" = "Eschweilera.grandiflora_form2",
-                                 "Aniba.rosodora" = "Aniba.rosaeodora",
-                                 "Inga.melinonii" = "Inga.melinonis" ))
+                                 "Eschweilera grandiflora" = "Eschweilera grandiflora_form2",
+                                 "Tovomita sp.9" = "Tovomita sp.9-CAY",
+                                 "Sloanea sp.14" = "Sloanea sp.14-CAY",
+                                 "Sloanea sp.20" = "Sloanea sp.20-CAY",
+                                 "Tovomita sp.2" = "Tovomita sp.2-CAY",
+                                 "Indet.Nyctaginaceae sp.4" = "Indet.Nyctaginaceae sp.4-CAY",
+                                 "Aniba rosodora" = "Aniba rosaeodora",
+                                 "Inga melinonii" = "Inga melinonis",
+                                 "Pouteria gonggrijpii" =  "Pouteria gongrijpii"
+  ))
 
 # Encoding(sp$species_noSing[sp$species_noSing=="Indet.Indet..Indet."])
 # Encoding(test$species_noSing[test$species_noSing=="Indet.Indet..Indet."])
@@ -79,23 +93,26 @@ test <- Inventory %>%
 
 # Test match 
 ```{r}
-sp$species_noSing[!sp$species_noSing %in% test$species_noSing] # 120
+sp$species_noSing[!sp$species_noSing %in% test$species_noSing] # 91
 
-nomatch <- test %>%  # 325
+nomatch <- test %>%  # 326
   left_join(sp, by= c("species_noSing")) %>% 
-  filter(is.na(Match))
+  filter(is.na(Match)) %>% 
+  select(ScientificName, species_noSing) %>% unique()
 
 explore <- test %>%  
   left_join(sp, by= c("species_noSing", "Genus", "Species")) %>% 
   filter(is.na(Match)) %>% 
   left_join(sp, by= "Genus") 
 
-match <- test %>%  # 417
+match <- test %>%  # 399
   left_join(sp, by= c("species_noSing")) %>% 
-  filter(Match)
+  filter(Match) %>% 
+  select(ScientificName, species_noSing) %>% unique()
 
+nrow(nomatch) + nrow(match) == length(unique(Inventory$ScientificName))
 
-# un Symphonia_sp.1 dans Family (vérifier qu'il n'y aque du aceae dans Family sion mettre dans ScientificName)
+# un Symphonia_sp.1 dans Family (vérifier qu'il n'y que du aceae dans Family sinon mettre dans ScientificName)
 
 # En attente de Giacomo :
 # .sp.2-CAY et .sp.2 -> c'est la meme chose
@@ -104,9 +121,6 @@ match <- test %>%  # 417
 # Eugenia.sp.FG9 vs Eugenia.sp.FG9-Holst  -> même espece
 # Inga.graciliflora vs Inga.gracilifolia -> pas meme espese
 # Eugenia.cucullata vs Eugenia.cupulata -> pas même espèce
-
-
-
 
 # Résolu : 
 # Indet.Indet..Indet.
@@ -121,5 +135,9 @@ match <- test %>%  # 417
 # Aniba.rosodora vs Aniba.rosaeodora -> Aniba.rosaeodora
 # Inga.melinonii vs Inga.melinonis -> même espèce
 
+```
+
+```{r}
+write.csv(match, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")
 ```
 
