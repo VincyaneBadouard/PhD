@@ -81,7 +81,7 @@ other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
 
 # Cleaned inventory data
 ```{r, message=F}
-Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% 
   rename(idTree = IdTree) %>% # 28 711
   rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
@@ -166,9 +166,9 @@ nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```
 
 ```{r}
-same_sp_pred <- predict(fit, newdata = same_sp, na.action = na.omit) # 1 min
+same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
 same_sp$TreeHeight <- same_sp_pred[,1]
-range(same_sp$TreeHeight) # 1.449219 58.189122
+range(same_sp$TreeHeight) # 1.455904 58.257564
 ```
 ## Plot
 ```{r}
@@ -181,9 +181,9 @@ ggplot(same_sp, aes(x=dbh.y, y=TreeHeight, col = species_noSing)) +
 # Predict tree height for species absent of the Claudia's selection (works)
 si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen entre espèce (le mu de ta distribution des effets aléatoires des espèces). Donc tu considères toutes les espèces comme des espèces "moyennes"
 ```{r}
-other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, na.action = na.omit) # 1 min
+other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, robust=T, na.action = na.omit) # 1 min; , robust=T to take the posterior median
 other_sp$TreeHeight <- other_sp_pred[,1]
-range(other_sp$TreeHeight) # 2.655371 36.751789
+range(other_sp$TreeHeight) # 2.648444 36.837895
 ```
 ## Plot
 ```{r}

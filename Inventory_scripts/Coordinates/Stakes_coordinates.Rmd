@@ -1,0 +1,82 @@
+---
+title: "Stakes_coordinates"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(readxl)
+library(tidyverse)
+```
+
+# Import data
+Site : Paracou - P16
+Subplots :
+- 13, 18, 23, 24 : oui
+- 14-15-19-20-25 : pas encore 
+Méthode de mesure : laser
+
+```{r, 13_18_23_24}
+# 13, 18, 23, 24
+S_13_18_23_24 <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou13_18_23_24.csv", 
+                              delim = ";", escape_double = FALSE, trim_ws = TRUE) # 401
+View(S_13_18_23_24)
+names(S_13_18_23_24) # "plot" "quadra.nb.X" "quadra.nb.Y" "q.length.X"  "q.length.X2" "q.length.Y"  "q.length.Y2"
+summary(S_13_18_23_24) # Min q.length.X : 1.0
+S_13_18_23_24 <- S_13_18_23_24[complete.cases(S_13_18_23_24),] # enlever les lignes à NA -> 400
+```
+"plot" : subplot number
+"quadra.nb.X" : number of column where the 10m x 10m quadrat is placed (0 - 9. 0 = sud; 9 = north).  
+"quadra.nb.Y" : number of row where the 10m x 10m quadrat is placed (0 - 9. 0 = west; 9 = east).  
+"q.length.X" : size of the southern side of the 10m x 10m quadrat (m).  
+"q.length.X2" : size of the northern side of the 10m x 10m quadrat (m).  
+"q.length.Y" : size of the western side of the 10m x 10m quadrat (m).  
+"q.length.Y2" : size of the eastern side of the 10m x 10m quadrat (m).  
+
+```{r}
+S_14 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C14_measure.xlsx")
+S_15 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C15_measure.xlsx")
+S_19 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C19_measure.xlsx")
+S_20_1 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_measure.xlsx")
+S_20_2 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_fin20250130.xlsx")
+S_25 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_ParacouC25_T1_20230607ins.xlsx")
+
+
+all(names(S_14) == names(S_15))
+all(names(S_14) == names(S_19))
+names(S_20_1) == names(S_14)
+names(S_14) == names(S_20_2) == names(S_25)
+
+names(S_14) # "Num" "Q_lengthX" "Q_lengthX1" "Q_lengthY" "Q_lengthY1" "Subplot" "Comments"
+summary(S_14) # Min q.length.X : 1.0
+
+```
+# Manage column names differences
+```{r}
+S_13_18_23_24 <- S_13_18_23_24 %>% 
+  rename(Subplot = plot,
+         = quadra.nb.X,
+         = quadra.nb.Y,
+         = q.length.X,
+         = q.length.X2,
+         = q.length.Y,
+         = q.length.Y2)
+
+S_20_1 <- S_20_1 %>% 
+  rename(Q_lengthX = Qlenght_X)
+
+S_20_2 <- S_20_ %>% 
+  rename(Q_lengthX = Qlenght_X)
+
+S_25 <- S_25 %>% 
+  select(Subplot, quadra.nb., q.length.X, q.length_1, q.length.Y, q.length_2) %>% 
+  rename(Q_lengthX = q.length.X,
+         = q.length_1,
+         Q_lengthY = q.length.Y,
+         = q.length_2)
+
+
+```
+
