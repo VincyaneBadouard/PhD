@@ -15,7 +15,8 @@ execute:
 Objective:
 
 -   utiliser l’allométrie complète de Claudia avec posteriors par espèce plutôt que ces données tant que le paramètre existe pour l’espèce et avec allométrie générale de Claudia si on n’a pas l’espèce
--   https://github.com/chuertas18/local_allometries_LIDAR/blob/main/model_1_4_PW_MM.r (MM4 - Model 4 Michaelis-Menten)
+-   MM4 - Model 4 Michaelis-Menten
+- \\amap-data.cirad.fr\work\users\ClaudiaHuertas\AllometryData\Scripts\Allometry_main\Scripts_paper\Figures Results_Allometry_paper
 -   pour les petits comparer modèle spécifique ou général
 -   prédire avec fct de brms (predict)
 -   https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/
@@ -35,19 +36,18 @@ load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model
 fit <- fit2_MM4_5s_2023
 rm(fit2_MM4_5s_2023)
 fit
-get_variables(fit)
-str(fit, maxlevels = 1)
-summary(fit)
-str(fit$fit) # stanfit
-options(max.print=1000000)
-fit$fit
-str(rstan::extract(fit$fit)) # matrix sp en col # $r_1_alpha_1
-str(fit$data$species_noSing) # character
-levels(as.factor(fit$data$species_noSing)) # à mettre en colonne et mettre dans la matrice
+# get_variables(fit)
+# str(fit, maxlevels = 1)
+# summary(fit)
+# str(fit$fit) # stanfit
+# options(max.print=1000000)
+# fit$fit
+# str(rstan::extract(fit$fit)) # matrix sp en col # $r_1_alpha_1
+# str(fit$data$species_noSing) # character
+# levels(as.factor(fit$data$species_noSing)) # à mettre en colonne et mettre dans la matrice
 # et verifier en fesant la moyenne avec la moyenne du fit$fit
-
-
 ```
+
 Data : data_cc_cirad
 *data_cc_cirad = trees.final.PL + bd_paracou_HC*
 
@@ -88,18 +88,22 @@ Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv"
   mutate(idTree = as.character(idTree))
 
 Inventory <- bind_rows(Understory, Adults)
+
+nrow(Inventory) == nrow(Understory) + nrow(Adults)
 ```
 
 # Modify inventory for predictions
 ```{r}
 match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 398
+# Generated with Modify_data_for_predictions.Rmd
 
-sum(duplicated(match$species_noSing)) # 19
+sum(duplicated(match$species_noSing)) # 20
 
 Inventory <- Inventory %>% 
-  left_join(match, by= "ScientificName")
+  left_join(match, by= "ScientificName") %>% # add species_noSing
+  rename(dbh.y = DBHcor)
 
-length(!is.na(unique(Inventory$species_noSing))) # 380 (=398-19-NA)
+length(!is.na(unique(Inventory$species_noSing))) # 380 (=398-20-NA)
 
 all(sort(unique(Inventory$species_noSing)) == sort(unique(match$species_noSing))) # TRUE
 match$species_noSing[!match$species_noSing %in% unique(Inventory$species_noSing)] # 0
@@ -142,33 +146,147 @@ Inventory <- Inventory %>%
 ```
 
 ```{r}
-ggplot(Inventory, aes(x=DBHcor, y=HC)) +
+ggplot(Inventory, aes(x=dbh.y, y=HC)) +
   geom_point() +
   labs(x= "DBH (cm)", y= "Local canopy height (m)")
-```
-
-```{r, eval=F}
-# Sylvain - extraire les paramètres
-fit %>% 
-  tidybayes::spread_draws(b_hmax_Intercept, r_species__hmax[species,], # or manipulating posteriors directly; support a wider range of models
-                          b_ah_Intercept, r_species__ah[species,]) %>% 
-  mutate(ah = b_ah_Intercept + r_species__ah) %>% 
-  mutate(hmax = b_hmax_Intercept + r_species__hmax) %>% 
-  group_by(species) %>% 
-  summarise(ah = median(ah), hmax = median(hmax)) %>% 
-  filter(species != "unknown") %>% 
-  mutate(species = gsub(".", " ", species, fixed = TRUE)) %>% 
-  left_join(read_csv("data/species/tallo.csv") %>% 
-              filter(longitude <= -39, longitude >= -79, latitude >= -18, latitude <= 10) %>% 
-              select(family, genus, species) %>% unique()) %>% 
-  write_tsv("outputs/tallo_pars.tsv")
 ```
 
 prédire avec quelle incertitude paramètres et/ou distribution ? incertitude paramètres seulement
 max de vraissemblance ou mediane ? mediane de toutes les itérations 
 
-# Predict tree height for  Claudia's species
+# Predict tree height for Claudia's species
 ```{r}
+same_sp <- Inventory %>% 
+  filter(!is.na(species_noSing))
+
+other_sp <- Inventory %>% 
+  filter(is.na(species_noSing))
+
+nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
+```
+
+```{r}
+same_sp_pred <- predict(fit, newdata = same_sp, na.action = na.omit) # 1 min
+same_sp$TreeHeight <- same_sp_pred[,1]
+range(same_sp$TreeHeight) # 1.449219 58.189122
+```
+## Plot
+```{r}
+ggplot(same_sp, aes(x=dbh.y, y=TreeHeight, col = species_noSing)) + 
+  geom_point()+
+  labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
+  guides(color = F)
+```
+
+# Predict tree height for species absent of the Claudia's selection (works)
+si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen entre espèce (le mu de ta distribution des effets aléatoires des espèces). Donc tu considères toutes les espèces comme des espèces "moyennes"
+```{r}
+other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, na.action = na.omit) # 1 min
+other_sp$TreeHeight <- other_sp_pred[,1]
+range(other_sp$TreeHeight) # 2.655371 36.751789
+```
+## Plot
+```{r}
+ggplot(other_sp, aes(x=dbh.y, y=TreeHeight, col = ScientificName)) + 
+  geom_point()+
+  labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
+  guides(color = F)
+
+ggplot(same_sp, aes(x=dbh.y, y=TreeHeight, col = ScientificName)) + 
+  theme_minimal() +
+  geom_point() +
+  geom_point(data = other_sp, col= "black") +
+  labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
+  guides(color = F)
+
+```
+
+# Compare small trees predictions with FTH data
+```{r}
+# Giacomo FTH data
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
+  select(ScientificName, DBH, TreeHeight) %>% 
+  mutate(dbh.y = as.numeric(gsub(",", ".", DBH)))
+
+ggplot(same_sp, aes(x=dbh.y, y=TreeHeight)) + 
+  xlim(1,20) +
+  theme_minimal() +
+  geom_point(col= "grey") +
+  geom_point(data = other_sp, col= "darkgrey") +
+  geom_point(data = FTH, col= "darkgreen") +
+  # scale_x_continuous(breaks =seq(0, 20, by= 5)) +
+  labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
+  guides(color = F)
+
+plist <- vector('list')
+
+for(S in unique(FTH$ScientificName)[unique(FTH$ScientificName) %in% unique(same_sp$ScientificName)]){
+  # S = "Licania_alba"
+  plist[[S]] <- local({
+    same_sp %>% 
+      filter(ScientificName == S) %>% 
+      ggplot(aes(x=dbh.y, y=TreeHeight)) + 
+      # xlim(1,20) +
+      theme_minimal() +
+      geom_point(col= "grey") + # species effect
+      geom_line(data = other_sp, col= "black", linewidth = 1) + # no species effect
+      geom_point(data = filter(FTH, ScientificName == S), col= "red") + # FTH data
+      scale_x_continuous(breaks =seq(0, 150, by= 5)) +
+      labs(title = S, y = "H model 4 Michaelis Menten", x="DBH (cm)") +
+      guides(color = F)
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+# plots
+
+ggsave("Treeheights_species_vs_nospecies_effect_vs_FTH.pdf",
+       path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
+       plots, width = 15, height = 10)
+
+```
+Pour :
+
+species effect:
+Mouriri_huberi
+Couepia_caryophylloides
+Licaria_cannella
+
+no species effect:
+Virola_michelii
+Qualea_rosea
+Hebepetalum_humiriifolium
+Licania_canescens
+Licania_membranacea
+Chimarrhis_turbinata
+Quiina_obovata
+Ecclinusa_ramiflora
+
+les 2 conviennent:
+Oxandra_asbeckii 
+Protium_opacum
+Eugenia_cupulata
+Talisia_hexaphylla
+Pouteria_guianensis
+
+# Rebind & rename columns
+```{r}
+pred <- same_sp %>%
+  bind_rows(other_sp) %>% 
+  rename(DBHcor = dbh.y)
+
+nrow(pred) == nrow(Inventory)
+length(unique(pred$ScientificName)) == length(unique(Inventory$ScientificName)) 
+```
+
+# Write data
+```{r}
+write.csv(data_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv")
+```
+
+
+# Obsolete
+```{r, eval=F}
 ?add_predicted_draws
 truc <- brms::bf(height~(alpha*dbh.y)/(beta+dbh.y),
                  alpha ~ HC + 1|species_noSing,
@@ -187,62 +305,7 @@ same_sp_pred <- same_sp %>%
 
 # add_predicted_draws propage l'incertitude
 # add_epred_draws gives you the posterior expectation (the predicted average value, excluding residual variance)
-```
 
-```{r, eval=F}
-# Abarema jupunba 24.6
-
-# MEAN
-dbh.y = 30
-HC = 30
-alpha_intercept = 42.79
-beta_intercept = 14.57
-# alpha_HC = -0.98
-
-alpha_intercept_sp = -8.35
-alpha_HC_sp = 0.07
-beta_sp = -0.30
-alpha = (alpha_HC_sp)*HC + alpha_intercept + alpha_intercept_sp
-beta = beta_intercept + beta_sp
-
-(alpha * dbh.y)/(beta + dbh.y) # mean 22.7
-
-# MEDIAN
-dbh.y = 30
-HC = 30
-alpha_intercept = 42.78
-beta_intercept = 14.57
-alpha_HC = -0.98
-
-alpha_intercept_sp = -8.41
-alpha_HC_sp = 0.07
-beta_sp = -0.34
-alpha = (alpha_HC + alpha_HC_sp)*HC + alpha_intercept + alpha_intercept_sp
-beta = beta_intercept + beta_sp
-
-(alpha * dbh.y)/(beta + dbh.y) # median 22.7
-
-# Agonandra silvatica 27.2
-
-# MEAN
-dbh.y = 30
-HC = 30
-alpha_intercept = 42.79
-beta_intercept = 14.57
-# alpha_HC = -0.98 # cor_species_noSing__alpha_Intercept__alpha_HC
-
-alpha_intercept_sp = -7.54
-alpha_HC_sp = 0.21
-beta_sp = 2.24
-alpha = (alpha_HC_sp)*HC + alpha_intercept + alpha_intercept_sp
-beta = beta_intercept + beta_sp
-
-(alpha * dbh.y)/(beta + dbh.y) # mean 22.1
-```
-
-# Predict tree height for species absent of the Claudia's selection (works)
-si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen entre espèce (le mu de ta distribution des effets aléatoires des espèces). Donc tu considères toutes les espèces comme des espèces "moyennes"
-```{r}
 other_sp_pred <- other_sp %>%
   add_epred_draws(fit, re_formula = NA,
                   allow_new_levels = T,
@@ -253,5 +316,19 @@ other_sp_pred <- other_sp %>%
   select(-c(".row", ".chain", ".iteration", ".draw", "pred")) %>% 
   unique()
 
+# Sylvain - extraire les paramètres
+fit %>% 
+  tidybayes::spread_draws(b_hmax_Intercept, r_species__hmax[species,], # or manipulating posteriors directly; support a wider range of models
+                          b_ah_Intercept, r_species__ah[species,]) %>% 
+  mutate(ah = b_ah_Intercept + r_species__ah) %>% 
+  mutate(hmax = b_hmax_Intercept + r_species__hmax) %>% 
+  group_by(species) %>% 
+  summarise(ah = median(ah), hmax = median(hmax)) %>% 
+  filter(species != "unknown") %>% 
+  mutate(species = gsub(".", " ", species, fixed = TRUE)) %>% 
+  left_join(read_csv("data/species/tallo.csv") %>% 
+              filter(longitude <= -39, longitude >= -79, latitude >= -18, latitude <= 10) %>% 
+              select(family, genus, species) %>% unique()) %>% 
+  write_tsv("outputs/tallo_pars.tsv")
 ```
 
