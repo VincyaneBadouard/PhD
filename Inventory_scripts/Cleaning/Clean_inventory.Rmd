@@ -547,6 +547,7 @@ Multistems_notsure <- data %>% # 100
   unite(col = "IdStem", c("IdTree", "Stem.nb"), # recode the IdStem
         sep = "_", na.rm = TRUE, remove = F) %>% # numérote les stems par ordre décroissant de DBH
   mutate(BasalAreacor = sum(BasalArea)) %>% # somme des surfaces terrières
+  ungroup() %>% 
   mutate(DBHcor = 2*sqrt(BasalAreacor/pi)) %>% 
   mutate(Diff= DBHcor-DBH)
 

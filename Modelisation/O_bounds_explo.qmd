@@ -118,7 +118,7 @@ tidyr::crossing(
 
 -> a peut etre infiniment petit, les paraboles d'optimum egale au bornes mimimum ou maximum de l'intervale x observé seront toujours visibles tant que gamma est > -3, par contre les paraboles intermédiaires ne pourront etre visibles que si gamma est extremement grand  
 
--> Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et 300**, et plus a sera proche de 0, plus il faudra un gamma faible pour voir toutes les paraboles.
+-> Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et -300**, et plus a sera proche de 0, plus il faudra un gamma faible pour voir toutes les paraboles.
 
 
 
@@ -128,7 +128,7 @@ Bilan:
 -> O : valeur en x sur laquelle est centrée la parabole  
 
 - Nous devons borner O sur l'intervale environnmental observé pour s'assurer de voir les courbes sur cet interval (Fig 1.).  
-- gamma dot etre > -3 pour pourvoir observer les courbes.  
-- Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et 300**.  
+- gamma dot etre > -3 pour pouvoir observer les courbes.  
+- Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et -300**.  
 - Plus a sera proche de 0, plus il faudra un gamma faible pour voir toutes les paraboles.  
 

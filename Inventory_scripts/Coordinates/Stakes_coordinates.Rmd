@@ -13,16 +13,13 @@ library(tidyverse)
 
 # Import data
 Site : Paracou - P16
-Subplots :
-- 13, 18, 23, 24 : oui
-- 14-15-19-20-25 : pas encore 
+Subplots : 13-14-15-18-19-20-23-24-25
 Méthode de mesure : laser
 
 ```{r, 13_18_23_24}
 # 13, 18, 23, 24
 S_13_18_23_24 <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou13_18_23_24.csv", 
-                              delim = ";", escape_double = FALSE, trim_ws = TRUE) # 401
-View(S_13_18_23_24)
+                            delim = ";", escape_double = FALSE, trim_ws = TRUE) # 401
 names(S_13_18_23_24) # "plot" "quadra.nb.X" "quadra.nb.Y" "q.length.X"  "q.length.X2" "q.length.Y"  "q.length.Y2"
 summary(S_13_18_23_24) # Min q.length.X : 1.0
 S_13_18_23_24 <- S_13_18_23_24[complete.cases(S_13_18_23_24),] # enlever les lignes à NA -> 400
@@ -39,44 +36,99 @@ S_13_18_23_24 <- S_13_18_23_24[complete.cases(S_13_18_23_24),] # enlever les lig
 S_14 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C14_measure.xlsx")
 S_15 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C15_measure.xlsx")
 S_19 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C19_measure.xlsx")
-S_20_1 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_measure.xlsx")
-S_20_2 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_fin20250130.xlsx")
-S_25 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_ParacouC25_T1_20230607ins.xlsx")
+S_20_1 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_measure.xlsx") # 10/02/2025
+S_20_2 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_fin20250130.xlsx") %>% # 06/02/2025
+  select(Num, row_index, col_index, Qlenght_X, Q_lengthX1, Q_lengthY, Q_lengthY1, Subplot, Comments)
+S_25 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_ParacouC25_T1_20230607ins.xlsx") %>%  select(Subplot, quadra.nb., quadra.n_1, q.length.X, q.length_1, q.length.Y, q.length_2) %>% 
+  mutate(q.length.X = as.numeric(q.length.X),
+         q.length_1 = as.numeric(q.length_1),
+         q.length.Y = as.numeric(q.length.Y),
+         q.length_2 = as.numeric(q.length_2)) %>% 
+  unique()
+
 
 
 all(names(S_14) == names(S_15))
 all(names(S_14) == names(S_19))
 names(S_20_1) == names(S_14)
-names(S_14) == names(S_20_2) == names(S_25)
+names(S_20_2) # "left" "top""right" "bottom""row_index" "col_index" "Num"  "Qlenght_X" "Q_lengthX1" "Q_lengthY" "Q_lengthY1" "Subplot" "Comments"
+names(S_25)
 
 names(S_14) # "Num" "Q_lengthX" "Q_lengthX1" "Q_lengthY" "Q_lengthY1" "Subplot" "Comments"
-summary(S_14) # Min q.length.X : 1.0
+summary(S_14) # Max length 100 !! c'est quoi Num; demander à Léa
+summary(S_15)
+summary(S_19)
+summary(S_20_1)
+summary(S_20_2) # Q_lengthY1 Max :109.000 !! demander à Léa;  diff entre S_20_1 et S_20_2
+summary(S_25) # quadra.nb. tout à 0; quadra.n_1 max 3, ya pas tout je pense
+
+
+nrow(S_14) == nrow(S_15)
+nrow(S_19) == nrow(S_20_1)
+nrow(S_20_2) == nrow(S_25)
 
 ```
+"Num" :
+"Q_lengthX" : size of the southern side of the 10m x 10m quadrat (m).
+"Q_lengthX1" : size of the northern side of the 10m x 10m quadrat (m).
+"Q_lengthY" : size of the western side of the 10m x 10m quadrat (m).
+"Q_lengthY1" : size of the eastern side of the 10m x 10m quadrat (m).  
+"Subplot" :  subplot number
+"Comments" :
 # Manage column names differences
 ```{r}
 S_13_18_23_24 <- S_13_18_23_24 %>% 
   rename(Subplot = plot,
-         = quadra.nb.X,
-         = quadra.nb.Y,
-         = q.length.X,
-         = q.length.X2,
-         = q.length.Y,
-         = q.length.Y2)
+         # = quadra.nb.X,
+         # = quadra.nb.Y,
+         Q_lengthX = q.length.X,
+         Q_lengthX1 = q.length.X2,
+         Q_lengthY = q.length.Y,
+         Q_lengthY1 = q.length.Y2)
 
 S_20_1 <- S_20_1 %>% 
   rename(Q_lengthX = Qlenght_X)
 
 S_20_2 <- S_20_ %>% 
-  rename(Q_lengthX = Qlenght_X)
+  rename(quadra.nb.X = row_index, # demander à Léa
+         quadra.nb.Y = col_index, # demander à Léa
+         Q_lengthX = Qlenght_X)
 
 S_25 <- S_25 %>% 
-  select(Subplot, quadra.nb., q.length.X, q.length_1, q.length.Y, q.length_2) %>% 
-  rename(Q_lengthX = q.length.X,
-         = q.length_1,
+  rename(quadra.nb.X = quadra.nb., # demander à Léa
+         quadra.nb.Y = quadra.n_1, # demander à Léa
+         Q_lengthX = q.length.X,
+         Q_lengthX1 = q.length_1, # demander à Léa
          Q_lengthY = q.length.Y,
-         = q.length_2)
+         Q_lengthY1 = q.length_2) # demander à Léa
 
+# Transformer Num en quadra.nb.X et quadra.nb.Y pour S_14, S_15, S_19, S_20_1 (demander à Léa)
+# Num = 1 : quadra.nb.X = 0 et quadra.nb.Y = 0 ?
+# Num = 2 : quadra.nb.X = 0 et quadra.nb.Y = 0 ?
 
 ```
+
+# Bind
+```{r}
+Stakes <- bind_rows(S_13_18_23_24, S_20_1, S_20_2, S_25)
+unique(Stakes$Comments)
+```
+
+# Eric's format
+En plus de tes données, j’ai ajouté les « quadrats virtuels », c’est-à-dire les distances entre les piquets des bordures sud et ouest des parcelles pas encore mesurées : ce sont simplement les distances des bordures nord et est des placettes contigües.
+
+plot	1- :ha subplot number
+point_x	poi: nt number of the X-axis (0 to 10; left to right)
+point_y	poi: nt number of the Y-axis (0 to 10; bottom to top)
+d_left	dis: tance from the point to its left neighbor (point_x-1)
+d_down	dis: tance from the point to its down neighbor (point_y-1)
+
+```{r}
+
+``Stakes %>% 
+  rename(subplot = Subplot,
+         point_x	= quadra.nb.X, # pas exactement il n'a pas 0-0 mais 0-10
+         point_y	= quadra.nb.Y,
+         d_left	=, 
+         d_down =)`
 
