@@ -92,6 +92,7 @@ ggsave("Paracou_P16_LAI2200_sensor_theoretical_positions.png",
        path = "D:/Mes Donnees/PhD/Figures/Sensors",
        width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
+
 # Tomst sensors theorical coordinates
 - transect Jérome : 22 (20 HOBO) capteurs espacés de *10m* : start =(390;110)  ; end = (390;300)
 - transect BF : 5 capteurs espacés de *10m* : x = seq(440,470, by= 10) ; y = 260 pour le 1er, y = 270 pour les autres
@@ -158,7 +159,7 @@ SE (285680; 581343)
 SO (285201; 581199)
 
 ```{r}
-data <- LAI2200 # Tomst # LAI2200 # grid # ALT # Und
+data <- Tomst # Tomst # LAI2200 # grid # ALT # Und
 
 tab <- read_delim("D:/Mes Donnees/PhD/R_codes/PhD/local2UTM/CoordCoinsP1_16.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE)
 
@@ -172,7 +173,7 @@ dataUTM <- data %>%
 
 # P16shp <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp"))
 
-P16shp <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp"))
+P16shp <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Shapefiles/Parcelles_Understory.shp"))
 CHM <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_CHM_1mres.tif")
 DSM <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DSM_1mres.tif")
 
@@ -242,6 +243,7 @@ ggplot() +
 # Extract Z coord MNT to Points
 ```{r}
 MNT <- terra::rast(
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc"
   # "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/rasters/PARACOU2023_DTM_1m.tif" # MNT
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/dtm2023_4ha_HighAlt_buffer.asc"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/MNT/dtm2023_HighAlt_DZ_buffer.asc" # DZ
@@ -258,8 +260,8 @@ alt <- extract(MNT, dataUTMsf) %>% # extract z
 
 dataxyz <- dataUTM %>% cbind(alt)
 
-# write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LAI2200_theoretical_UTMxyz.csv")
-# write.csv(alt, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Tomst_theoretical_UTMxyz.csv")
+# write.csv(LAI2200UTMxyz, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_theoretical_UTMxyz.csv")
+# write.csv(alt, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Tomst_theoretical_UTMxyz.csv")
 
 
 generate_new_rows <- function(df, by = 1) {

@@ -1,5 +1,5 @@
 ---
-title: "Canonical_forced_+bounds_all_niche_forms"
+title: "Canonical_forced_+bounds_all_niche_forms_virtualdata"
 date: "`r Sys.Date()`"
 format: html
 self-contained: true
@@ -19,12 +19,11 @@ Canonical form: *a* \* (Environment - *O*)\^2 + *gamma*
 gamma = alpha*-(*beta1^2^/*(4*\**beta2))
 
 Tested bounds: 
-- a [0, -300]  
+- a [-300,-0.02]  
   -0.05 -> divergence en noeffect  
   0 for the no effect -> divergence en noeffect et negsigmoide  
-  -0.02 ->  
 - O [-7, 0.5]  
-- gamma [-3, 200]  (-2 ça fait des divergences sur le no effect et les sigmoides)
+- gamma [-3, 200]  (-2 ça fait des divergences sur convex and positive sigmoide)
 from the exploration carried out in O_bounds_explo.qmd  
 
 
@@ -54,15 +53,15 @@ dataParam <- data.frame(
     type == "noeffect" ~ 0,
     type == "concave" ~ -0.5,
     type == "convexbell" ~ 0.5,
-    type == "negsigmoid" ~ -0.5,
-    type == "possigmoid" ~ -0.09) 
+    type == "negsigmoid" ~ -1,
+    type == "possigmoid" ~ 1) 
   ) %>% 
   mutate(beta2 = case_when(
     type == "noeffect" ~ 0,
     type == "concave" ~ -0.083,
     type == "convexbell" ~ 0.083,
-    type == "negsigmoid" ~ 0.5,
-    type == "possigmoid" ~ 0.09) 
+    type == "negsigmoid" ~ 0, # 0.5
+    type == "possigmoid" ~ 0) # 0.09
   ) %>% 
   mutate(a = beta2) %>% # Extremum
   mutate(O = -beta1/(2*beta2)) %>% # Extremum
@@ -79,6 +78,7 @@ n <- 500 # abs + pres
 X <- seq(-6, 0, length.out = n) # env var
 # Parameters
 a <- 0 # intercept ; logit(0.5)= 0) autant de 0 que de 1
+# (-4/(-3*2))
 
 data <- list(
   # data.frame of simulated data
@@ -107,16 +107,16 @@ data <- list(
                              # logistique transformation (inverse logit)
                              prob = 1 / (1 + exp(-(a + b * X + c * X^2))))), 
   
-  negsigmoid = data.frame(b= -0.5,
-                          c= 0.09,
+  negsigmoid = data.frame(b= -1,
+                          c= 0,
                           Environment = X) %>% 
     # Generate presence-absence data from probability
     mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
                              # logistique transformation (inverse logit)
                              prob = 1 / (1 + exp(-(a + b * X + c * X^2))))), 
   
-  possigmoid = data.frame(b= 0.5,
-                          c= -0.09,
+  possigmoid = data.frame(b= 1,
+                          c= 0,
                           Environment = X) %>% 
     # Generate presence-absence data from probability
     mutate(Presence = rbinom(n, size = 1, # Bernoulli = 1 trial
@@ -165,15 +165,13 @@ names(dataM) <- names(data)
 ```
 
 ```{r, fit}
-# convex <- sampling(M_Quadra_can, data = dataM[["convexbell"]], chains = 4, cores = 4, iter = 2000)
+# fits <- lapply(list(dataM$noeffect), function(x) sampling(M_Quadra_can, data = x, chains = 4, cores = 4, iter = 2000))
+# names(fits) <- "no effect"
 
 fits <- lapply(dataM, function(x) sampling(M_Quadra_can, data = x, chains = 4, cores = 4, iter = 2000))
 names(fits) <- names(dataM)
 ```
--> **always problems of divergent transitions** after warmup.   
--> and of **largest R-hat, indicating chains have not mixed**.  
-Running the chains for more iterations may help. Bulk Effective Samples Size (ESS) is too low, indicating **posterior means and medians may be unreliable**.  
-Tail Effective Samples Size (ESS) is too low, indicating **posterior variances and tail quantiles may be unreliable**.  
+-> no more divergence  
 
 # Chains
 
@@ -184,7 +182,18 @@ lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]),
          labs(title = x)
 )
 ```
+
 -> No more divergence  
+
+# Posteriors
+```{r, eval=F}
+lapply(names(fits), function(x) mcmc_intervals(as.array(fits[[x]]), prob=0.95, pars = c("a", "O", "gamma")) +
+         labs(title = x)
+)  
+lapply(names(fits), function(x) mcmc_dens(as.array(fits[[x]]), prob=0.95, pars = c("a", "O", "gamma")) +
+         labs(title = x)
+)  
+```
 
 # Compare initial vs estimated parameters values
 
@@ -205,6 +214,7 @@ summaryM
 ```
 Parameters estimation: good   
 
+
 # Parameters link
 
 ```{r, Parameters link}
@@ -219,19 +229,19 @@ dataplot <- lapply(as.list(names(fits)), function(type)
              mu = apply(as.matrix(fits[[type]], pars = "p"), 2, median),
              t(apply(as.matrix(fits[[type]], pars = "p"), 2, 
                      quantile, probs = c(0.05, 0.95))),
-        Opt = apply(as.matrix(fits[[type]], pars = "O"), 2, median),
-        Opt = t(apply(as.matrix(fits[[type]], pars = "O"), 2,
-                      quantile, probs = c(0.05, 0.95)))
+             Opt = apply(as.matrix(fits[[type]], pars = "O"), 2, median),
+             Opt = t(apply(as.matrix(fits[[type]], pars = "O"), 2,
+                           quantile, probs = c(0.05, 0.95)))
              
   )) %>% 
   bind_rows()
 
-ggplot(dataplot, aes(x = Environmentp)) +
-  # Probas
-  geom_point(aes(y = mu), size=0.7) +
-  geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
-  labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
-  facet_wrap(~ type, scales = "fixed", nrow = 1)
+# ggplot(dataplot, aes(x = Environmentp)) +
+#   # Probas
+#   geom_point(aes(y = mu), size=0.7) +
+#   geom_ribbon(aes(ymin = `X5.`, ymax = `X95.`), color = 'red', alpha = 0.2) +
+#   labs(title = "Simulations median", y = "Presence probability", col= "Presence-absence") +
+#   facet_wrap(~ type, scales = "fixed", nrow = 1)
 
 ggplot(dataplot, aes(x = Environmentp)) +
   # Probas

@@ -1,4 +1,4 @@
-// Bernoulli environment only - quadratic in canonic form forced to be concave + bounds
+// Bernoulli environment only - quadratic in canonic form forced to be concave + bounds and priors
 
 data {
   int<lower=1> N ; // obs
@@ -8,13 +8,16 @@ data {
   vector[Np] Environmentp ; // environment of predictions
 }
 parameters {
-  real<lower=-300, upper=-0.02> a ; // beta2 forced for a concave form  
+  real<lower=-300, upper=0> a ; // beta2 forced for a concave form  
   real<lower=-7, upper=0.5> O ; // extremum : -beta1/(2*beta2)
   real<lower=-2, upper=200> gamma ; // alpha-(beta1^2/4*beta2)
 }
 model {
   // Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment); // developped Likelihood
   Presence ~ bernoulli_logit(a * (Environment - O)^2 + gamma); // canonic Likelihood
+  a ~ normal(0, 300) ;
+  gamma ~ normal(0, 300) ;
+  
 }
 generated quantities {
   vector<lower=0, upper=1>[Np] p = inv_logit(a * (Environmentp - O)^2 + gamma) ; // predictions
