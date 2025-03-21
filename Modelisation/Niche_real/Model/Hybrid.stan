@@ -8,7 +8,7 @@ data {
   vector[Np] Environmentp ; // environment of predictions
 }
 transformed data {
-  real adj = N/sum(Presence); # inverse of species relative abundance
+  real adj = N*1.0 /sum(Presence); // inverse of species relative abundance (*1.0 for real)
 }
 /*parameters {
   real<lower=-300, upper=-0.02> a ; // beta2 forced for a concave form  

@@ -1,0 +1,45 @@
+---
+title: "Diagnose all"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora",
+        "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4
+model_name <- "Hybrid"
+```
+
+```{r fits}
+fits <- lapply(sp, function(s){
+  chain_path <- file.path("Chains", model_name, s)
+  fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+})
+names(fits) <- sp
+```
+
+```{r predictions}
+g <- lapply(names(fits), function(f){
+ fits[[f]]$summary("p") %>% 
+  mutate(x = seq(-6, 0, length.out = n())) %>% 
+  ggplot(aes(x = x)) +
+  geom_point(aes(y = median), size=0.7) +
+  geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) +
+  geom_vline(xintercept  = fits[[f]]$summary("O")$median) +
+    ggtitle(gsub("_", " ", f)) +
+    theme_bw() +
+    theme(axis.title = element_blank())
+})
+cowplot::plot_grid(plotlist = g)
+```
+
+
+
+

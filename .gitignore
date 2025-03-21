@@ -13,3 +13,8 @@
 test/*
 pdf/*
 .Rproj.user
+*.csv
+*.exe
+*.html
+*_cache
+*_file

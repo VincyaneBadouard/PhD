@@ -1,0 +1,46 @@
+---
+title: "Diagnose species"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+params:
+  species: Licania_membranacea
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
+model_name <- "Hybrid"
+```
+
+```{r fit}
+chain_path <- file.path("Chains", model_name, params$species)
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+```
+
+```{r chains}
+fit$draws(c("alpha", "beta1", "beta2_p")) %>% 
+  mcmc_trace()
+```
+
+```{r posteriors}
+fit$draws(c("a", "O", "gamma")) %>% 
+  mcmc_dens()
+```
+```{r predictions}
+fit$summary("p") %>% 
+  mutate(x = seq(-6, 0, length.out = n())) %>% 
+  ggplot(aes(x = x)) +
+  geom_point(aes(y = median), size=0.7) +
+  geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) +
+  geom_vline(xintercept  = fit$summary("O")$median)
+```
+
+
+
+

@@ -20,8 +20,8 @@ gamma = alpha*-(*beta1^2^/*(4*\**beta2))
 
 Tested bounds: 
 - a [-300,-0.02]  
-  -0.05 -> divergence en noeffect  
-  0 for the no effect -> divergence en noeffect et negsigmoide  
+-0.05 -> divergence en noeffect  
+0 for the no effect -> divergence en noeffect et negsigmoide  
 - O [-7, 0.5]  
 - gamma [-3, 200]  (-2 ça fait des divergences sur convex and positive sigmoide)
 from the exploration carried out in O_bounds_explo.qmd  
@@ -58,7 +58,36 @@ load(paste(path, "Realdata/Realsp_4ha.Rdata", sep=''))
 sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora", "Iryanthera_hostmannii") # 4
 
 datalist <- datalist[names(datalist) %in% sp] # only species in sp
-# View(datalist[["Licania_membranacea"]])
+# View(datalist[["Iryanthera_hostmannii"]])
+```
+
+```{r}
+# Remove part of absences
+datalist[["Iryanthera_hostmannii"]] %>% filter(Presence==1) # 373
+datalist[["Iryanthera_hostmannii"]] %>% filter(Presence==0) # 6244
+# datalist[["Iryanthera_hostmannii"]] <- datalist[["Iryanthera_hostmannii"]] %>% 
+#   group_by(Presence) %>% 
+#   sample_n(., size=373)
+```
+
+```{r}
+p1 <-ggplot(datalist[["Iryanthera_hostmannii"]] %>% filter(Presence==0), aes(x=logTransmittance)) +
+  xlim(-8,0) +
+geom_histogram()
+p2<-ggplot(truc %>% filter(Presence==0), aes(x=logTransmittance)) +
+    xlim(-8,0) +
+geom_histogram()
+p1/p2
+
+```
+
+```{r}
+# Visualisation of  data
+ggplot(datalist[["Iryanthera_hostmannii"]], aes(x= logTransmittance, y= Presence)) +
+  geom_point() +
+  theme_minimal() +
+  labs(y="Presence (1) / Absence (0)", x="Explicative variable (X)")
+
 ```
 
 # Model
@@ -78,27 +107,43 @@ Np <- 200 # number of predictions
 Environmentp <- seq(-6, 0, length.out = Np) # environment of predictions
 
 dataM <- lapply(datalist, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
-                                       Presence = x$Presence,
-                                       Environment = x$logTransmittance,
-                                       # number of predictions
-                                       Np = Np,
-                                       # environment of predictions
-                                       Environmentp = Environmentp)
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance,
+                                           # number of predictions
+                                           Np = Np,
+                                           # environment of predictions
+                                           Environmentp = Environmentp)
 )
 
 names(dataM) <- names(datalist)
 ```
 
 ```{r, fit}
-# fits <- lapply(list(dataM$Iryanthera_hostmannii), function(x) sampling(M_Quadra_can, data = x, chains = 4, cores = 4, iter = 2000))
-# names(fits) <- "Iryanthera_hostmannii"
+fits <- lapply(list(dataM$Iryanthera_hostmannii), function(x) sampling(M_Quadra_can, data = x, chains = 4, cores = 4, iter = 2000))
+names(fits) <- "Iryanthera_hostmannii"
 
-fits <- lapply(dataM, function(x) sampling(M_Quadra_can, data = x, chains = 4, cores = 4, iter = 2000))
-names(fits) <- names(dataM)
+# fits <- lapply(dataM, function(x) sampling(M_Quadra_can, data = x, chains = 4, cores = 4, iter = 2000))
+# names(fits) <- names(dataM)
 ```
 ->   
 
 # Chains
+
+```{r}
+lapply(names(fits), function(x) mcmc_pairs(as.array(fits[[x]]), 
+                                           pars = c("alpha", "beta1_p", "beta2_p"),
+                                           np = nuts_params(fits[[x]]))
+)
+```
+
+```{r}
+lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), 
+                                           pars = c("alpha", "beta1", "beta2"),
+                                           np = nuts_params(fits[[x]])) + # np pour afficher la divergeance
+         labs(title = x)
+)
+```
+
 
 ```{r, chains}
 lapply(names(fits), function(x) mcmc_trace(as.array(fits[[x]]), 

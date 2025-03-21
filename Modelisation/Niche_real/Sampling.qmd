@@ -1,0 +1,72 @@
+---
+title: "Sampling"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+
+sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora",
+        "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4
+# sp <- "Licania_membranacea"
+
+```
+
+```{r data}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+
+# load real presence-absences data on 4ha 
+load(paste(path, "Realdata/Realsp_4ha.Rdata", sep=''))
+# View(datalist[[1]])
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# View(datalist[["Iryanthera_hostmannii"]])
+```
+
+```{r, dataM}
+Np <- 200 # number of predictions
+Environmentp <- seq(-6, 0, length.out = Np) # environment of predictions
+
+dataM <- lapply(datalist, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
+                                           Presence = x$Presence,
+                                           Environment = x$logTransmittance,
+                                           # number of predictions
+                                           Np = Np,
+                                           # environment of predictions
+                                           Environmentp = Environmentp)
+)
+
+names(dataM) <- names(datalist)
+```
+
+```{r model}
+model_name <- "Hybrid"
+model <- cmdstan_model(
+  file.path(
+    "Model",
+    paste0(model_name, ".stan")
+    ))
+```
+
+```{r sampling}
+#| eval: false
+for (s in sp) {
+  print(s)
+  chain_path <- file.path("Chains", model_name, s)
+  if(!file.exists(chain_path)){
+    # unlink(chain_path, recursive = TRUE)
+    dir.create(chain_path)
+  fit <- model$sample(data = dataM[[s]],
+                      chains = 4,
+                      parallel_chains = 4,
+                      save_warmup = FALSE)
+  fit$save_output_files(dir = chain_path)
+  }
+}
+```
