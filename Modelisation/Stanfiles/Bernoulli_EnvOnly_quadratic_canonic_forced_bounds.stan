@@ -11,18 +11,18 @@ transformed data {
   real adj = N/sum(Presence); # inverse of species relative abundance
 }
 /*parameters {
-  real<lower=-300, upper=-0.02> a ; // beta2 forced for a concave form  
+  real<lower=-300, upper=-0.02> a ; // beta2<0 : forced for a concave form  
   real<lower=-7, upper=0> O ; // extremum : -beta1/(2*beta2) 0.5
   real<lower=-2, upper=300> gamma ; // alpha-(beta1^2/4*beta2)
 }*/
 parameters {
-  real<lower=-10, upper=10> beta2_p;
+  real<lower=-10, upper=10> beta2_p;  
   // real<lower=-300, upper=-0.02> beta2;
   real<lower=7*2*-exp(beta2_p), upper=0> beta1;
   real alpha;
 }
 transformed parameters {
-  real beta2 = -exp(beta2_p);
+  real beta2 = -exp(beta2_p); // beta2<0 : forced for a concave form
   real a = beta2;
   real O = -beta1/(2*beta2);
   real gamma = alpha-beta1^2/(4*beta2);

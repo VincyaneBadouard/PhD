@@ -25,14 +25,16 @@ fits <- lapply(sp, function(s){
 names(fits) <- sp
 ```
 
+ajouter en texte la médiane de beta1 et beta2 pour diagnostiquer le noeffect
 ```{r predictions}
 g <- lapply(names(fits), function(f){
  fits[[f]]$summary("p") %>% 
   mutate(x = seq(-6, 0, length.out = n())) %>% 
   ggplot(aes(x = x)) +
+  ylim(0,NA) +
   geom_point(aes(y = median), size=0.7) +
   geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) +
-  geom_vline(xintercept  = fits[[f]]$summary("O")$median) +
+  geom_vline(xintercept  = fits[[f]]$summary("O")$median) + # rajouter les quatiles de O
     ggtitle(gsub("_", " ", f)) +
     theme_bw() +
     theme(axis.title = element_blank())

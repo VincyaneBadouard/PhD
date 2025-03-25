@@ -1,0 +1,36 @@
+---
+title: "Coordinates_grid"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+VX <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity1m_testnewEB.vox")
+
+summary(getPosition(VX))
+```
+
+# x, y, z
+Min.   :-350   Min.   :-350  
+Max.   : 350   Max.   : 350 
+```{r}
+grid <- data.frame(expand.grid(
+  x = seq(-350,350, by= 1),
+  y = seq(-350,350, by= 1),
+  z = seq(4,66, by= 1)
+)
+)
+```
+# Plot
+```{r, eval=F}
+ggplot() +
+  geom_point(data=grid, aes(x = x, y = y), size=0.00001) + # il faut mettre l'argument data sinon ça ne marche pas
+  coord_fixed(ratio=1) # same axis size
+```
+
+```{r}
+write.csv(grid, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_25ha_buffer_each1mxyz_local.csv")
+
+```
+

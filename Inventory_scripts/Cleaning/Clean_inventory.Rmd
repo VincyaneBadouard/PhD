@@ -587,8 +587,8 @@ Multistems <- data %>% # 1 332
 # write.csv(test, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems_DBHcor.csv")
 
 data <- data %>% 
-  # filter(!(Multistem | is.na(Multistem))) %>% # supprimer les Multistem=T ou NA (40997)
-  filter(!Multistem | is.na(Multistem)) %>% # supprimer les Multistem=T (40997)
+  filter(!(Multistem | is.na(Multistem))) %>% # supprimer les Multistem=T ou NA (40997)
+  # filter(!Multistem | is.na(Multistem)) %>% # supprimer les Multistem=T (40997)
   mutate(DBHcor = DBH) %>%
   bind_rows(Multistems)
 
@@ -701,11 +701,14 @@ data_filtred <- data %>%
 
 nrow(data_filtred)/nrow(data)*100 # il reste 86% par rapport aux filtres précédents
 nrow(data_filtred)/nrow(UnderstoryP)*100 # il reste 86% par rapport au jeu de donnée brut
+
+data_filtred[!is.na(data_filtred$IdTree) & duplicated(data_filtred$IdTree),] # duplicated IdTree 0
+
 ```
 
 # Write cleaned data
 ```{r}
-nrow(data_filtred) # 36338
+nrow(data_filtred) # 36311
 length(unique(data_filtred$ScientificName)) # 576
 
 write.csv(data_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv")

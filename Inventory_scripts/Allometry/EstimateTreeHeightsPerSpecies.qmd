@@ -81,7 +81,10 @@ other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
 
 # Cleaned inventory data
 ```{r, message=F}
-Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% 
+Understory <- read.csv(
+    # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv" # at final
+  "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # for the moment
+  ) %>% 
   rename(idTree = IdTree) %>% # 28 711
   rename(SubPlot = Subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
@@ -133,16 +136,17 @@ plot(CHM) ; plot(CHMPP_median30cir)
 ```
 
 ```{r}
-Inventory <- Inventory %>% 
+Inventory_sf <- Inventory %>% 
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(CHM))
 
-LCH <- raster::extract(CHMPP_median30cir, Inventory) %>% 
+LCH <- raster::extract(CHMPP_median30cir, Inventory_sf) %>% 
   rename(HC = focal_median) %>% dplyr::select(-ID)
 
 Inventory <- Inventory %>% 
   cbind(LCH)
+
 ```
 
 ```{r}
@@ -168,7 +172,7 @@ nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```{r}
 same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
 same_sp$TreeHeight <- same_sp_pred[,1]
-range(same_sp$TreeHeight) # 1.455904 58.257564
+range(same_sp$TreeHeight) # 1.429993 58.238338
 ```
 ## Plot
 ```{r}
@@ -202,7 +206,7 @@ ggplot(same_sp, aes(x=dbh.y, y=TreeHeight, col = ScientificName)) +
 ```
 
 # Compare small trees predictions with FTH data
-```{r}
+```{r, eval=F}
 # Giacomo FTH data
 FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
   select(ScientificName, DBH, TreeHeight) %>% 
@@ -275,13 +279,14 @@ pred <- same_sp %>%
   bind_rows(other_sp) %>% 
   rename(DBHcor = dbh.y)
 
+
 nrow(pred) == nrow(Inventory)
 length(unique(pred$ScientificName)) == length(unique(Inventory$ScientificName)) 
 ```
 
 # Write data
 ```{r}
-write.csv(data_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv")
+write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv")
 ```
 
 

@@ -1,0 +1,177 @@
+---
+title: "Check_attenuation"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+
+Objective:  
+Estimer la lumière au dessus de chaque arbre en n points moyennés.  
+- voxélisation à 1m de résolution  
+- calculer la lumière tous les 1m en x,y,z sur 25ha avec 46 orientations  
+- enlever les colonnes dont on n'a pas besoin (data.table) pour alléger 
+- trouver le voxel qui correspond aux à la cime x,y,z l'arbre +1m 
+- trouver et moyenner la valeur des 8 voxels voisins (3x3, 9 valeurs moyennées) (en coordonnées locales)   
+
+- essayer d’abord sur 1ha  
+- plus coûteux en calcul et temps mais ce sera fait si on veut ajuster la méthode  
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(lidR)
+library(readr)
+library(data.table)
+library(AMAPVox)
+library(terra)
+library(sf)
+```
+
+# Read light file
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
+
+# P16_2023_1ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 10201 obs
+# P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 491 401 obs
+
+Light <- ReadLightFile(path, skiplines=9)
+
+Light
+
+setnames(Light, "Period 1", "Transmittance")
+
+range(Light$Transmittance) # 0.000206811 - 1
+any(is.na(Light$Transmittance)) # FALSE
+
+```
+
+# Trees coordinates and height
+All the cirad trees on 25ha + ALT on 9 ha, with corrected coordinates and tree heights
+
+```{r for the moment}
+warning("put 25ha complete data")
+data <- read.csv(
+  "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # en attendant
+) %>% 
+  # rename(SubPlot = Subplot) %>%
+  filter(Subplot %in% c(14,15,19,20)) %>% # TEMPORAIRE 4ha seulement # 16 014 rows
+  select(IdTree, Stem.nb, Xutm, Yutm) %>% 
+  unique() %>% # to remove duplicated idtree TEMPORAIRE
+  mutate(TreeHeight = sample(rep(1:10, length.out = n())))
+
+data
+
+IdTree <- unique(data$IdTree)
+data[!is.na(data$IdTree) & duplicated(data$IdTree),] 
+
+# IDtrees <- data %>% select(idTree)
+```
+
+```{r at final, eval=F}
+warning("put 25ha complete data")
+data <- read.csv(
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv" # at final
+) %>% 
+  # rename(SubPlot = Subplot) %>%
+  select(idTree, Xutm, Yutm, TreeHeight)
+
+range(data$TreeHeight) # 1.443312 58.262187
+
+idTrees <- unique(data$idTree)
+data[!is.na(data$idTree) & duplicated(data$idTree),] 
+
+# IDtrees <- data %>% select(idTree)
+```
+
+## Extract Zutm for each tree
+```{r}
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc") 
+crs(MNT) <- crs("EPSG:2972")
+
+datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
+datasf <- st_set_crs(datasf, st_crs(MNT)) 
+
+alt <- extract(MNT, datasf) %>% # extract z
+  rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
+
+data <- data %>% cbind(alt) %>% setDT()
+# data
+```
+
+## Coordinates in local positions (use VOP) as light file
+```{r}
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_25ha.txt"))
+
+matrix <- as.matrix(data[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
+names(datalocal) <- c("X","Y","Z")
+datalocal <- datalocal %>% cbind(data[,.(IdTree, Xutm,Yutm,Zutm, TreeHeight)]) %>% setDT()
+# datalocal
+```
+
+## Coordinates 1m above each tree
+```{r}
+datalocal[,Z := Z+TreeHeight+1]
+range(datalocal$Z) # 8.55525 61.78525 (virtual heights)
+# datalocal
+```
+
+```{r}
+summary(Light[, .(X, Y, Z)])
+summary(datalocal[, .(X, Y, Z)])
+```
+
+# Light per tree - 8 neighboors (3x3, 9 valeurs moyennées)
+```{r}
+# Get neighbors in immediate neighborhood (k  nearest voxels including target)
+result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
+                       query = datalocal[, .(X, Y, Z)][1,], # point of interest
+                       # The maximum number of nearest neighbours to compute
+                       k = 5, # including target
+                       searchtype = "radius", radius = 10)
+
+# une matrice où chaque ligne correspond à un point et contient les indices de ses voisins les plus proches
+index <- result$nn.idx # the near neighbour indices
+
+# Light <- tibble::rownames_to_column(Light, "Rowname")
+
+# Recompute attenuation from local neighborhood : sum(bsIntercepted)/sum(weightedFreepathLength)
+# each row of index is a point of interest
+  fill.value <- apply(index, 1, function(i) Light[as.vector(i), mean(Transmittance)] # for a matrix 1 indicates rows
+  )
+
+# fill.value[which(is.nan(fill.value))] <- NA # NaN to NA. why would this ever happen?
+  
+
+datalocal$Transmittance <- fill.value # index[,1] == 
+range(datalocal$Transmittance) # 0.0001787935 0.2298132367
+```
+
+# Check
+```{r}
+DATA <- Light[, .(X, Y, Z)] 
+
+plot(DATA, pch=16, col="blue")
+points(DATA[result$nn.idx[1,],], col="red", pch=19)  # Mettre en rouge les voisins du premier point
+
+# Générer une palette de couleurs unique pour chaque point
+colors <- rainbow(nrow(datalocal))  # Un dégradé de couleurs
+# Créer un plot des points initiaux
+plot(DATA, pch=16, col="black", main="Plus proches voisins avec couleurs par point")
+# Tracer les voisins avec une couleur différente pour chaque ligne
+for (i in 1:nrow(datalocal)) {
+  neighbors <- result$nn.idx[i,]  # Indices des voisins
+  points(DATA[neighbors,], col=colors[i], pch=19)  # Afficher les voisins avec la couleur associée
+  segments(DATA[i,1], DATA[i,2], DATA[neighbors,1], DATA[neighbors,2], col=colors[i], lwd=2)  # Lignes entre le point et ses voisins
+}
+```
+
