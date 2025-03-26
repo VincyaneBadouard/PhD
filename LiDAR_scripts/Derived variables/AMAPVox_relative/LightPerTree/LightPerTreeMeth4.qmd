@@ -48,13 +48,17 @@ setnames(Light, "Period 1", "Transmittance")
 
 range(Light$Transmittance) # 0.000206811 - 1
 any(is.na(Light$Transmittance)) # FALSE
+hist(Light$Transmittance)
+hist(Light$Z)
+hist(Light[Transmittance==0, Z])
+hist(Light[Transmittance>=1, Z])
 
 ```
 
 # Trees coordinates and height
 All the cirad trees on 25ha + ALT on 9 ha, with corrected coordinates and tree heights
 
-```{r for the moment}
+```{r for the moment, eval=F}
 warning("put 25ha complete data")
 data <- read.csv(
   "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # en attendant
@@ -73,13 +77,12 @@ data[!is.na(data$IdTree) & duplicated(data$IdTree),]
 # IDtrees <- data %>% select(idTree)
 ```
 
-```{r at final, eval=F}
-warning("put 25ha complete data")
+```{r at final}
 data <- read.csv(
   "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv" # at final
 ) %>% 
   # rename(SubPlot = Subplot) %>%
-  select(idTree, Xutm, Yutm, TreeHeight)
+  select(idTree, ScientificName, Strategy, Xutm, Yutm, DBHcor, TreeHeight)
 
 range(data$TreeHeight) # 1.443312 58.262187
 
@@ -114,46 +117,80 @@ datalocal <- matrix %*% t(VOP) # same dimensions
 
 datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
 names(datalocal) <- c("X","Y","Z")
-datalocal <- datalocal %>% cbind(data[,.(IdTree, Xutm,Yutm,Zutm, TreeHeight)]) %>% setDT()
+datalocal <- datalocal %>% cbind(data[,.(idTree, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, TreeHeight)]) %>% setDT()
 # datalocal
 ```
 
 ## Coordinates 1m above each tree
 ```{r}
 datalocal[,Z := Z+TreeHeight+1]
-range(datalocal$Z) # 8.55525 61.78525 (virtual heights)
+range(datalocal$Z) # 9.68270 72.69894
+
+datalocal[Z>max(Light$Z),]
+
+datalocal <- datalocal[Z<max(Light$Z),] # remove trees too big
+
+
 # datalocal
 ```
 
 ```{r}
-summary(Light[, .(X, Y, Z)])
-summary(datalocal[, .(X, Y, Z)])
+summary(Light[, .(X, Y, Z)]) # max z=66
+summary(datalocal[, .(X, Y, Z)]) # max tree height too big 72m
 ```
 
 # Light per tree - 8 neighboors (3x3, 9 valeurs moyennées)
 ```{r}
 # Get neighbors in immediate neighborhood (k  nearest voxels including target)
 result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
-                       query = datalocal[, .(X, Y, Z)][1,], # point of interest
-                       # The maximum number of nearest neighbours to compute
-                       k = 5, # including target
-                       searchtype = "radius", radius = 10)
+                    query = datalocal[, .(X, Y, Z)], # [1,], # point of interest
+                    # The maximum number of nearest neighbours to compute
+                    k = 30, # including target # 5, 8, 9, 15, 27, 30, 35, 35
+                    searchtype = "radius", radius = 3)
 
 # une matrice où chaque ligne correspond à un point et contient les indices de ses voisins les plus proches
 index <- result$nn.idx # the near neighbour indices
+any(index==0)
 
 # Light <- tibble::rownames_to_column(Light, "Rowname")
+# Light[Rowname %in% c(8586286, 9077687, 8586285, 8585585, 8586987, 8586287, 9077686, 9076986, 9078388, 8094885, 9077688, 8585584, 8586986, 8585586, 8586988, 9076985, 9078387, 8094884, 8094184, 9076987, 8095586, 9078389, 8094886, 9569088, 8094183, 8095585, 8094185, 8095587, 8586284, 9569087),]
 
-# Recompute attenuation from local neighborhood : sum(bsIntercepted)/sum(weightedFreepathLength)
+# Recompute attenuation from local neighborhood :
 # each row of index is a point of interest
-  fill.value <- apply(index, 1, function(i) Light[as.vector(i), mean(Transmittance)] # for a matrix 1 indicates rows
-  )
 
-# fill.value[which(is.nan(fill.value))] <- NA # NaN to NA. why would this ever happen?
-  
+fill.value <- apply(index, 1, function(i) Light[as.vector(i), mean(Transmittance)] # for a matrix 1 indicates rows
+)
+any(fill.value==0 | is.na(fill.value))
 
-datalocal$Transmittance <- fill.value # index[,1] == 
-range(datalocal$Transmittance) # 0.0001787935 0.2298132367
+
+datalocal$Transmittance <- fill.value  
+```
+```{r}
+ggplot(datalocal, aes(x=TreeHeight, y=Transmittance, col=Strategy)) + 
+  theme_minimal() +
+  geom_point(size=0.1)
+```
+
+# Minimal values of transmittance
+```{r, eval=F}
+range(datalocal$Transmittance) # 0.0006329673 1.0000000894
+hist(datalocal$Transmittance)
+datalocal[Transmittance<0.001,] # 18 trees
+range(datalocal[Transmittance<0.001, Z]) # 15.24241 24.72391
+(nrow(datalocal[Transmittance<0.001,])/nrow(datalocal))*100 # 0.04%
+
+toodark <- datalocal[Transmittance<0.001,]
+length(unique(toodark$ScientificName)) # 16
+
+table(toodark$ScientificName) # max 2 ind concerned
+```
+
+# Write data
+Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittance
+```{r}
+datalocal <- datalocal %>% select(idTree, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, TreeHeight, Z, Transmittance)
+
+write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light.csv") # 47 875
 ```
 
 # Check

@@ -97,7 +97,7 @@ nrow(Inventory) == nrow(Understory) + nrow(Adults)
 
 # Modify inventory for predictions
 ```{r}
-match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 398
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 399
 # Generated with Modify_data_for_predictions.Rmd
 
 sum(duplicated(match$species_noSing)) # 20
@@ -106,7 +106,7 @@ Inventory <- Inventory %>%
   left_join(match, by= "ScientificName") %>% # add species_noSing
   rename(dbh.y = DBHcor)
 
-length(!is.na(unique(Inventory$species_noSing))) # 380 (=398-20-NA)
+length(!is.na(unique(Inventory$species_noSing))) # 380 (=399-20-NA)
 
 all(sort(unique(Inventory$species_noSing)) == sort(unique(match$species_noSing))) # TRUE
 match$species_noSing[!match$species_noSing %in% unique(Inventory$species_noSing)] # 0
@@ -119,12 +119,12 @@ Pixels from the target tree itself were excluded from the local canopy height ca
 En mode prédiction on ne masque pas l'arbre cible (car on n'a pas en général de détourage de sa couronne : le cas échéant on aurait alors directement accès sa hauteur).  
 On utilise la hauteur dans un voisinage qui comprend l'arbre cible. L'idée est de capter la hauteur locale de la canopée sur une surface bien plus grande que la surface projetée de la couronne (~3000m2).  
 ```{r}
-# P16 25ha CHM 1m res (SpatRaster) A CREER
+# P16 25ha CHM 1m res (SpatRaster)
 CHM <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif")
 
 #  focal ("moving window") weight matrix   
-disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=31, ncol=31)), 15, type = "circle") # 30m radius of the circle
-
+disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61, ncol=61)), 30, type = "circle") # 30m radius of the circle
+# with target tree
 disk_weights[disk_weights[]>0] <- 1
 
 # Calculate focal ("moving window") values for each cell
@@ -172,7 +172,7 @@ nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```{r}
 same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
 same_sp$TreeHeight <- same_sp_pred[,1]
-range(same_sp$TreeHeight) # 1.429993 58.238338
+range(same_sp$TreeHeight) #  2.003142 49.087198
 ```
 ## Plot
 ```{r}
@@ -187,7 +187,7 @@ si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen e
 ```{r}
 other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, robust=T, na.action = na.omit) # 1 min; , robust=T to take the posterior median
 other_sp$TreeHeight <- other_sp_pred[,1]
-range(other_sp$TreeHeight) # 2.648444 36.837895
+range(other_sp$TreeHeight) # 2.646925 36.729651
 ```
 ## Plot
 ```{r}
@@ -213,15 +213,17 @@ FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_F
   mutate(dbh.y = as.numeric(gsub(",", ".", DBH)))
 
 ggplot(same_sp, aes(x=dbh.y, y=TreeHeight)) + 
-  xlim(1,20) +
+  # xlim(1,20) +
   theme_minimal() +
-  geom_point(col= "grey") +
-  geom_point(data = other_sp, col= "darkgrey") +
-  geom_point(data = FTH, col= "darkgreen") +
+  geom_point(col= "grey", size=1, alpha=0.2) +
+  geom_point(data = other_sp, col= "darkgrey",size=1, alpha=0.2) +
+  geom_point(data = FTH, col= "darkgreen", size=1, alpha=0.2) +
   # scale_x_continuous(breaks =seq(0, 20, by= 5)) +
   labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
   guides(color = F)
+```
 
+```{r, eval=F}
 plist <- vector('list')
 
 for(S in unique(FTH$ScientificName)[unique(FTH$ScientificName) %in% unique(same_sp$ScientificName)]){
@@ -247,10 +249,8 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 ggsave("Treeheights_species_vs_nospecies_effect_vs_FTH.pdf",
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
        plots, width = 15, height = 10)
-
 ```
 Pour :
-
 species effect:
 Mouriri_huberi
 Couepia_caryophylloides
@@ -282,6 +282,19 @@ pred <- same_sp %>%
 
 nrow(pred) == nrow(Inventory)
 length(unique(pred$ScientificName)) == length(unique(Inventory$ScientificName)) 
+```
+
+```{r}
+ggplot(pred, aes(x=TreeHeight, y=HC)) +
+  geom_point() +
+  labs(x= "Tree height (m)", y= "Local canopy height (m)")
+```
+```{r}
+pred %>% 
+  filter(ScientificName=="Lecythis_poiteaui") %>% 
+ggplot(aes(x=DBHcor, y=TreeHeight)) +
+  geom_point()
+
 ```
 
 # Write data

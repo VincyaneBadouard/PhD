@@ -36,8 +36,8 @@ TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels
   st_set_crs(st_crs(MNT))
 
 # Light (à faire 25ha)
-Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>% 
-  dplyr::select(-`...1`)
+# Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>% 
+#   dplyr::select(-`...1`)
 # st_as_sf(coords = c('Xutm','Yutm')) %>% 
 # st_set_crs(st_crs(MNT))
 ```
@@ -45,9 +45,10 @@ Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>%
 # Import inventory data
 ```{r, include = F}
 Inventory <- read.csv(
-  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light.csv"
+  # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
 ) %>% 
-  dplyr::select(idTree, SubPlot, ScientificName, Strategy, DBHcor, Xutm, Yutm, TreeHeight) %>% 
+  # dplyr::select(idTree, ScientificName, Strategy, DBHcor, Xutm, Yutm, TreeHeight) %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 ```
@@ -89,9 +90,9 @@ Inventory <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P1
 
 ```{r, eval=F}
 toodark <- Inventory %>% filter(!is.na(Transmittance) & Transmittance < 0.001)
-length(unique(toodark$ScientificName))
+length(unique(toodark$ScientificName)) # 50 sp
 
-table(toodark$ScientificName)
+table(toodark$ScientificName) # max 14 ind concerned (Oxandra_asbeckii), in general 3-4
 
 smallOxandra <- Inventory %>% filter(ScientificName == "Oxandra_asbeckii" & DBHcor<10)
 length(smallOxandra$idTree)

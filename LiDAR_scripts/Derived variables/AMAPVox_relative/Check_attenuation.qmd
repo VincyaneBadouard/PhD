@@ -94,4 +94,9 @@ ggplot(VX, aes(y=as.factor(as.integer(z)), x=HLE)) +
   labs(title= "After filling empty vxls - log x axis", y="Z (m)")
 
 ```
+-> Donc attenuation trop haute avant fill empty voxel, et fill empty voxel réduit le problème
+
+```{r}
+
+```
 
