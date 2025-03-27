@@ -1,0 +1,79 @@
+---
+title: "Light_DBH_interaction"
+format: html
+editor: source
+---
+
+```{r, packages, include = F}
+library(readr)
+library(tidyverse)
+```
+
+# Prepare data
+```{r, include=F}
+# Community
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light.csv")  %>% 
+  # select(idTree, ScientificName, Strategy, Transmittance) %>% 
+  # filter(!is.na(Transmittance)) %>% 
+  mutate(logTransmittance = log(Transmittance))
+# mutate(Presence = 1) # %>% 
+# sample_frac(0.1)
+```
+
+# Create absence uniform data
+```{r}
+
+# Unif <- Inv %>% 
+#   select(DBHcor) %>% 
+#   mutate(Transmittance = seq(min(Inv$Transmittance), max(Inv$Transmittance), length.out=nrow(Inv))) %>% 
+#   mutate(logTransmittance = seq(min(Inv$logTransmittance), max(Inv$logTransmittance), length.out=nrow(Inv)))
+
+Unif <- data.frame(expand.grid(
+  DBHcor = seq(min(Inv$DBHcor), max(Inv$DBHcor), length.out=nrow(Inv)/100),
+  Transmittance = seq(min(Inv$Transmittance), max(Inv$Transmittance), length.out=nrow(Inv)/100)
+  # logTransmittance = seq(min(Inv$logTransmittance), max(Inv$logTransmittance), length.out=nrow(Inv))
+))
+
+All <- bind_rows(Inv, Abs)
+```
+
+# Heatmap
+```{r}
+ggplot(Inv, aes(x=DBHcor, y=Transmittance)) + 
+  geom_tile() + # heatmap
+  geom_bin2d(bins = 50) + # for counts
+  scale_fill_gradient(trans="log") +
+  labs(title="", y="Transmittance", x="DBH", fill= "log(abundance)") +
+  theme(text = element_text(size = 18))
+
+# ggsave("Light_DBH_interaction_heatmap.png",
+#        path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+#        width = 15, height = 10)
+```
+```{r}
+ggplot(Inv, aes(x=DBHcor, y=logTransmittance)) + 
+  geom_tile() + # heatmap
+  geom_bin2d(bins = 50) + # for counts
+  scale_x_continuous(trans="log", labels = scales::number_format(accuracy = 1)) + # log(DBH)
+  scale_fill_gradient(trans="log") +
+  labs(title="", y="logTransmittance", x="log(DBH)", fill= "log(abundance)") +
+  theme(text = element_text(size = 18))
+
+# ggsave("Light_DBH_interaction_heatmap.png",
+#        path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+#        width = 15, height = 10)
+```
+
+```{r}
+ggplot(Unif, aes(x=DBHcor, y=Transmittance)) + 
+  geom_tile() + # heatmap
+  geom_bin2d(bins = 50) + # for counts
+  # scale_x_continuous(trans="log", labels = scales::number_format(accuracy = 1)) + # log(DBH)
+  scale_fill_gradient(trans="log") +
+  labs(title="", y="Transmittance", x="DBH", fill= "log(abundance)") +
+  theme(text = element_text(size = 18))
+
+# ggsave("Light_DBH_interaction_heatmap.png",
+#        path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+#        width = 15, height = 10)
+```

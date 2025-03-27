@@ -287,6 +287,22 @@ test <- AdultsP16 %>%
 # unique(test$ScientificName)
 ```
 
+# Strategy data (canopy vs understory species)
+```{r}
+# EFT2023_Understory/dcl.csv
+strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
+  select(ScientificName, Strategy_VB) %>%
+  rename(Strategy = Strategy_VB) %>% 
+  unique()
+unique(strategy$Strategy)
+
+AdultsP16 <- left_join(AdultsP16, strategy, by="ScientificName")
+
+sum(is.na(AdultsP16$Strategy)) # 2737
+
+AdultsP16 %>% filter(is.na(Strategy) & !grepl("Indet", ScientificName)) %>% select(ScientificName) %>% unique() # 129 sp
+```
+
 # Filters for my analyses
 DBH>=1
 Only alive trees
@@ -336,12 +352,12 @@ spSelection <- AdultsP16_filtred %>%
   # Count individuals by species
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
-  ungroup() %>% # 10602
+  ungroup() %>% # 9801
   # Take only sp >= 30 ind
-  filter(N >= 30) # enlève 1887 tiges
-# 9022
+  filter(N >= 30) # enlève 2210 tiges
+# 7 591
 
-(nrow(spSelection)/nrow(AdultsP16))*100 # les sp selectionnées représentent 78% du jeu de données
+(nrow(spSelection)/nrow(AdultsP16))*100 # les sp selectionnées représentent 66% du jeu de données
 length(unique(spSelection$ScientificName)) # 64 selected species
 
 Species <- as.data.frame(unique(spSelection$ScientificName))

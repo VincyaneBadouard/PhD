@@ -16,7 +16,7 @@ Site : Paracou - P16
 Subplots : 13-14-15-18-19-20-23-24-25
 Méthode de mesure : laser
 
-```{r, 13_18_23_24}
+```{r, 13_18_23_24, echo=F}
 # 13, 18, 23, 24
 S_13_18_23_24 <- read_delim("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_Paracou13_18_23_24.csv", 
                             delim = ";", escape_double = FALSE, trim_ws = TRUE) # 401
@@ -32,22 +32,29 @@ S_13_18_23_24 <- S_13_18_23_24[complete.cases(S_13_18_23_24),] # enlever les lig
 "q.length.Y" : size of the western side of the 10m x 10m quadrat (m).  
 "q.length.Y2" : size of the eastern side of the 10m x 10m quadrat (m).  
 
-```{r}
+```{r, echo =F}
 S_14 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C14_measure.xlsx")
 S_15 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C15_measure.xlsx")
 S_19 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C19_measure.xlsx")
 S_20_1 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_measure.xlsx") # 10/02/2025
 S_20_2 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/ALT_Paracou_Quadrat_C20_fin20250130.xlsx") %>% # 06/02/2025
-  select(Num, row_index, col_index, Qlenght_X, Q_lengthX1, Q_lengthY, Q_lengthY1, Subplot, Comments)
-S_25 <- read_excel("~/PhD/Inventories/Data/Piquets_ALT/Measures_piquets_ParacouC25_T1_20230607ins.xlsx") %>%  select(Subplot, quadra.nb., quadra.n_1, q.length.X, q.length_1, q.length.Y, q.length_2) %>% 
+  select(Num, Qlenght_X, Q_lengthX1, Q_lengthY, Q_lengthY1, Subplot, Comments)
+# pas faire confiance à row_index, col_index dit Léa
+S_25 <- read_csv("~/PhD/Inventories/Data/Piquets_ALT/C25_20240327.csv") %>%
+  select(plot, quadra.nb., quadra.n_1, q.length.X, q.length_1, q.length.Y, q.length_2) %>% 
   mutate(q.length.X = as.numeric(q.length.X),
          q.length_1 = as.numeric(q.length_1),
          q.length.Y = as.numeric(q.length.Y),
          q.length_2 = as.numeric(q.length_2)) %>% 
-  unique()
+  unique() %>% na.omit()
 
+nrow(S_14) == nrow(S_15)
+nrow(S_19) == nrow(S_20_1)
+nrow(S_20_2) == nrow(S_25)
 
+```
 
+```{r, eval=F}
 all(names(S_14) == names(S_15))
 all(names(S_14) == names(S_19))
 names(S_20_1) == names(S_14)
@@ -60,14 +67,9 @@ summary(S_15)
 summary(S_19)
 summary(S_20_1)
 summary(S_20_2) # Q_lengthY1 Max :109.000 !! demander à Léa;  diff entre S_20_1 et S_20_2
-summary(S_25) # quadra.nb. tout à 0; quadra.n_1 max 3, ya pas tout je pense
-
-
-nrow(S_14) == nrow(S_15)
-nrow(S_19) == nrow(S_20_1)
-nrow(S_20_2) == nrow(S_25)
-
+summary(S_25) # quadra.nb. tout à 0; quadra.n_1 max 3, ya pas tout je pense (demander à Léa)
 ```
+
 "Num" :
 "Q_lengthX" : size of the southern side of the 10m x 10m quadrat (m).
 "Q_lengthX1" : size of the northern side of the 10m x 10m quadrat (m).
@@ -78,9 +80,8 @@ nrow(S_20_2) == nrow(S_25)
 # Manage column names differences
 ```{r}
 S_13_18_23_24 <- S_13_18_23_24 %>% 
+  mutate(Num = rep(1:100, length.out = n())) %>% 
   rename(Subplot = plot,
-         # = quadra.nb.X,
-         # = quadra.nb.Y,
          Q_lengthX = q.length.X,
          Q_lengthX1 = q.length.X2,
          Q_lengthY = q.length.Y,
@@ -89,18 +90,17 @@ S_13_18_23_24 <- S_13_18_23_24 %>%
 S_20_1 <- S_20_1 %>% 
   rename(Q_lengthX = Qlenght_X)
 
-S_20_2 <- S_20_ %>% 
-  rename(quadra.nb.X = row_index, # demander à Léa
-         quadra.nb.Y = col_index, # demander à Léa
-         Q_lengthX = Qlenght_X)
+S_20_2 <- S_20_2 %>% 
+  rename(Q_lengthX = Qlenght_X)
 
 S_25 <- S_25 %>% 
-  rename(quadra.nb.X = quadra.nb., # demander à Léa
-         quadra.nb.Y = quadra.n_1, # demander à Léa
+  rename(Subplot = plot,
+         quadra.nb.X = quadra.nb., 
+         quadra.nb.Y = quadra.n_1, 
          Q_lengthX = q.length.X,
-         Q_lengthX1 = q.length_1, # demander à Léa
+         Q_lengthX1 = q.length_1, 
          Q_lengthY = q.length.Y,
-         Q_lengthY1 = q.length_2) # demander à Léa
+         Q_lengthY1 = q.length_2) 
 
 # Transformer Num en quadra.nb.X et quadra.nb.Y pour S_14, S_15, S_19, S_20_1 (demander à Léa)
 # Num = 1 : quadra.nb.X = 0 et quadra.nb.Y = 0 ?
@@ -108,10 +108,42 @@ S_25 <- S_25 %>%
 
 ```
 
+# Quadra number
+Num : 1-100 = ordre serpentin
+0-0
+Num (0-9) 0-1 -> 0-9
+Num (10-19) 1-9 -> 1-0
+Num (20-29) 2-0
+
+x   y
+0 - 0 -> 9
+1 - 9 -> 0
+2 - 0 -> 9
+3 - 9 -> 0
+etc
+```{r}
+# S_13_18_23_24 %>% 
+#   select(Num, quadra.nb.X, quadra.nb.Y) %>% unique() # non pcq ce n'est pas en spirale
+
+quadra.nb.X = sort(rep(0:9, 100))
+  quadra.nb.Y = seq(0, 9, lenght.out = n())
+  
+```
+
 # Bind
 ```{r}
 Stakes <- bind_rows(S_13_18_23_24, S_20_1, S_20_2, S_25)
 unique(Stakes$Comments)
+```
+
+# Missing stake
+Max length 100 or 109 : pas de piquet -> 10 m default
+```{r}
+Stakes <- Stakes %>% 
+  mutate(Q_lengthX = ifelse(Q_lengthX >=100, 10, Q_lengthX),
+         Q_lengthX1 = ifelse(Q_lengthX1 >=100, 10, Q_lengthX1), 
+         Q_lengthY = ifelse(Q_lengthY >=100, 10, Q_lengthY),
+         Q_lengthY1 = ifelse(Q_lengthY1 >=100, 10, Q_lengthY1))
 ```
 
 # Eric's format

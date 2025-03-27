@@ -168,21 +168,27 @@ datalocal$Transmittance <- fill.value
 ```{r}
 ggplot(datalocal, aes(x=TreeHeight, y=Transmittance, col=Strategy)) + 
   theme_minimal() +
-  geom_point(size=0.1)
+  geom_point(size=0.3)
 ```
 
 # Minimal values of transmittance
 ```{r, eval=F}
-range(datalocal$Transmittance) # 0.0006329673 1.0000000894
+range(datalocal$Transmittance) # 0.0006453574 1.0000000894
 hist(datalocal$Transmittance)
-datalocal[Transmittance<0.001,] # 18 trees
-range(datalocal[Transmittance<0.001, Z]) # 15.24241 24.72391
-(nrow(datalocal[Transmittance<0.001,])/nrow(datalocal))*100 # 0.04%
+datalocal[Transmittance<0.001,] # 15 trees
+range(datalocal[Transmittance<0.001, Z]) # 15.29792 23.84516
+(nrow(datalocal[Transmittance<0.001,])/nrow(datalocal))*100 # 0.03%
 
 toodark <- datalocal[Transmittance<0.001,]
-length(unique(toodark$ScientificName)) # 16
+length(unique(toodark$ScientificName)) # 14
 
 table(toodark$ScientificName) # max 2 ind concerned
+
+# Median : moins bon
+#  0.0003992877 1.0000000894
+# [1] 14.53144 31.46755 m height
+# [1] 0.15 %
+# [1] 47 sp
 ```
 
 # Write data

@@ -85,9 +85,9 @@ Understory <- read.csv(
     # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv" # at final
   "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # for the moment
   ) %>% 
-  rename(idTree = IdTree) %>% # 28 711
+  rename(idTree = IdTree) %>% # 36 311
   rename(SubPlot = Subplot)
-Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha 11 539
   mutate(idTree = as.character(idTree))
 
 Inventory <- bind_rows(Understory, Adults)

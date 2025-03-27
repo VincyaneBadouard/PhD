@@ -99,8 +99,10 @@ Understory <- lapply(Understory, function(x) left_join(x, strategy, by="Scientif
 UnderstoryP <- Understory[[1]]
 UnderstoryN <- Understory[[2]]
 
-sum(is.na(UnderstoryP$Strategy)) # 6871
-sum(is.na(UnderstoryN$Strategy)) # 20005
+sum(is.na(UnderstoryP$Strategy)) # 7825
+sum(is.na(UnderstoryN$Strategy)) # 20345
+
+UnderstoryP %>% filter(is.na(Strategy) & !grepl("indet", ScientificName)) %>% select(ScientificName) %>% unique() # 340 sp
 ```
 
 # Checks

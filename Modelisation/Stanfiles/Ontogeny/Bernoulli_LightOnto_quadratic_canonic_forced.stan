@@ -18,7 +18,7 @@ parameters {
 }
 model {
   // Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment); // developped Likelihood
-  Presence ~ bernoulli_logit( a * (Environment - (O + iota*DBH))^2 + gamma); // canonic Likelihood
+  Presence ~ bernoulli_logit(a * (Environment - (O + iota*DBH))^2 + gamma); // canonic Likelihood
   // Priors
   // a ~ cauchy(0,1); 
   // O ~ normal(0.5, 1); // O ~ cauchy(0.5, 1) ; O ~ uniform(0.5, 1);
@@ -30,7 +30,7 @@ matrix<lower=0, upper=1>[N_e_p, N_d_p] p ;
 //     y_p[i,j] = inv_logit(a*(Environmentp[i] - O + iota*DBHp[j]))^2 + gamma); // plus couteux
 
 for(i in 1:N_d_p)
-p[,i] = inv_logit(a*(Environmentp - O + iota*DBHp[i])^2 + gamma); // i in column
+p[,i] = inv_logit(a*(Environmentp - (O + iota*DBHp[i]))^2 + gamma); // i in column
 
 // y_p[,i] = to_row_vector(inv_logit(a*(Environmentp - O + iota*log(DBHp[i]))^2 + gamma));
 
