@@ -1,13 +1,21 @@
 # Prepare data
 
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+```
+
 ```{r, include = F, message=F}
 Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
 ```
 
 ```{r}
 Inv <- Inv %>% 
-  na.omit() %>% 
   mutate(logTransmittance =  log(Transmittance))
+```
+
+```{r, eval=F}
 
 ## Only sp enough abundant in < and > 10 cm DBH
 data <- Inv %>%
@@ -54,23 +62,27 @@ rm(Inv, ALT, Guyafor, s)
 ```
 
 # Create presence-absence data format for each species
-
 ```{r}
-# Create a list of the inventory replicated, 1 per ScientificName
-datalist <- replicate(length(unique(data$ScientificName)), data, simplify = F) 
-names(datalist) <- unique(data$ScientificName) # 1 per ScientificName
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+# length(unique(sp))
 
-# Presence=1 if it's a the interest species, 0 if not
+# Create a list of the inventory replicated, 1 per ScientificName
+datalist <- replicate(length(sp), Inv, simplify = F) 
+names(datalist) <- sp # 1 per ScientificName
+
+# Presence=1 if it's the interest species, 0 if not
 datalist <- lapply(names(datalist), function(name) {
-  datalist[[name]]$Presence <- ifelse(datalist[[name]]$ScientificName == name, 1, 0)
+  datalist[[name]]$Presence <- ifelse(
+    !is.na(datalist[[name]]$ScientificName) & datalist[[name]]$ScientificName == name, 1, 0)
+  
   datalist[[name]]  # Return modified data frame
 })
-names(datalist) <- unique(data$ScientificName)
+names(datalist) <- sp # 75
 
 # view(datalist[["Anaxagorea_dolichocarpa"]])
 ```
 
 ```{r}
-save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
+save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
 ```
 

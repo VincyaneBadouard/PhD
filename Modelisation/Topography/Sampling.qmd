@@ -1,0 +1,117 @@
+---
+title: "Sampling"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+# Species
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+
+# sp <- "Symphonia_sp.1"
+
+```
+
+# Presence data
+```{r data}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+
+# load real presence-absences data on 25ha 
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+# View(datalist[[1]])
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# View(datalist[["Iryanthera_hostmannii"]])
+```
+
+# DataM
+```{r, dataM}
+Np <- 100 # number of predictions
+
+# les noms des var doivent etre les memes que dans le fichier stan
+dataM <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
+                                           Presence = x$Presence,
+                                           Environment = x$Elevation,
+                                           # number of predictions
+                                           Np = Np,
+                                           # environment of predictions
+                                           Environmentp = seq(min(x$Elevation), max(x$Elevation), length.out = Np))
+)
+
+# seq(min(datalist[[1]]$Elevation), max(datalist[[1]]$Elevation), length.out = Np)
+
+names(dataM) <- names(datalist)
+```
+
+# Model
+```{r model}
+Sys.time()
+model_name <- "Affine"
+model <- cmdstan_model(
+  file.path(
+    "Model",
+    paste0(model_name, ".stan")
+    ))
+Sys.time() # 1 min
+```
+
+# Sampling
+```{r sampling}
+#| eval: false
+Sys.time()
+for (s in sp) {
+  print(s)
+  chain_path <- file.path("Chains", model_name, s)
+  if(!file.exists(chain_path)){
+    # unlink(chain_path, recursive = TRUE)
+    dir.create(chain_path)
+  fit <- model$sample(data = dataM[[s]],
+                      chains = 4,
+                      parallel_chains = 4,
+                      save_warmup = FALSE)
+  fit$save_output_files(dir = chain_path)
+  }
+}
+Sys.time() # 1 min 30
+```
+
+# Model
+```{r model}
+Sys.time()
+model_name <- "Quadratic"
+model <- cmdstan_model(
+  file.path(
+    "Model",
+    paste0(model_name, ".stan")
+    ))
+Sys.time() # 30 sec
+```
+
+# Sampling
+```{r sampling}
+#| eval: false
+Sys.time()
+for (s in sp) {
+  print(s)
+  chain_path <- file.path("Chains", model_name, s)
+  if(!file.exists(chain_path)){
+    # unlink(chain_path, recursive = TRUE)
+    dir.create(chain_path)
+  fit <- model$sample(data = dataM[[s]],
+                      chains = 4,
+                      parallel_chains = 4,
+                      save_warmup = FALSE)
+  fit$save_output_files(dir = chain_path)
+  }
+}
+Sys.time() # 17 min
+```
+
+

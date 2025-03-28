@@ -34,6 +34,16 @@ transformed parameters {
 model {
   // Presence ~ bernoulli_logit(alpha + beta1*Environment + beta2*Environment.*Environment); // developped Likelihood
   Presence ~ bernoulli_logit(a * (Environment - O)^2 + gamma); // canonic Likelihood
+  
+  a * (Environment - O)^2 + gamma + beta*topo //affin
+    a * (Environment - O)^2 + gamma +  a * (topo - O)^2 //quadra
+    
+    
+    a * (Environment - O)^2 + gamma_p
+    gamma_p = gamma0 + beta*topo
+    
+    
+
 }
 generated quantities {
   vector[Np] p = inv_logit(a * (Environmentp - O)^2 + gamma)*adj ; // predictions

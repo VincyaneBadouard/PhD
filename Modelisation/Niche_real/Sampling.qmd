@@ -8,16 +8,18 @@ editor: source
 code-fold: true
 ---
 
+# Species
 ```{r setup}
 library(tidyverse)
 library(cmdstanr)
 
 sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora",
-        "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4
+        "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4 forms
 # sp <- "Licania_membranacea"
 
 ```
 
+# Presence data
 ```{r data}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 
@@ -29,8 +31,9 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 # View(datalist[["Iryanthera_hostmannii"]])
 ```
 
+# DataM
 ```{r, dataM}
-Np <- 200 # number of predictions
+Np <- 100 # number of predictions
 Environmentp <- seq(-6, 0, length.out = Np) # environment of predictions
 
 dataM <- lapply(datalist, function(x) list(N = nrow(x), #les noms des var doivent etre les memes que dans le fichier stan
@@ -45,6 +48,7 @@ dataM <- lapply(datalist, function(x) list(N = nrow(x), #les noms des var doiven
 names(dataM) <- names(datalist)
 ```
 
+# Model
 ```{r model}
 model_name <- "Hybrid"
 model <- cmdstan_model(
@@ -53,7 +57,7 @@ model <- cmdstan_model(
     paste0(model_name, ".stan")
     ))
 ```
-
+# Sampling
 ```{r sampling}
 #| eval: false
 for (s in sp) {
