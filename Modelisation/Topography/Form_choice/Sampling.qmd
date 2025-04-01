@@ -79,7 +79,7 @@ for (s in sp) {
   fit$save_output_files(dir = chain_path)
   }
 }
-Sys.time() # 1 min 30
+Sys.time() # 2h
 ```
 
 # Model
@@ -111,7 +111,11 @@ for (s in sp) {
   fit$save_output_files(dir = chain_path)
   }
 }
-Sys.time() # 17 min
+Sys.time() # 13h
 ```
 
+
+```{r}
+
+```
 

@@ -1,0 +1,74 @@
+---
+title: "Diagnose species"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+params:
+  species: Licania_membranacea
+---
+
+```{r setup, include=F}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+Var <- c("TWI","HAND")
+```
+
+```{r fit}
+print(params$species)
+
+fit <- list()
+for(V in Var){
+  tryCatch({
+    chain_path <- file.path("Chains", "Affine", V, params$species)
+    fit[[V]] <- as_cmdstan_fit(list.files(chain_path,
+                                          full.names = TRUE))},
+    error=function(e){cat("ERROR :",params$species, V, conditionMessage(e), "\n")}
+  )
+}
+# names(fit)
+
+```
+
+```{r chains}
+lapply(names(fit), function(x)
+  fit[[x]]$draws(c("alpha", "beta1")) %>% 
+    mcmc_trace() +
+    labs(title= x)
+)
+```
+
+```{r posteriors}
+lapply(names(fit), function(x)
+  fit[[x]]$draws(c("alpha", "beta1")) %>% 
+    mcmc_dens() +
+    labs(title= x)
+)
+```
+
+```{r predictions}
+for(i in names(fit)){
+  DATA <- fit[[i]]$summary("p") # p posterior
+  # prediction environment 
+  if(i=="HAND") DATA$x <- seq(-0.37, 23.34, length.out = 100)
+  if(i=="TWI") DATA$x <- seq(3.88, 11.02, length.out = 100)
+  
+  print(
+    ggplot(DATA, aes(x = x)) +
+      theme_minimal() +
+      geom_point(aes(y = median), size=0.7) + # p posterior median
+      geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
+      # geom_vline(xintercept  = fits[[f]]$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
+      # geom_vline(xintercept  = fits[[f]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
+      # geom_vline(xintercept  = fits[[f]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
+      labs(title= i)
+  )
+}
+```
+
+
+
+

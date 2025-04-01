@@ -1,0 +1,115 @@
+---
+title: "Sampling"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+# Species
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+
+
+# sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora",
+#         "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4 forms
+# sp <- "Symphonia_sp.1"
+
+model_name <- c("Affine", "Quadratic")
+```
+
+```{r fit}
+fit <- list()
+for(S in sp){
+  for(M in model_name){
+    chain_path <- file.path("Chains", M, S)
+    fit[[S]][[M]] <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+  }
+}
+# names(fit[["Symphonia_sp.1"]])
+```
+
+
+# Compute and compare BIC for each species between models
+For each species and each model compute BIC and compare BIC for each species between models
+Models with lower BIC are generally preferred
+```{r BIC df}
+BIC_df <- data.frame(crossing(
+  Species = sp,
+  Model = model_name,
+  k= NA,
+  L= NA))
+
+for(S in sp){
+  for(M in model_name){
+    BIC_df <- BIC_df %>% 
+      mutate(k = ifelse(Species==S & Model==M,
+                        length(fit[[S]][[M]]$metadata()$stan_variables[!fit[[S]][[M]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]), k), # parameters nbr
+             L = ifelse(Species==S & Model==M, max(fit[[S]][[M]]$draws("lp__")), L), # the maximized value of the likelihood function of the model (lp__ = log probability value that will be returned by the log probability function)
+      )
+  }}
+
+BIC_df <- BIC_df %>% 
+  mutate(N = 47850, # observations nbr
+         BIC = k*log(N) - 2*L 
+  ) %>% 
+  select(Species, Model, BIC) %>% 
+  pivot_wider(names_from = Model,
+              values_from = BIC,
+              names_glue = "{.value}_{Model}") %>% 
+  # Compare BIC between models for each species
+  rowwise() %>% 
+  mutate(Diff = BIC_Affine - BIC_Quadratic) %>% 
+  mutate(test = ifelse(BIC_Affine <= BIC_Quadratic,T,F)) %>% 
+  mutate(Affine = ifelse(BIC_Affine < BIC_Quadratic & abs(Diff)>2,T,F)) %>% 
+  mutate(Quadratic = ifelse(BIC_Quadratic < BIC_Affine & abs(Diff)>2,T,F))
+
+nrow(BIC_df %>% filter(test==T)) # 61 
+nrow(BIC_df %>% filter(Affine==T)) # 56 -> species majority prefer affine model
+nrow(BIC_df %>% filter(Quadratic==T)) # 9 sp prefer quadratic model
+nrow(BIC_df %>% filter(Affine==F,Quadratic==F)) # 10 with no significant diff
+
+```
+
+```{r}
+write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv")
+```
+
+```{r}
+BIC_df %>% filter(Quadratic==T) %>% arrange(desc(Diff))
+```
+
+# List version
+```{r BIC list}
+BIC <- list()
+
+for(S in sp){
+  for(M in model_name){
+    
+    k <- length(fit[[S]][[M]]$metadata()$stan_variables[!fit[[S]][[M]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]) # parameters nbr
+    N <- 47850 # observations nbr
+    L <- max(fit[[S]][[M]]$draws("lp__"))# the maximized value of the likelihood function of the model (fits[[f]]$summary("lp__"))
+    
+    BIC[[S]][[M]] <- k*log(N) - 2*L
+    
+  }
+}
+```
+
+```{r test print}
+for(S in sp){
+  
+  test <- BIC[[S]][["Affine"]] <= BIC[[S]][["Quadratic"]]
+  
+  if(test) print(paste(S, "- Lower BIC is for model: Affine:", round(BIC[[S]][["Affine"]], 1),"vs",round(BIC[[S]][["Quadratic"]], 1)))
+  if(test==F) print(paste(S, " - Lower BIC is for model: Quadratic"))
+  
+}
+```
+

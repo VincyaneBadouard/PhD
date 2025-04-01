@@ -1,0 +1,131 @@
+---
+title: "Sampling"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+# Species
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+
+
+# sp <- c("Licania_membranacea", "Symphonia_sp.1", "Piparea_multiflora", "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4 forms
+# sp <- "Symphonia_sp.1"
+
+Var <- c("TWI", "HAND")
+```
+
+```{r fit}
+fit <- list()
+for(S in sp){
+  for(V in Var){
+    tryCatch({
+      chain_path <- file.path("Chains", "Affine", V, S)
+      fit[[S]][[V]] <- as_cmdstan_fit(list.files(chain_path,
+                                                 full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, V, conditionMessage(e), "\n")}
+    )
+  }
+}
+# names(fit[["Symphonia_sp.1"]])
+```
+
+
+# Compute and compare BIC for each species between variables HAND and TWI
+For each species and each variable compute BIC and compare BIC for each species between variables
+Models with lower BIC are generally preferred
+```{r BIC df}
+BIC_df <- data.frame(crossing(
+  Species = sp,
+  Variable = Var,
+  k= NA,
+  L= NA))
+
+for(S in sp){
+  for(V in Var){
+    BIC_df <- BIC_df %>% 
+      mutate(k = ifelse(Species==S & Variable==V,
+                        length(fit[[S]][[V]]$metadata()$stan_variables[!fit[[S]][[V]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]), k), # parameters nbr
+             L = ifelse(Species==S & Variable==V, max(fit[[S]][[V]]$draws("lp__")), L), # the maximized value of the likelihood function of the model (lp__ = log probability value that will be returned by the log probability function)
+      )
+  }}
+
+BIC_df <- BIC_df %>% 
+  mutate(N = 47850, # observations nbr
+         BIC = k*log(N) - 2*L 
+  ) %>% 
+  select(Species, Variable, BIC) %>% 
+  pivot_wider(names_from = Variable,
+              values_from = BIC,
+              names_glue = "{.value}_{Variable}") %>% 
+  # Compare BIC between variables for each species
+  rowwise() %>% 
+  mutate(Diff = BIC_HAND - BIC_TWI) %>% 
+  mutate(test = ifelse(BIC_TWI <= BIC_HAND,T,F)) %>% 
+  mutate(HAND = ifelse(BIC_HAND < BIC_TWI & abs(Diff)>2,T,F)) %>% 
+  mutate(TWI = ifelse(BIC_TWI < BIC_HAND & abs(Diff)>2,T,F))
+
+nrow(BIC_df %>% filter(test==T)) # 34
+nrow(BIC_df %>% filter(HAND==T)) # 23
+nrow(BIC_df %>% filter(TWI==T)) # 31 -> best BIC is for TWI
+nrow(BIC_df %>% filter(HAND==F,TWI==F)) # 21
+
+```
+
+```{r}
+write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_TWI.csv")
+# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_TWI.csv")
+```
+
+```{r}
+BIC_df %>% filter(HAND==T) %>% arrange(Diff)
+```
+
+```{r}
+ggplot(BIC_df) +
+  geom_density(aes(x= BIC_TWI), col="blue") +
+  geom_density(aes(x= BIC_HAND), col="brown")
+
+
+ggplot(BIC_df, aes(x= BIC_HAND, y= BIC_TWI)) +
+  geom_point() +
+  geom_abline(col= "red")
+
+```
+
+# List version
+```{r BIC list}
+BIC <- list()
+
+for(S in sp){
+  for(V in Var){
+    
+    k <- length(fit[[S]][[V]]$metadata()$stan_variables[!fit[[S]][[V]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]) # parameters nbr
+    N <- 47850 # observations nbr
+    L <- max(fit[[S]][[V]]$draws("lp__"))# the maximized value of the likelihood function of the model (fits[[f]]$summary("lp__"))
+    
+    BIC[[S]][[V]] <- k*log(N) - 2*L
+    
+  }
+}
+```
+
+```{r test print}
+for(S in sp){
+  
+  test <- BIC[[S]][["HAND"]] <= BIC[[S]][["TWI"]]
+  
+  if(test) print(paste(S, "- Lower BIC is for variable: HAND:", round(BIC[[S]][["HAND"]], 1),"vs",round(BIC[[S]][["TWI"]], 1)))
+  if(test==F) print(paste(S, " - Lower BIC is for variable: TWI"))
+  
+}
+```
+

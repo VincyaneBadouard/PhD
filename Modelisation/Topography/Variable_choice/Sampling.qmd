@@ -1,0 +1,186 @@
+---
+title: "Sampling"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+Objective:  
+Test the goodness of fit of the affine model with HAND or the TWI as predictor of the presence of the species
+
+# Species
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(foreach) # parallisation
+library(parallel)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+
+# sp <- "Symphonia_sp.1"
+
+```
+
+# Presence data
+```{r data}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+
+# load real presence-absences data on 25ha 
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+# View(datalist[[1]])
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+# View(datalist[["Iryanthera_hostmannii"]])
+```
+
+# Remove NA
+```{r}
+# na.omit pour stan
+datalist <- lapply(names(datalist), function(name) {
+  datalist[[name]] <- datalist[[name]] %>% filter(!is.na(HAND))
+  datalist[[name]]  # Return modified data frame
+})
+names(datalist) <- sp
+```
+
+# DataM
+```{r, dataM}
+Np <- 100 # number of predictions
+
+# les noms des var doivent etre les memes que dans le fichier stan
+dataM_TWI <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
+                                               Presence = x$Presence,
+                                               Environment = x$TWI,
+                                               # number of predictions
+                                               Np = Np,
+                                               # environment of predictions
+                                               Environmentp = seq(min(x$TWI), max(x$TWI), length.out = Np))
+)
+
+dataM_HAND <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
+                                                Presence = x$Presence,
+                                                Environment = x$HAND,
+                                                # number of predictions
+                                                Np = Np,
+                                                # environment of predictions
+                                                Environmentp = seq(min(x$HAND), max(x$HAND), length.out = Np))
+)
+
+# seq(min(datalist[[1]]$TWI), max(datalist[[1]]$TWI), length.out = Np) # 3.88 - 11.02
+# seq(min(datalist[[1]]$HAND), max(datalist[[1]]$HAND), length.out = Np) # -0.37 - 23.34
+
+names(dataM_TWI) <- names(dataM_HAND) <- names(datalist)
+```
+
+# Model
+```{r model}
+Sys.time()
+model_name <- "Affine"
+model <- cmdstan_model(
+  file.path(
+    "Model",
+    paste0(model_name, ".stan")
+  ))
+Sys.time() # 1 min
+```
+
+# Sampling TWI
+```{r sampling}
+#| eval: false
+Sys.time()
+
+gc()
+cores = min(c(length(dataM_TWI), 2)) # nbr of cores to use, not more than 5
+# parallel::detectCores() # 8
+i <- NULL
+j = length(dataM_TWI)
+
+# L'enregistrement des clusters
+cl <- parallel::makeCluster(cores, outfile = "")
+doSNOW::registerDoSNOW(cl)
+
+# Progress bar:
+# pb <- txtProgressBar(min = 0, max = j, style = 3)
+pb <- txtProgressBar(max=j)
+# progress <- function(n) setTxtProgressBar(pb, n)
+progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+opts <- list(progress = progress)
+
+foreach::foreach(
+  i=1:j,
+  .packages = c("cmdstanr"), # necessary packages
+  .options.snow = opts # ProgressBar
+) %dopar% {
+  
+  chain_path <- file.path("Chains", model_name, "TWI", sp[i])
+  if(!file.exists(chain_path)){
+    # unlink(chain_path, recursive = TRUE)
+    dir.create(chain_path)
+    fit <- model$sample(data = dataM_TWI[[sp[i]]],
+                        chains = 4,
+                        parallel_chains = 4,
+                        save_warmup = FALSE)
+    fit$save_output_files(dir = chain_path)
+  }
+}
+
+# close progressbar and cluster
+close(pb)
+stopCluster(cl)
+Sys.time() # 2h
+```
+
+# Sampling HAND
+```{r sampling}
+#| eval: false
+Sys.time()
+
+gc()
+cores = min(c(length(dataM_HAND), 2)) # nbr of cores to use, not more than 5
+# parallel::detectCores() # 8
+i <- NULL
+j = length(dataM_HAND)
+
+# L'enregistrement des clusters
+cl <- parallel::makeCluster(cores, outfile = "")
+doSNOW::registerDoSNOW(cl)
+
+# Progress bar:
+# pb <- txtProgressBar(min = 0, max = j, style = 3)
+pb <- txtProgressBar(max=j)
+# progress <- function(n) setTxtProgressBar(pb, n)
+progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+opts <- list(progress = progress)
+
+foreach::foreach(
+  i=1:j,
+  .packages = c("cmdstanr"), # necessary packages
+  .options.snow = opts # ProgressBar
+) %dopar% {
+  
+  chain_path <- file.path("Chains", model_name, "HAND", sp[i])
+  if(!file.exists(chain_path)){
+    # unlink(chain_path, recursive = TRUE)
+    dir.create(chain_path)
+    fit <- model$sample(data = dataM_HAND[[sp[i]]],
+                        chains = 4,
+                        parallel_chains = 4,
+                        save_warmup = FALSE)
+    fit$save_output_files(dir = chain_path)
+  }
+}
+
+# close progressbar and cluster
+close(pb)
+stopCluster(cl)
+Sys.time() # 1h
+```
+
+
+```{r}
+
+```
+
