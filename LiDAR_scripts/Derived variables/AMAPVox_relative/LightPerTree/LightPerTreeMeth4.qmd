@@ -155,7 +155,7 @@ any(index==0)
 # Light <- tibble::rownames_to_column(Light, "Rowname")
 # Light[Rowname %in% c(8586286, 9077687, 8586285, 8585585, 8586987, 8586287, 9077686, 9076986, 9078388, 8094885, 9077688, 8585584, 8586986, 8585586, 8586988, 9076985, 9078387, 8094884, 8094184, 9076987, 8095586, 9078389, 8094886, 9569088, 8094183, 8095585, 8094185, 8095587, 8586284, 9569087),]
 
-# Recompute attenuation from local neighborhood :
+# Compute light from local neighborhood :
 # each row of index is a point of interest
 
 fill.value <- apply(index, 1, function(i) Light[as.vector(i), mean(Transmittance)] # for a matrix 1 indicates rows

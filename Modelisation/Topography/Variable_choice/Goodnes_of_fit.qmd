@@ -13,6 +13,7 @@ code-fold: true
 library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
+library(scales)
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
 
@@ -90,14 +91,69 @@ BIC_df %>% filter(HAND==T) %>% arrange(Diff)
 ```
 
 ```{r}
-ggplot(BIC_df) +
-  geom_density(aes(x= BIC_TWI), col="blue") +
-  geom_density(aes(x= BIC_HAND), col="brown")
+S_sqrt <- function(x){sign(x)*sqrt(abs(x))}
+IS_sqrt <- function(x){x^2*sign(x)}
+S_sqrt_trans <- function() trans_new("S_sqrt",S_sqrt,IS_sqrt)
 
+ggplot(BIC_df, aes(Diff)) +
+  geom_density(fill = "lightgrey", col = NA) +
+  theme_minimal() +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed") +
+  scale_x_continuous(trans = "S_sqrt", 
+                     breaks = c(-10, -2, 0, 2, 10, 100),
+                     name = "BIC difference (HAND - TWI)") +
+  # n species with bic diff < -2 (HAND pref)
+  annotate("text", x = -7, y = 0.05, col="#D55E00",
+           label = paste0(sum(BIC_df$Diff < -2), "/", nrow(BIC_df))) +
+  # n species with bic diff >2 (TWI pref)
+  annotate("text", x = 9, y = 0.05, col="#0072B2",
+           label = paste0(sum(BIC_df$Diff > 2), "/", nrow(BIC_df))) +
+  ylab("Density")
 
-ggplot(BIC_df, aes(x= BIC_HAND, y= BIC_TWI)) +
-  geom_point() +
-  geom_abline(col= "red")
+ggsave("BIC_HAND_vs_TWI.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+       width = 15, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+```{r}
+library(patchwork)
+library(ggpubr)
+var <- BIC_df %>% 
+  select(Species, BIC_HAND, BIC_TWI) %>% 
+  gather(Variable, BIC, -Species) # = pivot_longer
+
+g1 <- ggpaired(var, x = "Variable", y = "BIC", # boxplots liés par des lignes
+               color = "Variable", line.color = "gray", line.size = 0.4,
+               palette = "jco") +
+  stat_compare_means(paired = TRUE, vjust=-.8, hjust=.5) + # Mean Comparison P-values
+  # test de la somme des rangs de Wilcoxon : test statistique non paramétrique qui permet de tester l'hypothèse selon laquelle les distributions de chacun de deux groupes de données sont proches
+  # not significantly different
+  scale_y_log10() +
+  guides(color = FALSE) +
+  ylab("BIC") +
+  theme(axis.title.x = element_blank()) +
+  scale_x_discrete(labels = c("HAND", "TWI"))
+
+shape <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv") %>%
+  select(Species, BIC_Affine, BIC_Quadratic) %>%
+  gather(Variable, BIC, -Species)
+
+g2 <- ggpaired(shape, x = "Variable", y = "BIC",
+               color = "Variable", line.color = "gray", line.size = 0.4,
+               palette = "jco") +
+  stat_compare_means(paired = TRUE, vjust=-.8, hjust=.45) + # Mean Comparison P-values
+  # test de la somme des rangs de Wilcoxon : test statistique non paramétrique qui permet de tester l'hypothèse selon laquelle les distributions de chacun de deux groupes de données sont proches
+  # significantly different
+  scale_y_log10() +
+  guides(color = FALSE) +
+  ylab("BIC") +
+  theme(axis.title.x = element_blank()) +
+  scale_x_discrete(labels = c("Affine", "Quadratic"))
+
+g1 + g2
+
+ggsave("BIC_topo_form_variable.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+       width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
 

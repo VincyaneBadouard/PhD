@@ -46,11 +46,14 @@ S_25 <- read_csv("~/PhD/Inventories/Data/Piquets_ALT/C25_20240327.csv") %>%
          q.length_1 = as.numeric(q.length_1),
          q.length.Y = as.numeric(q.length.Y),
          q.length_2 = as.numeric(q.length_2)) %>% 
+  group_by(plot, quadra.nb., quadra.n_1, q.length.X, q.length_1, q.length.Y, q.length_2) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
   unique() %>% na.omit()
 
 nrow(S_14) == nrow(S_15)
 nrow(S_19) == nrow(S_20_1)
-nrow(S_20_2) == nrow(S_25)
+nrow(S_20_2) == nrow(S_25) # S_25 11 quadrats dupliqués mais distances dif ...
 
 ```
 
@@ -80,7 +83,6 @@ summary(S_25) # quadra.nb. tout à 0; quadra.n_1 max 3, ya pas tout je pense (de
 # Manage column names differences
 ```{r}
 S_13_18_23_24 <- S_13_18_23_24 %>% 
-  mutate(Num = rep(1:100, length.out = n())) %>% 
   rename(Subplot = plot,
          Q_lengthX = q.length.X,
          Q_lengthX1 = q.length.X2,
@@ -88,10 +90,12 @@ S_13_18_23_24 <- S_13_18_23_24 %>%
          Q_lengthY1 = q.length.Y2)
 
 S_20_1 <- S_20_1 %>% 
-  rename(Q_lengthX = Qlenght_X)
+  rename(Q_lengthX = Qlenght_X) %>% 
+  arrange(Num)
 
 S_20_2 <- S_20_2 %>% 
-  rename(Q_lengthX = Qlenght_X)
+  rename(Q_lengthX = Qlenght_X) %>% 
+  arrange(Num)
 
 S_25 <- S_25 %>% 
   rename(Subplot = plot,
@@ -100,12 +104,29 @@ S_25 <- S_25 %>%
          Q_lengthX = q.length.X,
          Q_lengthX1 = q.length_1, 
          Q_lengthY = q.length.Y,
-         Q_lengthY1 = q.length_2) 
+         Q_lengthY1 = q.length_2) %>% 
+  unite(quadra.nb.X, quadra.nb.Y, col = "quadra", sep = "_", remove = F)
 
 # Transformer Num en quadra.nb.X et quadra.nb.Y pour S_14, S_15, S_19, S_20_1 (demander à Léa)
 # Num = 1 : quadra.nb.X = 0 et quadra.nb.Y = 0 ?
 # Num = 2 : quadra.nb.X = 0 et quadra.nb.Y = 0 ?
 
+```
+
+```{r}
+diffdf::diffdf(S_20_1, S_20_2) # -> keep S_20_1 because no NA
+```
+
+```{r}
+# dupli <- S_25[duplicated(S_25 %>% select(quadra)), ] %>% select(quadra)
+# dupli <- S_25 %>% filter(quadra %in% dupli$quadra) %>% arrange(quadra)
+
+S_25 <- S_25 %>% 
+  group_by(quadra) %>% 
+  filter(N == max(N)) %>% # take the measurement the most abundant
+  ungroup()
+
+# any(duplicated(S_25$quadra))
 ```
 
 # Quadra number
@@ -125,28 +146,48 @@ etc
 # S_13_18_23_24 %>% 
 #   select(Num, quadra.nb.X, quadra.nb.Y) %>% unique() # non pcq ce n'est pas en spirale
 
-quadra.nb.X = sort(rep(0:9, 100))
-  quadra.nb.Y = seq(0, 9, lenght.out = n())
-  
-```
+# data <- S_14
+datalist <- list()
 
-# Bind
-```{r}
-Stakes <- bind_rows(S_13_18_23_24, S_20_1, S_20_2, S_25)
-unique(Stakes$Comments)
-```
+quadra_code <- function(data){
+  if(!all(c("quadra.nb.X", "quadra.nb.Y") %in% names(data)) & "Num" %in% names(data)){
+    data <- data %>% 
+      arrange(Num) %>% 
+      mutate(
+        quadra.nb.X = sort(rep(0:9, length.out = 100)),
+        quadra.nb.Y = rep(c(0:9, 9:0), length.out = 100)
+      )
+  }
+  return(data)
+}
 
+# Code quadrats & bind
+Stakes <- bind_rows(lapply(list(S_13_18_23_24, S_14, S_15, S_19, S_20_1, S_25), function(data) quadra_code(data)))
+nrow(Stakes) == nrow(S_13_18_23_24) + nrow(S_14) + nrow(S_15) + nrow(S_19) + nrow(S_20_1) + nrow(S_25)
+unique(Stakes$Subplot) # 9
+```
 # Missing stake
 Max length 100 or 109 : pas de piquet -> 10 m default
 ```{r}
+Com <- Stakes %>% filter(!is.na(Comments))
+# no piquet -> 10
+
+Na <- Stakes[!complete.cases(Stakes %>% select(quadra.nb.X,quadra.nb.Y, Q_lengthX, Q_lengthX1, Q_lengthY, Q_lengthY1)), ]
+
 Stakes <- Stakes %>% 
-  mutate(Q_lengthX = ifelse(Q_lengthX >=100, 10, Q_lengthX),
-         Q_lengthX1 = ifelse(Q_lengthX1 >=100, 10, Q_lengthX1), 
-         Q_lengthY = ifelse(Q_lengthY >=100, 10, Q_lengthY),
-         Q_lengthY1 = ifelse(Q_lengthY1 >=100, 10, Q_lengthY1))
+  mutate(Q_lengthX = ifelse(Q_lengthX >=100 | is.na(Q_lengthX), 10, Q_lengthX),
+         Q_lengthX1 = ifelse(Q_lengthX1 >=100 | is.na(Q_lengthX1), 10, Q_lengthX1), 
+         Q_lengthY = ifelse(Q_lengthY >=100 | is.na(Q_lengthY), 10, Q_lengthY),
+         Q_lengthY1 = ifelse(Q_lengthY1 >=100 | is.na(Q_lengthY1), 10, Q_lengthY1))
+
+summary(Stakes)
+```
+```{r}
+Stakes <- Stakes %>% select(-c(quadra, N))
+write.csv(Stakes, "~/PhD/Inventories/Data/Piquets_ALT/Stakes_measurments_Paracou_ALT.csv")
 ```
 
-# Eric's format
+# Eric's format (en attente Eric)
 En plus de tes données, j’ai ajouté les « quadrats virtuels », c’est-à-dire les distances entre les piquets des bordures sud et ouest des parcelles pas encore mesurées : ce sont simplement les distances des bordures nord et est des placettes contigües.
 
 plot	1- :ha subplot number
@@ -156,11 +197,11 @@ d_left	dis: tance from the point to its left neighbor (point_x-1)
 d_down	dis: tance from the point to its down neighbor (point_y-1)
 
 ```{r}
-
-``Stakes %>% 
+Stakes %>% 
   rename(subplot = Subplot,
          point_x	= quadra.nb.X, # pas exactement il n'a pas 0-0 mais 0-10
          point_y	= quadra.nb.Y,
-         d_left	=, 
-         d_down =)`
+         d_left	= , # Q_lengthX du quadrat à sa gauche
+         d_down = ) # Q_lengthY du quadrat du dessous
 
+```

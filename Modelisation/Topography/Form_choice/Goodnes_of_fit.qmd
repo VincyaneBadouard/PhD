@@ -13,6 +13,7 @@ code-fold: true
 library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
+library(scales)
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
 
@@ -79,10 +80,35 @@ nrow(BIC_df %>% filter(Affine==F,Quadratic==F)) # 10 with no significant diff
 
 ```{r}
 write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv")
+# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv")
 ```
 
 ```{r}
 BIC_df %>% filter(Quadratic==T) %>% arrange(desc(Diff))
+```
+```{r}
+S_sqrt <- function(x){sign(x)*sqrt(abs(x))}
+IS_sqrt <- function(x){x^2*sign(x)}
+S_sqrt_trans <- function() trans_new("S_sqrt",S_sqrt,IS_sqrt)
+
+ggplot(BIC_df, aes(Diff)) +
+  geom_density(fill = "lightgrey", col = NA) +
+  theme_minimal() +
+  geom_vline(xintercept = 0) +
+  geom_vline(xintercept = c(-2, 2), linetype = "dashed") +
+  scale_x_continuous(trans = "S_sqrt", 
+                     breaks = c(-10, -2, 0, 2, 10, 100),
+                     name = "BIC difference (affine - quadratic)") +
+  # n species with bic diff < -2 (affine pref)
+  annotate("text", x = -10, y = 0.015, col="#009E73",
+           label = paste0(sum(BIC_df$Diff < -2), "/", nrow(BIC_df))) +
+  # n species with bic diff >2 (quadratic pref)
+  annotate("text", x = 10, y = 0.015, col="#FC4E07",
+           label = paste0(sum(BIC_df$Diff > 2), "/", nrow(BIC_df))) +
+  ylab("Density")
+
+ggsave("BIC_affine_vs_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+       width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 # List version

@@ -96,11 +96,11 @@ HLE <- function (
               1, is.numeric(variable.max), length(variable.max) == 
               1, !is.na(variable.min))
   
-  if (!missing(variable.fallback)) 
+  if(!missing(variable.fallback)) 
     stopifnot(is.numeric(variable.fallback), length(variable.fallback) == 1,
               !is.na(variable.fallback))
   
-  if (missing(radius)) 
+  if(missing(radius)) 
     radius <- max(getVoxelSize(vxsp)) # if no radius take the max voxelsize
   stopifnot(is.numeric(radius), length(radius) == 1, !is.na(radius))
   
@@ -113,26 +113,33 @@ HLE <- function (
   # Put an NA if the pulse number is too low
   vx.na <- vx[nbSampling < pulse.min] # subset of voxels below sampling threshold level
   vx.pool <- vx # all voxels can contribute to local estimate!
+  # nrow(vx.na)/nrow(vx)*100 # 77% voxels with no suffisent sampling
+  
   radius <- max(getVoxelSize(vxsp), radius) # radius would be at less the voxel size 
   
   # Get neighbors in immediate neighborhood (27 nearest voxels including target)
   # This k value could be set as a parameter of the HLE function (for ex. could be 125, i.e.a full step larger)
   
-  neighbors <- RANN::nn2(data = getPosition(vxsp, vx.pool), # Nearest Neighbor Search
-                         query = getPosition(vxsp, vx.na),
-                         k = 27, # k = 27 : 3 voisins
+  neighbors <- RANN::nn2(data = getPosition(vxsp, vx.pool), # Pool to search
+                         query = getPosition(vxsp, vx.na), # voxes of interest
+                         # The maximum number of nearest neighbours to compute
+                         k = 27, # k = 27 : 3 voisins # including target
                          searchtype = "radius", radius = radius)
-  
-  neighbors <- neighbors$nn.idx # keep list of indices only
+  # -> une matrice où chaque ligne correspond à un point et contient les indices de ses voisins les plus proches
+  neighbors <- neighbors$nn.idx # the near neighbour indices
+  # sum(neighbors==0)/length(neighbors)*100 # 0.6% missing neighbors
+
   
   # Recompute attenuation from local neighborhood : sum(bsIntercepted)/sum(weightedFreepathLength)
-  fill.value <- apply(
-    neighbors, 1,
+  # each row of index is a point of interest
+  fill.value <- apply( # long
+    neighbors, 1, # for a matrix 1 indicates rows
     function(nghb) vx.pool[as.vector(nghb), 
                            sum(get(variable.name1), na.rm = T)/sum(get(variable.name2), na.rm=T)]
   )
   
-  fill.value[which(is.nan(fill.value))] <- NA # NaN to NA. why would this ever happen?
+  any(fill.value==0 | is.na(fill.value))
+  fill.value[which(is.nan(fill.value))] <- NA # NaN -> NA. why would this ever happen?
   
   # When no value was found, take the fallback value
   if (!missing(variable.fallback)) 
@@ -176,7 +183,8 @@ vxsp <- readVoxelSpace(
   #   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
   
   # laz pour 25 ha high alt intensity
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_intensity1m_testnewEB.vox"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_4ha_buffer_intensity1m_testnewEB.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_intensity1m_testnewEB.vox"
 
 )
 
