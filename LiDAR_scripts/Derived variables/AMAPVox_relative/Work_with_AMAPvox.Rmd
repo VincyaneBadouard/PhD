@@ -250,7 +250,7 @@ plot(PC)
 # Classifier les points sol
 ```{r}
 mntROI <- rast(
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc")
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc")
 # Normaliser la hauteur du sol
 PC_norm <- lidR::normalize_height(PC, mntROI) # applati le relief
 # plot(PC_norm) # sol plat
@@ -339,7 +339,8 @@ writeLAS(PC,
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_withoutextrabytes.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_withoutextrabytes.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/LAZ/P16_2023_25ha_HighAlt_buffer50m_intensitycor.laz"
          
 )
 ```

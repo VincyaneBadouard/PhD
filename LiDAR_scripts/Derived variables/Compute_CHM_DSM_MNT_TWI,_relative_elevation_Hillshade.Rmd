@@ -15,7 +15,7 @@ library(lidR)
 library(foreach)
 library(tidyterra)
 library(sf)
-
+knitr::opts_knit$set(root.dir = "D:/Mes Donnees/PhD/R_codes/PhD")
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -398,6 +398,7 @@ plot(ALT)
 
 st_write(ALT, "D:/Mes Donnees/PhD/SIG_data/ALT.shp", driver = "ESRI Shapefile")  # create to a shapefile
 ```
+
 # Clip for just the ALT zone
 ```{r}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Clip_raster.R")
@@ -451,3 +452,64 @@ ggplot() +
   theme_classic() +
   coord_sf()
 ```
+
+# For 25ha + 50m buffer
+```{r}
+P16buffer <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp")  %>% 
+  st_as_sf()
+crs(P16buffer)
+```
+
+## Clip for just the 25ha + buffer zone
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Clip_raster.R")
+
+Plot16_25ha_buffer_mnt <- Rslt <- Clip_raster(file_to_clip = "test/Paracou_MNT_cor.tif",
+                                       mask = P16buffer, 
+                                       outpout = "test/Plot16_25ha_buffer_mnt.tif")
+
+
+Plot16_25ha_buffer_TWI <- Clip_raster(file_to_clip = "test/Paracou_TWI_5m.tif",
+                               mask = P16buffer, 
+                               outpout = "test/Plot16_25ha_buffer_TWI_5m.tif")
+
+Plot16_25ha_buffer_RE <- Clip_raster(file_to_clip = "test/re.tif",
+                              mask = P16buffer, 
+                              outpout = "test/Plot16_25ha_buffer_RelativeElev.tif")
+```
+## Plot the ALT rasters
+```{r}
+# MNT
+ggplot() + 
+  geom_spatraster(data = Plot16_25ha_buffer_mnt, aes(fill = Z)) +
+  scale_fill_gradientn(name = "Elevation (m)",
+                       colors = terrain.colors(30, rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(P16buffer, "LINESTRING")) +
+  ggtitle("Paracou P16 + 50 m buffer: MNT - ALS 2023") +
+  theme_classic() +
+  coord_sf()
+
+# TWI
+ggplot() + 
+  geom_spatraster(data = Plot16_25ha_buffer_TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(9, "Blues", rev = T),
+                       na.value="white") + 
+  geom_sf(data = sf::st_cast(P16buffer, "LINESTRING")) +
+  ggtitle("Paracou P16 + 50 m buffer: TWI - ALS 2023") + 
+  theme_classic() +
+  coord_sf()
+
+# Relative elevation
+ggplot() + 
+  geom_spatraster(data = Plot16_25ha_buffer_RE, aes(fill = re)) +
+  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+                       colors = hcl.colors(25, "Blues"),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(P16buffer, "LINESTRING")) +
+  ggtitle("Paracou P16 + 50 m buffer: HAND - ALS 2023") + 
+  theme_classic() +
+  coord_sf()
+```
+

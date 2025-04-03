@@ -80,7 +80,7 @@ HLE <- function (
     vxsp, # espace voxel
     variable.name1 = "bsIntercepted", # nbr de pulses interceptés par l'empreinte du faisceau = surface occluse dans le faisceau
     variable.name2 = "weightedFreepathLength", # longueur des trajets optiques pondérée par l'empreinte du faisceau
-    variable.min = -Inf, variable.max = Inf, # bornes pas forcément utiles
+    variable.min = 0, variable.max = 2, # bornes pas forcément utiles
     variable.fallback, #  valeur d'atténuation si l'algorithme n'en a pas trouvée
     radius = 2, # rayon de voisinage en mètre
     pulse.min = 25 # nbr de pulses satisfaisant pour faire une estimation locale (threshold)
@@ -127,8 +127,8 @@ HLE <- function (
                          searchtype = "radius", radius = radius)
   # -> une matrice où chaque ligne correspond à un point et contient les indices de ses voisins les plus proches
   neighbors <- neighbors$nn.idx # the near neighbour indices
-  # sum(neighbors==0)/length(neighbors)*100 # 0.6% missing neighbors
-
+  # sum(neighbors==0)/length(neighbors)*100 # 75% missing neighbors
+  
   
   # Recompute attenuation from local neighborhood : sum(bsIntercepted)/sum(weightedFreepathLength)
   # each row of index is a point of interest
@@ -137,26 +137,40 @@ HLE <- function (
     function(nghb) vx.pool[as.vector(nghb), 
                            sum(get(variable.name1), na.rm = T)/sum(get(variable.name2), na.rm=T)]
   )
+  # sum(is.na(vxsp@data$bsIntercepted))
+  # sum(is.na(vxsp@data$weightedFreepathLength))
+  range(na.omit(fill.value))
+  # sum(is.nan(fill.value))/length(fill.value)*100 # 91% of NaN
+  # sum(na.omit(fill.value==0))/length(fill.value)*100 # 2% of 0
+  # sum(na.omit(fill.value>2))/length(fill.value)*100 # 0.006% HLE >2
   
-  any(fill.value==0 | is.na(fill.value))
   fill.value[which(is.nan(fill.value))] <- NA # NaN -> NA. why would this ever happen?
   
   # When no value was found, take the fallback value
   if (!missing(variable.fallback)) 
     fill.value[which(is.na(fill.value))] <- variable.fallback
-  na.count <- length(which(is.na(fill.value))) # how many NA are left?
+  na.count <- length(which(is.na(fill.value))) # 0 NA
   
   if (na.count > 0) # if any NAs remain
     warning(paste(na.count, " NA left", "\nSomething went wrong somewhere..."))
   
-  # Apply the thresholds
-  fill.value[which(fill.value > variable.max)] <- variable.max
-  fill.value[which(fill.value < variable.min)] <- variable.min
-  
   # HLE = bsIntercepted/weightedFreepathLength
   vxsp@data[, HLE := .(get(variable.name1)/get(variable.name2))] # default attenuation
-  vxsp@data[neighbors[,1], HLE := fill.value] # modified attenuation
-  na.count <- length(which(is.nan(vxsp@data$HLE)))
+  # range(na.omit(vxsp@data$HLE))
+  # ggplot(vxsp@data, aes(x = HLE)) + geom_histogram() + scale_x_continuous(trans="log") +  ggtitle("Before fill empty voxel")
+
+
+  vxsp@data[neighbors[,1], HLE := fill.value] # modified attenuation. [,1] for the interest voxel
+  # sum(vxsp@data$HLE>2) # 42394
+  
+  # Apply the thresholds
+  vxsp@data[HLE>variable.max, HLE := variable.max]
+  vxsp@data[HLE<variable.min, HLE := variable.min]
+  
+  # ggplot(vxsp@data, aes(x = HLE))  + geom_histogram() + scale_x_continuous(trans="log") + ggtitle("After fill empty voxel")
+
+  
+  na.count <- length(which(is.nan(vxsp@data$HLE))) # 0
   
   if (na.count > 0) # if any NAs remain
     warning(paste(na.count, " NA left", "\nSomething went wrong somewhere..."))
@@ -183,9 +197,10 @@ vxsp <- readVoxelSpace(
   #   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_intensity1m_crop.vox"
   
   # laz pour 25 ha high alt intensity
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_4ha_buffer_intensity1m_testnewEB.vox"
+   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16C19_2023_1ha_HighAlt_intensity1m_testnewEB.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_4ha_buffer_intensity1m_testnewEB.vox"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_intensity1m_testnewEB.vox"
-
+  
 )
 
 
@@ -329,10 +344,10 @@ path <-
   # DZ
   "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/Poorly20_smpld_vxl_DZbuffer_Proportion2023HighAlt1m.csv"
 
-  # UAV ----
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/Poorly20_smpld_vxl_Proportion2023UAV2m.csv"
- # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/Poorly20_smpld_vxl_Proportion2023UAV1m.csv"
- 
+# UAV ----
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/Poorly20_smpld_vxl_Proportion2023UAV2m.csv"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/Poorly20_smpld_vxl_Proportion2023UAV1m.csv"
+
 # ALS ----
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/Poorly25_smpld_vxl_Proportion2023HighAlt1m.csv"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/Intensity_1m/Poorly20_smpld_vxl_Proportion2023LowAlt1m.csv"
@@ -410,7 +425,7 @@ gc()
 fullcanopy <- HLE(fullcanopy, # voxel space (only vegetation)
                   variable.name1 = "bsIntercepted",
                   variable.name2 = "weightedFreepathLength",
-                  variable.min = -Inf, variable.max = Inf, 
+                  variable.min = 0, variable.max = 1.5, 
                   variable.fallback = fbv, radius = 2, pulse.min = pulsemin)
 
 gc()
@@ -518,12 +533,12 @@ range(vxsp@data$Transmittance)
 path <- 
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_PadHLE_intensity2m.vox"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_PadHLE_intensity1m.vox"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity1m.vox"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity2m.vox"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin44.vox"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_LowAlt_PadHLE_intensity2m.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_1m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity1m.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_HighAlt_PadHLE_intensity2m.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE_pulseMin44.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_2m/P16_2023_4ha_buffer_LowAlt_PadHLE_intensity2m.vox"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Intensity_1m/P16_2023_4ha_buffer_LowAlt_PadHLE_intensity1m.vox"
- # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/Paracou_HighAlt_DZ_buffer_PadHLE_intensity1m.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/AMAPVox/Paracou_HighAlt_DZ_buffer_PadHLE_intensity1m.vox"
   
   # laz pour 25 ha high alt intensity
   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity1m_testnewEB.vox"

@@ -1,0 +1,126 @@
+---
+title: "Diagnose species"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+params:
+  species: Symphonia_sp.1
+---
+
+```{r setup, include=F}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+```
+
+```{r fit}
+print(params$species)
+
+fit <- list()
+tryCatch({
+  chain_path <- file.path("Chains", "Hybrid", params$species)
+  fit <- as_cmdstan_fit(list.files(chain_path,
+                                   full.names = TRUE))},
+  error=function(e){cat("ERROR :",params$species, conditionMessage(e), "\n")}
+)
+# names(fit)
+
+```
+
+```{r chains}
+fit$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+  mcmc_trace()
+```
+
+```{r posteriors}
+fit$draws(c("a", "O", "gamma", "tau")) %>% 
+  mcmc_dens()
+```
+
+```{r predictions}
+DATA <- fit$summary("p") # p posterior
+
+Opt <- fit$summary("O") # p posterior
+fit$draws("O")
+
+# prediction environment 
+DATA <- DATA %>% 
+  rowwise() %>% 
+  mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
+  mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
+  mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 100)[Light]) %>% # -7.308724e+00 , 8.941571e-08
+  mutate(TWI = seq(3.888584, 11.025112, length.out = 100)[Topo]) # 3.888584 - 11.025112
+
+
+```
+
+
+```{r}
+ggplot(DATA, aes(x = logTransmittance)) +
+  theme_minimal() +
+  geom_point(aes(y = median), size=0.7) + # p posterior median
+  geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
+  geom_vline(xintercept  = fit$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
+  geom_vline(xintercept  = fit$summary("O")$q5, linetype="dashed") + # Opt Q5%
+  geom_vline(xintercept  = fit$summary("O")$q95, linetype="dashed") + # Opt Q95%
+  ylab("Presence probabiblity median")
+```
+
+# Heatmap
+```{r}
+library(viridis)
+ggplot(DATA, aes(x=TWI, y=logTransmittance, fill = median)) + 
+  theme_minimal() +
+  geom_tile() + # heatmap
+  scale_fill_viridis(name="Presence probabiblity")
+```
+
+```{r}
+# Proba to be in the light across TWI
+ggplot(DATA, aes(x=TWI, y= median, col= logTransmittance)) +
+  theme_minimal() +
+  geom_point() +
+  scale_color_viridis() +
+  ylab("Presence probabiblity median")
+
+
+ggplot(DATA, aes(x= logTransmittance, y= median, col= TWI)) +
+  theme_minimal() +
+  geom_point() +
+  scale_color_viridis() +
+  ylab("Presence probabiblity median")
+
+
+# Optimum move
+ggplot(DATA, aes(x=TWI, y= fit$summary("O")$median)) +
+  geom_point() 
+
+```
+```{r}
+library(RColorBrewer)
+cls <- colorRampPalette(rev(brewer.pal(11, 'RdYlBu')))(100)
+
+lattice::wireframe(median ~ TWI + logTransmittance,
+                   data = DATA,
+                   zlab = list("Presence prob.", rot=90),
+                   zlim = c(min(DATA$median), max(DATA$median)),
+                   drape = TRUE, col.regions = cls, scales = list(arrows = F),  
+                   main='Light x topography niche', xlab='TWI', ylab='logTransmittance',
+                   par.settings = list(axis.line = list(col = 'transparent')),
+                   screen=list(z = 120, x = -70, y = 3))
+
+# 3D fixe
+plot3D::scatter3D(x = DATA$TWI, y = DATA$logTransmittance, z = DATA$median, colvar = DATA$median)
+
+# 3D pivotable : 
+plotly::plot_ly(DATA, x = ~TWI, y = ~logTransmittance, z = ~median, color = ~median)
+
+rgl::plot3d(x = DATA$TWI, y = DATA$logTransmittance, z = DATA$median,
+            xlab = "TWI", ylab = "logTransmittance", zlab = "Presence prob.", 
+            col = "black") 
+
+```
+

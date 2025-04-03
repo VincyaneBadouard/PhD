@@ -15,50 +15,8 @@ Inv <- Inv %>%
   mutate(logTransmittance =  log(Transmittance))
 ```
 
-```{r, eval=F}
-
-## Only sp enough abundant in < and > 10 cm DBH
-data <- Inv %>%
-  na.omit() %>% 
-  mutate(ALT = ifelse(DBHcor <10, T, F))
-
-Guyafor <- data %>% # 808
-  filter(!ALT) %>% 
-  group_by(ScientificName) %>%
-  mutate(N = n()) %>%
-  ungroup() %>%
-  # Take only sp >= 30 ind
-  filter(N >= 30)
-
-
-ALT <- data %>% #5887
-  filter(ALT) %>%  
-  filter(ScientificName %in% Guyafor$ScientificName | Strategy=="Understory species") %>%
-  group_by(ScientificName) %>%
-  mutate(N = n()) %>%
-  ungroup() %>%
-  # Take only sp >= 30 ind
-  filter(N >= 30)
-
-s <- Guyafor$ScientificName %in% ALT$ScientificName
-
-Guyafor <- Guyafor %>% # 736
-  dplyr::filter(s) 
-
-data <- ALT %>% #6623
-  bind_rows(Guyafor) %>% 
-  arrange(Strategy, N) %>% 
-  mutate(cl = ifelse(Strategy =="Understory species" & !is.na(Strategy), "#009E73",
-                     "#E7B800")) %>% # color per sp strategy
-  select(-N) %>% 
-  group_by(ScientificName) %>% 
-  mutate(N = n()) %>% 
-  ungroup() 
-
-nrow(data)==(nrow(ALT)+nrow(Guyafor))
-length(unique(data$ScientificName)) # 34 sp (4ha)
-
-rm(Inv, ALT, Guyafor, s)
+```{r}
+summary(Inv)
 ```
 
 # Create presence-absence data format for each species

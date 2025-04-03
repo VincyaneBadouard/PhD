@@ -51,7 +51,7 @@ matrix<lower=0, upper=1>[N_L_p, N_T_p] p ;
 //     p[i,j] = inv_logit(a*(Lightp[i] - O)^2 + gamma + tau*Topographyp[j]); // plus couteux
 
 for(i in 1:N_T_p)
-p[,i] = inv_logit(a*(Lightp - O)^2 + gamma + tau*Topographyp[i]); // i in column
+p[,i] = inv_logit(a*(Lightp - O)^2 + gamma + tau*Topographyp[i])*adj; // i in column
 
 // p[,i] = to_row_vector(inv_logit(a*(Environmentp - O + iota*log(DBHp[i]))^2 + gamma));  
 

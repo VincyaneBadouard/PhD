@@ -7,7 +7,7 @@
 #' @return The raster clipped and save the raster clipped in the *oupout* path
 #' @export
 #' @import sf
-#' @import terra
+#' @import terra, raster
 #'
 #' @examples
 #' Rslt <- Clip_raster(file_to_clip = "test/Paracou_MNT_cor.tif",
@@ -23,8 +23,8 @@ Clip_raster <- function(
   raster <- terra::rast(file_to_clip)
   
   mask <- st_set_crs(mask, 2972) # attribuer le crs
-  raster::crs(raster) <- st_set_crs(mask) # attribuer le crs
-  
+  raster::crs(raster) <- terra::crs("EPSG:2972") # attribuer le crs
+
   cro <- terra::crop(raster, mask)
   Rslt <- terra::mask(cro, mask)
   

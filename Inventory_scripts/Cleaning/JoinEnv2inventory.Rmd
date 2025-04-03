@@ -22,10 +22,10 @@ warning("Recalculer TWI & HAND avec biffer si encore des NA") # !!!!!
 MNT <- terra::rast("~/PhD/Env_data_forModel/dtm2023_HighAlt_25ha_buffer.asc")
 
 # TWI
-TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
+TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16_25ha_buffer_TWI_5m.tif")
 
 # Height Above the Nearest Drainage (HAND)
-relelev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
+relelev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16_25ha_buffer_RelativeElev.tif")
 
 # Zone
 P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
@@ -82,7 +82,7 @@ Inventory <- Inventory %>% cbind(alt) %>% cbind(twi) %>% cbind(re) # 47 850
 # Check
 ```{r}
 any(is.na(Inventory$Elevation))
-any(is.na(Inventory$TWI)) # "Recalculer TWI & HAND avec biffer si selectionné et encore des NA !!!
+any(is.na(Inventory$TWI)) 
 any(is.na(Inventory$HAND))
 ```
 
