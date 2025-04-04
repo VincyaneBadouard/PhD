@@ -27,6 +27,7 @@ ggplot() +
   geom_point(data=grid, aes(x = x, y = y)) + # il faut mettre l'argument data sinon ça ne marche pas
   coord_fixed(ratio=1) # same axis size
 ```
+
 # ALT (9ha) stakes grid
 ```{r}
 ALT <- data.frame(expand.grid(

@@ -35,24 +35,29 @@ library(sf)
 # Read light file
 ```{r}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
-path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16C19_2023_1ha_HighAlt_Light_intensity2m_all2m.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
 
 # P16_2023_1ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 10201 obs
 # P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 491 401 obs
 
 Light <- ReadLightFile(path, skiplines=9)
 
-Light
-
 setnames(Light, "Period 1", "Transmittance")
+
+Light <- Light[Transmittance>0,]
 
 range(Light$Transmittance) # 0.000206811 - 1
 any(is.na(Light$Transmittance)) # FALSE
+nrow(Light[Transmittance<0.001, ])/nrow(Light)*100 # 0.2% 
 hist(Light$Transmittance)
 hist(Light$Z)
-hist(Light[Transmittance==0, Z])
+hist(Light[Transmittance<0.001, Z])
 hist(Light[Transmittance>=1, Z])
 
+```
+```{r}
+plotly::plot_ly(Light, x = ~X, y = ~Y, z = ~Z, color=~Transmittance)
 ```
 
 # Trees coordinates and height
@@ -82,9 +87,10 @@ data <- read.csv(
   "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv" # at final
 ) %>% 
   # rename(SubPlot = Subplot) %>%
+  filter(SubPlot == 19) %>% # TEMPORAIRE 1ha seulement 
   select(idTree, ScientificName, Strategy, Xutm, Yutm, DBHcor, TreeHeight)
 
-range(data$TreeHeight) # 1.443312 58.262187
+range(data$TreeHeight) # 1.980045 49.100730
 
 idTrees <- unique(data$idTree)
 data[!is.na(data$idTree) & duplicated(data$idTree),] 
@@ -94,14 +100,14 @@ data[!is.na(data$idTree) & duplicated(data$idTree),]
 
 ## Extract Zutm for each tree
 ```{r}
-MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25 ha_buffer.asc") 
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc") 
 crs(MNT) <- crs("EPSG:2972")
 
 datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
 datasf <- st_set_crs(datasf, st_crs(MNT)) 
 
 alt <- extract(MNT, datasf) %>% # extract z
-  rename(Zutm = `dtm2023_LowAlt_25 ha_buffer`)
+  rename(Zutm = `MNT_0.5m_IRD_500m_Paracou_284000_579500`)
 
 data <- data %>% cbind(alt) %>% setDT()
 # data
@@ -110,6 +116,8 @@ data <- data %>% cbind(alt) %>% setDT()
 ## Coordinates in local positions (use VOP) as light file
 ```{r}
 VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_25ha.txt"))
+
+data <- setDT(data)
 
 matrix <- as.matrix(data[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
 
@@ -124,11 +132,11 @@ datalocal <- datalocal %>% cbind(data[,.(idTree, ScientificName, Strategy, Xutm,
 ## Coordinates 1m above each tree
 ```{r}
 datalocal[,Z := Z+TreeHeight+1]
-range(datalocal$Z) # 9.68270 72.69894
+range(datalocal$Z) # 9.714853 63.537480
 
 datalocal[Z>max(Light$Z),]
 
-datalocal <- datalocal[Z<max(Light$Z),] # remove trees too big
+datalocal <- datalocal[Z<max(Light$Z),] # remove trees too tall
 
 
 # datalocal
@@ -145,8 +153,10 @@ summary(datalocal[, .(X, Y, Z)]) # max tree height too big 72m
 result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
                     query = datalocal[, .(X, Y, Z)], # [1,], # point of interest
                     # The maximum number of nearest neighbours to compute
-                    k = 30, # including target # 5, 8, 9, 15, 27, 30, 35, 35
-                    searchtype = "radius", radius = 3)
+                    k = 7, # including target # 5, 8, 9, 15, 27, 30, 35, 35
+                    searchtype = "radius", radius = 5)
+# k = 30, radius = 3
+# k = 7, radius = 5
 
 # une matrice où chaque ligne correspond à un point et contient les indices de ses voisins les plus proches
 index <- result$nn.idx # the near neighbour indices
@@ -173,11 +183,14 @@ ggplot(datalocal, aes(x=TreeHeight, y=Transmittance, col=Strategy)) +
 
 # Minimal values of transmittance
 ```{r, eval=F}
-range(datalocal$Transmittance) # 0.0006453574 1.0000000894
+range(na.omit(datalocal$Transmittance)) # 0.0006453574 1.0000000894
 hist(datalocal$Transmittance)
 datalocal[Transmittance<0.001,] # 15 trees
 range(datalocal[Transmittance<0.001, Z]) # 15.29792 23.84516
-(nrow(datalocal[Transmittance<0.001,])/nrow(datalocal))*100 # 0.03%
+(nrow(datalocal[Transmittance<0.001,])/nrow(datalocal))*100 # 0.4%
+
+hist(datalocal[Transmittance<0.001, TreeHeight])
+
 
 toodark <- datalocal[Transmittance<0.001,]
 length(unique(toodark$ScientificName)) # 14
@@ -190,6 +203,8 @@ table(toodark$ScientificName) # max 2 ind concerned
 # [1] 0.15 %
 # [1] 47 sp
 ```
+J'ai estimé la lumière des arbres sur 1ha, en prenant 8 voisins et un radius de 5m, on a des transmittances entre 0.001 et  0.996,
+sans moyenner le voisinage, les transmittances au dessu des arbres sont entre 0.0002 et 0.9999
 
 # Write data
 Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittance

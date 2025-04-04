@@ -12,7 +12,10 @@ Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Para
 
 ```{r}
 Inv <- Inv %>% 
-  mutate(logTransmittance =  log(Transmittance))
+  mutate(logTransmittance =  log(Transmittance)) %>% 
+  mutate(logTWI = log(TWI)) %>% 
+  mutate(logDBH = log(DBHcor))
+
 ```
 
 ```{r}

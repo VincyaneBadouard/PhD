@@ -167,6 +167,7 @@ elev <- elev %>%
   raster::mask(nopinotiere) # remove pinotière
 # plot(elev)
 ```
+
 # Where are MNT values <6 m (in the same zone or dispatched)
 ```{r, eval=F}
 MNT[MNT[] < 6] = NA 
@@ -177,6 +178,8 @@ TWI <- TWI %>%
   crop(MNT) %>% 
   mask(MNT)
 # plot(TWI)
+
+TWI <- aggregate(TWI, fact=5) # to reput at 5 m res
 
 elev <- elev %>% 
   resample(MNT) %>% 
@@ -221,9 +224,9 @@ ggsave("Paracou_P16_altitude_distrib_filtr6m.png",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
 # TWI
-TWI$Paracou_TWI_5m # 3.888584 - 13.227507
-terra::global(TWI, fun="mean", na.rm=TRUE)[,1] # 6.761383
-sqrt(terra::global(TWI, fun="sd", na.rm=TRUE)[,1]) # 1.25684
+TWI$Paracou_TWI_5m # 3.948909 - 10.882358
+terra::global(TWI, fun="mean", na.rm=TRUE)[,1] # 6.501359
+sqrt(terra::global(TWI, fun="sd", na.rm=TRUE)[,1]) # 1.157368
 hist(TWI$Paracou_TWI_5m) 
 ggplot() +
   geom_histogram(data= TWI, aes(x=Paracou_TWI_5m),

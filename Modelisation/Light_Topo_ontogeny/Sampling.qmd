@@ -48,19 +48,24 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 
 # DataM
 ```{r, dataM}
-Np <- 100 # number of predictions
+Np <- 50 # number of predictions
+N_D_p = 4 # n DBH
+
 
 # les noms des var doivent etre les memes que dans le fichier stan
 dataM <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
                                            Presence = x$Presence,
                                            Light = x$logTransmittance,
                                            Topography = x$logTWI,
+                                           DBH = x$logDBH,
                                            # number of predictions
                                            N_L_p = Np, # light
                                            N_T_p = Np, # topography
+                                           N_D_p = N_D_p, # DBH
                                            # environment of predictions
                                            Lightp = seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np),
-                                           Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np))
+                                           Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np),
+                                           DBHp = log(c(2.5, 7.5, 15, 25)))
 )
 
 # seq(min(datalist[[1]]$logTWI), max(datalist[[1]]$logTWI), length.out = Np) # 1.358045 - 2.400176

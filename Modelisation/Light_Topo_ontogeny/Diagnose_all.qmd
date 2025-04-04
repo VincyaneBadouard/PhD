@@ -1,0 +1,127 @@
+---
+title: "Diagnose all"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+
+# sp <- c("Licania_membranacea" , "Lecythis_persistens", "Symphonia_sp.1", "Tachigali_melinonii",
+#         "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx", "Pouteria_singularis", "Ryania_speciosa") # 4 forms
+
+# sp <- "Symphonia_sp.1"
+
+Var <- c("TWI", "HAND")
+```
+
+```{r fit}
+fits <- list()
+for(S in sp){
+  for(V in Var){
+    tryCatch({
+      chain_path <- file.path("Chains", "Affine", V, S)
+      fits[[S]][[V]] <- as_cmdstan_fit(list.files(chain_path,
+                                                  full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, V, conditionMessage(e), "\n")}
+    )
+  }
+}
+# names(fits[["Symphonia_sp.1"]])
+```
+
+```{r BIC list}
+BIC <- list()
+
+for(S in sp){
+  for(V in Var){
+    
+    k <- length(fits[[S]][[V]]$metadata()$stan_variables[!fits[[S]][[V]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]) # parameters nbr
+    N <- 47850 # observations nbr
+    L <- max(fits[[S]][[V]]$draws("lp__"))# the maximized value of the likelihood function of the model (fits[[f]]$summary("lp__"))
+    
+    BIC[[S]][[V]] <- k*log(N) - 2*L
+    
+  }
+}
+```
+
+```{r predictions, eval=F}
+g <- lapply(names(fits[[1]]), function(f){
+  # f = "HAND"
+  
+  fits[[1]][[f]]$summary("p") %>% # p posterior
+    mutate(x = seq(5.7325, 23.61375, length.out = 100)) %>% # prediction environment
+    ggplot(aes(x = x)) +
+    geom_point(aes(y = median), size=0.7) + # p posterior median
+    geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
+    # geom_vline(xintercept  = fits[[f]]$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
+    # geom_vline(xintercept  = fits[[f]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
+    # geom_vline(xintercept  = fits[[f]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
+    # facet_wrap(~ var1 + var2) +
+    ggtitle(f) + # gsub("_", " ", f)
+    theme_minimal() +
+    theme(axis.title = element_blank())
+})
+
+cowplot::plot_grid(plotlist = g)
+```
+
+
+```{r predictions}
+Sys.time()
+
+plist <- list()
+
+for(s in sp){
+  plist[[s]] <- local({
+    
+    g <- lapply(names(fits[[s]]), function(v){
+      # v = "TWI"
+      
+      if(v=="TWI") xtit <- "TWI"
+      if(v=="HAND") xtit <- "HAND (m)"
+      
+      
+      DATA <- fits[[s]][[v]]$summary("p") # p posterior
+      # prediction environment 
+      if(v=="HAND") DATA$x <- seq(-0.37, 23.34, length.out = 100)
+      if(v=="TWI") DATA$x <- seq(3.88, 11.02, length.out = 100)
+      
+      ggplot(DATA, aes(x = x)) +
+        geom_point(aes(y = median), size=0.7) + # p posterior median
+        geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
+        
+        annotate("text", # BIC
+                 label = paste("BIC =", round(BIC[[s]][[v]],0)),
+                 x = Inf, hjust= 1, y=Inf, vjust = "top") +
+        
+        labs(title = s, x= xtit, y = "Presence probability") + #paste(s, "-", f)
+        theme_minimal()
+      # theme(axis.title = element_blank())
+    })
+    
+    cowplot::plot_grid(plotlist = g, labels=c("TWI", "HAND"), vjust = 3, hjust=-2, label_size=12)
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
+# plots
+
+ggsave("Allsp_HAND_vs_TWI_niche.pdf",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       plots, width = 15, height = 10)
+
+Sys.time()
+```
+
+
