@@ -6,9 +6,9 @@ editor: visual
 
 # Objectives
 
-Aggregatives species :  
-- Anaxagorea_dolichocarpa  
-- Tabernaemontana_macrocalyx  
+Aggregatives species :\
+- Anaxagorea_dolichocarpa\
+- Tabernaemontana_macrocalyx
 
 # Packages
 
@@ -28,6 +28,7 @@ library(parallel)
 ```
 
 # Model results and their data
+
 ```{r}
 # Data
 load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
@@ -36,6 +37,7 @@ load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha.Rdata")
 ```
 
 # Extract agregative species
+
 ```{r}
 sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx")
 
@@ -45,4 +47,3 @@ fits <- fits[names(fits) %in% sp] # only species in sp
 save(datalist, file="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/AgregativeSp.Rdata")
 save(fits, file="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/AgregativeSp.Rdata")
 ```
-

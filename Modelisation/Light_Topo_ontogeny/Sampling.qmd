@@ -8,9 +8,6 @@ editor: source
 code-fold: true
 ---
 
-Objective:  
-Test the goodness of fit of the affine model with HAND or the TWI as predictor of the presence of the species
-
 # Species
 ```{r setup}
 library(tidyverse)
@@ -20,7 +17,7 @@ library(parallel)
 
 # sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
 
-sp <- "Symphonia_sp.1"
+sp <- "Pogonophora_schomburgkiana"
 
 ```
 
@@ -36,20 +33,10 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 # View(datalist[["Iryanthera_hostmannii"]])
 ```
 
-# Remove NA
-```{r, eval=F}
-# na.omit pour stan
-# datalist <- lapply(names(datalist), function(name) {
-#   datalist[[name]] <- datalist[[name]] %>% filter(!is.na(HAND))
-#   datalist[[name]]  # Return modified data frame
-# })
-# names(datalist) <- sp
-```
-
 # DataM
 ```{r, dataM}
 Np <- 50 # number of predictions
-N_D_p = 4 # n DBH
+N_D_p = 5 # n DBH
 
 
 # les noms des var doivent etre les memes que dans le fichier stan
@@ -64,10 +51,13 @@ dataM <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
                                            N_D_p = N_D_p, # DBH
                                            # environment of predictions
                                            Lightp = seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np),
-                                           Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np),
-                                           DBHp = log(c(2.5, 7.5, 15, 25)))
+                                           # Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np),
+                                           Topographyp = median(x[x$Presence==1,]$logTWI), # la topographie la plus représentée
+                                           DBHp = log(c(2.5, 7.5, 15, 25, 35)))
 )
-
+# median(datalist[[1]][datalist[[1]]$Presence==1,]$TWI)
+# hist(datalist[[1]][datalist[[1]]$Presence==1,]$TWI)
+# median(datalist[[1]][datalist[[1]]$Presence==1,]$logTWI)
 # seq(min(datalist[[1]]$logTWI), max(datalist[[1]]$logTWI), length.out = Np) # 1.358045 - 2.400176
 # seq(min(datalist[[1]]$logTransmittance), max(datalist[[1]]$logTransmittance), length.out = Np) # -7.308724e+00 , 8.941571e-08
 
@@ -100,7 +90,7 @@ if(!file.exists(chain_path)){
                       save_warmup = FALSE)
   fit$save_output_files(dir = chain_path)
 }
-Sys.time() # 15 min 1 sp
+Sys.time() # 30-45 min 1 sp
 ```
 
 ```{r sampling}

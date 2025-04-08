@@ -16,7 +16,7 @@ data {
   
 }
 transformed data {
-  real adj = N/sum(Presence); // inverse of species relative abundance
+  real adj = N * 1.0 / sum(Presence); // inverse of species relative abundance
 }
 /*parameters {
 real<lower=-300, upper=-0.02> a ; // beta2<0 : forced for a concave form  

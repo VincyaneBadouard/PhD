@@ -1,5 +1,18 @@
-# VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
-
+#' Relativ2UTM
+#' 
+#' @description
+#' Translate the relative coordinates (x and y columns) into UTM coordinates
+#' 
+#'
+#' @param data data.frame with x and y columns
+#' @param VOP Translation matrix
+#'
+#' @return The input data.frame with Xutm and Yutm columns
+#' @export
+#'
+#' @examples
+#' VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+#' 
 Relativ2UTM <- function(
     data,
     VOP

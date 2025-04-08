@@ -7,7 +7,7 @@ theme: cosmo
 editor: source
 code-fold: true
 params:
-  species: Symphonia_sp.1
+  species: Pogonophora_schomburgkiana
 ---
 
 ```{r setup, include=F}
@@ -31,15 +31,24 @@ tryCatch({
 ```
 
 ```{r chains}
-fit$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+fit$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
   mcmc_trace()
 ```
 
 ```{r posteriors}
-fit$draws(c("a", "O", "gamma", "tau")) %>% 
+fit$draws(c("a", "O", "gamma", "tau", "iota")) %>% 
   mcmc_dens()
 ```
+```{r}
+# Niche optimum
+fit$summary("O")$median
+# Ontogeny effect on the niche optimum
+fit$summary("iota")$median
+# Niche width
+fit$summary("a")$median
+```
 
+# Predictions
 ```{r predictions}
 DATA <- fit$summary("p") # p posterior
 
@@ -47,100 +56,92 @@ DATA <- fit$summary("p") # p posterior
 DATA <- DATA %>% 
   rowwise() %>% 
   mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
-  mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
-  mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 100)[Light]) %>% # -7.308724e+00 , 8.941571e-08
-  mutate(logTWI = seq(1.358045, 2.400176, length.out = 100)[Topo]) %>% # 1.358045 - 2.400176
-  mutate(Transmittance = round(exp(logTransmittance), 3)) %>%
-  mutate(TWI = exp(logTWI))
+  mutate(Onto = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
+  mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 50)[Light]) %>% # -7.308724e+00 , 8.941571e-08
+  mutate(DBH = c(2.5, 7.5, 15, 25, 35)[Onto]) %>% 
+  mutate(Transmittance = round(exp(logTransmittance), 3))
 
-```
+Optdata <- data.frame(DBH = c(1, 2.5, 7.5, 15, 25, 35),
+                      Oinit = fit$summary("O")$median,
+                      OinitQ5 = fit$summary("O")$q5, 
+                      OinitQ95 = fit$summary("O")$q95, 
+                      iota = fit$summary("iota")$median) %>% 
+  mutate(logDBH = log(DBH)) %>% 
+  mutate(O = Oinit + iota*logDBH) %>% 
+  mutate(OQ5 = OinitQ5 + iota*logDBH) %>% 
+  mutate(OQ95 = OinitQ95 + iota*logDBH)
 
-```{r}
-DATA %>% 
-  group_by(Topo) %>% 
-  # At light optimum (i.e. O median)
-  filter(abs(logTransmittance-fit$summary("O")$median) == min(abs(logTransmittance-fit$summary("O")$median))) %>% 
-  ggplot(aes(x = TWI)) +
-  theme_minimal() +
-  geom_point(aes(y = median), size=0.7) + # p posterior median
-  geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
-  ggtitle("At light optimum") +
-  ylab("Presence probabiblity median")
-```
-
-```{r}
-DATA %>% 
-  group_by(Light) %>% 
-  # At topo optimum (i.e. presence proba. max)
-  filter(median==max(median)) %>% 
-  ggplot(aes(x = logTransmittance)) +
-  theme_minimal() +
-  geom_point(aes(y = median), size=0.7) + # p posterior median
-  geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
-  geom_vline(xintercept  = fit$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
-  geom_vline(xintercept  = fit$summary("O")$q5, linetype="dashed") + # Opt Q5%
-  geom_vline(xintercept  = fit$summary("O")$q95, linetype="dashed") + # Opt Q95%
-  # scale_x_continuous(trans="log") +
-  ggtitle("At logTWI optimum") +
-  ylab("Presence probabiblity median")
 ```
 
 # Heatmap
-```{r}
+```{r heatmap, eval=F}
 library(viridis)
-ggplot(DATA, aes(x=TWI, y=logTransmittance, fill = median)) + 
+ggplot(DATA, aes(x=DBH, y=logTransmittance, fill = median)) + 
   theme_minimal() +
   geom_tile() + # heatmap
-  scale_x_continuous(trans="log") +
-  scale_fill_viridis(name="Presence probabiblity")
+  geom_point(data = Optdata[-1,], aes(y=O, x=DBH), fill="black") +
+  # scale_x_continuous(trans="log") +
+  scale_x_continuous(breaks = c(2.5, 7.5, 15, 25, 35)) +
+  scale_fill_viridis(name="Presence probabiblity") +
+  labs(x="DBH (cm)")
 ```
-
 ```{r}
-# Proba to be in the light across logTWI
-ggplot(DATA, aes(x=TWI, y= median, col= Transmittance)) +
+DATA %>% 
+  # filter(DBH==35) %>% 
+  ggplot(aes(x= logTransmittance, y= median, col= factor(DBH), group=factor(DBH))) +
   theme_minimal() +
-  geom_point() +
-  scale_color_viridis() +
-    scale_x_continuous(trans="log") +
-  ylab("Presence probabiblity median")
-
-
-ggplot(DATA, aes(x= logTransmittance, y= median, col= TWI)) +
-  theme_minimal() +
-  geom_point() +
-  scale_color_viridis(direction = -1) +
-  ylab("Presence probabiblity median")
-
-
-# Optimum move
-# ggplot(DATA, aes(x=logTWI, y= fit$summary("O")$median)) +
-#   geom_point() 
-
+  
+  geom_ribbon(aes(ymin = q5, ymax = q95, fill= factor(DBH)),
+              alpha = 0.005, linetype="dashed", linewidth=0.5) + # P quantiles
+  
+  geom_vline(data = Optdata[-1,], aes(xintercept = O, col= factor(DBH)), linewidth=0.8) + # Opt median
+  # geom_vline(data = Optdata[-1,], aes(xintercept = OQ5, col= factor(DBH)), linetype="dashed") + # Opt Q5%
+  # geom_vline(data = Optdata[-1,], aes(xintercept = OQ95, col= factor(DBH)), linetype="dashed") + # Opt Q95%
+  
+  geom_line(linewidth= 1) +
+  scale_color_viridis(direction = -1, discrete = T) +
+  guides(fill = FALSE) +
+  labs(y = "Presence probabiblity median", col = "DBH")
+# rajouter opt et quantiles
 ```
+# Optimum shift
+rajouter quantiles de iota
+```{r Optimum shift}
+ggplot(Optdata, aes(x=logDBH, y= (O))) +
+  theme_minimal() +
+  geom_line(linewidth = 1) +
+  geom_ribbon(aes(ymin = (OQ5), ymax = (OQ95)), color = 'red', alpha = 0.2) + # P quantiles
+  # geom_point(aes(y=(Oinit), x=1), col="red") +
+  # scale_x_continuous(breaks = c(1, 2.5, 7.5, 15, 25, 35)) +
+  geom_text(data = Optdata, aes(label = paste("iota median =", round(iota,2))),
+            x = -Inf, y = Inf, vjust= 1.8, hjust = -0.1) +
+  labs(y= "Light niche optimum", x= "logDBH (cm)")
+```
+
 # 3D
 https://www.sthda.com/english/wiki/impressive-package-for-3d-and-4d-graph-r-software-and-data-visualization
-```{r}
+```{r 3D}
 library(viridis)
 
-lattice::wireframe(median ~ logTWI + logTransmittance,
+lattice::wireframe(median ~ DBH + logTransmittance,
                    data = DATA,
                    zlab = list("Presence prob.", rot=90),
                    zlim = c(min(DATA$median), max(DATA$median)),
                    drape = TRUE, col.regions = viridis(100), scales = list(arrows = F),  
-                   main='Light x topography niche', xlab='logTWI', ylab='logTransmittance',
+                   main='Light x topography niche', xlab='DBH', ylab='logTransmittance',
                    par.settings = list(axis.line = list(col = 'transparent')),
-                   screen=list(z = -120, x = -70, y = 3)) # z = 120, x = -70, y = 3
+                   screen=list(z = -95, x = -70, y = 3)) # z = 120, x = -70, y = 3
 
 # 3D fixe
-plot3D::scatter3D(x = DATA$logTWI, y = DATA$logTransmittance, z = DATA$median, colvar = DATA$median,
+plot3D::scatter3D(x = DATA$DBH, y = DATA$logTransmittance, z = DATA$median, colvar = DATA$median,
                   clab = "Presence probability",
-                  main = params$species, xlab = "logTWI",
+                  main = params$species, xlab = "DBH",
                   ylab ="logTransmittance", zlab = "Presence probability",
                   ticktype = "detailed", pch = 20, cex = 3, # pch = 20 : petit rond plein, cex : la taille du point
                   col = viridis(100), colkey = F,
-                  theta = 130, phi = 20,  bty = "g")
+                  theta = 50, phi = 20,  bty = "g")
 
 # 3D pivotable : 
-plotly::plot_ly(DATA, x = ~logTWI, y = ~logTransmittance, z = ~median, color = ~median)
+plotly::plot_ly(DATA, x = ~DBH, y = ~logTransmittance, z = ~median, color = ~median)
 ```
 

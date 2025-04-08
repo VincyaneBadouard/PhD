@@ -49,13 +49,21 @@ Light <- Light[Transmittance>0,]
 
 range(Light$Transmittance) # 0.000206811 - 1
 any(is.na(Light$Transmittance)) # FALSE
+nrow(Light[Transmittance<0.01, ])/nrow(Light)*100 # 7.8% 
 nrow(Light[Transmittance<0.001, ])/nrow(Light)*100 # 0.2% 
 hist(Light$Transmittance)
 hist(Light$Z)
 hist(Light[Transmittance<0.001, Z])
+hist(Light[Transmittance<0.002, Z])
+hist(Light[Transmittance<0.005, Z])
+hist(Light[Transmittance<0.01, Z])
+hist(Light[Transmittance<0.05, Z])
+
+
 hist(Light[Transmittance>=1, Z])
 
 ```
+
 ```{r}
 plotly::plot_ly(Light, x = ~X, y = ~Y, z = ~Z, color=~Transmittance)
 ```

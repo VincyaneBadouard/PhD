@@ -18,9 +18,9 @@ library(cmdstanr)
 library(foreach) # parallisation
 library(parallel)
 
-# sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
 
-sp <- "Symphonia_sp.1"
+# sp <- "Symphonia_sp.1"
 
 ```
 
@@ -48,7 +48,7 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 
 # DataM
 ```{r, dataM}
-Np <- 100 # number of predictions
+Np <- 50 # number of predictions
 
 # les noms des var doivent etre les memes que dans le fichier stan
 dataM <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
@@ -85,15 +85,18 @@ Sys.time() # 1 min
 ```{r, eval=F}
 Sys.time()
 
-chain_path <- file.path("Chains", model_name, sp)
-if(!file.exists(chain_path)){
-  # unlink(chain_path, recursive = TRUE)
-  dir.create(chain_path)
-  fit <- model$sample(data = dataM[[sp]],
-                      chains = 4,
-                      parallel_chains = 4,
-                      save_warmup = FALSE)
-  fit$save_output_files(dir = chain_path)
+for(i in 1:length(sp)){
+  print(i)
+  chain_path <- file.path("Chains", model_name, sp[i])
+  if(!file.exists(chain_path)){
+    # unlink(chain_path, recursive = TRUE)
+    dir.create(chain_path)
+    fit <- model$sample(data = dataM[[sp[i]]],
+                        chains = 4,
+                        parallel_chains = 4,
+                        save_warmup = FALSE)
+    fit$save_output_files(dir = chain_path)
+  }
 }
 Sys.time() # 15 min 1 sp
 ```
