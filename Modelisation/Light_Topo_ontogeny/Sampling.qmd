@@ -17,7 +17,7 @@ library(parallel)
 
 # sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
 
-sp <- "Pogonophora_schomburgkiana"
+sp <- "Tabernaemontana_macrocalyx" #"Pogonophora_schomburgkiana"
 
 ```
 

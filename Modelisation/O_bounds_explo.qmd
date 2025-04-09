@@ -67,9 +67,9 @@ On peut voir que la courbe rouge (O=-8) n'apparait qu'après la disparition de l
 # Generates all combination of parameters
 
 tidyr::crossing(
-  a = c(-0.001, -0.02, -0.05, -0.1, -0.25, -1, -5, -10, -1000000000000000), 
+  a = c(-0.25, -1,-10), 
   O = -6, #c(-6, -3, -1),
-  gamma = c(-3, -1, -0.5, 1, 2, 3, 4, 5, 7, 10, 15, 400, 480, 490, 495, 10000000000000000),
+  gamma = c(-1, -0.5, 1, 2, 3, 4, 7,  15),
   Environment = (seq(-6,0, length.out =50)) 
 ) %>% 
   mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
@@ -79,9 +79,10 @@ tidyr::crossing(
   ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
   geom_line(linewidth=1) +
   facet_grid(a ~ gamma, labeller = label_both) +
-  theme_bw()
+  theme_bw() +
+  labs(col="Extremum")
 
-# ggsave("Explo_parameters_canonic_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Art", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+ggsave("Explo_parameters_canonic_quadratic_1O.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation", width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 Pour tout a <0 et O = -6 (=borne inférieure de la variable loguée), la courbe sur l'intervale x observé, est **plate si gamma < (-3)**  

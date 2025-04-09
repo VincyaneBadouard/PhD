@@ -1,35 +1,36 @@
 ---
 title: "Residuals_explo"
 format: html
-editor: visual
+editor: source
 ---
 
 # Objectives
+to see how well our model is fitting the data.  
+Residuals are the differences between what we observe and what our model predicts.  
+
+Si les résidus sont uniformément distribués leur médiane est proche de 0, et la valeur mimimum et maximum <3 en absolu. Les résidus supérieurs à la valeur absolue de 3 se situent dans les queues d'une distribution normale standard et indiquent généralement une déformation du modèle.  
+
 
 Aggregatives species :\
 - Anaxagorea_dolichocarpa\
 - Tabernaemontana_macrocalyx
 
+Raw residual : the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
+
+https://library.virginia.edu/data/articles/understanding-deviance-residuals#:~:text=It%20turns%20out%20there%20are,probability%20(%5Epi  
+
+
 # Packages
-
-```{r, include = F}
+```{r setup, include = F}
 library(tidyverse)
-library(rstan)
-rstan_options(auto_write = TRUE) # option pour ne pas recompiler à chaque fois !!! gain de temps
-options(mc.cores = parallel::detectCores()) #option pour ajouter des coeurs au calcul
-rstan_options(disable_march_warning = TRUE)
+library(cmdstanr)
 
-library(bayesplot) # visualiser la chaine de Markov
-# library(shinystan) # for interactive stan output visualization
-library(rstanarm) # for Bayesian automatic regression modelling using stan
-library(brms) # Bayesian generalized multivariate non-linear multilevel models using stan
-library(foreach) # parallisation
-library(parallel)
+sp <- "Tabernaemontana_macrocalyx" # c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx")
 ```
 
 # Model results and their data
 
-```{r}
+```{r, eval=F}
 # Data
 load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_4ha.Rdata")
 # Model results
@@ -38,12 +39,44 @@ load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Realsp_light_4ha.Rdata")
 
 # Extract agregative species
 
-```{r}
-sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx")
-
+```{r, eval=F}
 datalist <- datalist[names(datalist) %in% sp] # only species in sp
 fits <- fits[names(fits) %in% sp] # only species in sp
 
 save(datalist, file="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/AgregativeSp.Rdata")
 save(fits, file="D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/AgregativeSp.Rdata")
 ```
+
+```{r}
+# fit <- list()
+chain_path <- file.path("Chains", "Hybrid", sp)
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+```
+
+# Compute raw residuals
+get the posterior residuals for each observations, and I take the median across iterations.
+```{r}
+y <- # Observed values (y = 0 or 1)
+p_hat <-  # predicted probability from model
+e <- y - p_hat # raw residuals
+
+cbind(y, p_hat, e) |> 
+  head()
+```
+
+
+
+# Compute Pearson residuals
+It is the raw residual divided by the estimated standard deviation of a binomial distribution with number of trials equal to 1 and p equal to phat.
+```{r}
+r <- e / sqrt(p_hat * (1 - p_hat))
+
+cbind(y, p_hat, r) |> 
+  head()
+```
+
+
+# Compute standardized Pearson residual
+This is the Pearson residual adjusted for the leverage of predictors using what are called "hat values." Hat values measure the distance of individual predictors from the mean of the predictors. High hat values indicate a subject or row could have outlying predictor values. This in turn could mean that a subject or row has substantial leverage in determining the predicted response. This adjustment then increases the absolute value of certain residuals based on the leverage of the associated predictors  
+
+ plots the median residuals against the predicted proba.

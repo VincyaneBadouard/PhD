@@ -61,15 +61,20 @@ DATA <- DATA %>%
   mutate(DBH = c(2.5, 7.5, 15, 25, 35)[Onto]) %>% 
   mutate(Transmittance = round(exp(logTransmittance), 3))
 
+# prendre tout les posteriors de O et iota (fit$draws("O"))et calculer O et ses quantiles 
 Optdata <- data.frame(DBH = c(1, 2.5, 7.5, 15, 25, 35),
                       Oinit = fit$summary("O")$median,
                       OinitQ5 = fit$summary("O")$q5, 
-                      OinitQ95 = fit$summary("O")$q95, 
-                      iota = fit$summary("iota")$median) %>% 
+                      OinitQ95 = fit$summary("O")$q95,
+                      iota = fit$summary("iota")$median,
+                      iotaQ5 = fit$summary("iota")$q5,
+                      iotaQ95 = fit$summary("iota")$q95) %>% 
   mutate(logDBH = log(DBH)) %>% 
   mutate(O = Oinit + iota*logDBH) %>% 
-  mutate(OQ5 = OinitQ5 + iota*logDBH) %>% 
-  mutate(OQ95 = OinitQ95 + iota*logDBH)
+  mutate(OQ5 = OinitQ5 + iotaQ5*logDBH) %>% 
+  mutate(OQ95 = OinitQ95 + iotaQ95*logDBH) 
+  # mutate(OiQ5 = Oinit + iotaQ5*logDBH) %>%
+  # mutate(OiQ95 = Oinit + iotaQ95*logDBH)
 
 ```
 
@@ -111,10 +116,21 @@ ggplot(Optdata, aes(x=logDBH, y= (O))) +
   theme_minimal() +
   geom_line(linewidth = 1) +
   geom_ribbon(aes(ymin = (OQ5), ymax = (OQ95)), color = 'red', alpha = 0.2) + # P quantiles
+    # geom_ribbon(aes(ymin = (OiQ5), ymax = (OiQ95)), color = 'red', alpha = 0.2) + # P quantiles
+
   # geom_point(aes(y=(Oinit), x=1), col="red") +
   # scale_x_continuous(breaks = c(1, 2.5, 7.5, 15, 25, 35)) +
-  geom_text(data = Optdata, aes(label = paste("iota median =", round(iota,2))),
-            x = -Inf, y = Inf, vjust= 1.8, hjust = -0.1) +
+  
+  # text
+  geom_text(data = Optdata, aes(label = paste("Optimum :  median =", round(unique(Oinit),2),
+                                              ", Q5% =", round(unique(OinitQ5),2),
+                                              ", Q95% =", round(unique(OinitQ95),2))),
+            x = -Inf, y = Inf, vjust= 1.8, hjust = -0.08) +
+  
+  geom_text(data = Optdata, aes(label = paste("iota :  median =", round(unique(iota),2),
+                                              ", Q5% =", round(unique(iotaQ5),2),
+                                              ", Q95% =", round(unique(iotaQ95),2))),
+            x = -Inf, y = Inf, vjust= 3.8, hjust = -0.1) +
   labs(y= "Light niche optimum", x= "logDBH (cm)")
 ```
 
