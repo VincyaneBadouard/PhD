@@ -57,8 +57,8 @@ fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
 get the posterior residuals for each observations, and I take the median across iterations.
 ```{r}
 y <- # Observed values (y = 0 or 1)
-p_hat <-  # predicted probability from model
-e <- y - p_hat # raw residuals
+  p_hat <-  # predicted probability from model
+  e <- y - p_hat # raw residuals
 
 cbind(y, p_hat, e) |> 
   head()
@@ -79,4 +79,26 @@ cbind(y, p_hat, r) |>
 # Compute standardized Pearson residual
 This is the Pearson residual adjusted for the leverage of predictors using what are called "hat values." Hat values measure the distance of individual predictors from the mean of the predictors. High hat values indicate a subject or row could have outlying predictor values. This in turn could mean that a subject or row has substantial leverage in determining the predicted response. This adjustment then increases the absolute value of certain residuals based on the leverage of the associated predictors  
 
- plots the median residuals against the predicted proba.
+plots the median residuals against the predicted proba.
+
+
+# Moran's I
+```{r }
+reg <- lm(tas ~ deforest, data)
+sjPlot::tab_model(reg) 
+
+data$res <- residuals(reg) 
+n <- 10^3
+data2 <- sample_n(data, n)
+cor <- pgirmess::correlog(data.frame(data2$x, data2$y), data2$deforest,
+                          method = "Moran", nbclass = 30) %>% 
+  as.data.frame()
+cor %>% 
+  ggplot(aes(x = dist.class*100, y = coef)) + 
+  geom_point(aes(alpha = p.value < 0.01)) + geom_line() +
+  geom_hline(yintercept = 0) +
+  theme_bw() +
+  xlab("Distance (km)") + ylab("Moran\'s I") +
+  scale_x_log10() +
+  ylim(-1, 1) +
+  ggtitle("Residuals spatial auto-correlation")
