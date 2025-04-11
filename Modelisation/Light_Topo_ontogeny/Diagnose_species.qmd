@@ -61,7 +61,7 @@ DATA <- DATA %>%
   mutate(DBH = c(2.5, 7.5, 15, 25, 35)[Onto]) %>% 
   mutate(Transmittance = round(exp(logTransmittance), 3))
 
-# prendre tout les posteriors de O et iota (fit$draws("O"))et calculer O et ses quantiles 
+# prendre tout les posteriors de O et iota (fits[[1]]$draws("O", format = "df")) et calculer O et ses quantiles 
 Optdata <- data.frame(DBH = c(1, 2.5, 7.5, 15, 25, 35),
                       Oinit = fit$summary("O")$median,
                       OinitQ5 = fit$summary("O")$q5, 
@@ -109,6 +109,7 @@ DATA %>%
   labs(y = "Presence probabiblity median", col = "DBH")
 # rajouter opt et quantiles
 ```
+
 # Optimum shift
 rajouter quantiles de iota
 ```{r Optimum shift}
