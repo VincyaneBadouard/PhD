@@ -218,7 +218,11 @@ Data <- Data %>%
 
 
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
-Data <- BotanicalCorrection(Data, DetectOnly = T)
+WFO_Backbone <- read_delim("~/PhD/Inventories/WFOTaxonomicBackbone_v.2.2_20250217.csv", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+  
+Data <- BotanicalCorrection(Data, Source = "WFO", WFOData = WFO_Backbone, DetectOnly = F)
 
 length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nrow(Data)*100 # 0.02%
 

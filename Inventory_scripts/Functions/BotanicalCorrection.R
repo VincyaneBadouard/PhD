@@ -310,7 +310,12 @@ BotanicalCorrection <- function(
       setDT(WFmatch) # in data.table
       
       WFmatch <- WFmatch[, list(taxonomicStatus, Old.status, spec.name.ORIG, scientificName, family)] # columns of interest
-      WFmatch <- WFmatch[taxonomicStatus == "ACCEPTED",] # Only "ACCEPTED"
+      # spec.name.ORIG : names given
+      # scientificName : the more actual name
+      # taxonomicStatus : "Accepted" = , Unchecked =
+      # Old.status : "Synonym"
+      # 
+      WFmatch <- WFmatch[taxonomicStatus == "Accepted",] # Only "Accepted"
       WFmatch[, taxonomicStatus := NULL] # remove the column
       
       
@@ -332,7 +337,7 @@ BotanicalCorrection <- function(
       Data[, BotanicalCorrectionSource := ifelse(is.na(BotanicalCorrectionSource), BotaCorSource, BotanicalCorrectionSource)]
       Data[, c("family", "BotaCorSource") := NULL]
       
-      setnames(Data, "scientificName", "ScientificNameCor") # rename columns
+      setnames(Data, "scientificName", "ScientificNameCor") # rename columns (scientificName is the more actual name proposed by WFO)
       
       # For Genus not detected by WFO by already corrected the family
       Data[is.na(ScientificNameCor) & !is.na(FamilyCor), ScientificNameCor := paste(GenusCor, SpeciesCor)]

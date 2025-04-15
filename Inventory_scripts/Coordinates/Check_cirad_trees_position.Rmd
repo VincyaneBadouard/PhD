@@ -8,6 +8,15 @@ We need :
 - Xutm, Yutm coordinates
 - Guyafor.nb (= field number of trees bigger than 10cm DBH given by Guyafor Protocol)
 
+ALT se sert des référentiels type **worldfloraonline** par exemple alors que Guyafor se sert du référentiel Guyafor cela donne lieu à des double identifications par exemple sur ces double Id là  :
+-  Theobroma_guianense = Theobroma_subincanum
+-  Abarema jupunba = Jupunba trapezifolia
+-  Aspidosperma_cruentum = Aspidosperma_desmanthum
+-  Casearia_javitensis = Piparea_multiflora
+-  Cupania_scrobiculata = Matayba_scrobiculata
+-  Tovomita_obovata = Tovomita_longifolia
+-  Stryphnodendron_polystachyum= Gwilymia_polystachya
+
 # Packages
 ```{r Setup, include = F}
 library(readr)
