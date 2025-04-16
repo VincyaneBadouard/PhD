@@ -166,12 +166,16 @@ ggplot() +
 #        path = "D:/Mes Donnees/PhD/Figures/inventory/",
 #        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 ```
+
 # General and bota errors detection
 ```{r}
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/GeneralErrorsDetection.R")
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
 
-
+WFO_Backbone <- read_delim("~/PhD/Inventories/WFO_TaxonomicBackbone_20241222.csv", 
+    delim = "\t", escape_double = FALSE, 
+    trim_ws = TRUE)
+  
 # rename columns for the function
 Data <- AdultsP16 %>%
   # select(-Comment) %>% # remove previous Comments of my function of errors detection
@@ -179,7 +183,7 @@ Data <- AdultsP16 %>%
 
 Data <- GeneralErrorsDetection(Data) # 0 comments
 
-Data <- BotanicalCorrection(Data, DetectOnly = T)
+Data <- BotanicalCorrection(Data, Source = "WFO", WFOData = WFO_Backbone, DetectOnly = F)
 
 
 err <- Data %>% filter(Comment!="") %>% # 1479

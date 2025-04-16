@@ -163,12 +163,14 @@ BotanicalCorrection <- function(
     
     ## Columns split if there is multiple information -----------------------------------------------------------------------
     # For Genus: split at punctuation then at upper case, and Create GenspFamily
-    Data[, c("GenusCor", "GenspFamily") := tstrsplit(Genus, '[[:punct:]]')]
-    Data[, c("GenusCor", "GenspFamily") := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)]
+    Data[, c("GenusCor", "GenspFamily", "Other") := tstrsplit(Genus, '[[:punct:]]')]
+    Data[, c("GenusCor", "GenspFamily", "Other") := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)]
     
     ## Detection of the suffix "aceae" in the genus column (it is specific to the family name)
     # if there is -aceae in  GenusCor and not in GenspFamily, swap values between GenusCor and GenspFamily
     Data[grep("aceae", GenusCor),  c("GenusCor", "GenspFamily")] <- Data[grep("aceae", GenusCor), c("GenspFamily", "GenusCor")]
+    Data[grep("aceae", Other),  c("Other", "GenspFamily")] <- Data[grep("aceae", Other), c("GenspFamily", "Other")]
+    
     
     # For species: split at space or underscore, and create Subspecies
     Data[, c("SpeciesCor", "Subspecies") := tstrsplit(Species, '\\[[:blank:]] |\\_')] # \\ devant une des possibilités. Le manque d'espace après le barre du "ou" (|) est important, le résultat n'est pas le même sinon
@@ -296,7 +298,7 @@ BotanicalCorrection <- function(
       Specialtaxa <- c("Protium stevensonii")
       
       WFmatch <- WorldFlora::WFO.match(spec.data = unique(Data[!ScientificNameCor %in% Specialtaxa,
-                                                               ScientificNameCor]), # data to correct
+                                                               ScientificNameCor]), # data to correct (ALT: 758, Guyafor: 436 sp)
                                        WFO.data = WFOData, # WFO data
                                        no.dates = TRUE, # to speed
                                        First.dist = TRUE,
@@ -322,6 +324,8 @@ BotanicalCorrection <- function(
       # Remove multiple matches case (but keep the family and prefer not synonym)
       # WFmatch[spec.name.ORIG %in% c(WFmatch[duplicated(WFmatch[, spec.name.ORIG]), spec.name.ORIG]), Old.status := ""] # not necessary with fromLast = TRUE
       WFmatch <- WFmatch[!duplicated(WFmatch[, spec.name.ORIG], fromLast = TRUE)] # the first is a synonym, the last can be the original name
+      
+      # write.csv(WFmatch, "~/PhD/Inventories/Data/Adults/Paracou/WFO_botacheck_Guyafor.csv")
       
       # Create the correction source
       WFmatch[, BotaCorSource := "World Flora Online"]

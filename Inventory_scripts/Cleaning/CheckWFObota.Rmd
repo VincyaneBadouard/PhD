@@ -1,0 +1,44 @@
+---
+title: "Chek Wold Flora Online bota matchs"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r}
+library(readr)
+library(tidyverse)
+```
+
+```{r}
+ALT <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/WFO_botacheck_ALT.csv")[,-1]
+Guyafor <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/WFO_botacheck_Guyafor.csv")[,-1]
+```
+
+```{r synonym}
+nrow(ALT %>% filter(Old.status=="Synonym"))/nrow(ALT)*100 # 8% (60 sp)
+nrow(Guyafor %>% filter(Old.status=="Synonym"))/nrow(Guyafor)*100 # 8.3% (36 sp))
+
+nrow(ALT %>% filter(spec.name.ORIG!=scientificName & is.na(Old.status)))/nrow(ALT)*100 # 21% des cf, sp num, correction ortho ! attention donc a ce qu'on prend dans scientificName
+nrow(Guyafor %>% filter(spec.name.ORIG!=scientificName & is.na(Old.status)))/nrow(Guyafor)*100 # 10% des points, sp
+
+# -> prendre scientificName que si Old.status=="Synonym"
+# -> faire attention il reste des points voir comment gérer
+
+```
+
+```{r}
+Both <- ALT %>% 
+  left_join(Guyafor, by="scientificName", suffix = c("_ALT", "_Guyafor")) %>% 
+  filter(Old.status_ALT == "Synonym" | Old.status_Guyafor == "Synonym") %>% 
+    select(-c(family_Guyafor, taxonomicStatus_Guyafor)) %>% 
+  rename(ScientificName_WFO = scientificName,
+         ScientificName_orig_ALT = spec.name.ORIG_ALT,
+         ScientificName_orig_Guyafor = spec.name.ORIG_Guyafor,
+         family = family_ALT, taxonomicStatus = taxonomicStatus_ALT) %>% 
+  select(taxonomicStatus, ScientificName_WFO, Old.status_ALT, ScientificName_orig_ALT, Old.status_Guyafor, ScientificName_orig_Guyafor, family)
+```
+```{r}
+write.csv(Both, "~/PhD/Inventories/Data/Adults_Understory/Paracou/WFO_synonyms_ALTandGuyafor.csv")
+```
+

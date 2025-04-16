@@ -218,7 +218,7 @@ Data <- Data %>%
 
 
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
-WFO_Backbone <- read_delim("~/PhD/Inventories/WFOTaxonomicBackbone_v.2.2_20250217.csv", 
+WFO_Backbone <- read_delim("~/PhD/Inventories/WFO_TaxonomicBackbone_20241222.csv", 
     delim = "\t", escape_double = FALSE, 
     trim_ws = TRUE)
   
