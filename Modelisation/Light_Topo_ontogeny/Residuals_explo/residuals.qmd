@@ -1,0 +1,257 @@
+---
+title: "Residuals"
+author: "Géraldine Derroire"
+date: last-modified
+format:
+  html:
+    toc: true
+    number-sections: true
+    colorlinks: true
+execute:
+  echo: false      
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+library(rstan)
+library(ggplot2)
+library(tidyverse)
+```
+
+
+```{r}
+# data
+load("data/AgregativeSp.Rdata")
+# model fits
+load("data/AgregativeSp_fits.Rdata")
+```
+
+I want to look at residuals from the model fits for `r length(fits)` species (`r names(fits)`).
+Models have been fitted on 04/02/2025.
+The only have the effect of light, with a quadratic form, all data taken for the considered species, not effect of ontogeny.
+
+# Raw residuals of Anaxagorea dolichocarpa
+
+I extract the posterior predicted proba,
+and calculate the residual as 
+$$Y_i - \hat{p}_i$$,
+where $Y_i$ is the observation so 1/0 (belong to sp / don't belong),
+and $\hat{p}_i$ is the predicted probability.
+I get the posterior residuals for each observations, 
+and I take the median across iterations.
+
+```{r}
+# get predicted proba for each data point and each iterations
+prob_pred <- rstan::extract(fits$Anaxagorea_dolichocarpa)$p
+# get observation
+obs <- datalist$Anaxagorea_dolichocarpa$Presence
+# get the residual (=> give a matrix with nobs rows and niter colums)
+resid <- obs - t(prob_pred)
+# get the median residual
+resid_median <- apply(resid , 1, median)
+
+# check
+# residuals should be negative for obs that are from another sp
+# table(which(resid_median<=0) == which(datalist$Anaxagorea_dolichocarpa$Presence == 0))
+# residuals should be positive for obs that are from the sp of interest
+# table(which(resid_median>0) == which(datalist$Anaxagorea_dolichocarpa$Presence != 0))
+```
+
+
+```{r}
+# add the median residuals in the data
+data_Anax <- cbind(datalist$Anaxagorea_dolichocarpa, resid_median)
+# check
+# data_Anax |> filter(ScientificName == "Anaxagorea_dolichocarpa") |> summarize(range(resid_median))
+# data_Anax |> filter(ScientificName != "Anaxagorea_dolichocarpa") |> summarize(range(resid_median))
+
+# add the median predicted proba in the data
+predp_median <- apply(prob_pred, 2, median)
+data_Anax <- cbind(data_Anax, predp_median)
+```
+
+
+## Residuals against predictions
+
+We can plots the median residuals against the predicted proba.
+
+```{r}
+data_Anax |>
+  ggplot(aes(x = predp_median, y = resid_median, colour = as.factor(Presence))) +
+  geom_point()
+```
+The graph is not informative, because of the reason the residuals are calculated, 
+the only reason to plot it is to check that there is no problem in the way the 
+residuals have been calculated.
+
+
+## Residuals against DBH
+
+Here I plot only the trees belonging to the considered species (blue regression line lm, red smoother:
+
+```{r}
+data_Anax |>
+  filter(Presence == 1) |>
+  ggplot(aes(x = DBHcor, y = resid_median)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") + 
+  geom_smooth(se = FALSE, color = "red")
+```
+
+Not much to see here, it's a species that doesn't grow big.
+
+
+## Map of the residuals
+
+For the trees belonging to the species of interest:
+
+The more blue, the higher the predicted proba of being of the species.
+
+>>> {warning} If the idea is to interpret the residuals separtly for the observed presenced and absence, 
+no need to take the residuals, we could directly use the predicted proba... or standardise their variation per group?
+So see how to standardise these residuals to interpret them better...
+Or think about somethink like false positive or false negative?
+Also, for autocorrelation, do we want to consider only the residuals for the observation of the species (presence = 1)?
+
+
+>>> {tip} Another possibility would be to pool the predicted proba (or the residuals) per pixel? 
+considering both the presence and absence, after standardising them?
+
+
+```{r}
+data_Anax |>
+  filter(Presence == 1) |> 
+  ggplot(aes(x = Xutm, y = Yutm,
+             colour = resid_median)) + 
+  geom_point() +
+  coord_fixed(ratio = 1) + 
+  # scale_color_gradient2(low = "blue", high = "red",  midpoint = 0.93) +
+  scale_color_gradient(low = "blue", high = "red") 
+```
+
+Hard to see if there is a pattern...
+
+For the trees belonging to the other species :
+
+```{r}
+data_Anax |>
+  filter(Presence == 0) |> 
+  ggplot(aes(x = Xutm, y = Yutm,
+             colour = resid_median)) + 
+  geom_point() +
+  coord_fixed(ratio = 1) + 
+  # scale_color_gradient2(low = "blue", high = "red",  midpoint = 0.93) +
+  scale_color_gradient(low = "blue", high = "red") 
+```
+
+
+
+# Pearson residuals of Anaxagorea dolichocarpa
+
+Pearson residuals are the ones used in these two papers:
+* F. Dormann, C., M. McPherson, J., B. Araújo, M., Bivand, R., Bolliger, J., Carl, G., G. Davies, R., Hirzel, A., Jetz, W., Daniel Kissling, W., Kühn, I., Ohlemüller, R., R. Peres-Neto, P., Reineking, B., Schröder, B., M. Schurr, F., & Wilson, R. (2007). Methods to account for spatial autocorrelation in the analysis of species distributional data: A review. In Ecography (Vol. 30, Issue 5, pp. 609–628). https://doi.org/10.1111/j.2007.0906-7590.05171.x
+
+* Carl, G., & Kühn, I. (2007). Analyzing spatial autocorrelation in species distributions using Gaussian and logit models. Ecological Modelling, 207(2–4), 159–170. https://doi.org/10.1016/j.ecolmodel.2007.04.024
+
+I extract the posterior predicted proba,
+and calculate the Pearson residual as 
+$$\frac{Y_i - \hat{p}_i}{\sqrt{\hat{p}_i(1 - \hat{p}_i)}}$$,
+where $Y_i$ is the observation so 1/0 (belong to sp / don't belong),
+and $\hat{p}_i$ is the predicted probability.
+I get the posterior residuals for each observations, 
+and I take the median across iterations.
+
+```{r}
+# get predicted proba for each data point and each iterations
+prob_pred <- t(rstan::extract(fits$Anaxagorea_dolichocarpa)$p)
+# dim(prob_pred)
+# get observation
+obs <- datalist$Anaxagorea_dolichocarpa$Presence
+# get the pearson residual (=> give a matrix with nobs rows and niter colums)
+# calculate the variance
+variance <- (prob_pred * (1 - prob_pred))^0.5
+# calculate the residual
+residPears <- (obs - prob_pred) / variance
+# get the median residual
+residPears_median <- apply(residPears , 1, median)
+
+# check
+# residuals should be negative for obs that are from another sp
+# table(which(residPears_median<=0) == which(datalist$Anaxagorea_dolichocarpa$Presence == 0))
+# residuals should be positive for obs that are from the sp of interest
+# table(which(residPears_median>0) == which(datalist$Anaxagorea_dolichocarpa$Presence != 0))
+```
+
+
+```{r}
+# add the median residuals in the data
+data_Anax <- cbind(datalist$Anaxagorea_dolichocarpa, residPears_median)
+# check
+# data_Anax |> filter(ScientificName == "Anaxagorea_dolichocarpa") |> summarize(range(residPears_median))
+# data_Anax |> filter(ScientificName != "Anaxagorea_dolichocarpa") |> summarize(range(residPears_median))
+```
+
+
+```{r}
+data_Anax |>
+  ggplot(aes(residPears_median)) + 
+  geom_histogram()
+```
+Still very different...
+
+And there seems to be some outliers in the residuals around 8
+
+```{r}
+data_Anax |>
+  filter(residPears_median>4) |>
+  ggplot(aes(residPears_median)) + 
+  geom_histogram()
+```
+
+```{r}
+data_Anax |>
+  filter(residPears_median>7)
+```
+
+
+## Map
+
+with both presence and absence
+
+```{r}
+data_Anax |>
+  ggplot(aes(x = Xutm, y = Yutm,
+             colour = residPears_median)) + 
+  geom_point() +
+  coord_fixed(ratio = 1) + 
+  # scale_color_gradient2(low = "blue", high = "red",  midpoint = 0.93) +
+  scale_color_gradient2(low = "blue", mid= "white", high = "red", midpoint = 0)
+```
+
+we can't see much
+
+with only presence 
+
+```{r}
+data_Anax |>
+  filter(Presence == 1) |> 
+  ggplot(aes(x = Xutm, y = Yutm,
+             colour = residPears_median)) + 
+  geom_point() +
+  coord_fixed(ratio = 1) + 
+  scale_color_gradient2(low = "blue", high = "red", mid="White", midpoint = 4)
+```
+
+
+with only absence 
+
+```{r}
+data_Anax |>
+  filter(Presence == 0) |> 
+  ggplot(aes(x = Xutm, y = Yutm,
+             colour = residPears_median)) + 
+  geom_point() +
+  coord_fixed(ratio = 1) + 
+  scale_color_gradient2(low = "blue", high = "red", midpoint=0.2)
+# pb with the way the gradient of color is set...
+```

@@ -16,28 +16,40 @@ Guyafor <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/WFO_botacheck_Guyafor
 ```
 
 ```{r synonym}
-nrow(ALT %>% filter(Old.status=="Synonym"))/nrow(ALT)*100 # 8% (60 sp)
-nrow(Guyafor %>% filter(Old.status=="Synonym"))/nrow(Guyafor)*100 # 8.3% (36 sp))
+nrow(ALT %>% filter(Old.status=="Synonym"))/758*100 # 7.3% (56 sp)
+nrow(Guyafor %>% filter(Old.status=="Synonym"))/436*100 # 6.8% (30 sp))
 
-nrow(ALT %>% filter(spec.name.ORIG!=scientificName & is.na(Old.status)))/nrow(ALT)*100 # 21% des cf, sp num, correction ortho ! attention donc a ce qu'on prend dans scientificName
-nrow(Guyafor %>% filter(spec.name.ORIG!=scientificName & is.na(Old.status)))/nrow(Guyafor)*100 # 10% des points, sp
+nrow(ALT %>% filter(spec.name.ORIG!=scientificName & is.na(Old.status)))/758*100 # 21% des cf, sp num, correction ortho ! attention donc a ce qu'on prend dans scientificName
+nrow(Guyafor %>% filter(spec.name.ORIG!=scientificName & is.na(Old.status)))/436*100 # 10% des points, sp
 
 # -> prendre scientificName que si Old.status=="Synonym"
 # -> faire attention il reste des points voir comment gérer
 
+```
+```{r}
+G_only <- Guyafor %>% filter(!scientificName %in% ALT$scientificName) %>% 
+  rename(ScientificName_WFO = scientificName,
+         ScientificName_orig_Guyafor = spec.name.ORIG,
+         Old.status_Guyafor = Old.status) %>% 
+  select(-c(Matched, Unique, New.accepted, genus, Genus, Species))
 ```
 
 ```{r}
 Both <- ALT %>% 
   left_join(Guyafor, by="scientificName", suffix = c("_ALT", "_Guyafor")) %>% 
   filter(Old.status_ALT == "Synonym" | Old.status_Guyafor == "Synonym") %>% 
-    select(-c(family_Guyafor, taxonomicStatus_Guyafor)) %>% 
+  select(-c(family_Guyafor, taxonomicStatus_Guyafor)) %>% 
   rename(ScientificName_WFO = scientificName,
          ScientificName_orig_ALT = spec.name.ORIG_ALT,
          ScientificName_orig_Guyafor = spec.name.ORIG_Guyafor,
          family = family_ALT, taxonomicStatus = taxonomicStatus_ALT) %>% 
-  select(taxonomicStatus, ScientificName_WFO, Old.status_ALT, ScientificName_orig_ALT, Old.status_Guyafor, ScientificName_orig_Guyafor, family)
+  select(taxonomicStatus, ScientificName_WFO, Old.status_ALT, ScientificName_orig_ALT, Old.status_Guyafor, ScientificName_orig_Guyafor, family) %>% 
+  bind_rows(G_only) %>% 
+  # enlever sp. et " ."
+  filter(!(grepl("sp\\.", ScientificName_orig_ALT) | grepl(" \\.", ScientificName_orig_ALT) |
+           grepl("sp\\.", ScientificName_orig_Guyafor)| grepl(" \\.", ScientificName_orig_Guyafor)))
 ```
+
 ```{r}
 write.csv(Both, "~/PhD/Inventories/Data/Adults_Understory/Paracou/WFO_synonyms_ALTandGuyafor.csv")
 ```

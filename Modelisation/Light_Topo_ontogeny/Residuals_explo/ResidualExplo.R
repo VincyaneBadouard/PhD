@@ -1,0 +1,121 @@
+
+library(tidyverse)
+library(cmdstanr)
+
+# sp <- "Paypayrola_hulkiana" 
+
+# Model results and their data
+
+
+#' ResidualExplo
+#' 
+#' @description Compute models residuals (raw, Person, deviance)
+#'
+#' @param sp (character) Species vector of interest
+#' @param datalist (list) list of models observations data (data.frames), one per species
+#' @param fitspath (character) Path for the models fits (end by "/")
+#' @return
+#' @export
+#'
+#' @examples
+#' sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx",
+#'         "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+#'         
+#' path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+#' load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+#' # View(datalist[[1]])
+#'         
+#' ResidualExplo(sp, datalist, "../Chains/Hybrid_allpred/")
+#' 
+ResidualExplo <- function(sp, datalist, fitspath){
+  
+  # Filter data for for interest species ---------------------------------------
+  datalist <- datalist[names(datalist) %in% sp] # only species in sp
+  # View(datalist[["Iryanthera_hostmannii"]])
+  
+  # Load models fits for interest species --------------------------------------
+  fits <- list()
+  for(S in sp){
+    tryCatch({
+      chain_path <- paste(fitspath, S) # ".." for the he directory above the current one
+      fits[[S]] <- as_cmdstan_fit(list.files(,
+                                             full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
+    )
+    
+    # Compute raw residuals ----------------------------------------------------
+    # get the posterior residuals for each observations, and I take the median across iterations.
+    
+    DATA <- fits[[S]]$summary("p") # p posterior
+    
+    y <- datalist[[S]]$Presence # Observed values (y = 0 or 1)
+    p_hat <- DATA$mean # predicted probability from model
+    raw_e <- y - p_hat # raw residuals
+    
+    
+    # Compute Pearson residuals ------------------------------------------------
+    # It is the raw residual divided by the estimated standard deviation of a binomial distribution with number of trials equal to 1 and p equal to phat.
+    
+    Pearson_e <- raw_e / sqrt(p_hat * (1 - p_hat))
+    
+    # Compute deviance residuals -----------------------------------------------
+    
+    Deviance_e <- sign(raw_e)*sqrt(-2*(y*log(p_hat) + (1 - y)*log(1 - p_hat)))
+    
+    Residuals <- data.frame(y, p_hat, raw_e, Pearson_e, Deviance_e) %>% 
+      bind_cols(datalist[[S]] %>% select(Xutm,Yutm, DBHcor))
+    
+    cor(raw_e, Pearson_e) # 0.976
+    cor(raw_e, Deviance_e) # 0.998
+    cor(Pearson_e, Deviance_e) # 0.982
+    
+    ggplot() +
+      geom_histogram(aes(x=log(raw_e)))
+    ggplot() +
+      geom_histogram(aes(x=log(Pearson_e)), fill="blue")
+    ggplot() +
+      geom_histogram(aes(x=log(Deviance_e)), fill="forestgreen")
+    
+    
+    # Plots the median residuals against the predicted proba -------------------
+    Residuals %>% 
+      ggplot(aes(x = p_hat, y = Pearson_e, colour = as.factor(y))) +
+      geom_point()
+    
+    Residuals %>% 
+      filter(y == 1) %>%  
+      ggplot(aes(x = Xutm, y = Yutm, colour = Deviance_e)) + 
+      theme_classic() +
+      geom_point(aes(size=DBHcor)) +
+      scale_size_continuous(range = c(0.5, 5)) +
+      # coord_fixed(ratio = 1) +
+      # scale_color_gradient2(low = "blue", high = "red",  midpoint = 0.93) +
+      scale_color_gradient(low = "blue", high = "red") +
+      ggtitle(S)
+    
+    
+    # Moran's I ----------------------------------------------------------------
+    n <- 10^3 # ICI prendre plutot ttes les présences et autant d'absences
+    samp <- sample_n(Residuals, n)
+    # Computes Moran's coefficients on distance classes
+    cor <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm), # long
+                              Residuals$raw_e,
+                              method = "Moran", nbclass = 30) %>% 
+      as.data.frame()
+    
+    # Correlogram --------------------------------------------------------------
+    cor %>% 
+      filter(dist.class < 500) %>% 
+      ggplot(aes(x = dist.class, y = coef)) + 
+      theme_minimal() +
+      geom_hline(yintercept = 0) +
+      geom_point(aes(alpha = p.value < 0.05)) + geom_line(col="red", size=0.8) +
+      xlab("Distance (m)") + ylab("Moran\'s I") +
+      # scale_x_log10() +
+      # xlim(0, 500) +
+      # ylim(-1, 1) +
+      ggtitle("Residuals spatial auto-correlation")
+  }
+  
+}
+

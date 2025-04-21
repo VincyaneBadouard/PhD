@@ -14,7 +14,7 @@
 #'  - "TPL": *The Plant List* (http://www.theplantlist.org/) (faster but based
 #'           on the 2013 taxonomy)
 #'  - "WFO": *World Flora Online* (http://www.worldfloraonline.org/) (long time
-#'           but based on the 2022 taxonomy)
+#'           but based on the last taxonomy)
 #'  - NULL: if only error detection (DetectOnly = TRUE)
 #'
 #' @param WFOData To be filled in if the argument `Source` = "WFO". Data set
@@ -163,7 +163,8 @@ BotanicalCorrection <- function(
     
     ## Columns split if there is multiple information -----------------------------------------------------------------------
     # For Genus: split at punctuation then at upper case, and Create GenspFamily
-    Data[, c("GenusCor", "GenspFamily", "Other") := tstrsplit(Genus, '[[:punct:]]')]
+    # buf ici pcq qqfois plus de 2 composantes
+    Data[, c("GenusCor", "GenspFamily") := tstrsplit(Genus, '[[:punct:]]')]
     Data[, c("GenusCor", "GenspFamily", "Other") := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)]
     
     ## Detection of the suffix "aceae" in the genus column (it is specific to the family name)
@@ -311,21 +312,31 @@ BotanicalCorrection <- function(
                                        verbose = FALSE)
       setDT(WFmatch) # in data.table
       
-      WFmatch <- WFmatch[, list(taxonomicStatus, Old.status, spec.name.ORIG, scientificName, family)] # columns of interest
+      WFmatch <- WFmatch[, list(Matched, Unique, taxonomicStatus, New.accepted, Old.status, spec.name.ORIG, scientificName, family, genus)] # columns of interest
       # spec.name.ORIG : names given
       # scientificName : the more actual name
       # taxonomicStatus : "Accepted" = , Unchecked =
       # Old.status : "Synonym"
-      # 
-      WFmatch <- WFmatch[taxonomicStatus == "Accepted",] # Only "Accepted"
-      WFmatch[, taxonomicStatus := NULL] # remove the column
+      # Matched : a match in the WFO.
+      # Unique : unique match (or not match) in the WFO
+      # New.accepted = T : the current accepted name
+      # Hybrid : a hybrid character in the scientificName
+      WFmatch <- unique(WFmatch[taxonomicStatus=="Accepted" & Matched==T & Unique==T & New.accepted==T,]) # Only a unique accepted new match
+      
+      # If double match take the closer (same genus name)
+      # length(WFmatch$spec.name.ORIG) == length(unique(WFmatch$spec.name.ORIG))
+      WFmatch[, c("Genus", "Species") := tstrsplit(spec.name.ORIG, " ", fixed = TRUE)]
+      dupl_choice <- unique(WFmatch[spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG] & genus == Genus])
+      WFmatch <- WFmatch[!spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG],]
+      WFmatch <- rbind(WFmatch, dupl_choice)
+      WFmatch[, `:=`(taxonomicStatus= NULL, Matched= NULL, Unique= NULL, New.accepted= NULL)] # remove columns
       
       
       # Remove multiple matches case (but keep the family and prefer not synonym)
       # WFmatch[spec.name.ORIG %in% c(WFmatch[duplicated(WFmatch[, spec.name.ORIG]), spec.name.ORIG]), Old.status := ""] # not necessary with fromLast = TRUE
-      WFmatch <- WFmatch[!duplicated(WFmatch[, spec.name.ORIG], fromLast = TRUE)] # the first is a synonym, the last can be the original name
+      # WFmatch <- WFmatch[!duplicated(WFmatch[, spec.name.ORIG], fromLast = TRUE)] # the first is a synonym, the last can be the original name
       
-      # write.csv(WFmatch, "~/PhD/Inventories/Data/Adults/Paracou/WFO_botacheck_Guyafor.csv")
+      # write.csv(WFmatch, "~/PhD/Inventories/Data/Understory/Paracou/WFO_botacheck_ALT.csv")
       
       # Create the correction source
       WFmatch[, BotaCorSource := "World Flora Online"]

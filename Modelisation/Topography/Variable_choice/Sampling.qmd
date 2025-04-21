@@ -48,16 +48,16 @@ names(datalist) <- sp
 
 # DataM
 ```{r, dataM}
-Np <- 100 # number of predictions
+Np <- 50 # number of predictions
 
 # les noms des var doivent etre les memes que dans le fichier stan
 dataM_TWI <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
                                                Presence = x$Presence,
-                                               Environment = x$TWI,
+                                               Environment = x$logTWI,
                                                # number of predictions
                                                Np = Np,
                                                # environment of predictions
-                                               Environmentp = seq(min(x$TWI), max(x$TWI), length.out = Np))
+                                               Environmentp = seq(min(x$logTWI), max(x$logTWI), length.out = Np))
 )
 
 dataM_HAND <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
