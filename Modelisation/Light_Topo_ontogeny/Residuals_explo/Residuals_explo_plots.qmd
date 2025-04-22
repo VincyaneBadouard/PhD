@@ -1,0 +1,156 @@
+---
+title: "Residuals_explo_plots"
+format: html
+editor: source
+---
+
+# Objectives
+to see how well our model is fitting the data.  
+Residuals are the differences between what we observe and what our model predicts.  
+
+Si les résidus sont uniformément distribués leur médiane est proche de 0, et la valeur mimimum et maximum <3 en absolu. Les résidus supérieurs à la valeur absolue de 3 se situent dans les queues d'une distribution normale standard et indiquent généralement une déformation du modèle.  
+
+
+Aggregatives species :\
+- Anaxagorea_dolichocarpa\
+- Tabernaemontana_macrocalyx  
+- Eperua_falcata  
+- Dicorynia_guianensis  
+- Paypayrola_hulkiana  
+
+Raw residual : the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
+
+https://library.virginia.edu/data/articles/understanding-deviance-residuals#:~:text=It%20turns%20out%20there%20are,probability%20(%5Epi  
+
+# Packages
+```{r setup, include = F}
+library(tidyverse)
+library(cmdstanr)
+```
+
+# Load residulas and Moran's I tables computed on the cluster
+```{r}
+files <- list.files("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/Residuals_Moran",
+                    pattern = ".rds", full.names = T)
+rslts <- lapply(files, readRDS)
+
+files <- str_remove(files, "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/Residuals_Moran/Residuals_Moran_")
+files <- str_remove(files, ".rds")
+
+names(rslts) <- files
+```
+
+```{r}
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+
+sp <- "Paypayrola_hulkiana"
+
+Residuals <- rslts[[sp]]$Residuals
+Moran_raw <- rslts[[sp]]$Moran_raw %>% mutate(Type = "raw")
+Moran_Pearson <- rslts[[sp]]$Moran_Pearson %>% mutate(Type = "Pearson")
+Moran_Deviance <- rslts[[sp]]$Moran_Deviance %>% mutate(Type = "Deviance")
+
+Moran <- bind_rows(Moran_raw, Moran_Pearson, Moran_Deviance)
+```
+
+# Residuals distribution
+```{r}
+cor(Residuals$raw_e, Residuals$Pearson_e) # 3e
+cor(Residuals$raw_e, Residuals$Deviance_e) # la cor la + haute
+cor(Residuals$Pearson_e, Residuals$Deviance_e) # 2e
+
+for(v in c("raw_e", "Pearson_e", "Deviance_e")){
+  print(
+    ggplot(Residuals) +
+      geom_histogram(aes(x=log(get(v)))) +
+      ggtitle(v)
+  )
+}
+```
+```{r}
+Residuals <- Residuals %>% pivot_longer(cols = c(raw_e, Pearson_e, Deviance_e),
+                                        names_to = "Type", values_to = "Residuals")
+
+
+ggplot(Residuals) +
+  theme_minimal() +
+  geom_histogram(aes(x=log(Residuals)), fill="#009E73", col="white") +
+  facet_grid(~Type, scales ="free")
+```
+
+# Plots the median residuals against the predicted proba
+```{r}
+for(v in c("raw_e", "Pearson_e", "Deviance_e")){
+  print(
+    Residuals %>% 
+      ggplot(aes(x = p_hat, y = get(v), colour = as.factor(y))) +
+      geom_point() +
+      ggtitle(v)
+  )
+}
+
+ggplot(Residuals, aes(x = p_hat, y = Residuals, col = as.factor(y))) +
+  theme_minimal() +
+  geom_point() +
+  facet_wrap(~ Type, scales ="free") +
+  labs(x= "Presence probabily prediction",col = "Presence observation")
+
+```
+```{r}
+xs <- split(Residuals %>% filter(y == 1), f = Residuals$Type)
+
+p1 <- xs$raw_e %>% 
+  # filter(y == 1) %>%  
+  ggplot(aes(x = Xutm, y = Yutm, colour = Residuals)) + 
+  theme_classic() +
+  geom_point(aes(size=DBHcor)) +
+  scale_size_continuous(range = c(0.5, 5)) +
+  # coord_fixed(ratio = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  facet_wrap(~ Type, scales ="fixed") + 
+  theme(axis.title= element_blank(), axis.text= element_blank()) +
+  theme(legend.position="bottom") +
+  guides(size = FALSE)
+
+p2 <- p1 %+% xs$Deviance_e
+p3 <- p1 %+% xs$Pearson_e
+
+gridExtra::grid.arrange(p1,p2,p3, nrow = 1, ncol = 3, top = grid::textGrob(paste(S, "- presences")))
+```
+
+```{r}
+xs <- split(Residuals %>% filter(y == 0), f = Residuals$Type)
+
+p1 <- xs$raw_e %>% 
+  # filter(y == 1) %>%  
+  ggplot(aes(x = Xutm, y = Yutm, colour = Residuals)) + 
+  theme_classic() +
+  geom_point(size=0.5) +
+  # coord_fixed(ratio = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  facet_wrap(~ Type, scales ="fixed") + 
+  theme(axis.title= element_blank(), axis.text= element_blank()) +
+  theme(legend.position="bottom")
+
+p2 <- p1 %+% xs$Deviance_e
+p3 <- p1 %+% xs$Pearson_e
+
+gridExtra::grid.arrange(p1,p2,p3, nrow = 1, ncol = 3, top = grid::textGrob(paste(S, "- absences")))
+```
+
+# Moran's I correlogram
+```{r }
+Moran %>% 
+  filter(dist.class < 500) %>% 
+  ggplot(aes(x = dist.class, y = coef)) + 
+  theme_minimal() +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(alpha = p.value < 0.05)) +
+  geom_line(col="red", linewidth =0.8) +
+  xlab("Distance (m)") + ylab("Moran\'s I") +
+  # scale_x_log10() +
+  # xlim(0, 500) +
+  # ylim(-1, 1) +
+  facet_wrap(~ Type, scales ="fixed") + 
+  ggtitle("Residuals spatial auto-correlation")
+```

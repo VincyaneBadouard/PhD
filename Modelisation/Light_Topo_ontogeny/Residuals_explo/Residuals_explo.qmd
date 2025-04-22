@@ -30,8 +30,8 @@ library(tidyverse)
 library(cmdstanr)
 # library(bayesplot)
 
-# sp <- "Paypayrola_hulkiana" 
-sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+sp <- "Paypayrola_hulkiana"
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
 ```
 
 # Model results and their data
@@ -50,7 +50,8 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 fits <- list()
 for(S in sp){
   tryCatch({
-    chain_path <- file.path("..","Chains", "Hybrid_allpred", S) # ".." for the he directory above the current one
+    chain_path <- paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo/Chains/Hybrid_allpred/",S, sep="")
+    # chain_path <- file.path("..","Chains", "Hybrid_allpred", S) # ".." for the he directory above the current one
     fits[[S]] <- as_cmdstan_fit(list.files(chain_path,
                                            full.names = TRUE))},
     error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
@@ -106,6 +107,7 @@ Residuals <- data.frame(y, p_hat, raw_e, Pearson_e, Deviance_e) %>%
   bind_cols(datalist[[S]] %>% select(Xutm,Yutm, DBHcor))
 ```
 
+# Residuals distribution
 ```{r}
 cor(raw_e, Pearson_e) # 0.976
 cor(raw_e, Deviance_e) # 0.998
@@ -125,6 +127,7 @@ Residuals %>%
   ggplot(aes(x = p_hat, y = Pearson_e, colour = as.factor(y))) +
   geom_point()
 ```
+
 ```{r}
 Residuals %>% 
   filter(y == 1) %>%  
