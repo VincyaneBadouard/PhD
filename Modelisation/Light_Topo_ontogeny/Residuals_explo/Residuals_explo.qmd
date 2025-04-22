@@ -28,10 +28,14 @@ https://library.virginia.edu/data/articles/understanding-deviance-residuals#:~:t
 ```{r setup, include = F}
 library(tidyverse)
 library(cmdstanr)
-# library(bayesplot)
+library(foreach)
+library(parallel)
 
-# sp <- "Paypayrola_hulkiana" 
+# sp <- "Tabernaemontana_macrocalyx"
 sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+
+sp <- c("Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis")
+
 ```
 
 # Model results and their data
@@ -46,11 +50,50 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 # View(datalist[["Iryanthera_hostmannii"]])
 ```
 
+# Parallelised function
+```{r}
+source("~/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/ResidualExplo.R", echo=TRUE)
+
+Sys.time()
+gc()
+# parallel::detectCores() # 8
+cores = min(c(length(sp), 8)) # nbr of cores to use
+i <- NULL
+j = length(sp)
+
+# L'enregistrement des clusters
+cl <- parallel::makeCluster(cores, outfile = "")
+doSNOW::registerDoSNOW(cl)
+
+# Progress bar:
+# pb <- txtProgressBar(min = 0, max = j, style = 3)
+pb <- txtProgressBar(max=j)
+# progress <- function(n) setTxtProgressBar(pb, n)
+progress <- function(n) cat(sprintf("Run %d is complete\n", n))
+opts <- list(progress = progress)
+
+foreach::foreach(
+  i=1:j,
+  .packages = c("cmdstanr", "tidyverse", "pgirmess"), # necessary packages
+  .options.snow = opts # ProgressBar
+) %dopar% {
+  ResidualExplo(s= sp[i], datalist,
+                fitspath = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/Chains/Hybrid_allpred/")
+}
+
+# close progressbar and cluster
+close(pb)
+stopCluster(cl)
+Sys.time() # 16h
+```
+
+# Detailed code
 ```{r fits}
 fits <- list()
 for(S in sp){
   tryCatch({
-    chain_path <- file.path("..","Chains", "Hybrid_allpred", S) # ".." for the he directory above the current one
+    chain_path <- paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo/Chains/Hybrid_allpred/",S, sep="")
+    # chain_path <- file.path("..","Chains", "Hybrid_allpred", S) # ".." for the he directory above the current one
     fits[[S]] <- as_cmdstan_fit(list.files(chain_path,
                                            full.names = TRUE))},
     error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
@@ -101,11 +144,13 @@ cbind(y, p_hat, StPearson_e) %>%
 ```{r}
 Deviance_e <- sign(raw_e)*sqrt(-2*(y*log(p_hat) + (1 - y)*log(1 - p_hat)))
 ```
+
 ```{r}
 Residuals <- data.frame(y, p_hat, raw_e, Pearson_e, Deviance_e) %>% 
   bind_cols(datalist[[S]] %>% select(Xutm,Yutm, DBHcor))
 ```
 
+# Residuals distribution
 ```{r}
 cor(raw_e, Pearson_e) # 0.976
 cor(raw_e, Deviance_e) # 0.998
@@ -125,6 +170,7 @@ Residuals %>%
   ggplot(aes(x = p_hat, y = Pearson_e, colour = as.factor(y))) +
   geom_point()
 ```
+
 ```{r}
 Residuals %>% 
   filter(y == 1) %>%  
