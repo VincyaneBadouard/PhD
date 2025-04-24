@@ -11,11 +11,9 @@ code-fold: true
 ---
 
 # Objectives
-to see how well our model is fitting the data.  
-Residuals are the differences between what we observe and what our model predicts.  
-
-Si les résidus sont uniformément distribués leur médiane est proche de 0, et la valeur mimimum et maximum <3 en absolu. Les résidus supérieurs à la valeur absolue de 3 se situent dans les queues d'une distribution normale standard et indiquent généralement une déformation du modèle.  
-
+Check for autocorrelation in the model residuals  
+- Compute model residuals  
+- Compute Moran's I  
 
 Aggregatives species :\
 - Anaxagorea_dolichocarpa\
@@ -24,14 +22,21 @@ Aggregatives species :\
 - Dicorynia_guianensis  
 - Paypayrola_hulkiana  
 
-Raw residual : the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
+Compute residuals permit to see how well our model is fitting the data.  
+Residuals are the differences between what we observe and what our model predicts.  
+
+**Raw residual**: the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
+
+**Pearson residual**: it is the raw residual divided by the estimated standard deviation of a binomial distribution with number of trials equal to 1 and p equal to phat.  
+
+**Deviance residual**: scaled version of the components of the binomial log likelihood.  
 
 https://library.virginia.edu/data/articles/understanding-deviance-residuals#:~:text=It%20turns%20out%20there%20are,probability%20(%5Epi  
 
 # Packages
 ```{r setup, include = F}
-library(tidyverse)
 library(cmdstanr)
+library(tidyverse)
 
 sp <- params$species
 print(sp)
@@ -73,7 +78,7 @@ Residuals <- Residuals %>%
 
 ```{r}
 Residuals_covar <- Residuals %>% pivot_longer(cols = c(logDBH, logTransmittance, logTWI, Elevation, HAND),
-                                        names_to = "Var", values_to = "Covar")
+                                              names_to = "Var", values_to = "Covar")
 ```
 
 # Residus - relation with models variables
@@ -88,13 +93,80 @@ p1 <- xs$`1` %>%
   geom_point() +
   geom_smooth(method='lm', formula= y~x, col="red") +
   ggpubr::stat_cor(aes(label = ..r.label..),
-                   label.x.npc = "center", label.y.npc = "bottom", digits = 1, col="red") +
+                   label.x.npc = "centre", label.y.npc = "bottom", digits = 1, col="red") +
   theme(axis.title.x=element_blank()) +
-  facet_wrap(~Var, scales ="free", nrow = 1, ncol = 5)
+  facet_wrap(~Var, scales ="free", nrow = 2, ncol = 3)
 
 p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
 
-p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
+# p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
+```
+# Predictions - relation with models variables
+```{r}
+# Residuals_covar %>% 
+p1 <- xs$`1` %>% 
+  ggplot(aes(x= Covar, y= p_hat)) +
+  theme_minimal() +
+  geom_point() +
+  geom_smooth(method='lm', formula= y~x, col="red") +
+  ggpubr::stat_cor(aes(label = ..r.label..),
+                   label.x.npc = "centre", label.y.npc = "bottom", digits = 1, col="red") +
+  theme(axis.title.x=element_blank()) +
+  facet_wrap(~Var, scales ="free", nrow = 2, ncol = 3)
+
+p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
+
+# p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
+```
+# DHARMa
+standardized residuals values between 0 and 1.
+
+1) Simulate **new response data** from the fitted model for each observation.
+
+2) For each observation, calculate the **empirical cumulative density function for the simulated observations**, which describes the possible values (and their probability) at the predictor combination of the observed value, assuming the fitted model is correct.
+
+3) The **residual is then defined as the value of the empirical density function at the value of the observed data**, so a residual of 0 means that all simulated values are larger than the observed value, and a residual of 0.5 means half of the simulated values are larger than the observed value.
+```{r, eval=F}
+library(DHARMa)
+chain_path <- paste("./Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+
+sim_draw <- function(x) rbinom(n=1, size=1, prob=x)
+phat <- fit$draws("p", format = "draws_matrix") # crash l'ordi
+Pdraws <- apply(phat, 1:2, sim_draw) # presence-absence prediction
+sim <- createDHARMa(simulatedResponse = t(Pdraws), # presence-absence prediction
+                    observedResponse = Residuals$y,
+                    fittedPredictedResponse = apply(Pdraws, 2, median), #  presence-absence prediction median
+                    integerResponse = TRUE) # for Binomial and Poisson
+plot(sim)
+```
+
+```{r}
+# sort pred_y
+Residuals %>% 
+  arrange(p_hat)
+# generate myids = _n if pred_y < .
+# local nbins = floor(sqrt(5000))
+# egen binno = cut(myids) if pred_y < . , group(`nbins´) icodes
+# egen avefit = mean(pred_y), by(binno)
+# egen myaveres = mean(resid), by(binno)
+# egen mysd = sd(resid), by(binno)
+# egen mytag = tag(binno)
+# bysort binno: egen binsize = count(pred_y)
+# generate uplim = 2*mysd/sqrt(binsize)
+# generate dwlim = -2*mysd/sqrt(binsize)
+# graph twoway (scatter myaveres avefit if inrange(myaveres, dwlim, uplim)
+# > & mytag == 1, msymbol(oh))
+# > (line uplim avefit, clcolor(gray) lstyle(solid))
+# > (line dwlim avefit, clcolor(gray) lstyle(solid))
+# > (scatter myaveres avefit if !inrange(myaveres, dwlim, uplim) & mytag == 1,
+# > mcolor(black)),
+# > xtitle(Average predicted mortality probability) ytitle(Average residual)
+# > legend(off) scheme(sj)
 ```
 
 ```{r}
@@ -110,11 +182,17 @@ Residuals <- Residuals %>% pivot_longer(cols = c(raw_e, Pearson_e, Deviance_e),
 
 # Residuals distribution
 ```{r}
-ggplot(Residuals) +
+xs <- split(Residuals, f = Residuals$y)
+
+p1 <- ggplot(xs$`1`) +
   theme_minimal() +
-  geom_histogram(aes(x=log(Residuals)), fill="#009E73", col="white") +
+  geom_histogram(aes(x=Residuals), fill="#009E73", col="white") +
   facet_grid(~Type, scales ="free") +
   labs(title = sp)
+
+p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
 ```
 
 # Plots the residuals against the predicted proba
@@ -142,7 +220,7 @@ p1 <- xs$raw_e %>%
   # filter(y == 1) %>%  
   ggplot() + 
   theme_classic() +
-  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.2) +
   geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
   scale_fill_manual(values = c("Hilltop" = "#009E73",
                                "Slope"= "#E7B800",
@@ -150,8 +228,8 @@ p1 <- xs$raw_e %>%
                                "Bottomland" = "#1f78b4"),
                     breaks = c("Hilltop", "Slope", "Downslope", "Bottomland")) +
   
-  geom_point(aes(x = Xutm, y = Yutm, colour = Residuals, size=DBHcor)) +
-  scale_size_continuous(range = c(0.5, 5)) +
+  geom_point(aes(x = Xutm, y = Yutm, colour = Residuals), size=0.7) + # , size=DBHcor
+  # scale_size_continuous(range = c(0.5, 5)) +
   # coord_fixed(ratio = 1) +
   scale_color_gradient(low = "blue", high = "red") +
   facet_wrap(~ Type, scales ="fixed") + 
@@ -162,6 +240,7 @@ p1 <- xs$raw_e %>%
 p2 <- p1 %+% xs$Deviance_e
 p3 <- p1 %+% xs$Pearson_e
 
+p1
 gridExtra::grid.arrange(p1,p2,p3, nrow = 1, ncol = 3, top = grid::textGrob(paste(sp, "- presences")))
 ```
 

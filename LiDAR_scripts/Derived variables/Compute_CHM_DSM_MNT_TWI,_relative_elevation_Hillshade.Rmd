@@ -85,6 +85,27 @@ writeRaster(DSM, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+
 writeRaster(MNT_buffer50m, "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_4ha+50mbuffer_ALS_DEM_1mres.tif", overwrite=T)
 ```
 
+```{r}
+CHM <- rast("D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_25ha_HighAlt_CHM_1mres.tif")
+P16 <- terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp") %>% 
+  st_as_sf()
+
+
+ggplot() + 
+  geom_spatraster(data = CHM, aes(fill = PARACOU2023_CHM_50cm_OK_filt)) +
+  scale_fill_gradientn(name = "Height (m)",
+                       colors = height.colors(25), na.value="white") + 
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  ggtitle("Paracou P16 25ha - CHM ALS 2023 - 1m res") + 
+  theme_classic() +
+  theme(title=element_text(size=18), axis.text=element_text(size=18), legend.title=element_text(size=20), legend.text=element_text(size=20), legend.key.size = unit(1, 'cm')) +
+  coord_sf()
+
+ggsave("P16_2023_25ha_ALS_CHM_1m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/CHM-DSM",
+       width = 30, height = 25, units = "cm", dpi=800, bg="white")
+```
+
 
 # DEM from LAS
 
@@ -95,7 +116,7 @@ las_path =
   # "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/las"
   # "D:/Mes Donnees/PhD/Lidar/ALS2023/LowAlt"
   "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte"
-  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/P16_2023_25ha_LowAlt_buffer_raw.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/Raw_laz/P16_2023_25ha_LowAlt_buffer_raw.laz"
 mnt_path =
   # "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dalles"
@@ -164,8 +185,8 @@ writeRaster(dem,
             # "D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT.tif"
             # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt.tif"
             "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt.tif"
-
-            )
+            
+)
 
 ```
 
@@ -465,17 +486,17 @@ crs(P16buffer)
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Clip_raster.R")
 
 Plot16_25ha_buffer_mnt <- Rslt <- Clip_raster(file_to_clip = "test/Paracou_MNT_cor.tif",
-                                       mask = P16buffer, 
-                                       outpout = "test/Plot16_25ha_buffer_mnt.tif")
+                                              mask = P16buffer, 
+                                              outpout = "test/Plot16_25ha_buffer_mnt.tif")
 
 
 Plot16_25ha_buffer_TWI <- Clip_raster(file_to_clip = "test/Paracou_TWI_5m.tif",
-                               mask = P16buffer, 
-                               outpout = "test/Plot16_25ha_buffer_TWI_5m.tif")
+                                      mask = P16buffer, 
+                                      outpout = "test/Plot16_25ha_buffer_TWI_5m.tif")
 
 Plot16_25ha_buffer_RE <- Clip_raster(file_to_clip = "test/re.tif",
-                              mask = P16buffer, 
-                              outpout = "test/Plot16_25ha_buffer_RelativeElev.tif")
+                                     mask = P16buffer, 
+                                     outpout = "test/Plot16_25ha_buffer_RelativeElev.tif")
 ```
 ## Plot the ALT rasters
 ```{r}

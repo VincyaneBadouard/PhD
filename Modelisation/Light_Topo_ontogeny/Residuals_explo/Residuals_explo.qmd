@@ -5,10 +5,8 @@ editor: source
 ---
 
 # Objectives
-to see how well our model is fitting the data.  
+Compute residuals permit to see how well our model is fitting the data.  
 Residuals are the differences between what we observe and what our model predicts.  
-
-Si les résidus sont uniformément distribués leur médiane est proche de 0, et la valeur mimimum et maximum <3 en absolu. Les résidus supérieurs à la valeur absolue de 3 se situent dans les queues d'une distribution normale standard et indiquent généralement une déformation du modèle.  
 
 
 Aggregatives species :\
@@ -18,7 +16,11 @@ Aggregatives species :\
 - Dicorynia_guianensis  
 - Paypayrola_hulkiana  
 
-Raw residual : the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
+**Raw residual**: the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
+
+**Pearson residual**: it is the raw residual divided by the estimated standard deviation of a binomial distribution with number of trials equal to 1 and p equal to phat.  
+
+**Deviance residual**: scaled version of the components of the binomial log likelihood.  
 
 https://library.virginia.edu/data/articles/understanding-deviance-residuals#:~:text=It%20turns%20out%20there%20are,probability%20(%5Epi  
 

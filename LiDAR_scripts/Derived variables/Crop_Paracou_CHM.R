@@ -5,7 +5,9 @@ library(raster)
 # library(lidR)
 library(sf)
 
-mask <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp")) # + 50m buffer
+mask <- st_as_sf(vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) # P16
+# mask <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp")) # + 50m buffer
+
 mask <- st_as_sf(mask) # as sf object
 mask <- st_set_crs(mask, 2972) 
 
@@ -15,12 +17,13 @@ plot(CHM_Paracou)
 # raster::crs(CHM_Paracou) <- st_set_crs(mask) # attribuer le crs
 
 cro <- terra::crop(CHM_Paracou, mask)
-CHM_P16_buffer <- terra::mask(cro, mask)
+raster_crop <- terra::mask(cro, mask)
 
-plot(CHM_P16_buffer)
+plot(raster_crop)
 
 
-terra::writeRaster(CHM_P16_buffer,
-                   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif",
+terra::writeRaster(raster_crop,
+                   "D:/Mes Donnees/PhD/Lidar/ALS2023/Rasters/Paracou_P16_2023_25ha_HighAlt_CHM_1mres.tif",
+                   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif",
                    overwrite=TRUE)
 
