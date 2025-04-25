@@ -10,6 +10,8 @@ data {
   vector[N] Light ;
   vector[N] Topography ;
   vector[N] DBH ;
+  int<lower=1> N_p ; // N predictions
+  array[N_p] int<lower=1, upper=N> preds ; // predictions index
 }
 transformed data {
   real adj = N * 1.0 / sum(Presence); // inverse of species relative abundance
@@ -42,8 +44,8 @@ model {
   // gamma_p = gamma0 + tau*topo
 }
 generated quantities { // predictions
-vector<lower=0, upper=1>[N] p ;
-p = inv_logit(a * (Light - (O + iota*DBH))^2 + gamma + tau*Topography); // i in column *adj
+vector<lower=0, upper=1>[N_p] p ;
+p = inv_logit(a * (Light[preds] - (O + iota*DBH[preds]))^2 + gamma + tau*Topography[preds]); // i in column *adj
 
 // p[,i] = to_row_vector(inv_logit(a*(Environmentp - O + iota*(DBHp[i]))^2 + gamma));  
 

@@ -11,7 +11,7 @@
 #' @export
 #'
 #' @examples
-#' s <- "Eperua_falcata"
+#' s <- "Anaxagorea_dolichocarpa"
 #'         
 #' path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 #' load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
@@ -24,8 +24,9 @@ ResidualExplo <- function(s, datalist, fitspath ){
   print(paste("run for sp", s))
   
     # Filter data for for interest species ---------------------------------------
-  datalist <- datalist[names(datalist) %in% s] # only species in sp
-  # View(datalist[["Iryanthera_hostmannii"]])
+  Id <- readRDS(paste("./PredID/PredID_",s, ".rds",sep="")) # pred id
+  
+  datalist <- datalist[names(datalist) %in% s][[s]][Id,] # only species in sp and predicted rows
   
   # Load models fits for interest species --------------------------------------
   tryCatch({
@@ -38,17 +39,17 @@ ResidualExplo <- function(s, datalist, fitspath ){
   
   # Compute raw residuals ----------------------------------------------------
   # get the posterior residuals for each observations, and I take the median across iterations.
-  DATA <- fits$summary("p") # p posterior
+  DATA <- fits$summary("p", "median") # p posterior
   
   rm(fits)
   
-  Residuals <- data.frame(y = datalist[[s]]$Presence, # Observed values (y = 0 or 1)
-                          p_hat = DATA$mean) %>% # predicted probability from model
+  Residuals <- data.frame(y = datalist$Presence, # Observed values (y = 0 or 1)
+                          p_hat = DATA$median) %>% # predicted probability from model
     mutate(raw_e = y - p_hat, # raw residuals,
            Pearson_e = raw_e / sqrt(p_hat * (1 - p_hat)),
            Deviance_e = sign(raw_e)*sqrt(-2*(y*log(p_hat) + (1 - y)*log(1 - p_hat)))
     ) %>% 
-    bind_cols(datalist[[s]] %>% select(Xutm,Yutm, DBHcor))
+    bind_cols(datalist %>% select(Xutm,Yutm, logDBH, logTransmittance, logTWI, Elevation, HAND))
   
   rm(DATA)
   
@@ -56,26 +57,26 @@ ResidualExplo <- function(s, datalist, fitspath ){
   
   # Moran's I ----------------------------------------------------------------
   # n <- 10^3
-  # Take all the presences and the same nbr of absences
-  pres <- Residuals %>% filter(y==1)
-  abs <- Residuals %>% 
-    filter(y==0) %>% 
-    sample_n(nrow(pres))
-  samp <- bind_rows(pres, abs)
+  # Take all the presences and the same nbr of absences (allready done)
+  # pres <- Residuals %>% filter(y==1)
+  # abs <- Residuals %>% 
+  #   filter(y==0) %>% 
+  #   sample_n(nrow(pres))
+  # samp <- bind_rows(pres, abs)
   
   
   # Computes Moran's coefficients on distance classes
-  Moran_raw <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
-                                  samp$raw_e,
+  Moran_raw <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm),
+                                  Residuals$raw_e,
                                   method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
-  Moran_Pearson <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
-                                      samp$Pearson_e,
+  Moran_Pearson <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm),
+                                      Residuals$Pearson_e,
                                       method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
   
-  Moran_Deviance <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
-                                       samp$Deviance_e,
+  Moran_Deviance <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm),
+                                       Residuals$Deviance_e,
                                        method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
   
