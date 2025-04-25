@@ -92,6 +92,6 @@ ResidualExplo <- function(s, datalist, fitspath ){
   saveRDS(Results, paste("./Residuals_Moran/Residuals_Moran_", s,".rds", sep=""))
   
   print(paste(s, "DONE"))
-  
+
 }
 

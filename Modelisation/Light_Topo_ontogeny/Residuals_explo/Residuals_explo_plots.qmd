@@ -15,6 +15,11 @@ Check for autocorrelation in the model residuals
 - Compute model residuals  
 - Compute Moran's I  
 
+# Objectives
+to see how well our model is fitting the data.  
+Residuals are the differences between what we observe and what our model predicts.  
+
+
 Aggregatives species :\
 - Anaxagorea_dolichocarpa\
 - Tabernaemontana_macrocalyx  
