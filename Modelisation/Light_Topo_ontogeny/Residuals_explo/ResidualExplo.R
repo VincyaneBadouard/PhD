@@ -24,9 +24,9 @@ ResidualExplo <- function(s, datalist, fitspath ){
   print(paste("run for sp", s))
   
     # Filter data for for interest species ---------------------------------------
-  Id <- readRDS(paste("./PredID/PredID_",s, ".rds",sep="")) # pred id
+  # Id <- readRDS(paste("./PredID/PredID_",s, ".rds",sep="")) # pred id
   
-  datalist <- datalist[names(datalist) %in% s][[s]][Id,] # only species in sp and predicted rows
+  datalist <- datalist[names(datalist) %in% s][[s]] # [Id,] # only species in sp and predicted rows
   
   # Load models fits for interest species --------------------------------------
   tryCatch({
@@ -56,27 +56,27 @@ ResidualExplo <- function(s, datalist, fitspath ){
   print("Residuals computed")
   
   # Moran's I ----------------------------------------------------------------
-  # n <- 10^3
+  n <- 10^3
   # Take all the presences and the same nbr of absences (allready done)
-  # pres <- Residuals %>% filter(y==1)
-  # abs <- Residuals %>% 
-  #   filter(y==0) %>% 
-  #   sample_n(nrow(pres))
-  # samp <- bind_rows(pres, abs)
+  pres <- Residuals %>% filter(y==1)
+  abs <- Residuals %>%
+    filter(y==0) %>%
+    sample_n(nrow(pres))
+  samp <- bind_rows(pres, abs)
   
   
   # Computes Moran's coefficients on distance classes
-  Moran_raw <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm),
-                                  Residuals$raw_e,
+  Moran_raw <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
+                                  samp$raw_e,
                                   method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
-  Moran_Pearson <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm),
-                                      Residuals$Pearson_e,
+  Moran_Pearson <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
+                                      samp$Pearson_e,
                                       method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
   
-  Moran_Deviance <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm),
-                                       Residuals$Deviance_e,
+  Moran_Deviance <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
+                                       samp$Deviance_e,
                                        method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
   

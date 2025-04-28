@@ -1,6 +1,6 @@
 ---
 params:
-  species: Tabernaemontana_macrocalyx
+  species: Paypayrola_hulkiana
 title: "Residuals explo plots"
 subtitle: "*`r params$sp`*"
 format: html
@@ -76,15 +76,17 @@ Moran <- bind_rows(Moran_raw, Moran_Pearson, Moran_Deviance)
 rm(Moran_raw, Moran_Pearson, Moran_Deviance, params, rslts)
 ```
 
-```{r, eval =F}
-path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
-load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
-datalist <- datalist[names(datalist) %in% sp] # only species in sp
-
-Residuals <- Residuals %>% 
-  bind_cols(datalist[[sp]] %>% select(logDBH, Transmittance, logTransmittance, TWI, logTWI, Elevation, HAND))
-
-rm(datalist)
+```{r}
+if(!"logTransmittance" %in% names(Residuals)){
+  path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+  load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+  datalist <- datalist[names(datalist) %in% sp] # only species in sp
+  
+  Residuals <- Residuals %>% 
+    bind_cols(datalist[[sp]] %>% select(logDBH, Transmittance, logTransmittance, TWI, logTWI, Elevation, HAND))
+  
+  rm(datalist)
+}
 ```
 
 ```{r}
@@ -114,6 +116,8 @@ p2 + ggtitle("Absence")
 
 # p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
 ```
+"The general idea is that if the model is correct, then the sample residuals should appear independent of the predictors. Observed patterns that indicate clear dependence also indicate violation of assumptions in the model. This paradigm works best for linear models with additive errors. Complications arise in logistic regression and other generalized linear models because in such settings population residuals may not be independent of the predictors when the model is in fact correct" (Pardoe & Cook, 2002).
+
 # Predictions - relation with models variables
 ```{r}
 # Residuals_covar %>% 
@@ -134,182 +138,6 @@ p2 + ggtitle("Absence")
 # p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
 ```
 
-# DHARMa
-standardized residuals values between 0 and 1.
-
-1) Simulate **new response data** from the fitted model for each observation.
-
-2) For each observation, calculate the **empirical cumulative density function for the simulated observations**, which describes the possible values (and their probability) at the predictor combination of the observed value, assuming the fitted model is correct.
-
-3) The **residual is then defined as the value of the empirical density function at the value of the observed data**, so a residual of 0 means that all simulated values are larger than the observed value, and a residual of 0.5 means half of the simulated values are larger than the observed value.
-```{r DHARMa, eval=F}
-library(DHARMa)
-chain_path <- paste("./Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
-fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1])
-
-sim_draw <- function(x) rbinom(n=1, size=1, prob=x)
-phat <- fit$draws("p", format = "draws_matrix") # crash l'ordi
-Pdraws <- apply(phat, 1:2, sim_draw) # presence-absence prediction
-sim <- createDHARMa(simulatedResponse = t(Pdraws), # presence-absence prediction
-                    observedResponse = Residuals$y,
-                    fittedPredictedResponse = apply(Pdraws, 2, median), #  presence-absence prediction median
-                    integerResponse = TRUE) # for Binomial and Poisson
-plot(sim)
-```
-
-# QQ plot
- randomization to achieve continuous residuals when the response variable is discrete
- by inverting the fitted distribution function at each response value and finding the equivalent standard normal quantile
- 
-http://www.statsci.org/smyth/pubs/residual.html
-https://www.rdocumentation.org/packages/statmod/versions/1.5.0/topics/qresiduals
-https://github.com/cran/statmod/blob/f85e32011346fb75d2b967cf2aff1f2e01a10ba8/R/qres.R#L20-L36
-
-```{r}
-t <- fit$summary(c("a", "gamma", "O", "iota", "tau"), "median") %>% # parameters median
-  pivot_wider(names_from = variable, values_from = median) %>% # as col
-  mutate(data = list(dplyr::select(Residuals, y, Xutm, Yutm,
-                                   logTransmittance, logTWI, logDBH))) %>% # covariables
-  unnest(data) %>%  
-  # Compute predictions
-  mutate(p = arm::invlogit(a * (logTransmittance - (O + iota*logDBH))^2 + 
-                             gamma + tau*logTWI)) %>%
-  # Compute residuals for bernoulli as statmod::qres.binom()
-  mutate(u = runif(n = length(y), 
-                   min = pbinom(y - 1, 1, p), 
-                   max = pbinom(y, 1, p))) %>% 
-  mutate(e = qnorm(u)) 
-
-# QQ plot
-ggplot(t, aes(sample = e)) +
-  geom_abline() +
-  stat_qq() +
-  theme_bw()
-```
-
-```{r}
-# http://www.statsci.org/smyth/pubs/residual.html
-# https://www.rdocumentation.org/packages/statmod/versions/1.5.0/topics/qresiduals
-# https://github.com/cran/statmod/blob/f85e32011346fb75d2b967cf2aff1f2e01a10ba8/R/qres.R#L20-L36
-t <- fit$summary(c("a", "gamma", "O", "iota", "tau"), "median") %>% 
-  pivot_wider(names_from = variable, values_from = median) %>% 
-  mutate(data = list(dplyr::select(Residuals, y,
-                                   logTransmittance, logTWI, logDBH))) %>% 
-  unnest(data) %>%  
-  mutate(p = arm::invlogit(a * (logTransmittance - (O + iota*logDBH))^2 + 
-                             gamma + tau*logTWI)) %>% 
-  mutate(n = 1) %>% 
-  mutate(u = runif(n = length(y), 
-                   min = pbinom(y - 1, n, p), 
-                   max = pbinom(y, n, p))) %>% 
-  mutate(e = qnorm(u))
-car::qqPlot(t$e)
-t %>% 
-  ggplot(aes(sample = e)) +
-  geom_abline() +
-  stat_qq() +
-  theme_bw()
-
-library(statmod)
-fit <- glm(y~1,family=binomial,data=t)
-fit$fitted.values <- t$p
-all(t$p == fitted(fit))
-car::qqPlot(statmod::qres.binom(fit))
-```
-
-# Moran
-```{r}
-t <- t %>% 
-  sample_n(1000)
-moran <- pgirmess::correlog(coords = data.frame(t$Xutm, t$Yutm),
-                            t$e,
-                            method = "Moran", nbclass = NULL) %>% 
-  as.data.frame()
-moran %>% 
-  filter(dist.class < 500) %>% 
-  ggplot(aes(x = dist.class, y = coef)) +
-  ylim(-1, 1) +
-  theme_minimal() +
-  geom_hline(yintercept = 0) +
-  geom_point(aes(alpha = p.value < 0.05)) +
-  geom_line(col="red", linewidth =0.8) +
-  xlab("Distance (m)") + ylab("Moran\'s I") +
-  ggtitle(paste(sp,"- Residuals spatial auto-correlation"))
-```
-
-# Binned residuals plot
-```{r binnedplot}
-arm::binnedplot(t$p ,t$e, nclass=NULL,
-                xlab="Predictions", ylab="Average residual",
-                main="Binned residual plot",
-                cex.pts=0.8, col.pts=1, col.int="gray")
-
-arm::binnedplot(t$logTWI ,t$e, nclass=NULL,
-                xlab="Predictions", ylab="Average residual",
-                main="Binned residual plot",
-                cex.pts=0.8, col.pts=1, col.int="gray")
-
-
-arm::binnedplot(Residuals$p_hat ,Residuals$raw_e, nclass=NULL,
-                xlab="Predictions", ylab="Average residual",
-                main="Binned residual plot",
-                cex.pts=0.8, col.pts=1, col.int="gray")
-
-arm::binnedplot(Residuals$logTWI ,Residuals$raw_e, nclass=NULL,
-                xlab="logTWI", ylab="Average residual",
-                main="Binned residual plot",
-                cex.pts=0.8, col.pts=1, col.int="gray")
-
-arm::binnedplot(Residuals$logTransmittance ,Residuals$raw_e, nclass=NULL,
-                xlab="logTransmittance", ylab="Average residual",
-                main="Binned residual plot",
-                cex.pts=0.8, col.pts=1, col.int="gray")
-
-arm::binnedplot(Residuals$logDBH ,Residuals$raw_e, nclass=NULL,
-                xlab="logDBH", ylab="Average residual",
-                main="Binned residual plot",
-                cex.pts=0.8, col.pts=1, col.int="gray")
-
-```
-```{r}
-library(reliabilitydiag)
-
-# Compute the reliabilitydiagram
-r <- reliabilitydiag(x = t(phat), y = Residuals$y)
-
-# Plot the diagram
-plot(r)
-```
-
-```{r, eval=F}
-trace(performance::binned_residuals, edit=T)
-# sort pred_y
-Residuals %>% 
-  arrange(p_hat) %>% 
-  mutate(myids = _n if pred_y < .,) %>% 
-  mutate(nbins = floor(sqrt(length(p_hat)))) %>% 
-  group_by(nbins) %>%
-  mutate(binno = cut(myids) if pred_y < . , group(`nbins´) icodes) %>% 
-  group_by(binno) %>% 
-  mutate(avefit = mean(pred_y)) %>% 
-  mutate(myaveres = mean(resid)) %>% 
-  mutate(mysd = sd(resid)) %>% 
-  mutate(mytag = tag(binno))
-# bysort binno
-mutate(binsize = count(pred_y)) %>% 
-  mutate(uplim = 2*mysd/sqrt(binsize)) %>% 
-  mutate(dwlim = -2*mysd/sqrt(binsize)) 
-
-# graph twoway (scatter myaveres avefit if inrange(myaveres, dwlim, uplim)
-# > & mytag == 1, msymbol(oh))
-# > (line uplim avefit, clcolor(gray) lstyle(solid))
-# > (line dwlim avefit, clcolor(gray) lstyle(solid))
-# > (scatter myaveres avefit if !inrange(myaveres, dwlim, uplim) & mytag == 1,
-# > mcolor(black)),
-# > xtitle(Average predicted mortality probability) ytitle(Average residual)
-# > legend(off) scheme(sj)
-```
-
 ```{r}
 cor(Residuals$raw_e, Residuals$Pearson_e) # 3e
 cor(Residuals$raw_e, Residuals$Deviance_e) # la cor la + haute
@@ -317,6 +145,7 @@ cor(Residuals$Pearson_e, Residuals$Deviance_e) # 2e
 ```
 
 ```{r}
+Residuals_wide <- Residuals
 Residuals <- Residuals %>% pivot_longer(cols = c(raw_e, Pearson_e, Deviance_e),
                                         names_to = "Type", values_to = "Residuals")
 ```
@@ -420,4 +249,252 @@ Moran %>%
   # ylim(-1, 1) +
   facet_wrap(~ Type, scales ="fixed") + 
   ggtitle(paste(sp,"- Residuals spatial auto-correlation"))
+```
+## Binned residuals plot
+```{r binnedplot}
+# Raw residuals
+arm::binnedplot(Residuals_wide$p_hat, Residuals_wide$raw_e, nclass=NULL,
+                xlab="Predictions", ylab="Average raw residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+arm::binnedplot(Residuals_wide$logTWI, Residuals_wide$raw_e, nclass=NULL,
+                xlab="logTWI", ylab="Average raw residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+arm::binnedplot(Residuals_wide$logTransmittance, Residuals_wide$raw_e, nclass=NULL,
+                xlab="logTransmittance", ylab="Average raw residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+arm::binnedplot(Residuals_wide$logDBH, Residuals_wide$raw_e, nclass=NULL,
+                xlab="logDBH", ylab="Average raw residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+```
+
+# Quantile residuals
+randomization to achieve continuous residuals when the response variable is discrete
+by inverting the fitted distribution function at each response value and finding the equivalent standard normal quantile.
+
+It useful to routinely plot four realizations of the quantile residuals. Any pattern in the residuals which is not consistent across the realizations is then ignored.  
+
+http://www.statsci.org/smyth/pubs/residual.html
+https://www.rdocumentation.org/packages/statmod/versions/1.5.0/topics/qresiduals
+https://github.com/cran/statmod/blob/f85e32011346fb75d2b967cf2aff1f2e01a10ba8/R/qres.R#L20-L36
+
+```{r Quantile residuals}
+chain_path <- paste("./Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1])
+
+t <- fit$summary(c("a", "gamma", "O", "iota", "tau"), "median") %>% # parameters median
+  pivot_wider(names_from = variable, values_from = median) %>% # as col
+  mutate(data = list(dplyr::select(Residuals_wide, y, Xutm, Yutm,
+                                   logTransmittance, logTWI, logDBH))) %>% # covariables
+  unnest(data) %>%  
+  # Compute probabilities predictions
+  mutate(p = arm::invlogit(a * (logTransmittance - (O + iota*logDBH))^2 + 
+                             gamma + tau*logTWI)) %>%
+  # Compute quantile residuals for bernoulli as statmod::qres.binom()
+  mutate(u = runif(n = length(y), 
+                   min = pbinom(y - 1, 1, p), # quantile binomial fct
+                   max = pbinom(y, 1, p))) %>% 
+  mutate(e = qnorm(u)) # quantile normal fct
+
+```
+
+## Residuals distribution
+```{r}
+xs <- split(t, f = t$y)
+
+p1 <- ggplot(xs$`1`) +
+  theme_minimal() +
+  geom_histogram(aes(x=e), fill="#009E73", col="white") +
+  labs(title = sp)
+
+p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
+```
+```{r}
+print(cor(Residuals_wide$raw_e, t$e))
+print(cor(Residuals_wide$Deviance_e, t$e))
+print(cor(Residuals_wide$Pearson_e, t$e)) 
+```
+
+## Plots the residuals against the predicted proba
+```{r}
+ggplot(t, aes(x = p, y = e, col = as.factor(y))) +
+  theme_minimal() +
+  geom_point() +
+  labs(title = sp, x= "Presence probabily prediction",col = "Presence observation")
+```
+
+## QQ plot
+Le terme de quantile-quantile provient du fait que l'on compare la position de certains quantiles dans la population observée avec leur position dans la population théorique.  
+```{r QQ plot}
+# QQ plot
+ggplot(t, aes(sample = e)) +
+  stat_qq_line() + # Black solid lines denote the null distribution
+  stat_qq() + # quantile-quantile plot
+  theme_bw()
+```
+
+```{r, eval =F}
+# http://www.statsci.org/smyth/pubs/residual.html
+# https://www.rdocumentation.org/packages/statmod/versions/1.5.0/topics/qresiduals
+# https://github.com/cran/statmod/blob/f85e32011346fb75d2b967cf2aff1f2e01a10ba8/R/qres.R#L20-L36
+t <- fit$summary(c("a", "gamma", "O", "iota", "tau"), "median") %>% 
+  pivot_wider(names_from = variable, values_from = median) %>% 
+  mutate(data = list(dplyr::select(Residuals, y,
+                                   logTransmittance, logTWI, logDBH))) %>% 
+  unnest(data) %>%  
+  mutate(p = arm::invlogit(a * (logTransmittance - (O + iota*logDBH))^2 + 
+                             gamma + tau*logTWI)) %>% 
+  mutate(n = 1) %>% 
+  mutate(u = runif(n = length(y), 
+                   min = pbinom(y - 1, n, p), 
+                   max = pbinom(y, n, p))) %>% 
+  mutate(e = qnorm(u))
+car::qqPlot(t$e)
+
+library(statmod)
+fit <- glm(y~1,family=binomial,data=t)
+fit$fitted.values <- t$p
+all(t$p == fitted(fit))
+car::qqPlot(statmod::qres.binom(fit))
+```
+
+## Binned residuals plot
+```{r binned plot}
+# Quantile residual
+arm::binnedplot(t$p, t$e, nclass=NULL,
+                xlab="Predictions", ylab="Average quantile residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+arm::binnedplot(t$logTWI, t$e, nclass=NULL,
+                xlab="logTWI", ylab="Average quantile residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+arm::binnedplot(t$logTransmittance, t$e, nclass=NULL,
+                xlab="logTransmittance", ylab="Average quantile residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+
+arm::binnedplot(t$logDBH, t$e, nclass=NULL,
+                xlab="logDBH", ylab="Average quantile residual",
+                main="Binned residual plot",
+                cex.pts=0.8, col.pts=1, col.int="gray")
+```
+
+```{r}
+Residuals_covar <- t %>% pivot_longer(cols = c(logDBH, logTransmittance, logTWI),
+                                      names_to = "Var", values_to = "Covar")
+```
+
+## Residus - relation with models variables
+```{r}
+library(patchwork)
+xs <- split(Residuals_covar, f = Residuals_covar$y)
+
+# Residuals_covar %>% 
+p1 <- xs$`1` %>% 
+  ggplot(aes(x= Covar, y= e)) +
+  theme_minimal() +
+  geom_point() +
+  geom_smooth(method='lm', formula= y~x, col="red") +
+  ggpubr::stat_cor(aes(label = ..r.label..),
+                   label.x.npc = "centre", label.y.npc = "bottom", digits = 1, col="red") +
+  theme(axis.title.x=element_blank()) +
+  labs(y="Quantile residual") +
+  facet_wrap(~Var, scales ="free", nrow = 2, ncol = 3)
+
+p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
+
+# p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
+```
+
+## Resiuals spatial distribution
+```{r}
+library(sf)
+P16 <- terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp") %>% 
+  st_as_sf()
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>% 
+  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>% 
+  st_set_crs(st_crs(P16))
+
+xs <- split(t, f = t$y)
+
+p1 <- xs$`1` %>% 
+  ggplot() + 
+  theme_classic() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.2) +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  scale_fill_manual(values = c("Hilltop" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Downslope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4"),
+                    breaks = c("Hilltop", "Slope", "Downslope", "Bottomland")) +
+  
+  geom_point(aes(x = Xutm, y = Yutm, colour = e), size=0.7) + # , size=DBHcor
+  # scale_size_continuous(range = c(0.5, 5)) +
+  # coord_fixed(ratio = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme(axis.title= element_blank(), axis.text= element_blank()) +
+  facet_wrap(~ y, scales ="fixed") + 
+  theme(legend.position="bottom") +
+  guides(size = F, fill =F)
+
+p2 <- p1 %+% xs$`0`
+
+p1 + p2
+```
+
+## Moran
+```{r}
+t <- t %>% 
+  sample_n(1000)
+moran <- pgirmess::correlog(coords = data.frame(t$Xutm, t$Yutm),
+                            t$e,
+                            method = "Moran", nbclass = NULL) %>% 
+  as.data.frame()
+moran %>% 
+  filter(dist.class < 500) %>% 
+  ggplot(aes(x = dist.class, y = coef)) +
+  ylim(-1, 1) +
+  theme_minimal() +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(alpha = p.value < 0.05)) +
+  geom_line(col="red", linewidth =0.8) +
+  xlab("Distance (m)") + ylab("Moran\'s I") +
+  ggtitle(paste(sp,"- Residuals spatial auto-correlation"))
+```
+
+# DHARMa
+standardized residuals values between 0 and 1.
+
+1) Simulate **new response data** from the fitted model for each observation.
+
+2) For each observation, calculate the **empirical cumulative density function for the simulated observations**, which describes the possible values (and their probability) at the predictor combination of the observed value, assuming the fitted model is correct.
+
+3) The **residual is then defined as the value of the empirical density function at the value of the observed data**, so a residual of 0 means that all simulated values are larger than the observed value, and a residual of 0.5 means half of the simulated values are larger than the observed value.
+```{r DHARMa, eval=F}
+if(sp == "Anaxagorea_dolichocarpa"){
+  library(DHARMa)
+  sim_draw <- function(x) rbinom(n=1, size=1, prob=x)
+  phat <- fit$draws("p", format = "draws_matrix") # crash l'ordi
+  Pdraws <- apply(phat, 1:2, sim_draw) # presence-absence prediction
+  sim <- createDHARMa(simulatedResponse = t(Pdraws), # presence-absence prediction
+                      observedResponse = Residuals_wide$y,
+                      fittedPredictedResponse = apply(Pdraws, 2, median), #  presence-absence prediction median
+                      integerResponse = TRUE) # for Binomial and Poisson
+  plot(sim)
+}
 ```

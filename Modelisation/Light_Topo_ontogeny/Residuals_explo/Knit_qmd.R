@@ -2,6 +2,8 @@
 sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx",
         "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana") # 5 agreg sp
 
+sp <- "Anaxagorea_dolichocarpa"
+
 setwd("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/") 
 
 for(s in sp){
