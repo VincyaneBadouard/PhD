@@ -130,7 +130,7 @@ BotanicalCorrection <- function(
   
   
   #### Function ####
-
+  
   setDT(Data) # data.frame to data.table
   
   Data[, IdTree := as.character(IdTree)]
@@ -158,6 +158,7 @@ BotanicalCorrection <- function(
     # Corrected columns initialisation --------------------------------------------------------------------------------------
     Data[, GenusCor := Genus]
     Data[, SpeciesCor := Species]
+    Data[, FamilyCor := Family]
     
     # No family name in the genus and species columns -----------------------------------------------------------------------
     
@@ -276,6 +277,8 @@ BotanicalCorrection <- function(
       Data[, ScientificNameCor := gsub(" NA", "", ScientificNameCor)]
       Data[, ScientificNameCor := gsub("Indet", "", ScientificNameCor)]
       Data[, ScientificNameCor := gsub("indet", "", ScientificNameCor)]
+      Data[, ScientificNameCor := gsub("\\.", "", ScientificNameCor)]
+      
       
       # "Plants of the World Online" correction (more actual than WFO): ---------------------------------------------------
       Data <- GenerateComment(Data,
@@ -321,15 +324,18 @@ BotanicalCorrection <- function(
       # Unique : unique match (or not match) in the WFO
       # New.accepted = T : the current accepted name
       # Hybrid : a hybrid character in the scientificName
-      WFmatch <- unique(WFmatch[taxonomicStatus=="Accepted" & Matched==T & Unique==T & New.accepted==T,]) # Only a unique accepted new match
+      WFmatch <- unique(WFmatch[taxonomicStatus=="Accepted" & Matched==T & New.accepted==T & Unique==T,]) # Only a unique accepted new match
       
       # If double match take the closer (same genus name)
       # length(WFmatch$spec.name.ORIG) == length(unique(WFmatch$spec.name.ORIG))
       WFmatch[, c("Genus", "Species") := tstrsplit(spec.name.ORIG, " ", fixed = TRUE)]
-      dupl_choice <- unique(WFmatch[spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG] & genus == Genus])
+      dupl_choice <- unique(WFmatch[spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG] &
+                                   genus == Genus])
+      
       WFmatch <- WFmatch[!spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG],]
       WFmatch <- rbind(WFmatch, dupl_choice)
-      WFmatch[, `:=`(taxonomicStatus= NULL, Matched= NULL, Unique= NULL, New.accepted= NULL)] # remove columns
+      WFmatch[, `:=`(taxonomicStatus= NULL, Matched= NULL, Unique= NULL, New.accepted= NULL,
+                     Genus= NULL, Species= NULL, genus= NULL)] # remove columns
       
       
       # Remove multiple matches case (but keep the family and prefer not synonym)
@@ -345,25 +351,31 @@ BotanicalCorrection <- function(
       # Join the corrected Genus and Species, by original 'ScientificNameCor'
       Data <- merge(Data, WFmatch, by.x = "ScientificNameCor", by.y = "spec.name.ORIG", all.x = TRUE)
       
-      Data[, ScientificNameCor := NULL] # remove previous column before create the new one
+      setnames(Data, "ScientificNameCor", "ScientificNameCor1") # rename columns (scientificName is the more actual name proposed by WFO)
+      
       
       # Deal with "Plants of the World Online" correction
-      Data[, FamilyCor := ifelse(is.na(FamilyCor), family, FamilyCor)]
+      Data[, FamilyCor := ifelse(!is.na(family), family, FamilyCor)]
+      Data[, FamilyCor := ifelse(FamilyCor == "Indet.", NA, FamilyCor)]
       Data[, BotanicalCorrectionSource := ifelse(is.na(BotanicalCorrectionSource), BotaCorSource, BotanicalCorrectionSource)]
       Data[, c("family", "BotaCorSource") := NULL]
       
       setnames(Data, "scientificName", "ScientificNameCor") # rename columns (scientificName is the more actual name proposed by WFO)
       
-      # For Genus not detected by WFO by already corrected the family
-      Data[is.na(ScientificNameCor) & !is.na(FamilyCor), ScientificNameCor := paste(GenusCor, SpeciesCor)]
+      # test <- unique(Data[,.(ScientificName, GenusCor, SpeciesCor, ScientificNameCor1, ScientificNameCor)])
+      
+      Data[,ScientificNameCor := ifelse(is.na(ScientificNameCor), ScientificNameCor1, ScientificNameCor)]
+      Data[,ScientificNameCor := ifelse(ScientificNameCor==" ", NA, ScientificNameCor)]
+      Data[, ScientificNameCor1 := NULL] # remove previous column
       
       # No output species name if only genus in input
-      Data[is.na(SpeciesCor) | grepl("Indet", SpeciesCor)| grepl("indet", SpeciesCor)| grepl("[0-9]", SpeciesCor),
-           ScientificNameCor := sub(" .*", "", ScientificNameCor) ]
+      # Data[grepl(" .*", "", ScientificNameCor), ]
+      # Data[is.na(SpeciesCor) | grepl("Indet", SpeciesCor)| grepl("indet", SpeciesCor)| grepl("[0-9]", SpeciesCor),
+      #      ScientificNameCor := sub(" .*", "", ScientificNameCor) ]
       
       # But we want to keep species name with number
-      Data[grepl("[0-9]", SpeciesCor),
-           ScientificNameCor := paste(ScientificNameCor, SpeciesCor)]
+      # Data[grepl("[0-9]", SpeciesCor),
+      #      ScientificNameCor := paste(ScientificNameCor, SpeciesCor)]
       
       
       # if "Synonym" :
@@ -373,7 +385,11 @@ BotanicalCorrection <- function(
       Data[, Old.status := NULL] # remove the column
       
       # Create GenusCor and SpeciesCor
-      Data[, c("GenusCor", "SpeciesCor") := tstrsplit(ScientificNameCor, " ", fixed = TRUE)] # fixed = T : match split exactly
+      # Data[, c("GenusCor", "SpeciesCor") := tstrsplit(Data$ScientificNameCor, " ", fixed = TRUE)] # fixed = T : match split exactly
+      Data[, GenusCor := tstrsplit(ScientificNameCor, " ", fixed = TRUE)[[1]]]
+      Data[, SpeciesCor := tstrsplit(ScientificNameCor, " ", fixed = TRUE)[[2]]]
+      # Data[, truc1 := tstrsplit(ScientificNameCor, " ", fixed = TRUE)[[3]]]
+      # Data[, truc2 := tstrsplit(ScientificNameCor, " ", fixed = TRUE)[[4]]]
       
     } # end if WFO
     
@@ -395,7 +411,6 @@ BotanicalCorrection <- function(
     Data[, GenspFamily := NULL] # remove obsolete column
     
     # Homogenise unique botanical info (same Family, Genus, Species, Vernacular name) by IdTree if NA -----------------------
-    
     Data[, VernNameCor := VernName]
     
     BotaCols <- c("FamilyCor", "GenusCor", "SpeciesCor", "VernNameCor", "FamilyCorSource", "BotanicalCorrectionSource")
@@ -416,12 +431,12 @@ BotanicalCorrection <- function(
     #   Data[is.na(get(j)), c(j, "BotanicalCorrectionSource") := list(get(i), "Taxon not found")]
     #
     # }
-    Data[is.na(FamilyCor) & is.na(BotanicalCorrectionSource), BotanicalCorrectionSource := "Taxon not found"]
+    # Data[is.na(FamilyCor) & is.na(BotanicalCorrectionSource), BotanicalCorrectionSource := "Taxon not found"]
     
     # Reform ScientificNameCor ------------------------------------------------------------------------------------------
     # If "NA NA" -> NA_character_
     
-    Data[, ScientificNameCor := paste(GenusCor, SpeciesCor)]
+    # Data[, ScientificNameCor := paste(GenusCor, SpeciesCor)]
     
     Data[, ScientificNameCor := ifelse(ScientificNameCor == "NA NA", NA_character_, ScientificNameCor)]
     

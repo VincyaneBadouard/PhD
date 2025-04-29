@@ -11,7 +11,7 @@ Le principe est d’utiliser le LiDAR pour reconstruire en 3D la canopée forest
 
 
 # Install AMAPVox
-V2.2 : //amap-data.cirad.fr/work\users\PhilippeVerley\amapvox\nightly-build\AMAPVox-2.2.0-windows
+V2.2 : //amap-data.cirad.fr/work/users/PhilippeVerley/amapvox/nightly-build/AMAPVox-2.2.0-windows
 ```{r}
 # install "remotes" package if not already installed
 if (!any(grepl("remotes", rownames(installed.packages())))) install.packages("remotes")
@@ -51,7 +51,9 @@ ctg : catalog of laz files
 ```{r}
 # Si en dalles :
 ST <- readLAScatalog( # # las catalog. filter only 1st returns
-    folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/Laz", filter = "keep"
+    # folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/Laz", filter = "keep"
+    
+    folder = "//amap-data.cirad.fr/safe/DATAverse_tempo/ALSPar2019/laz", filter = "keep"
 
   # folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte", filter = "keep"
     # folder = "D:/Mes Donnees/PhD/Lidar/ALS2023/HighAlt/", filter = "keep"
@@ -83,7 +85,7 @@ Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fi
 ROI : Region of Interest
 ```{r, create ROI}
 # Region of Interest (ROI)
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Plot16_25ha_buffer.shp") # interest zone + 100m buffer
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp") # interest zone + 100m buffer
 plot(ROI)
 class(ROI) # SpatVector (terra)
 
@@ -131,8 +133,13 @@ PC@data <- PC@data[Classification != 7,]
 # plot(PC)
 
 writeLAS(PC,
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/P16_2023_25ha_HighAlt_buffer_raw_withoutextrabytes.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raw_laz/P16_2019_25ha_buffer_raw.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/P16_2023_25ha_HighAlt_buffer_raw_withoutextrabytes.laz"
 )
+
+# PC <- readLAS(
+#   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raw_laz/P16_2019_25ha_buffer_raw.laz"
+# )
 ```
 
 # Crop the DEM in region of interest
@@ -144,13 +151,14 @@ mnt <- rast(
   # paste(local,folders,"Returns_and_gpstime_corrected_DEM.tif", sep = "")
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/PARACOU2023_DTM_1m.tif"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt.tif"
-    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt.tif"
+    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt.tif"
+    "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raster/DTM_Paracou_2019_50cm.tif"
 
 )
 terra::crs(mnt) <- terra::crs("EPSG:2972")
 
 ggplot() + 
-  geom_spatraster(data = mnt, aes(fill = Z)) + # mnt_roi36ha_1m # dtm2023 ; MNT_0.5m_IRD_500m_Paracou_284000_579500
+  geom_spatraster(data = mnt, aes(fill = MNT50cm_Par2019)) + # mnt_roi36ha_1m # dtm2023 ; MNT_0.5m_IRD_500m_Paracou_284000_579500
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
@@ -163,7 +171,7 @@ mntROI <- raster::crop(mntROI,ROI)
 mntROI;ROI
 # plot(mntROI)
 ggplot() + 
-  geom_spatraster(data = mntROI, aes(fill = Z)) + # mnt_roi36ha_1m # dtm2023 ; MNT_0.5m_IRD_500m_Paracou_284000_579500
+  geom_spatraster(data = mntROI, aes(fill = MNT50cm_Par2019)) + # mnt_roi36ha_1m # dtm2023 ; MNT_0.5m_IRD_500m_Paracou_284000_579500
   scale_fill_gradientn(name = "Elevation (m)",
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
@@ -178,7 +186,8 @@ ggsave("P16_25ha_buffer_DEM.png",
 
 writeRaster(raster(mntROI),
             # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/MNT/dtm2023_LowAlt_25ha_buffer.asc",
-            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc",
+            # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt_25ha_buffer.asc",
+            "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raster/DTM_2019_25ha_buffer_50cm.asc",
             # paste(local,"AMAPVox/MNT/dtm2023_4ha_",file,"_buffer.asc", sep = ""),
             format="ascii", overwrite=T) # decimated
 
@@ -240,7 +249,7 @@ fwrite(traj, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Hig
 
 # Check points cloud data
 ```{r}
-table(PC@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt ; UAV : 4
+table(PC@data$NumberOfReturns) # 14 echos ALS 2023 LowAlt; 12 HighAlt ; UAV : 4 ; 2019 : 7
 PC@data
 range(PC$Z) # min et max de l'altitude: 4.19 65.74 m
 
@@ -265,6 +274,7 @@ table(PC_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
 # Dénormaliser la hauteur du sol
 PC <- lidR::unnormalize_height(PC_norm) 
 rm(PC_norm)
+plot(PC)
 ```
 
 # Garder uniquement les points de végétation (pas nécessaire avant amapvox)
@@ -320,7 +330,9 @@ table(PC@data$Classification)
 
 means <- PC@data[NumberOfReturns == 1, .(mean=mean(Intensity)), by = Classification] # Reflectance mean by classification (veg, ground)
 
-ratio <- means[Classification==2,]$mean/means[Classification==3,]$mean # ratio sol/veg reflectance 
+ratio <- means[Classification==2,]$mean/means[Classification==3 | Classification==4,]$mean # ratio sol/veg reflectance 
+
+ratio ==0 | is.null(ratio)
 
 PC@data <- PC@data %>% 
   mutate(Intensity = ifelse(Classification==2, as.integer(as.numeric(Intensity)/ratio), Intensity)) %>%  # Ground reflectance corrected by the ratio
@@ -340,7 +352,8 @@ writeLAS(PC,
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/P16_2022_4ha_buffer.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_withoutextrabytes.laz"
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/LAZ/P16_2023_25ha_HighAlt_buffer50m_intensitycor.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/LAZ/P16_2023_25ha_HighAlt_buffer50m_intensitycor.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/LAZ/P16_2019_25ha_buffer50m_intensitycor.laz"
          
 )
 ```

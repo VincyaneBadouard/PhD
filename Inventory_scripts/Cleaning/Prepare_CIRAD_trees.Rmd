@@ -185,8 +185,28 @@ Data <- GeneralErrorsDetection(Data) # 0 comments
 
 Data <- BotanicalCorrection(Data, Source = "WFO", WFOData = WFO_Backbone, DetectOnly = F)
 
+AdultsP16 <- Data %>%
+  rename(idTree=IdTree, Xutm=XTreeUTM, Yutm=YTreeUTM, SubPlot=Subplot, CensusYear=Year)
+```
 
-err <- Data %>% filter(Comment!="") %>% # 1479
+```{r}
+unique(Data$Comment)
+
+test <- Data %>% select(Family, Family_TreeDataCor)
+Data %>% filter(Comment =="The 'Family' name is incorrect")  %>% 
+  # filter(!is.na(Family_TreeDataCor)) %>% 
+  select(Comment, Family, Family_TreeDataCor) 
+
+Data %>% filter(grepl('Special characters', Comment))  %>% # because of points
+  select(Comment, Genus, Family, Family_TreeDataCor) 
+
+Data %>% filter(grepl('Names ending in', Comment))  %>% # 'aceae' in Genus
+  # filter(!grepl('aceae', Genus)) %>%
+  select(Comment, Genus, Species, Family, Family_TreeDataCor) 
+
+
+
+Data %>% filter(Comment !="") %>% # 1479
   filter(!grepl("Indet", ScientificName)) %>% # ce ne sont que des indet
   select(Comment, IdTree, XTreeUTM, YTreeUTM, Family, Genus, Species, ScientificName, Diameter) 
 ```
@@ -340,8 +360,9 @@ Only botanical identified
 Take only sp >= 30 ind
 ```{r}
 spSelection <- AdultsP16_filtred %>% 
+  mutate(ScientificName_TreeDataCor = str_replace(ScientificName_TreeDataCor, " ", "_")) %>% 
   # Only botanical identified
-  filter(!is.na(ScientificName)) %>%
+  filter(!is.na(ScientificName_TreeDataCor)) %>%
   filter(!grepl("indet", ScientificName)) %>%
   filter(!grepl("Indet", ScientificName)) %>%
   filter(!grepl("aceae", ScientificName)) %>%
@@ -354,19 +375,27 @@ spSelection <- AdultsP16_filtred %>%
          ScientificName = ScientificName_c) %>%
   
   # Count individuals by species
-  group_by(ScientificName) %>% 
+  group_by(ScientificName_TreeDataCor) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% # 9801
   # Take only sp >= 30 ind
-  filter(N >= 30) # enlève 2210 tiges
+  filter(N >= 30) %>%  # enlève 2210 tiges
+  select(ScientificName, ScientificName_TreeDataCor) %>% 
+  unique()
 # 7 591
 
+spSelection %>% filter(ScientificName != ScientificName_TreeDataCor)
+# 2 different sp name
+# Symphonia_sp.1	Symphonia_sp1			
+# Eschweilera_congestiflora	Lecythis_congestiflora
+
 (nrow(spSelection)/nrow(AdultsP16))*100 # les sp selectionnées représentent 66% du jeu de données
-length(unique(spSelection$ScientificName)) # 64 selected species
+nrow(unique(spSelection)) # 64 selected species
 
-Species <- as.data.frame(unique(spSelection$ScientificName))
-names(Species) <- "ScientificName"
+# Species <- as.data.frame(unique(spSelection$ScientificName))
+# 
+# names(Species) <- "ScientificName"
 
-write.csv(Species, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")
+write.csv(spSelection, "D:/Mes Donnees/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")
 ```
 
