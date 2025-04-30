@@ -56,7 +56,7 @@ ResidualExplo <- function(s, datalist, fitspath ){
   print("Residuals computed")
   
   # Moran's I ----------------------------------------------------------------
-  n <- 10^3
+  # n <- 10^3
   # Take all the presences and the same nbr of absences (allready done)
   pres <- Residuals %>% filter(y==1)
   abs <- Residuals %>%

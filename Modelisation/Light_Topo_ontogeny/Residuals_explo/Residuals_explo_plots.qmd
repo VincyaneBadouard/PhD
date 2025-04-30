@@ -1,6 +1,6 @@
 ---
 params:
-  species: Paypayrola_hulkiana
+  species: Dicorynia_guianensis
 title: "Residuals explo plots"
 subtitle: "*`r params$sp`*"
 format: html
@@ -81,9 +81,8 @@ if(!"logTransmittance" %in% names(Residuals)){
   path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
   load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
   datalist <- datalist[names(datalist) %in% sp] # only species in sp
-  
   Residuals <- Residuals %>% 
-    bind_cols(datalist[[sp]] %>% select(logDBH, Transmittance, logTransmittance, TWI, logTWI, Elevation, HAND))
+    bind_cols(datalist[[sp]] %>% dplyr::select(logDBH, Transmittance, logTransmittance, TWI, logTWI, Elevation, HAND))
   
   rm(datalist)
 }

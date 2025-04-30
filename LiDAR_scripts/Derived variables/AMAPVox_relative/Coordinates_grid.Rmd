@@ -6,12 +6,14 @@ output: html_document
 ---
 
 ```{r setup}
+library(tidyverse)
 library(AMAPVox)
 ```
 
 ```{r}
 VX <- readVoxelSpace(
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity2m_testnewEB.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity2m_testnewEB.vox"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Vox/P16_2019_25ha_buffer_PadHLE_intensity2m.vox"
   )
 
 summary(getPosition(VX))
@@ -24,19 +26,23 @@ Max.   : 350   Max.   : 350
 grid <- data.frame(expand.grid(
   x = seq(-350,350, by= 2),
   y = seq(-350,350, by= 2),
-  z = seq(4,66, by= 2)
+  z = seq(2,66, by= 2)
 )
 )
 ```
+
 # Plot
 ```{r, eval=F}
 ggplot() +
-  geom_point(data=grid, aes(x = x, y = y), size=0.00001) + # il faut mettre l'argument data sinon ça ne marche pas
+  geom_point(data=grid, aes(x = x, y = y), size=0.000001) + # il faut mettre l'argument data sinon ça ne marche pas
   coord_fixed(ratio=1) # same axis size
 ```
 
 ```{r}
-write.csv(grid, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_25ha_buffer_each2mxyz_local.csv")
+write.csv(grid,
+          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/Grid_25ha_buffer_each2mxyz_local.csv"
+          "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Coordinates/Grid_25ha_buffer_each2mxyz_local.csv"
+          )
 
 ```
 

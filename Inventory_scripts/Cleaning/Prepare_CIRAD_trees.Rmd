@@ -335,6 +335,7 @@ Only measured trees
 Only spatialised trees
 ```{r}
 AdultsP16_filtred <- AdultsP16 %>%
+    mutate(ScientificName_TreeDataCor = str_replace(ScientificName_TreeDataCor, " ", "_")) %>% 
   # Only spatialised trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% # # aucun
   # Only the principal stem
@@ -360,7 +361,6 @@ Only botanical identified
 Take only sp >= 30 ind
 ```{r}
 spSelection <- AdultsP16_filtred %>% 
-  mutate(ScientificName_TreeDataCor = str_replace(ScientificName_TreeDataCor, " ", "_")) %>% 
   # Only botanical identified
   filter(!is.na(ScientificName_TreeDataCor)) %>%
   filter(!grepl("indet", ScientificName)) %>%

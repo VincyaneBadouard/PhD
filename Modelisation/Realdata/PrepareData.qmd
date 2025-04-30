@@ -45,5 +45,36 @@ names(datalist) <- sp # 75
 
 ```{r}
 save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
 ```
 
+# Balance attendance and absence
+```{r}
+# Take all the presences and the same nbr of absences (allready done)
+# pres <- Residuals %>% filter(y==1)
+# abs <- Residuals %>%
+#   filter(y==0) %>%
+#   sample_n(nrow(pres))
+# samp <- bind_rows(pres, abs)
+
+datalist <- lapply(names(datalist), function(name) {
+  
+  pres <- datalist[[name]] %>% filter(Presence==1)
+  abs <- datalist[[name]] %>%
+    filter(Presence==0) %>%
+    sample_n(nrow(pres))
+  samp <- bind_rows(pres, abs)
+  datalist[[name]] <- samp
+  datalist[[name]]  # Return modified data frame
+})
+
+names(datalist) <- sp # 75
+
+```
+
+```{r}
+save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_balanced.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_balanced.Rdata")
+```

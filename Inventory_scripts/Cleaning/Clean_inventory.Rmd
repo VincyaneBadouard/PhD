@@ -206,12 +206,12 @@ Data <- Data %>%
                                  "Sloanea_sp.8" = "Sloanea_sp.8-CAY",
                                  "Sloanea_sp.14" = "Sloanea_sp.14-CAY",
                                  "Inga_sp.18" = "Inga_sp.18-CAY")) %>% 
-  mutate(ScientificName = ifelse(ScientificName=="Caraipa_idem181381", Data[Data$IdTree=="18_1381"]$ScientificName,
+  mutate(ScientificName = ifelse(ScientificName=="Caraipa_idem181381",
+                                 Data[!is.na(Data$IdTree) & Data$IdTree=="18_1381",]$ScientificName,
                                  ScientificName)) %>%
   
   mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
-  mutate(Species = ifelse(Species=="amboty"& Genus=="Annona", "ambotay", Species)) %>%
-  
+  separate(ScientificName, sep = "_", into = c("Genus", "Species"), remove = F) %>% 
   mutate(Family = ifelse(Family=="Lecithidaceae", "Lecythidaceae", Family)) %>%
   mutate(Genus = ifelse(Genus=="Lecithidaceae", "Lecythidaceae", Genus)) %>%
   mutate(ScientificName = str_replace(ScientificName, "Lecithidaceae", "Lecythidaceae"))
@@ -219,9 +219,9 @@ Data <- Data %>%
 
 source("~/PhD/R_codes/PhD/Inventory_scripts/Functions/BotanicalCorrection.R")
 WFO_Backbone <- read_delim("~/PhD/Inventories/WFO_TaxonomicBackbone_20241222.csv", 
-    delim = "\t", escape_double = FALSE, 
-    trim_ws = TRUE)
-  
+                           delim = "\t", escape_double = FALSE, 
+                           trim_ws = TRUE)
+
 Data <- BotanicalCorrection(Data, Source = "WFO", WFOData = WFO_Backbone, DetectOnly = F)
 
 length(Data$Comment[grepl("Different botanical informations", Data$Comment)])/nrow(Data)*100 # 0.02%
@@ -237,6 +237,22 @@ Data <- Data %>%
   mutate(Family = ifelse(grepl("The family name does not end in 'aceae'", Comment), NA, Family)) %>% 
   mutate(Family = ifelse(ScientificName == "Symphonia_sp.1", "Clusiaceae", Family))
 
+```
+
+```{r}
+unique(Data$Comment)
+
+# test <- Data %>% select(Family, Family_TreeDataCor)
+Data %>% filter(Comment =="The 'Family' name is incorrect")  %>% 
+  # filter(!is.na(Family_TreeDataCor)) %>%
+  select(Comment, Family, Family_TreeDataCor) 
+
+Data %>% filter(grepl('Special characters', Comment))  %>% # because of points
+  select(Comment, Genus, Genus_TreeDataCor, Species, Species_TreeDataCor, ScientificName, ScientificName_TreeDataCor, Family, Family_TreeDataCor) 
+
+Data %>% filter(grepl('Names ending in', Comment))  %>% # 'aceae' in Genus
+  # filter(!grepl('aceae', Genus)) %>%
+  select(Comment, Genus, Genus_TreeDataCor,  ScientificName, ScientificName_TreeDataCor, Species, Family, Family_TreeDataCor) 
 ```
 
 ```{r, eval=F}
@@ -631,7 +647,7 @@ write.csv(multistem_interest,
           "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Multistems%_per_interest_species.csv")
 ```
 
-# Rrépartition spatiale des multistems
+# Répartition spatiale des multistems
 ```{r}
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
   filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Lower slope", TopoTypeEn))
@@ -693,6 +709,7 @@ Only spatialised trees
 #            !Code_problem %in% c("No_num_cirad", "Not_ided", "CheckID"))
 
 data_filtred <- data %>% 
+  mutate(ScientificName_TreeDataCor = str_replace(ScientificName_TreeDataCor, " ", "_")) %>% 
   # & DBH<10 only ALT data for the moment
   filter(DBH>=1 & is.na(Guyafor.nb) & DBH<20 &
            !grepl("num_cirad", Code_problem)) %>% # filter ce qui a un guyafor.nb pas bcp plus grand que 10 cm (recrus) (pas sous le critère <10 cm dbh pcq recrus) -> reste 88% par rapport aux filtres précédents
@@ -700,7 +717,7 @@ data_filtred <- data %>%
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees
   filter(!is.na(DBH)) %>% 
-    # Only spatialised trees
+  # Only spatialised trees
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% # -> reste 87% par rapport aux filtres précédents
   # Only the principal stem
   filter(Stem.nb == 1)
@@ -724,14 +741,14 @@ write.csv(data_filtred, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/
 Only botanical identified
 Take only sp >= 30 ind
 ```{r}
-SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,2]) # 64
+SpeciesA <- (read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_species_filtred.csv")[,3]) # 64
 
 spSelection <- data_filtred %>% 
   rowwise() %>% 
-  filter(ScientificName %in% SpeciesA | Strategy=="Understory species") %>%
+  filter(ScientificName_TreeDataCor %in% SpeciesA | Strategy=="Understory species") %>%
   ungroup() %>% 
   # Only botanical identified
-  filter(!is.na(ScientificName)) %>%
+  filter(!is.na(ScientificName_TreeDataCor)) %>%
   # filter(ScientificName!="Tres haut") %>% # pas nécessaire
   # filter(!grepl("indet", ScientificName)) %>%
   # filter(!grepl("Indet", ScientificName)) %>%
@@ -746,7 +763,7 @@ spSelection <- data_filtred %>%
   
   # attention Rinorea_idem181298 (138 individus)
   # Count individuals by species
-  group_by(ScientificName) %>% 
+  group_by(ScientificName_TreeDataCor) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% 
   # Take only sp >= 30 ind
@@ -754,17 +771,22 @@ spSelection <- data_filtred %>%
 
 # Lianes : Tabernaemontana_macrocalyx ?
 # il reste des infos douteuses dans les colonnes de Léa A GERER
-  
-unique(spSelection$Comment) # C'est le Symphonia.sp1 qui était initialment dans Family
-SpeciesA[!SpeciesA %in% spSelection$ScientificName]
+
+unique(spSelection$Comment) 
+unique(SpeciesA[!SpeciesA %in% spSelection$ScientificName_TreeDataCor])
 # "Chrysophyllum_prieurii" : DBH >10 uniquement
 # "Caryocar_glabrum" "Eperua_rubiginosa" "Oenocarpus_bataua" "Goupia_glabra"         
 # "Carapa_surinamensis"  "Sterculia_speciosa""Siparuna_decipiens" "Theobroma_guianense"
 
 
 Sp <- spSelection %>% 
-  select(ScientificName, Family, N) %>% unique() %>% arrange(desc(N)) # 75
+  select(ScientificName_TreeDataCor, ScientificName, Family, N) %>%
+ distinct(ScientificName_TreeDataCor, .keep_all = T) %>% arrange(desc(N)) # 75
+
 length(unique(Sp$Family)) # 28 families
+
+Sp %>% filter(ScientificName != ScientificName_TreeDataCor)
+
 
 write.csv(Sp, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")
 ```

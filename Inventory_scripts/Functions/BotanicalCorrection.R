@@ -166,13 +166,18 @@ BotanicalCorrection <- function(
     # For Genus: split at punctuation then at upper case, and Create GenspFamily
     # buf ici pcq qqfois plus de 2 composantes
     Data[, c("GenusCor", "GenspFamily") := tstrsplit(Genus, '[[:punct:]]')]
-    Data[, c("GenusCor", "GenspFamily", "Other") := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)]
+    Data[, GenusCor := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)[[1]]]
+    Data[, GenspFamily := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)[[2]]]
+    
     
     ## Detection of the suffix "aceae" in the genus column (it is specific to the family name)
     # if there is -aceae in  GenusCor and not in GenspFamily, swap values between GenusCor and GenspFamily
     Data[grep("aceae", GenusCor),  c("GenusCor", "GenspFamily")] <- Data[grep("aceae", GenusCor), c("GenspFamily", "GenusCor")]
-    Data[grep("aceae", Other),  c("Other", "GenspFamily")] <- Data[grep("aceae", Other), c("GenspFamily", "Other")]
     
+    if(length(tstrsplit(Data$Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)) > 2) {
+      Data[, Other := tstrsplit(Genus, "(?<=.)(?=[[:upper:]])", perl = TRUE)[[3]]]
+      Data[grep("aceae", Other),  c("Other", "GenspFamily")] <- Data[grep("aceae", Other), c("GenspFamily", "Other")]
+    }
     
     # For species: split at space or underscore, and create Subspecies
     Data[, c("SpeciesCor", "Subspecies") := tstrsplit(Species, '\\[[:blank:]] |\\_')] # \\ devant une des possibilités. Le manque d'espace après le barre du "ou" (|) est important, le résultat n'est pas le même sinon
@@ -330,7 +335,7 @@ BotanicalCorrection <- function(
       # length(WFmatch$spec.name.ORIG) == length(unique(WFmatch$spec.name.ORIG))
       WFmatch[, c("Genus", "Species") := tstrsplit(spec.name.ORIG, " ", fixed = TRUE)]
       dupl_choice <- unique(WFmatch[spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG] &
-                                   genus == Genus])
+                                      genus == Genus])
       
       WFmatch <- WFmatch[!spec.name.ORIG %in% WFmatch[duplicated(WFmatch$spec.name.ORIG), spec.name.ORIG],]
       WFmatch <- rbind(WFmatch, dupl_choice)
@@ -411,7 +416,7 @@ BotanicalCorrection <- function(
     Data[, GenspFamily := NULL] # remove obsolete column
     
     # Homogenise unique botanical info (same Family, Genus, Species, Vernacular name) by IdTree if NA -----------------------
-    Data[, VernNameCor := VernName]
+    if("VernName" %in% Data) Data[, VernNameCor := VernName] else{Data[, VernNameCor := NA]}
     
     BotaCols <- c("FamilyCor", "GenusCor", "SpeciesCor", "VernNameCor", "FamilyCorSource", "BotanicalCorrectionSource")
     
@@ -480,6 +485,11 @@ BotanicalCorrection <- function(
   
   # unique(Data[IdTree %in% duplicated_ID,
   #             .(IdTree = sort(IdTree), Family, Genus, Species, Subspecies, VernName)]) # to check
+  
+  Data[,ScientificNameCor := ifelse(ScientificNameCor %in% c("NA", "Cf sp", "NA sp") | grepl('aceae', ScientificNameCor), NA, ScientificNameCor)]
+  Data[,ScientificNameCor := str_replace(ScientificNameCor, "NA ", "")]
+  Data[,GenusCor := ifelse(GenusCor %in% c("NA", "Cf") | grepl('aceae', GenusCor), NA, GenusCor)]
+  Data[,SpeciesCor := ifelse(SpeciesCor %in% c("NA", "sp") | grepl('aceae', SpeciesCor), NA, SpeciesCor)]
   
   if(DetectOnly %in% FALSE){
     # Rename correction columns
