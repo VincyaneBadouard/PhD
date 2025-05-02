@@ -113,7 +113,6 @@ p2 <- p1 %+% xs$`0`
 p1 + ggtitle("Presence")
 p2 + ggtitle("Absence")
 
-# p1/p2 + plot_annotation(title = sp, tag_levels = list(c("1","0")))
 ```
 "The general idea is that if the model is correct, then the sample residuals should appear independent of the predictors. Observed patterns that indicate clear dependence also indicate violation of assumptions in the model. This paradigm works best for linear models with additive errors. Complications arise in logistic regression and other generalized linear models because in such settings population residuals may not be independent of the predictors when the model is in fact correct" (Pardoe & Cook, 2002).
 
@@ -273,6 +272,7 @@ arm::binnedplot(Residuals_wide$logDBH, Residuals_wide$raw_e, nclass=NULL,
                 cex.pts=0.8, col.pts=1, col.int="gray")
 
 ```
+Reweighting with the expected dispersion, as done in Pearson residuals, or using deviance residuals, helps to some extent, but it does not lead to visually homogenous residuals, even if the model is correctly specified (Hartig, 2024)
 
 # Quantile residuals
 randomization to achieve continuous residuals when the response variable is discrete

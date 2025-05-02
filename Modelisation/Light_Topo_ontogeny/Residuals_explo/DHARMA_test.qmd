@@ -1,0 +1,297 @@
+---
+title: "DHARMA_test"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+# DHARMa
+The ‘DHARMa’ package uses a simulation-based approach to create readily interpretable scaled (quantile) residuals for fitted generalized linear (mixed) models (Dunn & Smyth, 1996).  
+
+The resulting residuals are **standardized** to values between 0 and 1, and can be interpreted as intuitively as residuals from a linear regression.  
+
+This is achieved by a simulation-based approach, similar to the Bayesian p-value or the parametric bootstrap, that transforms the residuals to a standardized scale. The basic steps are:    
+
+1) Simulate **new response data** from the fitted model for each observation.
+
+2) For each observation, calculate the **empirical cumulative density function for the simulated observations**, which describes the possible values (and their probability) at the predictor combination of the observed value, assuming the fitted model is correct.
+
+3) The **residual is then defined as the value of the empirical density function at the value of the observed data**, so a residual of 0 means that all simulated values are larger than the observed value, and a residual of 0.5 means half of the simulated values are larger than the observed value.  
+
+https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMa.html
+https://cran.r-project.org/web/packages/DHARMa/vignettes/DHARMaForBayesians.html
+
+# Packages
+```{r setup, include = F}
+library(cmdstanr)
+library(tidyverse)
+library(DHARMa)
+
+sp <- 'Dicorynia_guianensis'
+```
+
+# Balance data
+
+```{r data}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+load(paste(path, "Realdata/Realsp_25ha_balanced.Rdata", sep=''))
+
+DATA <- datalist[[sp]] # only species in sp
+
+```
+
+```{r fit}
+chain_path <- paste("./Chains/Hybrid_balance/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # 1 chain only
+
+# fit$summary("iota", "median")
+```
+
+```{r DHARMa}
+sim_draw <- function(x) rbinom(n=1, size=1, prob=x) # rbinom
+
+phat <- fit$draws("p", format = "draws_matrix") # crash l'ordi ; proba prediction
+
+Pdraws <- apply(phat, 1:2, sim_draw) # presence-absence prediction
+
+sim <- createDHARMa(simulatedResponse = t(Pdraws), # presence-absence prediction
+                    observedResponse = DATA$Presence,
+                    fittedPredictedResponse = apply(Pdraws, 2, median), #  presence-absence prediction median
+                    integerResponse = TRUE, # for Binomial and Poisson
+                    rotation = NULL) # rotation of the residual space to remove residual autocorrelation; = "estimated" if we want to remove autocor
+# method: probability integral transform (PIT) residuals 
+# "traditional" randomization procedure
+
+sim
+str(sim)
+```
+
+```{r}
+plot(sim)
+# plotQQunif(sim) # left plot in plot.DHARMa()
+# plotResiduals(sim) # right plot in plot.DHARMa()
+plotResiduals(sim, form = DATA$logTWI)
+Transmittance_x_DBH <- DATA$logTransmittance * DATA$logDBH
+plotResiduals(sim, form = Transmittance_x_DBH)
+```
+Under H0 (perfect model), we would expect those boxes to range homogeneously from 0.25-0.75. To see whether there are deviations from this expecation, the plot calculates a test for uniformity per box, and a test for homogeneity of variances between boxes. A positive test will be highlighted in red.  
+
+```{r}
+testUniformity(sim) # tests if the overall distribution conforms to expectations.
+testOutliers(sim) # tests if there are more simulation outliers than expected.
+testDispersion(sim) # tests if the simulated dispersion is equal to the observed dispersion.
+testZeroInflation(sim) # tests if there are more zeros in the data than expected from the simulations.
+testGeneric(sim, summary = mean) # test if the mean deviates from model expectations.
+countOnes <- function(x) sum(x == 1) # testing for number of 1s
+testGeneric(sim, summary = countOnes)
+countZero <- function(x) sum(x == 0) # testing for number of 0s
+testGeneric(sim, summary = countZero)
+```
+
+## Residuals distribution
+A residual of 0 means that all simulated values are larger than the observed value, and a residual of 0.5 means half of the simulated values are larger than the observed value. 
+
+For a correctly specified model we would expect asymptotically:
+- a uniform (flat) distribution of the scaled residuals
+- uniformity in y direction if we plot against any predictor.
+```{r}
+res <- data.frame(y = sim$observedResponse,
+                  Scaled_residuals = residuals(sim)) %>% 
+  bind_cols(dplyr::select(DATA, Xutm, Yutm,
+                          logTransmittance, logTWI, logDBH)) # covariables
+
+ggplot(res, aes(x= Scaled_residuals)) +
+  theme_minimal() +
+  geom_histogram(fill="#009E73", col="white") 
+```
+
+
+```{r}
+library(patchwork)
+
+Residuals_covar <- res %>% pivot_longer(cols = c(logDBH, logTransmittance, logTWI),
+                                        names_to = "Var", values_to = "Covar")
+
+xs <- split(Residuals_covar, f = Residuals_covar$y)
+
+# Residuals_covar %>% 
+p1 <- xs$`1` %>% 
+  ggplot(aes(x= Covar, y= Scaled_residuals)) +
+  theme_minimal() +
+  geom_point() +
+  geom_smooth(method='lm', formula= y~x, col="red") +
+  ggpubr::stat_cor(aes(label = ..r.label..),
+                   label.x.npc = "centre", label.y.npc = "bottom", digits = 1, col="red") +
+  theme(axis.title.x=element_blank()) +
+  facet_wrap(~Var, scales ="free", nrow = 2, ncol = 3)
+
+p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
+```
+
+
+```{r}
+testSpatialAutocorrelation(simulationOutput = sim,
+                           x= DATA$Xutm, y= DATA$Yutm,
+                           distMat = NULL, # euclidean distances 
+                           # alternative = c("two.sided", "greater", "less"),
+                           plot = T)
+
+# library(gstat)
+# dat <- data.frame(res = residuals(sim),  x= DATA$Xutm, y= DATA$Yutm)
+# vario <- variogram(sim, data = dat, locations = ~x+y, alpha=c(0,45,90,135))
+# plot(vario, ylim = c(-1,1))
+```
+Note that this test is most sensitive against homogeneous residual structure, and might miss local and heterogeneous (non-stationary) residual structures. Additional visual checks can be useful.  
+
+## Moran
+```{r Moran, warning=F}
+moran <- pgirmess::correlog(coords = data.frame(DATA$Xutm, DATA$Yutm),
+                            sim$scaledResiduals,
+                            method = "Moran", nbclass = NULL) %>% 
+  as.data.frame()
+
+moran %>% 
+  filter(dist.class < 500) %>% 
+  ggplot(aes(x = dist.class, y = coef)) +
+  ylim(-1, 1) +
+  theme_minimal() +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(alpha = p.value < 0.05)) +
+  geom_line(col="red", linewidth =0.8) +
+  xlab("Distance (m)") + ylab("Moran\'s I") +
+  ggtitle(paste(sp,"- Residuals spatial auto-correlation - Balance data"))
+```
+# Null model
+```{r}
+rm(fit, phat, Pdraws, sim, res, Residuals_covar, moran)
+```
+
+```{r}
+chain_path <- paste("./Chains/Null_balance/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # 1 chain only
+
+# fit$summary("theta", "median")
+```
+
+```{r}
+phat <- fit$draws("p", format = "draws_matrix") # crash l'ordi ; proba prediction
+
+Pdraws <- apply(phat, 1:2, sim_draw) # presence-absence prediction
+
+sim <- createDHARMa(simulatedResponse = t(Pdraws), # presence-absence prediction
+                    observedResponse = DATA$Presence,
+                    fittedPredictedResponse = apply(Pdraws, 2, median), #  presence-absence prediction median
+                    integerResponse = TRUE, # for Binomial and Poisson
+                    rotation = NULL) # rotation of the residual space to remove residual autocorrelation; = "estimated" if we want to remove autocor
+```
+
+```{r}
+plot(sim, quantreg = T)
+# plotQQunif(sim) # left plot in plot.DHARMa()
+# plotResiduals(sim) # right plot in plot.DHARMa()
+plotResiduals(sim, form = DATA$logTWI)
+Transmittance_x_DBH <- DATA$logTransmittance * DATA$logDBH
+plotResiduals(sim, form = Transmittance_x_DBH)
+```
+Under H0 (perfect model), we would expect those boxes to range homogeneously from 0.25-0.75. To see whether there are deviations from this expecation, the plot calculates a test for uniformity per box, and a test for homogeneity of variances between boxes. A positive test will be highlighted in red.  
+
+All shown DHARMa results were calculated for a correctly specified model, resulting in “perfect” residual plots and diagnostics.  
+Important conclusion: DHARMa only flags a difference between the observed and expected data - the user has to decide whether this difference is actually a problem for the analysis!  
+
+```{r}
+testUniformity(sim) # tests if the overall distribution conforms to expectations.
+testOutliers(sim) # tests if there are more simulation outliers than expected.
+testDispersion(sim) # tests if the simulated dispersion is equal to the observed dispersion.
+testZeroInflation(sim) # tests if there are more zeros in the data than expected from the simulations.
+testGeneric(sim, summary = mean) # test if the mean deviates from model expectations.
+countOnes <- function(x) sum(x == 1) # testing for number of 1s
+testGeneric(sim, summary = countOnes, alternative = "greater")
+countZero <- function(x) sum(x == 0) # testing for number of 0s
+testGeneric(sim, summary = countZero, alternative = "greater")
+```
+
+## Residuals distribution
+A residual of 0 means that all simulated values are larger than the observed value, and a residual of 0.5 means half of the simulated values are larger than the observed value. 
+
+For a correctly specified model we would expect asymptotically:
+- a uniform (flat) distribution of the scaled residuals
+- uniformity in y direction if we plot against any predictor.
+```{r}
+res <- data.frame(y = sim$observedResponse,
+                  Scaled_residuals = residuals(sim)) %>% 
+  bind_cols(dplyr::select(DATA, Xutm, Yutm,
+                          logTransmittance, logTWI, logDBH)) # covariables
+
+ggplot(res, aes(x= Scaled_residuals)) +
+  theme_minimal() +
+  geom_histogram(fill="#009E73", col="white") 
+```
+
+
+```{r}
+library(patchwork)
+
+Residuals_covar <- res %>% pivot_longer(cols = c(logDBH, logTransmittance, logTWI),
+                                        names_to = "Var", values_to = "Covar")
+
+xs <- split(Residuals_covar, f = Residuals_covar$y)
+
+# Residuals_covar %>% 
+p1 <- xs$`1` %>% 
+  ggplot(aes(x= Covar, y= Scaled_residuals)) +
+  theme_minimal() +
+  geom_point() +
+  geom_smooth(method='lm', formula= y~x, col="red") +
+  ggpubr::stat_cor(aes(label = ..r.label..),
+                   label.x.npc = "centre", label.y.npc = "bottom", digits = 1, col="red") +
+  theme(axis.title.x=element_blank()) +
+  facet_wrap(~Var, scales ="free", nrow = 2, ncol = 3)
+
+p2 <- p1 %+% xs$`0`
+p1 + ggtitle("Presence")
+p2 + ggtitle("Absence")
+```
+```{r}
+testSpatialAutocorrelation(simulationOutput = sim,
+                           x= DATA$Xutm, y= DATA$Yutm,
+                           distMat = NULL, # euclidean distances 
+                           # alternative = c("two.sided", "greater", "less"),
+                           plot = T)
+
+# library(gstat)
+# dat <- data.frame(res = residuals(sim),  x= DATA$Xutm, y= DATA$Yutm)
+# vario <- variogram(sim, data = dat, locations = ~x+y, alpha=c(0,45,90,135))
+# plot(vario, ylim = c(-1,1))
+```
+
+## Moran
+```{r, warning=F}
+moran <- pgirmess::correlog(coords = data.frame(DATA$Xutm, DATA$Yutm),
+                            sim$scaledResiduals,
+                            method = "Moran", nbclass = NULL) %>% 
+  as.data.frame()
+
+moran %>% 
+  filter(dist.class < 500) %>% 
+  ggplot(aes(x = dist.class, y = coef)) +
+  ylim(-1, 1) +
+  theme_minimal() +
+  geom_hline(yintercept = 0) +
+  geom_point(aes(alpha = p.value < 0.05)) +
+  geom_line(col="red", linewidth =0.8) +
+  xlab("Distance (m)") + ylab("Moran\'s I") +
+  ggtitle(paste(sp,"- Residuals spatial auto-correlation - Null model"))
+```
+
+# Note
+
+Standard DHARMa simulations from models with (temporal / spatial / phylogenetic) conditional autoregressive terms will **still have the respective temporal / spatial / phylogenetic correlation in the DHARMa residuals**, unless the package you are using is modelling the autoregressive terms as explicit REs and is able to simulate conditional on the fitted REs. This has two consequences:  
+
+1) If you check the residuals for such a model, they will **still show significant autocorrelation, even if the model fully accounts for this structure**.  
+
+2) Because the DHARMa residuals for such a model are not statistically independent any more, other tests (e.g. dispersion, uniformity) **may have inflated type I error**, i.e. you will have a higher likelihood of spurious residual problems.  
+
