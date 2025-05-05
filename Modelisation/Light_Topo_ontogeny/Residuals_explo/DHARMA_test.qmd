@@ -1,5 +1,8 @@
 ---
+params:
+  species: Dicorynia_guianensis
 title: "DHARMA_test"
+subtitle: "*`r params$sp`*"
 format: html
 self-contained: true
 theme: cosmo
@@ -29,7 +32,8 @@ library(cmdstanr)
 library(tidyverse)
 library(DHARMa)
 
-sp <- 'Dicorynia_guianensis'
+sp <- params$species
+print(sp)
 ```
 
 # Balance data
@@ -76,7 +80,7 @@ plotResiduals(sim, form = DATA$logTWI)
 Transmittance_x_DBH <- DATA$logTransmittance * DATA$logDBH
 plotResiduals(sim, form = Transmittance_x_DBH)
 ```
-Under H0 (perfect model), we would expect those boxes to range homogeneously from 0.25-0.75. To see whether there are deviations from this expecation, the plot calculates a test for uniformity per box, and a test for homogeneity of variances between boxes. A positive test will be highlighted in red.  
+Under H0 (perfect model), we would expect those boxes to range homogeneously from 0.25-0.75. To see whether there are deviations from this expectation, the plot calculates a test for uniformity per box, and a test for homogeneity of variances between boxes. A positive test will be highlighted in red.  
 
 ```{r}
 testUniformity(sim) # tests if the overall distribution conforms to expectations.
@@ -133,7 +137,7 @@ p2 + ggtitle("Absence")
 ```
 
 
-```{r}
+```{r, eval =F}
 testSpatialAutocorrelation(simulationOutput = sim,
                            x= DATA$Xutm, y= DATA$Yutm,
                            distMat = NULL, # euclidean distances 
@@ -165,6 +169,7 @@ moran %>%
   xlab("Distance (m)") + ylab("Moran\'s I") +
   ggtitle(paste(sp,"- Residuals spatial auto-correlation - Balance data"))
 ```
+
 # Null model
 ```{r}
 rm(fit, phat, Pdraws, sim, res, Residuals_covar, moran)
@@ -255,7 +260,8 @@ p2 <- p1 %+% xs$`0`
 p1 + ggtitle("Presence")
 p2 + ggtitle("Absence")
 ```
-```{r}
+
+```{r, eval=F}
 testSpatialAutocorrelation(simulationOutput = sim,
                            x= DATA$Xutm, y= DATA$Yutm,
                            distMat = NULL, # euclidean distances 

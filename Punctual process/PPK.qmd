@@ -1,0 +1,232 @@
+---
+title: "Simulation d'un jeu de points agrégé et calcul de K()"
+author: "Eric Marcon"
+format: 
+  html:
+    toc: true
+    code-fold: show
+editor: source
+lang: fr-FR
+---
+
+```{r}
+#| label: DoNotModify
+#| include: false
+### Utilities. Do not modify.
+# Installation of packages if necessary
+install_packages <- function(packages) {
+  install_package <- function(package) {
+    if (!package %in% installed.packages()[, 1]) {
+      install.packages(package, repos = "https://cran.rstudio.com/")
+    }
+  }
+  invisible(sapply(packages, install_package))
+}
+
+# Basic packages
+install_packages(c("bookdown", "formatR", "kableExtra", "ragg"))
+
+# Chunk font size hook: allows size='small' or any valid Latex font size in chunk options
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(
+    options$size != "normalsize", 
+    paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"),
+    x
+  )
+})
+```
+
+```{r}
+#| label: Options
+#| include: false
+### Customized options for this document
+# Add necessary packages here
+packages <- c("tidyverse", "spatstat", "dbmss")
+# Install them
+install_packages(packages)
+
+# knitr options
+knitr::opts_chunk$set(
+  cache =   FALSE,    # Cache chunk results
+  include = TRUE,     # Show/Hide chunks
+  echo =    TRUE,     # Show/Hide code
+  warning = FALSE,    # Show/Hide warnings
+  message = FALSE,    # Show/Hide messages
+  # Figure alignment and size
+  fig.align = 'center', out.width = '80%',
+  # Graphic devices (ragg_png is better than standard png)
+  dev = c("ragg_png", "pdf"),
+  # Code chunk format
+  tidy = FALSE, tidy.opts = list(blank = FALSE, width.cutoff = 50),
+  size = "scriptsize", knitr.graphics.auto_pdf = TRUE
+  )
+options(width = 50)
+
+# ggplot style
+library("tidyverse")
+theme_set(theme_bw())
+theme_update(
+  panel.background = element_rect(fill = "transparent", colour = NA),
+  plot.background = element_rect(fill = "transparent", colour = NA)
+)
+knitr::opts_chunk$set(dev.args = list(bg = "transparent"))
+
+# Random seed
+set.seed(973)
+```
+
+## Processus ponctuels
+
+### Les bases
+
+Les processus ponctuels sont l'équivalent des variables aléatoires : ils produisent des jeux de points.
+
+Lis la présentation des principaux dans [ma thèse](https://theses.hal.science/pastel-00540327/), annexe 1. Les détails techniques sur les différents processus ne sont pas importants, mais il faut bien saisir la distinction entre propriétés de premier et second ordre.
+
+Le processus de base, complètement aléatoire (CSR: *complete spatial randomness*), est le Poisson homogène:
+
+-   au premier ordre, les points sont distribués uniformément (l'intensité du processus, toujours notée $\lambda$ , est la même probabilité partout),
+-   au second ordre, les points sont indépendants les uns des autres.
+
+On le simule avec `rpoispp()` dans **spatstat**.
+
+```{r}
+library("spatstat")
+# 100 points (en espérance) dans une fenêtre carrée de côté 1
+X_Poisson <- rpoispp(lambda = 100)
+plot(X_Poisson)
+```
+
+### Processus agrégatifs
+
+Le processus de Matérn place les points uniformément (selon un Poisson homogène) dans des clusters circulaires, eux-mêmes distribués selon un Poisson homogène.
+
+```{r}
+# Matérn
+X_Matern <- rMatClust(
+  # Intensité des centres de cluster: points par unité de surface, ici 2/ha
+  kappa = 2 / 10000,
+  # Rayon des clusters
+  scale = 10, 
+  # Nombre de points par cluster
+  mu = 10,
+  # Fenêtre de 9ha
+  win = square(300, unitname = c("meter", "meters"))
+)
+plot(X_Matern)
+```
+
+Le processus de Thomas place les points dans les clusters indépendamment mais pas uniformément: l'intensité du processus est une gaussienne bidimensionnelle d'écart-type `scale`.
+
+```{r}
+X_Thomas <- rThomas(
+  # Intensité des centres de cluster: points par unité de surface, ici 2/ha
+  kappa = 2 / 10000,
+  # Ecart-type de la gaussienne qui place les points autour des centre des clusters
+  scale = 10, 
+  # Nombre de points par cluster
+  mu = 10,
+  # Fenêtre de 9ha
+  win = square(300, unitname = c("meter", "meters"))
+)
+plot(X_Thomas)
+```
+
+### Création d'un ppp
+
+L'objet de base est un ppp (*planar point process*) à créer à partir des coordonnées. Ici, tirage à la main d'un processus de Poisson, 50 points par ha, fenêtre carrée de 9ha.
+
+```{r}
+# Nombre de points (aléatoire, tiré dans une loi de Poisson)
+n = rpois(1, lambda = 50 * 9)
+# Tableau des coordonnées
+(xy <- tibble(x = runif(n, min = 0, max = 300), y = runif(n, min = 0, max = 300)))
+# Création d'un ppp
+X_Poisson_9ha <- as.ppp(xy, W = square(300, unitname = c("meter", "meters")))
+plot(X_Poisson_9ha)
+```
+
+**dbmss** permet de traiter plus facilement des jeux de points marqués, avec un type (par exemple l'espèce) et un poids (par exemple la surface terrière. L'objet de base est un `wmppp` (weighted, marked, planar point pattern) qui est aussi un `ppp`.
+
+Pour le créer, il faut un tableau dont les colonnes s'appellent x, y, PointType et PointWeight.
+
+```{r}
+xy_type_poids <- tibble (
+  xy,
+  PointType = sample(LETTERS, size = n, replace = TRUE),
+  PointWeight = runif(n, min = 10, max = 50)
+)
+library("dbmss")
+xy_type_poids %>% 
+  as.wmppp(window = square(300, unitname = c("meter", "meters"))) %>% 
+  autoplot()
+```
+
+## K
+
+La fonction *K* de Ripley est présentée page 15. La correction des effets de bord est automatique dans **spatstat** donc inutile de s’attarder.
+
+*K* est croissante: sous l'hypothèse nulle CSR, $K(r) = \pi r^2$. On utilise plutôt $L(r) - r = \sqrt\frac{K(r)}{\pi} - r$, qui vaut 0 sous l'hypothèse nulle.
+
+On peut estimer K avec le package **spatstat** ou avec le package **dbmss** plus facile d'accès, et **dbmss** fournit de meilleures figures.
+
+```{r}
+# Calcul de K
+plot(Kest(X_Matern))
+# Plutôt L
+plot(Lest(X_Matern))
+# Avec de beaux graphiques, et surtout L - r
+library("dbmss")
+autoplot(Lest(X_Matern), fmla = . - r ~ r,)
+```
+
+**spatstat** calcule trois corrections d'effets de bord par défaut.
+
+Le pic de concentration correspond à peu près au diamètre des agrégats selon la culture populaire, plutôt une fois et demie le rayon ici.
+
+Le pic est plus loin pour le processus de Thomas où les arbres peuvent être loin du centre de leur cluster:
+
+```{r}
+autoplot(Lest(X_Thomas), fmla = . - r ~ r)
+```
+
+### Tests
+
+On peut tester un processus ponctuel contre l'hypothèse nulle CSR par simulations. C'est plus simple avec **dbmss** (attention, la définition de $L(r)$ dans **dbmss** est $L(r)-r$ dans **spatstat**).
+
+```{r}
+X_Thomas %>% 
+  # wmppp obligatoire
+  as.wmppp() %>% 
+  # Calcul de l'intervalle de confiance global avec 100 simulations par défaut
+  LEnvelope(Global = TRUE) %>% 
+  autoplot()
+```
+
+Il existe un test exact tant que la fenêtre est rectangulaire.
+
+```{r}
+# Produit une p_value. Il faut une quinzaine de valeurs de distances.
+Ktest(X_Matern, r = seq(0, 75, by = 5))
+# à comparer au processus de Poisson
+Ktest(X_Poisson, r = seq(0, 0.5, by = .02))
+```
+
+## Calcul du nombre local de voisins
+
+```{r}
+sapply(
+  # Tous les points (vecteur de 1 à n)
+  seq_len(X_Thomas$n),
+  FUN = \(i) {
+    # Pour le point i, cercle de 10m de rayon
+    neighborhood <- disc(radius = 15, centre = c(X_Thomas$x[i], X_Thomas$y[i]))
+    # Sélection du jeu de points
+    X_i <- X_Thomas[neighborhood]
+    # Nombre de voisins
+    X_i$n
+  }
+)
+```

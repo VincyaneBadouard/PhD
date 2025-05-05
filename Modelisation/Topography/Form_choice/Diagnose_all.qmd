@@ -13,7 +13,7 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
 # sp <- c("Licania_membranacea" , "Lecythis_persistens", "Symphonia_sp.1", "Tachigali_melinonii",
 #         "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx", "Pouteria_singularis", "Ryania_speciosa") # 4 forms
@@ -24,11 +24,11 @@ model_name <- c("Affine", "Quadratic")
 ```
 
 ```{r fit}
-fits <- list()
+fit <- list()
 for(S in sp){
   for(M in model_name){
     chain_path <- file.path("Chains", M, S)
-    fits[[S]][[M]] <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+    fit[[S]][[M]] <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
   }
 }
 # names(fit[["Symphonia_sp.1"]])
@@ -42,7 +42,7 @@ for(S in sp){
     
     k <- length(fit[[S]][[M]]$metadata()$stan_variables[!fit[[S]][[M]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]) # parameters nbr
     N <- 47850 # observations nbr
-    L <- max(fit[[S]][[M]]$draws("lp__"))# the maximized value of the likelihood function of the model (fits[[f]]$summary("lp__"))
+    L <- max(fit[[S]][[M]]$draws("lp__"))# the maximized value of the likelihood function of the model (fit[[f]]$summary("lp__"))
     
     BIC[[S]][[M]] <- k*log(N) - 2*L
     
@@ -51,17 +51,17 @@ for(S in sp){
 ```
 
 ```{r predictions, eval=F}
-g <- lapply(names(fits[[1]]), function(f){
+g <- lapply(names(fit[[1]]), function(f){
   # f = "Affine"
   
-  fits[[1]][[f]]$summary("p") %>% # p posterior
-    mutate(x = seq(5.7325, 23.61375, length.out = 100)) %>% # prediction environment
+  fit[[1]][[f]]$summary("p") %>% # p posterior
+    mutate(x = seq(1.358045, 2.400176, length.out = 50)) %>% # prediction environment
     ggplot(aes(x = x)) +
     geom_point(aes(y = median), size=0.7) + # p posterior median
     geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
-    # geom_vline(xintercept  = fits[[f]]$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
-    # geom_vline(xintercept  = fits[[f]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
-    # geom_vline(xintercept  = fits[[f]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
+    # geom_vline(xintercept  = fit[[f]]$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
+    # geom_vline(xintercept  = fit[[f]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
+    # geom_vline(xintercept  = fit[[f]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
     # facet_wrap(~ var1 + var2) +
     ggtitle(f) + # gsub("_", " ", f)
     theme_minimal() +
@@ -80,11 +80,12 @@ plist <- list()
 for(s in sp){
   plist[[s]] <- local({
     
-    g <- lapply(names(fits[[s]]), function(m){
+    g <- lapply(names(fit[[s]]), function(m){
       # m = "Affine"
+      # s= "Talisia_megaphylla"
       
-      fits[[s]][[m]]$summary("p") %>% # p posterior
-        mutate(x = seq(5.7325, 23.61375, length.out = 100)) %>% # prediction environment
+      fit[[s]][[m]]$summary("p") %>% # p posterior
+        mutate(x = seq(1.358045, 2.400176, length.out = 50)) %>% # prediction environment
         ggplot(aes(x = x)) +
         geom_point(aes(y = median), size=0.7) + # p posterior median
         geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
@@ -93,7 +94,7 @@ for(s in sp){
                  label = paste("BIC =", round(BIC[[s]][[m]],2)),
                  x = Inf, hjust= 1, y=Inf, vjust = "top") +
         
-        labs(title = s, x= "Elevation (m)", y = "Presence probability") + #paste(s, "-", f)
+        labs(title = s, x= "log(TWI)", y = "Presence probability") + #paste(s, "-", f)
         theme_minimal()
       # theme(axis.title = element_blank())
     })
@@ -106,11 +107,11 @@ for(s in sp){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
 # plots
 
-ggsave("Allsp_MNT_niche.pdf",
+ggsave("Allsp_logTWI_niche.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        plots, width = 15, height = 10)
 
-Sys.time()
+Sys.time() # 2min30
 ```
 
 

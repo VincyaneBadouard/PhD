@@ -15,7 +15,7 @@ library(cmdstanr)
 library(bayesplot)
 library(scales)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75 # mettre 2 pour treedatacor
 
 
 # sp <- c("Licania_membranacea" , "Lecythis_persistens", "Piparea_multiflora",
@@ -27,12 +27,25 @@ model_name <- c("Affine", "Quadratic")
 
 ```{r fit}
 fit <- list()
-for(S in sp){
-  for(M in model_name){
-    chain_path <- file.path("Chains", M, S)
-    fit[[S]][[M]] <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+tryCatch({
+  for(S in sp){
+    for(M in model_name){
+      chain_path <- file.path("Chains", M, S)
+      fit[[S]][[M]] <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE))
+    }
   }
-}
+}, error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")})
+
+
+
+tryCatch({
+  chain_path <- paste(fitspath, s, sep="") # ".." for the he directory above the current one
+  print(chain_path)
+  fits <- as_cmdstan_fit(list.files(chain_path,
+                                    full.names = TRUE))},
+  error=function(e){cat("ERROR :",s, conditionMessage(e), "\n")}
+)
+
 # names(fit[["Symphonia_sp.1"]])
 ```
 
@@ -71,16 +84,16 @@ BIC_df <- BIC_df %>%
   mutate(Affine = ifelse(BIC_Affine < BIC_Quadratic & abs(Diff)>2,T,F)) %>% 
   mutate(Quadratic = ifelse(BIC_Quadratic < BIC_Affine & abs(Diff)>2,T,F))
 
-nrow(BIC_df %>% filter(test==T)) # 61 
-nrow(BIC_df %>% filter(Affine==T)) # 56 -> species majority prefer affine model
-nrow(BIC_df %>% filter(Quadratic==T)) # 9 sp prefer quadratic model
-nrow(BIC_df %>% filter(Affine==F,Quadratic==F)) # 10 with no significant diff
+nrow(BIC_df %>% filter(test==T)) # 74 
+nrow(BIC_df %>% filter(Affine==T)) # 72 -> species majority prefer affine model significantly
+nrow(BIC_df %>% filter(Quadratic==T)) # 0 sp prefer quadratic model
+nrow(BIC_df %>% filter(Affine==F,Quadratic==F)) # 3 with no significant diff
 
 ```
 
 ```{r}
-write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv")
-# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv")
+write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_logTWI_affine_vs_quadratic.csv")
+# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_logTWI_affine_vs_quadratic.csv")
 ```
 
 ```{r}
@@ -100,14 +113,14 @@ ggplot(BIC_df, aes(Diff)) +
                      breaks = c(-10, -2, 0, 2, 10, 100),
                      name = "BIC difference (affine - quadratic)") +
   # n species with bic diff < -2 (affine pref)
-  annotate("text", x = -10, y = 0.015, col="#009E73",
+  annotate("text", x = -6.5, y = 0.1, col="#009E73",
            label = paste0(sum(BIC_df$Diff < -2), "/", nrow(BIC_df))) +
   # n species with bic diff >2 (quadratic pref)
-  annotate("text", x = 10, y = 0.015, col="#FC4E07",
+  annotate("text", x = 3, y = 0.1, col="#FC4E07",
            label = paste0(sum(BIC_df$Diff > 2), "/", nrow(BIC_df))) +
   ylab("Density")
 
-ggsave("BIC_affine_vs_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+ggsave("BIC_logTWI_affine_vs_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
        width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 

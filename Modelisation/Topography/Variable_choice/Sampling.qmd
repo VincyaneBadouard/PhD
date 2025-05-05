@@ -69,7 +69,7 @@ dataM_HAND <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
                                                 Environmentp = seq(min(x$HAND), max(x$HAND), length.out = Np))
 )
 
-# seq(min(datalist[[1]]$TWI), max(datalist[[1]]$TWI), length.out = Np) # 3.88 - 11.02
+# seq(min(datalist[[1]]$logTWI), max(datalist[[1]]$logTWI), length.out = 50) # 1.358045 - 2.400176
 # seq(min(datalist[[1]]$HAND), max(datalist[[1]]$HAND), length.out = Np) # -0.37 - 23.34
 
 names(dataM_TWI) <- names(dataM_HAND) <- names(datalist)

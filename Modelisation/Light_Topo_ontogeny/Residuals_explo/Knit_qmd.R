@@ -1,17 +1,24 @@
 
-sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx",
-        "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana") # 5 agreg sp
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
-sp <- "Anaxagorea_dolichocarpa"
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx",
+#         "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana") # 5 agreg sp
+
+# sp <- "Anaxagorea_dolichocarpa"
 
 setwd("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/") 
 
+qmd <- "DHARMA_test" # "Residuals_explo_plots"
+
+if(!file.exists("Diagnose_species"))
+  dir.create("Diagnose_species")
+
 for(s in sp){
   print(s)
-  file_name <- paste0("Residuals_explo_plots_", s, ".html")
+  file_name <- paste0(qmd, "_", s, ".html")
   if(!file.exists(file.path("Diagnose_species/", file_name))){
     quarto::quarto_render( # create a html per species
-      input = "Residuals_explo_plots.qmd",
+      input = paste(qmd, ".qmd", sep=""),
       output_file = file_name,
       execute_params = list(species = s)
     )
