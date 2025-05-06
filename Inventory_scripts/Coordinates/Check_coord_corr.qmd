@@ -1,0 +1,47 @@
+---
+title: "Check coord corr"
+format: html
+editor: source
+---
+
+```{r setup}
+library(readr)
+library(tidyverse)
+library(sf)
+library(terra)
+```
+```{r}
+ALT <- vect("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp") %>% 
+  st_as_sf()
+```
+
+```{r}
+inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% 
+  st_as_sf(coords = c("Xutm","Yutm")) %>% 
+  st_set_crs(crs(ALT)) 
+```
+
+```{r}
+# Surveyor's points
+library("readxl")
+read_xlsx("D:/Mes Donnees/PhD/Inventories/Data/Piquets_ALT/plots.xlsx", sheet = "surveyor") %>% # created by Eric
+  as.data.frame() -> surveyor
+surveyor %>% 
+  st_as_sf(coords = c("x_utm","y_utm")) %>% 
+  st_set_crs(crs(ALT)) -> surveyor.sf
+
+```
+
+```{r}
+ALT %>% 
+  ggplot() +
+  theme_classic() +
+  geom_sf() +
+  geom_sf(data = inv, col = "black", size=0.1) +
+  geom_sf(data = surveyor.sf, col = "red") +
+  # geom_sf_text(data = surveyor.sf, aes(label = point), col = "red") +
+  ggtitle("Inventory coordinates correction from surveyor's points")
+
+ggsave("Inventory_coord_corr.png", path = "D:/Mes Donnees/PhD/Figures/inventory", width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+

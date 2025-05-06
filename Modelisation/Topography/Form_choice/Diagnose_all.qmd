@@ -81,8 +81,7 @@ for(s in sp){
   plist[[s]] <- local({
     
     g <- lapply(names(fit[[s]]), function(m){
-      # m = "Affine"
-      # s= "Talisia_megaphylla"
+      # m = "Affine" ; s= "Talisia_megaphylla"
       
       fit[[s]][[m]]$summary("p") %>% # p posterior
         mutate(x = seq(1.358045, 2.400176, length.out = 50)) %>% # prediction environment
@@ -107,11 +106,11 @@ for(s in sp){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
 # plots
 
-ggsave("Allsp_logTWI_niche.pdf",
+ggsave("Allsp_logTWI_niche_affine_vs_quadratic.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        plots, width = 15, height = 10)
 
-Sys.time() # 2min30
+Sys.time() # 2min13
 ```
 
 

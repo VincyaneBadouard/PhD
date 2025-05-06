@@ -85,16 +85,16 @@ for(s in sp){
   plist[[s]] <- local({
     
     g <- lapply(names(fit[[s]]), function(v){
-      # v = "TWI"
+      # v = "TWI" ; s= "Talisia_megaphylla"
       
-      if(v=="TWI") xtit <- "TWI"
+      if(v=="TWI") xtit <- "log(TWI)"
       if(v=="HAND") xtit <- "HAND (m)"
       
       
       DATA <- fit[[s]][[v]]$summary("p") # p posterior
       # prediction environment 
-      if(v=="HAND") DATA$x <- seq(-0.37, 23.34, length.out = 100)
-      if(v=="TWI") DATA$x <- seq(3.88, 11.02, length.out = 100)
+      if(v=="HAND") DATA$x <- seq(-0.37, 23.34, length.out = 50)
+      if(v=="TWI") DATA$x <- seq(1.358045, 2.400176, length.out = 50)
       
       ggplot(DATA, aes(x = x)) +
         geom_point(aes(y = median), size=0.7) + # p posterior median
@@ -109,7 +109,7 @@ for(s in sp){
       # theme(axis.title = element_blank())
     })
     
-    cowplot::plot_grid(plotlist = g, labels=c("TWI", "HAND"), vjust = 3, hjust=-2, label_size=12)
+    cowplot::plot_grid(plotlist = g, labels=c("log(TWI)", "HAND"), vjust = 3, hjust=-1, label_size=12)
     
   })
 }
@@ -117,11 +117,11 @@ for(s in sp){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
 # plots
 
-ggsave("Allsp_HAND_vs_TWI_niche.pdf",
+ggsave("Allsp_HAND_vs_logTWI_niche.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        plots, width = 15, height = 10)
 
-Sys.time()
+Sys.time() # 2min15
 ```
 
 

@@ -37,15 +37,6 @@ tryCatch({
 }, error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")})
 
 
-
-tryCatch({
-  chain_path <- paste(fitspath, s, sep="") # ".." for the he directory above the current one
-  print(chain_path)
-  fits <- as_cmdstan_fit(list.files(chain_path,
-                                    full.names = TRUE))},
-  error=function(e){cat("ERROR :",s, conditionMessage(e), "\n")}
-)
-
 # names(fit[["Symphonia_sp.1"]])
 ```
 

@@ -1,6 +1,6 @@
 ---
 params:
-  species: Dicorynia_guianensis
+  species: Oxandra_asbeckii
 title: "DHARMA_test"
 subtitle: "*`r params$sp`*"
 format: html
@@ -137,12 +137,31 @@ p2 + ggtitle("Absence")
 ```
 
 
-```{r, eval =F}
-testSpatialAutocorrelation(simulationOutput = sim,
-                           x= DATA$Xutm, y= DATA$Yutm,
-                           distMat = NULL, # euclidean distances 
-                           # alternative = c("two.sided", "greater", "less"),
-                           plot = T)
+```{r}
+paste(DATA$Xutm, y= DATA$Yutm)[duplicated(paste(DATA$Xutm, y= DATA$Yutm))]
+
+# to have unique coordinates
+DATA[duplicated(paste(DATA$Xutm, y= DATA$Yutm)), ]$Xutm <-  DATA[duplicated(paste(DATA$Xutm, y= DATA$Yutm)), ]$Xutm + 0.1
+  
+if(!any(duplicated(paste(DATA$Xutm, y= DATA$Yutm)))){
+
+MoranTest <- testSpatialAutocorrelation(simulationOutput = sim,
+                                        x= DATA$Xutm, y= DATA$Yutm,
+                                        distMat = NULL, # euclidean distances 
+                                        # alternative = c("two.sided", "greater", "less"),
+                                        plot = T)
+
+MoranTest <- data.frame(Species = sp,
+                        t(MoranTest$statistic),
+                        p_value = MoranTest$p.value)
+# observed : the computed Moran's I.
+# expected : the expected value of I under the null hypothesis.
+# sd : the standard deviation of I under the null hypothesis.
+# p.value	: the P-value of the test of the null hypothesis against the alternative hypothesis specified in alternative.
+
+write.csv(MoranTest, paste0("./MoranTest/", sp,".csv"))
+
+}else(print("dupli coord"))
 
 # library(gstat)
 # dat <- data.frame(res = residuals(sim),  x= DATA$Xutm, y= DATA$Yutm)

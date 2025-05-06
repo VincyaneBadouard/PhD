@@ -1,0 +1,68 @@
+---
+title: "Moran_test_all_sp"
+format: html
+editor: source
+---
+
+```{r setup}
+library(readr)
+library(tidyverse)
+```
+
+```{r}
+filenames <- list.files("./MoranTest/", pattern="*.csv", full.names=TRUE) # catch the name of all the files of the folder
+
+df_list <- lapply(filenames, read.csv) # read all the folder files
+# df_list[[1]]
+
+MoranTest <- bind_rows(df_list) %>% 
+  select(-X) 
+```
+
+```{r}
+MoranTest <- MoranTest %>% 
+  mutate(Autocor = ifelse(p_value < 0.05, T, F)) %>% 
+  mutate(Diff = observed - expected) %>% 
+  mutate(p_value = round(as.numeric(format(p_value, scientific = F)),2))
+
+# observed : the computed Moran's I.
+# expected : the expected value of I under the null hypothesis.
+# sd : the standard deviation of I under the null hypothesis.
+# p.value	: the P-value of the test of the null hypothesis against the alternative hypothesis specified in alternative.
+```
+
+```{r}
+sum(MoranTest$Autocor==T) # 50/75
+sum(MoranTest$Autocor==F) # 25/75
+```
+
+```{r}
+MoranTest %>%
+  arrange(desc(Diff)) %>%
+  mutate(Genus = data.table::tstrsplit(Species, split = "_")[[1]]) %>% 
+  mutate(Sp = data.table::tstrsplit(Species, split = "_")[[2]]) %>% 
+  mutate(Genus = substr(Genus, 0, 3)) %>% 
+  mutate(Sp = substr(Sp, 0, 3)) %>% 
+  unite(Genus, Sp, col = "Species", sep = "_", remove = T) %>% 
+  mutate(Species = factor(Species, levels = Species)) %>% 
+
+
+ggplot(aes(y = Diff, x = Species, alpha = p_value < 0.05)) +
+  theme_minimal() +
+  geom_point() +
+  theme(axis.text.x = element_text(size=4)) +
+  labs(title = "Moran's I test", y = "observed - expected Moran's I")
+
+ggsave("Moran_test.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation",
+       width = 50, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+```{r}
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+sp[!sp %in% MoranTest$Species] 
+```
+```{r}
+write.csv(MoranTest,
+          "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Autocor/MoranTest_allsp.csv")
+```
+

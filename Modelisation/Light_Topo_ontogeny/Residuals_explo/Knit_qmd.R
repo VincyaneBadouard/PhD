@@ -10,13 +10,13 @@ setwd("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals
 
 qmd <- "DHARMA_test" # "Residuals_explo_plots"
 
-if(!file.exists("Diagnose_species"))
-  dir.create("Diagnose_species")
+if(!file.exists("DHARMa_Diagnose_species"))
+  dir.create("DHARMa_Diagnose_species")
 
 for(s in sp){
   print(s)
   file_name <- paste0(qmd, "_", s, ".html")
-  if(!file.exists(file.path("Diagnose_species/", file_name))){
+  if(!file.exists(file.path("DHARMa_Diagnose_species/", file_name))){
     quarto::quarto_render( # create a html per species
       input = paste(qmd, ".qmd", sep=""),
       output_file = file_name,
@@ -24,7 +24,7 @@ for(s in sp){
     )
     file.rename(
       from = file_name,
-      to = file.path("Diagnose_species/", file_name)
+      to = file.path("DHARMa_Diagnose_species/", file_name)
     )
   }
 }

@@ -15,7 +15,7 @@ library(cmdstanr)
 library(bayesplot)
 library(scales)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75; 2 to have treedatacor
 
 
 # sp <- c("Licania_membranacea", "Symphonia_sp.1", "Piparea_multiflora", "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4 forms
@@ -74,16 +74,16 @@ BIC_df <- BIC_df %>%
   mutate(HAND = ifelse(BIC_HAND < BIC_TWI & abs(Diff)>2,T,F)) %>% 
   mutate(TWI = ifelse(BIC_TWI < BIC_HAND & abs(Diff)>2,T,F))
 
-nrow(BIC_df %>% filter(test==T)) # 34
-nrow(BIC_df %>% filter(HAND==T)) # 23
-nrow(BIC_df %>% filter(TWI==T)) # 31 -> best BIC is for TWI
-nrow(BIC_df %>% filter(HAND==F,TWI==F)) # 21
+nrow(BIC_df %>% filter(test==T)) # 43
+nrow(BIC_df %>% filter(HAND==T)) # 17
+nrow(BIC_df %>% filter(TWI==T)) # 33 -> best BIC is for TWI
+nrow(BIC_df %>% filter(HAND==F,TWI==F)) # 25
 
 ```
 
 ```{r}
-write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_TWI.csv")
-# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_TWI.csv")
+write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_logTWI.csv")
+# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_logTWI.csv")
 ```
 
 ```{r}
@@ -102,16 +102,16 @@ ggplot(BIC_df, aes(Diff)) +
   geom_vline(xintercept = c(-2, 2), linetype = "dashed") +
   scale_x_continuous(trans = "S_sqrt", 
                      breaks = c(-10, -2, 0, 2, 10, 100),
-                     name = "BIC difference (HAND - TWI)") +
+                     name = "BIC difference (HAND - log(TWI))") +
   # n species with bic diff < -2 (HAND pref)
-  annotate("text", x = -7, y = 0.05, col="#D55E00",
+  annotate("text", x = -10, y = 0.03, col="#D55E00",
            label = paste0(sum(BIC_df$Diff < -2), "/", nrow(BIC_df))) +
   # n species with bic diff >2 (TWI pref)
-  annotate("text", x = 9, y = 0.05, col="#0072B2",
+  annotate("text", x = 10, y = 0.03, col="#0072B2",
            label = paste0(sum(BIC_df$Diff > 2), "/", nrow(BIC_df))) +
   ylab("Density")
 
-ggsave("BIC_HAND_vs_TWI.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+ggsave("BIC_HAND_vs_logTWI.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
        width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
@@ -132,9 +132,9 @@ g1 <- ggpaired(var, x = "Variable", y = "BIC", # boxplots liés par des lignes
   guides(color = FALSE) +
   ylab("BIC") +
   theme(axis.title.x = element_blank()) +
-  scale_x_discrete(labels = c("HAND", "TWI"))
+  scale_x_discrete(labels = c("HAND", "log(TWI)"))
 
-shape <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_MNT_affine_vs_quadratic.csv") %>%
+shape <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_logTWI_affine_vs_quadratic.csv") %>%
   select(Species, BIC_Affine, BIC_Quadratic) %>%
   gather(Variable, BIC, -Species)
 
@@ -152,7 +152,7 @@ g2 <- ggpaired(shape, x = "Variable", y = "BIC",
 
 g1 + g2
 
-ggsave("BIC_topo_form_variable.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+ggsave("BIC_topo_form_variable_logTWI.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
