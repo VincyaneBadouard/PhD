@@ -1,0 +1,179 @@
+---
+params:
+  species: Dicorynia_guianensis
+title: "Spatial_bin_test"
+subtitle: "*`r params$sp`*"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+# Packages
+```{r setup, include = F}
+library(cmdstanr)
+library(tidyverse)
+library(sf)
+library(patchwork)
+
+sp <- params$species
+print(sp)
+```
+
+```{r data}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+
+datalist <- datalist[[sp]] # only species in sp
+
+```
+
+# Complete model
+```{r fit}
+chain_path <- paste("./Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
+
+DATA <- fit$summary("p", "median") # p posterior
+```
+
+
+```{r spatial bin, message=F}
+# bin <- 10
+
+e <- list()
+for(bin in c("2", "5", "10", "15", "20", "50")){
+  e[[bin]] <- data.frame(y = datalist$Presence, # Observed values (y = 0 or 1)
+                         p_hat = DATA$median) %>% # predicted probability from model
+    bind_cols(datalist %>% select(Xutm,Yutm, logDBH, logTransmittance, logTWI)) %>% 
+    
+    mutate(x_bin = cut(Xutm, seq(min(Xutm), max(Xutm), as.numeric(bin))), # to categories
+           y_bin = cut(Yutm, seq(min(Yutm), max(Yutm), as.numeric(bin)))) %>% 
+    group_by(x_bin, y_bin) %>% 
+    summarise(obs_m = mean(y), p_m = mean(p_hat), x_m = mean(Xutm), y_m = mean(Yutm), N = n()) %>% 
+    ungroup() %>% 
+    mutate(e = obs_m - p_m)
+}
+```
+```{r}
+d <- list()
+for(bin in c("2", "5", "10", "15", "20", "50")){
+  d[[bin]] <- e[[bin]] %>% mutate(Nmean = mean(N),
+                                  Nmin = min(N), Nmax = max(N)) %>% select(Nmean,Nmin,Nmax) %>% 
+    unique() %>% 
+    mutate(bin = as.numeric(bin))
+}
+bind_rows(d) %>% 
+  ggplot(aes(x=bin, y=Nmean)) +
+  theme_bw() +
+  geom_point() +
+  geom_errorbar(aes(ymin=Nmin, ymax=Nmax), width=.2) +
+  geom_line() +
+  labs(x="Spatial bin (m)", y= "Mean Nindiv per bin")
+```
+
+```{r}
+plist <- list() 
+
+for(bin in c("2", "5", "10", "15", "20", "50")){
+  plist[[bin]] <- local({
+    
+    ggplot(e[[bin]], aes(p_m, obs_m)) +
+      geom_abline() +
+      geom_point() +
+      theme_bw() +
+      labs(title = paste("Spatial bin =", bin, "m"))
+  })
+}
+
+ggpubr::ggarrange(plotlist=plist, nrow = 2, ncol = 3) 
+
+```
+-> 15-20m bins to loose completely the binomial distribution
+
+```{r, warning=F}
+plist <- list() 
+
+for(bin in c("2", "5", "10", "15", "20", "50")){
+  
+  if(nrow(e[[bin]])>2000){
+    e[[bin]] <- sample_n(e[[bin]], 2000) # (because of Moran costly computation)
+    # Take all the presences and the same nbr of absences 
+    # pres <- e[[bin]] %>% filter(obs_m==1)
+    # abs <- e[[bin]] %>%
+    #   filter(obs_m==0) %>%
+    #   sample_n(nrow(pres))
+    # e[[bin]] <- bind_rows(pres, abs)
+  } 
+  
+  plist[[bin]] <- local({
+    
+    pgirmess::correlog(coords = select(e[[bin]], x_m, y_m),
+                       e[[bin]]$e,
+                       method = "Moran", nbclass = NULL) %>% 
+      as.data.frame() %>% 
+      ggplot(aes(x = dist.class, y = coef)) +
+      ylim(-1, 1) +
+      theme_minimal() +
+      geom_hline(yintercept = 0) +
+      geom_point(aes(alpha = p.value < 0.05)) +
+      geom_line(col="red", linewidth =0.8) +
+      guides(alpha = FALSE) +
+      labs(title = paste("Spatial bin =", bin, "m"), x= "Distance (m)", y= "Moran\'s I")
+  })
+  
+}
+
+ggpubr::ggarrange(plotlist=plist, nrow = 2, ncol = 2)
+
+```
+-> 15-20 m seems good, and consistent with DHARMa
+
+```{r}
+# coordonnées binnés non plotables (faire un raster, centroide ?)
+library(sf)
+P16 <- terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp") %>% 
+  st_as_sf()
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>% 
+  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>% 
+  st_set_crs(st_crs(P16))
+
+e[["2"]] %>% 
+  mutate(x_bininf = data.table::tstrsplit(x_bin, split = ",")[[1]]) %>% 
+  mutate(x_binsup = data.table::tstrsplit(x_bin, split = ",")[[2]]) %>% 
+  mutate(x_bininf = as.numeric(gsub("[()]", "", x_bininf))) %>% 
+  mutate(x_binsup = as.numeric(str_remove(x_binsup, "]"))) %>% 
+  
+  mutate(y_bininf = data.table::tstrsplit(y_bin, split = ",")[[1]]) %>% 
+  mutate(y_binsup = data.table::tstrsplit(y_bin, split = ",")[[2]]) %>% 
+  mutate(y_bininf = as.numeric(gsub("[()]", "", y_bininf))) %>% 
+  mutate(y_binsup = as.numeric(str_remove(y_binsup, "]"))) %>%
+  rowwise() %>% 
+  mutate(xmean = mean(c(x_bininf, x_binsup))) %>% 
+  mutate(ymean = mean(c(y_bininf, y_binsup))) %>% 
+  ungroup() %>% 
+  
+  
+  
+  ggplot() + 
+  theme_classic() +
+  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.2) +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  scale_fill_manual(values = c("Hilltop" = "#009E73",
+                               "Slope"= "#E7B800",
+                               "Downslope"= "#bfe6eb", 
+                               "Bottomland" = "#1f78b4"),
+                    breaks = c("Hilltop", "Slope", "Downslope", "Bottomland")) +
+  
+  geom_point(aes(x = xmean, y = ymean, colour = e), size=1) + # , size=DBHcor
+  # scale_size_continuous(range = c(0.5, 5)) +
+  # coord_fixed(ratio = 1) +
+  scale_color_gradient(low = "blue", high = "red") +
+  theme(axis.title= element_blank(), axis.text= element_blank()) +
+  # facet_wrap(~ y, scales ="fixed") + 
+  theme(legend.position="bottom") +
+  guides(size = F, fill =F)
+
+```
+

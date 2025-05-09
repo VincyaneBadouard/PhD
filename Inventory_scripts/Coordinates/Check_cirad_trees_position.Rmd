@@ -17,6 +17,8 @@ ALT se sert des référentiels type **worldfloraonline** par exemple alors que G
 -  Tovomita_obovata = Tovomita_longifolia
 -  Stryphnodendron_polystachyum= Gwilymia_polystachya
 
+-> prendre ScienticficName_TreeDataCor
+
 # Packages
 ```{r Setup, include = F}
 library(readr)

@@ -1,22 +1,22 @@
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+# sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
-# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx",
-#         "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana") # 5 agreg sp
+sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx",
+        "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana") # 5 agreg sp
 
 # sp <- "Anaxagorea_dolichocarpa"
 
 setwd("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/") 
 
-qmd <- "DHARMA_test" # "Residuals_explo_plots"
+qmd <- "Spatial_bin_test" # "DHARMA_test" # "Residuals_explo_plots"
 
-if(!file.exists("DHARMa_Diagnose_species"))
-  dir.create("DHARMa_Diagnose_species")
+if(!file.exists("Spatialbin_Diagnose_species"))
+  dir.create("Spatialbin_Diagnose_species")
 
 for(s in sp){
   print(s)
   file_name <- paste0(qmd, "_", s, ".html")
-  if(!file.exists(file.path("DHARMa_Diagnose_species/", file_name))){
+  if(!file.exists(file.path("Spatialbin_Diagnose_species/", file_name))){
     quarto::quarto_render( # create a html per species
       input = paste(qmd, ".qmd", sep=""),
       output_file = file_name,
@@ -24,7 +24,7 @@ for(s in sp){
     )
     file.rename(
       from = file_name,
-      to = file.path("DHARMa_Diagnose_species/", file_name)
+      to = file.path("Spatialbin_Diagnose_species/", file_name)
     )
   }
 }

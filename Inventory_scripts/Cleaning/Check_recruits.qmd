@@ -1,0 +1,64 @@
+Check recruits trees
+
+
+# Objectives
+Check if trees >10 cm DBH that I keep in the ALT inventory, are well not in the Guyafor inventory because there are recruits trees.
+
+```{r setup}
+library(readr)
+library(tidyverse)
+library(sf)
+```
+
+```{r, include=F}
+P16 <- st_as_sf(terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # ALT zone
+```
+
+```{r, include=F}
+ALT <- 
+  # read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% 
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% # last raw data
+  # rename(Xutm = XTreeUTM, Yutm = YTreeUTM) %>%
+  # rename(DBH = Diameter) %>%
+  # separate(col = "Guyafor.nb", sep = "_", into = c("TreeFieldNum", "SubPlot"), remove = F) %>% 
+  # filter(Stem.nb == 1) %>% 
+  # filter(!is.na(Guyafor.nb)) %>% # only cirad trees
+  filter(DBH>=10) %>% # only cirad trees
+  
+  # filter(!is.na(Xutm) & !is.na(Yutm)) %>% # coordonnées relatives au quadrat
+  
+  # mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
+  # mutate(Species = ifelse(Species=="amboty"& Genus=="Annona", "ambotay", Species)) %>%
+  # mutate(Family = ifelse(Family=="Lecithidaceae", "Lecythidaceae", Family)) %>%
+  # mutate(Genus = ifelse(Genus=="Lecithidaceae", "Lecythidaceae", Genus)) %>%
+  # mutate(ScientificName = str_replace(ScientificName, "Lecithidaceae", "Lecythidaceae")) %>%
+  
+  select(IdTree, Guyafor.nb, IdStem, subplot, Stem.nb, ScientificName, Genus, Species, DBH, Xutm, Yutm, Comments) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(P16))
+```
+
+```{r, include=F}
+Guyafor <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
+  select(TreeFieldNum, SubPlot, ScientificName, DBHcor, Xutm, Yutm) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(P16))
+```
+
+```{r}
+(duplicated(Guyafor$geometry))
+
+any(duplicated(ALT$geometry))
+
+st_intersection(Guyafor, ALT)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = P16) +
+  geom_sf(data = Guyafor) +
+  geom_sf(data = ALT, col = "red", size = 0.8)
+```
+
