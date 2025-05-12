@@ -70,10 +70,11 @@ Residuals <- rslts$Residuals
 Moran_raw <- rslts$Moran_raw %>% mutate(Type = "raw")
 Moran_Pearson <- rslts$Moran_Pearson %>% mutate(Type = "Pearson")
 Moran_Deviance <- rslts$Moran_Deviance %>% mutate(Type = "Deviance")
+Moran_StPearson <- rslts$Moran_StPearson %>% mutate(Type = "StPearson")
 
-Moran <- bind_rows(Moran_raw, Moran_Pearson, Moran_Deviance)
+Moran <- bind_rows(Moran_raw, Moran_Pearson, Moran_Deviance, Moran_StPearson)
 
-rm(Moran_raw, Moran_Pearson, Moran_Deviance, params, rslts)
+rm(Moran_raw, Moran_Pearson, Moran_Deviance, Moran_StPearson, params, rslts)
 ```
 
 ```{r}
@@ -82,14 +83,14 @@ if(!"logTransmittance" %in% names(Residuals)){
   load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
   datalist <- datalist[names(datalist) %in% sp] # only species in sp
   Residuals <- Residuals %>% 
-    bind_cols(datalist[[sp]] %>% dplyr::select(logDBH, Transmittance, logTransmittance, TWI, logTWI, Elevation, HAND))
+    bind_cols(datalist[[sp]] %>% dplyr::select(logDBH, Transmittance, logTransmittance, TWI, logTWI))
   
   rm(datalist)
 }
 ```
 
 ```{r}
-Residuals_covar <- Residuals %>% pivot_longer(cols = c(logDBH, logTransmittance, logTWI, Elevation, HAND),
+Residuals_covar <- Residuals %>% pivot_longer(cols = c(logDBH, logTransmittance, logTWI),
                                               names_to = "Var", values_to = "Covar")
 ```
 
@@ -140,11 +141,13 @@ p2 + ggtitle("Absence")
 cor(Residuals$raw_e, Residuals$Pearson_e) # 3e
 cor(Residuals$raw_e, Residuals$Deviance_e) # la cor la + haute
 cor(Residuals$Pearson_e, Residuals$Deviance_e) # 2e
+cor(Residuals$Pearson_e, Residuals$StPearson) # 1
+
 ```
 
 ```{r}
 Residuals_wide <- Residuals
-Residuals <- Residuals %>% pivot_longer(cols = c(raw_e, Pearson_e, Deviance_e),
+Residuals <- Residuals %>% pivot_longer(cols = c(raw_e, Pearson_e, Deviance_e, StPearson_e),
                                         names_to = "Type", values_to = "Residuals")
 ```
 
@@ -207,9 +210,10 @@ p1 <- xs$raw_e %>%
 
 p2 <- p1 %+% xs$Deviance_e
 p3 <- p1 %+% xs$Pearson_e
+p4 <- p1 %+% xs$StPearson_e
 
 p1
-gridExtra::grid.arrange(p1,p2,p3, nrow = 1, ncol = 3, top = grid::textGrob(paste(sp, "- presences")))
+gridExtra::grid.arrange(p1,p2,p3,p4, nrow = 1, ncol = 4, top = grid::textGrob(paste(sp, "- presences")))
 ```
 
 ```{r}
@@ -228,8 +232,10 @@ p1 <- xs$raw_e %>%
 
 p2 <- p1 %+% xs$Deviance_e
 p3 <- p1 %+% xs$Pearson_e
+p4 <- p1 %+% xs$StPearson_e
 
-gridExtra::grid.arrange(p1,p2,p3, nrow = 1, ncol = 3, top = grid::textGrob(paste(sp, "- absences")))
+
+gridExtra::grid.arrange(p1,p2,p3,p4, nrow = 1, ncol = 4, top = grid::textGrob(paste(sp, "- absences")))
 ```
 
 # Moran's I correlogram
@@ -248,6 +254,7 @@ Moran %>%
   facet_wrap(~ Type, scales ="fixed") + 
   ggtitle(paste(sp,"- Residuals spatial auto-correlation"))
 ```
+
 ## Binned residuals plot
 ```{r binnedplot}
 # Raw residuals

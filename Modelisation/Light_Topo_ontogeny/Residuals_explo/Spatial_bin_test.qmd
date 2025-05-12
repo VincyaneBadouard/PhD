@@ -10,6 +10,9 @@ editor: source
 code-fold: true
 ---
 
+Another approach to binary logistic regression is to use group-level data instead of subject-level data. **Group-level** data contains responses that are counts of “success” and “failures” at unique patterns of predictor variables. These are sometimes referred to as explanatory variable patterns (Bilder and Loughin, 2015)
+
+
 # Packages
 ```{r setup, include = F}
 library(cmdstanr)
@@ -29,7 +32,6 @@ datalist <- datalist[[sp]] # only species in sp
 
 ```
 
-# Complete model
 ```{r fit}
 chain_path <- paste("./Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
 fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
@@ -37,7 +39,7 @@ fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 cha
 DATA <- fit$summary("p", "median") # p posterior
 ```
 
-
+# Compute spatial binned residuals
 ```{r spatial bin, message=F}
 # bin <- 10
 
@@ -55,6 +57,8 @@ for(bin in c("2", "5", "10", "15", "20", "50")){
     mutate(e = obs_m - p_m)
 }
 ```
+
+# Number of individuals per bin
 ```{r}
 d <- list()
 for(bin in c("2", "5", "10", "15", "20", "50")){
@@ -71,7 +75,7 @@ bind_rows(d) %>%
   geom_line() +
   labs(x="Spatial bin (m)", y= "Mean Nindiv per bin")
 ```
-
+# Observation vs estimation
 ```{r}
 plist <- list() 
 
@@ -91,6 +95,53 @@ ggpubr::ggarrange(plotlist=plist, nrow = 2, ncol = 3)
 ```
 -> 15-20m bins to loose completely the binomial distribution
 
+# Plot residuals
+```{r}
+library(sf)
+P16 <- terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp") %>% 
+  st_as_sf()
+TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
+  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>% 
+  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>% 
+  st_set_crs(st_crs(P16))
+
+plist <- list()
+for(bin in c("2", "5", "10", "15", "20", "50")){
+  
+  plist[[bin]] <- local({
+    
+    e[[bin]] %>% 
+      arrange(e) %>% 
+      ggplot() + 
+      theme_classic() +
+      geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.5) +
+      geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+      scale_fill_manual(values = c("Hilltop" = "#009E73",
+                                   "Slope"= "#E7B800",
+                                   "Downslope"= "#bfe6eb", 
+                                   "Bottomland" = "#1f78b4"),
+                        breaks = c("Hilltop", "Slope", "Downslope", "Bottomland")) +
+      
+      geom_point(aes(x = x_m, y = y_m, colour = e)) + # , size=DBHcor , alpha = e
+      # scale_size_continuous(range = c(0.5, 5)) +
+      # coord_fixed(ratio = 1) +
+      scale_color_gradient(low = "lightgrey", high = "black") +
+      theme(axis.title= element_blank(), axis.text= element_blank()) +
+      # facet_wrap(~ y, scales ="fixed") + 
+      theme(legend.position="bottom") +
+      guides(size = F, fill =F) + # , alpha =F
+      labs(title = paste("Spatial bin =", bin, "m"))
+  })
+  
+}
+
+ggpubr::ggarrange(plotlist=plist, nrow = 1, ncol = 2)
+```
+The grid is not regular for small bins because bins are created only from existing trees, if there are no trees in the zone, this zone is not include in a bin.  
+
+I'm not sure that these residuals catch all the information of the interest species when the bins are larger than 10m.  
+
+# Moran's I
 ```{r, warning=F}
 plist <- list() 
 
@@ -129,51 +180,5 @@ ggpubr::ggarrange(plotlist=plist, nrow = 2, ncol = 2)
 ```
 -> 15-20 m seems good, and consistent with DHARMa
 
-```{r}
-# coordonnées binnés non plotables (faire un raster, centroide ?)
-library(sf)
-P16 <- terra::vect("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp") %>% 
-  st_as_sf()
-TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
-  filter(Plot==16) %>% mutate(TopoTypeEn = ifelse(idTopo ==38, "Downslope", TopoTypeEn)) %>% 
-  mutate(TopoTypeEn = recode(TopoTypeEn, "Plateau" = "Hilltop")) %>% 
-  st_set_crs(st_crs(P16))
 
-e[["2"]] %>% 
-  mutate(x_bininf = data.table::tstrsplit(x_bin, split = ",")[[1]]) %>% 
-  mutate(x_binsup = data.table::tstrsplit(x_bin, split = ",")[[2]]) %>% 
-  mutate(x_bininf = as.numeric(gsub("[()]", "", x_bininf))) %>% 
-  mutate(x_binsup = as.numeric(str_remove(x_binsup, "]"))) %>% 
-  
-  mutate(y_bininf = data.table::tstrsplit(y_bin, split = ",")[[1]]) %>% 
-  mutate(y_binsup = data.table::tstrsplit(y_bin, split = ",")[[2]]) %>% 
-  mutate(y_bininf = as.numeric(gsub("[()]", "", y_bininf))) %>% 
-  mutate(y_binsup = as.numeric(str_remove(y_binsup, "]"))) %>%
-  rowwise() %>% 
-  mutate(xmean = mean(c(x_bininf, x_binsup))) %>% 
-  mutate(ymean = mean(c(y_bininf, y_binsup))) %>% 
-  ungroup() %>% 
-  
-  
-  
-  ggplot() + 
-  theme_classic() +
-  geom_sf(data = TopoLevels, aes(fill = TopoTypeEn), alpha = 0.2) +
-  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
-  scale_fill_manual(values = c("Hilltop" = "#009E73",
-                               "Slope"= "#E7B800",
-                               "Downslope"= "#bfe6eb", 
-                               "Bottomland" = "#1f78b4"),
-                    breaks = c("Hilltop", "Slope", "Downslope", "Bottomland")) +
-  
-  geom_point(aes(x = xmean, y = ymean, colour = e), size=1) + # , size=DBHcor
-  # scale_size_continuous(range = c(0.5, 5)) +
-  # coord_fixed(ratio = 1) +
-  scale_color_gradient(low = "blue", high = "red") +
-  theme(axis.title= element_blank(), axis.text= element_blank()) +
-  # facet_wrap(~ y, scales ="fixed") + 
-  theme(legend.position="bottom") +
-  guides(size = F, fill =F)
-
-```
 

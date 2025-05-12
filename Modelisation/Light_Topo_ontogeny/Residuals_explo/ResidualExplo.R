@@ -1,6 +1,6 @@
 #' ResidualExplo
 #' 
-#' @description Compute models residuals (raw, Person, deviance)
+#' @description Compute models residuals (raw, Person, deviance, standardized Pearson)
 #'
 #' @param sp (character) Species vector of interest
 #' @param datalist (list) list of models observations data (data.frames), one per species
@@ -11,7 +11,7 @@
 #' @export
 #'
 #' @examples
-#' s <- "Anaxagorea_dolichocarpa"
+#' s <- "Dicorynia_guianensis"
 #'         
 #' path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 #' load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
@@ -29,9 +29,9 @@ ResidualExplo <- function(s, datalist, fitspath ){
   datalist <- datalist[names(datalist) %in% s][[s]] # [Id,] # only species in sp and predicted rows
   
   # Load models fits for interest species --------------------------------------
+  fits <- list()
   tryCatch({
     chain_path <- paste(fitspath, s, sep="") # ".." for the he directory above the current one
-    print(chain_path)
     fits <- as_cmdstan_fit(list.files(chain_path,
                                       full.names = TRUE))},
     error=function(e){cat("ERROR :",s, conditionMessage(e), "\n")}
@@ -41,17 +41,25 @@ ResidualExplo <- function(s, datalist, fitspath ){
   # get the posterior residuals for each observations, and I take the median across iterations.
   DATA <- fits$summary("p", "median") # p posterior
   
-  rm(fits)
+  rm(fits); gc()
+  
+  # Compute hat matrix diagonal (hat values) for standardized Pearson residuals
+  X <- as.matrix(datalist %>% select(logTWI, logTransmittance))  # N x K
+  XtX_inv <- solve(t(X) %*% X)  # K x K
+  H <- X %*% XtX_inv %*% t(X)   # N x N
+  hat_values <- diag(H)
+  
   
   Residuals <- data.frame(y = datalist$Presence, # Observed values (y = 0 or 1)
                           p_hat = DATA$median) %>% # predicted probability from model
     mutate(raw_e = y - p_hat, # raw residuals,
            Pearson_e = raw_e / sqrt(p_hat * (1 - p_hat)),
-           Deviance_e = sign(raw_e)*sqrt(-2*(y*log(p_hat) + (1 - y)*log(1 - p_hat)))
+           Deviance_e = sign(raw_e)*sqrt(-2*(y*log(p_hat) + (1 - y)*log(1 - p_hat))),
+           StPearson_e = Pearson_e / sqrt(1 - hat_values)
     ) %>% 
-    bind_cols(datalist %>% select(Xutm,Yutm, logDBH, logTransmittance, logTWI, Elevation, HAND))
+    bind_cols(datalist %>% select(Xutm,Yutm, logTWI, logTransmittance, logDBH))
   
-  rm(DATA)
+  rm(DATA); gc()
   
   print("Residuals computed")
   
@@ -80,12 +88,19 @@ ResidualExplo <- function(s, datalist, fitspath ){
                                        method = "Moran", nbclass = NULL) %>% 
     as.data.frame()
   
+  Moran_StPearson <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm),
+                                      samp$StPearson_e,
+                                      method = "Moran", nbclass = NULL) %>% 
+    as.data.frame()
+  
+  
   print("Moran's I computed")
   
   Results <- list(Residuals = Residuals,
                   Moran_raw = Moran_raw,
                   Moran_Pearson = Moran_Pearson,
-                  Moran_Deviance = Moran_Deviance)
+                  Moran_Deviance = Moran_Deviance,
+                  Moran_StPearson = Moran_StPearson)
   
   # Savec the outpout
   if(!file.exists("Residuals_Moran"))

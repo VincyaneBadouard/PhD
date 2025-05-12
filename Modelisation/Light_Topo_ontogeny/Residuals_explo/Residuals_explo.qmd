@@ -18,7 +18,7 @@ Aggregatives species :\
 
 **Raw residual**: the difference between what we observe (Y~i~) and the predicted probability (P~i~) for each observation, it ranges between -1 and 1.  
 
-**Pearson residual**: it is the raw residual divided by the estimated standard deviation of a binomial distribution with number of trials equal to 1 and p equal to phat.  
+**Pearson residual**: it is the raw residual **divided by the estimated standard deviation** of a binomial distribution with number of trials equal to 1 and p equal to phat.  
 
 **Deviance residual**: scaled version of the components of the binomial log likelihood.  
 
@@ -36,7 +36,7 @@ library(parallel)
 # sp <- "Tabernaemontana_macrocalyx"
 sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
 
-sp <- c("Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis")
+sp <- "Dicorynia_guianensis"
 
 ```
 
@@ -94,6 +94,7 @@ Sys.time() # 16h
 fits <- list()
 for(S in sp){
   tryCatch({
+    # S = "Dicorynia_guianensis"
     chain_path <- paste("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo/Chains/Hybrid_allpred/",S, sep="")
     # chain_path <- file.path("..","Chains", "Hybrid_allpred", S) # ".." for the he directory above the current one
     fits[[S]] <- as_cmdstan_fit(list.files(chain_path,
@@ -106,10 +107,10 @@ for(S in sp){
 # Compute raw residuals
 get the posterior residuals for each observations, and I take the median across iterations.
 ```{r}
-DATA <- fits[[S]]$summary("p") # p posterior
+DATA <- fits[[S]]$summary("p", "median") # p posterior
 
 y <- datalist[[S]]$Presence # Observed values (y = 0 or 1)
-p_hat <- DATA$mean # predicted probability from model
+p_hat <- DATA$median # predicted probability from model
 raw_e <- y - p_hat # raw residuals
 ```
 
@@ -118,28 +119,18 @@ It is the raw residual divided by the estimated standard deviation of a binomial
 ```{r}
 Pearson_e <- raw_e / sqrt(p_hat * (1 - p_hat))
 ```
+
 # Compute standardized Pearson residual
 This is the Pearson residual adjusted for the leverage of predictors using what are called "hat values." Hat values measure the distance of individual predictors from the mean of the predictors. High hat values indicate a subject or row could have outlying predictor values. This in turn could mean that a subject or row has substantial leverage in determining the predicted response. This adjustment then increases the absolute value of certain residuals based on the leverage of the associated predictors  
-```{r, eval=F}
-variances <- p_hat * (1 - p_hat)  # [iterations x N]
-mean_variance <- colMeans(variances)  # average over posterior
-
-# Compute average weights
-W_diag <- mean_variance  # length N
-W <- diag(W_diag)
-XWX_inv <- solve(t(X) %*% W %*% X)
-
-# Now compute hat values
-hat_values <- numeric(nrow(X))
-for (i in seq_len(nrow(X))) {
-  x_i <- X[i, , drop = FALSE]
-  hat_values[i] <- x_i %*% XWX_inv %*% t(x_i)
-}
+```{r}
+# Compute hat matrix diagonal (hat values)
+X <- as.matrix(datalist[[S]] %>% select(logTWI, logTransmittance))  # N x K
+XtX_inv <- solve(t(X) %*% X)  # K x K
+H <- X %*% XtX_inv %*% t(X)   # N x N
+hat_values <- diag(H)
 
 StPearson_e <- Pearson_e / sqrt(1 - hat_values)
 
-cbind(y, p_hat, StPearson_e) %>%  
-  head()
 ```
 
 # Compute deviance residuals
@@ -148,7 +139,7 @@ Deviance_e <- sign(raw_e)*sqrt(-2*(y*log(p_hat) + (1 - y)*log(1 - p_hat)))
 ```
 
 ```{r}
-Residuals <- data.frame(y, p_hat, raw_e, Pearson_e, Deviance_e) %>% 
+Residuals <- data.frame(y, p_hat, raw_e, Pearson_e, Deviance_e, StPearson_e) %>% 
   bind_cols(datalist[[S]] %>% select(Xutm,Yutm, DBHcor))
 ```
 
@@ -157,6 +148,8 @@ Residuals <- data.frame(y, p_hat, raw_e, Pearson_e, Deviance_e) %>%
 cor(raw_e, Pearson_e) # 0.976
 cor(raw_e, Deviance_e) # 0.998
 cor(Pearson_e, Deviance_e) # 0.982
+cor(Pearson_e, StPearson_e) # 1
+
 
 ggplot() +
   geom_histogram(aes(x=log(raw_e)))
@@ -164,19 +157,22 @@ ggplot() +
   geom_histogram(aes(x=log(Pearson_e)), fill="blue")
 ggplot() +
   geom_histogram(aes(x=log(Deviance_e)), fill="forestgreen")
+ggplot() +
+  geom_histogram(aes(x=log(StPearson_e)), fill="pink")
+
 ```
 
 # Plots the median residuals against the predicted proba
 ```{r}
 Residuals %>% 
-  ggplot(aes(x = p_hat, y = Pearson_e, colour = as.factor(y))) +
+  ggplot(aes(x = p_hat, y = StPearson_e, colour = as.factor(y))) +
   geom_point()
 ```
 
 ```{r}
 Residuals %>% 
   filter(y == 1) %>%  
-  ggplot(aes(x = Xutm, y = Yutm, colour = Deviance_e)) + 
+  ggplot(aes(x = Xutm, y = Yutm, colour = StPearson_e)) + 
   theme_classic() +
   geom_point(aes(size=DBHcor)) +
   scale_size_continuous(range = c(0.5, 5)) +
@@ -188,12 +184,12 @@ Residuals %>%
 
 # Moran's I
 ```{r }
-n <- 10^3
+n <- 2000
 samp <- sample_n(Residuals, n)
 # Computes Moran's coefficients on distance classes
-cor <- pgirmess::correlog(coords = data.frame(Residuals$Xutm, Residuals$Yutm), # long
-                          Residuals$raw_e,
-                          method = "Moran", nbclass = 30) %>% 
+cor <- pgirmess::correlog(coords = data.frame(samp$Xutm, samp$Yutm), # long
+                          samp$StPearson_e,
+                          method = "Moran", nbclass = NULL) %>% 
   as.data.frame()
 
 # Correlogram
