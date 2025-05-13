@@ -55,6 +55,7 @@ AdultsN <- read_csv("~/PhD/Inventories/Data/Adults/Nouragues/NouraguesPetitPlate
   filter(SubPlot %in% c(202,203,204,212,213,214)) # 6 ha
 ```
 
+
 # Manage columns names
 ```{r}
 # to detect differences in column names between datasets
@@ -701,6 +702,15 @@ Only alive trees
 Only the principal stem
 Only measured trees
 Only spatialised trees
+```{r recruts}
+recruts <- data %>% 
+  filter(is.na(Guyafor.nb) & DBH >=10) %>% 
+  select(IdTree, DBH, Comments, Code_problem)
+unique(recruts$Code_problem)
+no_problem <- recruts %>% filter(is.na(Code_problem))
+hist(no_problem$DBH)
+```
+
 ```{r}
 test <- data %>%
   # & DBH<10 only ALT data for the moment

@@ -2,7 +2,7 @@
 // Estimates the parameters of the developed form (∝ , β1, β2) of the quadratic equation,
 // constraining them in concave form (β2 < 0; β1 ⋲ [-7*2β2; 0]).
 // We define the concave form parameters (a, O, gamma) in transformed parameters,
-// and the equation remains a(x - O)2 + gamma.
+// and the equation remains a(x - O)^2 + gamma.
 
 data {
   int<lower=1> N ; // obs

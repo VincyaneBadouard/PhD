@@ -1,5 +1,5 @@
 ###### Script modele avec autocorrelation spatiale
-
+# Bauman et al., 2018
 # GD - 04/07/2022 à discuter avec Lisa
 # ce script créée une fonction pour l'ensemble du workflow de modelisation
 # pour une espèce
