@@ -705,26 +705,24 @@ Only spatialised trees
 ```{r recruts}
 recruts <- data %>% 
   filter(is.na(Guyafor.nb) & DBH >=10) %>% 
-  select(IdTree, DBH, Comments, Code_problem)
+  select(ScientificName, DBH, Comments, Code_problem)
 unique(recruts$Code_problem)
 no_problem <- recruts %>% filter(is.na(Code_problem))
+Not_ided <- recruts %>% filter(Code_problem=="Not_ided")
+cirad <- recruts %>% filter(grepl("num_cirad", Code_problem))
+
 hist(no_problem$DBH)
+hist(Not_ided$DBH)
+hist(cirad[cirad$DBH<20,]$DBH)
 ```
 
 ```{r}
-test <- data %>%
-  # & DBH<10 only ALT data for the moment
-  filter(DBH>=1 & is.na(Guyafor.nb)& DBH>10 &
-           # Family!="Arecaceae" & Comment != "PALMIER" &
-           !Code_problem %in% c("No_num_cirad", "Not_ided", "CheckID"))
-
-hist(test$DBH)
-
 data_filtred <- data %>% 
   mutate(ScientificName_TreeDataCor = str_replace(ScientificName_TreeDataCor, " ", "_")) %>% 
   # & DBH<10 only ALT data for the moment
   filter(DBH>=1 & is.na(Guyafor.nb) & DBH<20 &
-           !grepl("num_cirad", Code_problem)) %>% # filter ce qui a un guyafor.nb pas bcp plus grand que 10 cm (recrus) (pas sous le critère <10 cm dbh pcq recrus) -> reste 88% par rapport aux filtres précédents
+           !grepl("num_cirad", Code_problem) &
+           Code_problem!="TRUE") %>% # filter ce qui a un guyafor.nb pas bcp plus grand que 10 cm (recrus) (pas sous le critère <10 cm dbh pcq recrus) -> reste 88% par rapport aux filtres précédents
   # Only alive trees
   filter(Dead == F) %>% # filter(CodeAlive == T) %>%
   # Only measured trees

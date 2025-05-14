@@ -1,0 +1,132 @@
+---
+params:
+  species: Dicorynia_guianensis
+title: "Eigenvalues selection"
+subtitle: "*`r params$sp`*"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+Reference: Bauman et al., 2018
+
+Objectives:
+Remove the spatial autocorrelation from the residuals of a model of Y against X to respect the condition of independence of the model residuals  
+0) Compute model residuals
+1) selection of the optimal spatial weighting matrix (SWM)
+2) selection of a subset of MEM (Moran’s eigenvector maps) variables within these SWMs.
+
+```{r setup}
+library(adespatial)
+library(MASS)
+library(tidyverse)
+
+sp <- params$species
+print(sp)
+```
+
+# Load data
+```{r}
+DATA <- read_csv(paste0("./Spatial_bin_res/", sp, ".csv")) 
+
+CoordXY <- Residuals %>% select(x_m, y_m) %>% unique() # dataframe with x and y coordinates in columns
+plot(CoordXY)
+```
+
+# Load residuals
+```{r}
+Residuals <- DATA %>% select(x_m, y_m, e) %>% unique() %>% select(e)
+```
+
+# Create spatial weighting matrix (SWM)
+A spatial weighting matrix (SWM) describes the relations among a set of sampled sites.  
+building a list of one or more SWMs.
+optimizing the selection of the SWM from the list of candidates
+
+```{r}
+?listw.explore
+listw.explore() # First visualizing with a shiny the connectivity schemes may help choosing the B matrices  
+```
+
+# List spatial weighting matrices
+B matrix : connectivity : graph-based or distance-based.
+A matrix : weighths  : to define the weight of the connection between sites
+
+Question: quels weights tester ? refs ?
+
+Method :
+-  Delaunay triangulation (del) : should be avoided, unless used with an edge effect correction  
+-  Gabriel's graph (gab)
+-  Relative neighbourhood graph (rel)
+-  Minimum spanning tree (mst)
+-  Distance-based SWM based on the principal coordinates of neighbour matrices criteria (pcnm)
+
+Weights	:
+-  without weights (binary)
+-  Linear (flin)
+-  Concave-down (fdown)
+-  Concave-up (fup)  
+
+Attention: the power decreased when too many SWMs were compared, so test a small set of appropriate candidates
+
+```{r SWM candidate}
+# ?listw.candidates
+Sys.time() 
+SWM_candidate <- listw.candidates(coord = CoordXY, # point coordinates
+                                  nb = c("mst", "gab", "rel"), # c("gab", "mst") 
+                                  weights = c("binary", "flin", "fup", "fdown") ) # c("binary", "flin")
+Sys.time() # 
+# 40 sec pour 10 000 obs
+# 20 000 obs pas assez de RAM
+```
+
+# SWM and eigenvectors selection 
+If the MEM variables are to be further used in a model including actual predictors (e.g. environmental), then a subset of spatial eigenvectors needs to be selected before proceeding to further analyses to avoid model overfitting and/or a loss of statistical power to detect the contribution of the environment to the variability of the response data (Griffith 2003, Dray et al. 2006, Blanchet et al. 2008, Peres-Neto and Legendre 2010, Diniz-Filho et al. 2012).  
+The optimization is done by maximizing the adjusted R-squared (R2) or by minimizing the residual spatial autocorrelation.  
+The function controls the type I error rate by accounting for the number of tests performed. 
+
+If the objective is to optimize the **detection of the spatial patterns** in the residuals of a model of the response variable(s) against a set of environmental predictors, for instance, then x should be the model residuals, and **method = "FWD"**. This allows optimizing the detection of residual spatial patterns once the effect of the environmental predictors has been removed.  
+
+If however the objective is only to **remove the spatial autocorrelation** from the residuals of a model of x against a set of actual predictors (e.g. environmental) with a small number of spatial predictors, then accuracy is not as important and one should focus mainly on the number of spatial predictors (Bauman et al. 2018b). In this case, **method = "MIR"** is more adapted, as it has the advantage to maintain the standard errors of the actual predictor coefficients as low as possible. 
+
+For **method = "MIR"**, the global test consists in computing the **Moran's I** of x (e.g. residuals of the model of the response variable against environmental variables) and tests it by **permutation** (results stored in global.test). If the Moran's I is significant, the function performs a selection procedure that searches **among the set of generated spatial predictors the one that best minimizes the value of the Moran's I**. A model of x against the selected eigenvector is built, and the significance of the **Moran's I of the model residuals is tested again**. The procedure goes on **until the Moran's I of the model residuals is not significant anymore**, hence the name of Minimization of moran's I in the Residuals (MIR).  
+-> selects the SWM with the smallest number of MIR-selected
+spatial predictors. If two or more SWMs present the same smallest number of predictors, the choice is made
+among the ex-aequos on the basis of the Moran’s I.     
+
+A third option is to not perform any selection of MEM variables (**method = "global"**). This option may be interesting when the complete set of MEM variables will be used. 
+
+Question:  
+MEM.autocor = "all" au cas où il y a de la negative autocor pcq Janzen-Connell ?  
+
+```{r SWM select}
+# ?listw.select
+# ?mem.select # for method choice
+Sys.time() 
+SWM_selec <- listw.select(Residuals$e, # model residuals
+                          SWM_candidate, 
+                          MEM.autocor = "positive", # Sign of the spatial eigenvectors
+                          p.adjust = TRUE, # p-value corrected for multiple tests 
+                          method = "MIR") # select eigenvectors to minimize the spatial autocorrelation in the residuals
+Sys.time() 
+```
+
+```{r}
+SWM_selec$candidates #pour chaque SWM l'indice I de Moran et la p-value, ainsi que le nombre de vecteurs propres à garder. Quand on a des NA, c'est bien quand il n'y a pas de corrélation spatiale au vue de l'indice I ? 
+SWM_selec$best.id # donne le nom de la meilleure SWM (NULL si aucune matrice ne montre de correlation spatiale des résidus)
+# -> MST_Linear 
+```
+
+# Save the eignevectors
+```{r}
+# if (!(is.null(SWM_selec$best.id))) {
+# the selected eignevalues for the best SWM (NULL if no autocor)
+eigenval <- cbind(CoordXY, SWM_selec$best$MEM.select) # n rows = n residuals, n col = n eigenvectors
+eigenval <- DATA %>%
+  select(Xutm, Yutm, x_m, y_m) %>% 
+  left_join(eigenval, by= c("x_m", "y_m"))
+write_csv(eigenval, paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/", sp, ".csv"))
+# }
+```
+

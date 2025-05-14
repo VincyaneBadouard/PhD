@@ -49,7 +49,7 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
 ```
 
-# Balance attendance and absence
+# Balance presence and absence
 ```{r}
 # Take all the presences and the same nbr of absences (allready done)
 # pres <- Residuals %>% filter(y==1)
@@ -58,7 +58,7 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 #   sample_n(nrow(pres))
 # samp <- bind_rows(pres, abs)
 
-datalist <- lapply(names(datalist), function(name) {
+datalist_bal <- lapply(names(datalist), function(name) {
   
   pres <- datalist[[name]] %>% filter(Presence==1)
   abs <- datalist[[name]] %>%
@@ -69,12 +69,35 @@ datalist <- lapply(names(datalist), function(name) {
   datalist[[name]]  # Return modified data frame
 })
 
-names(datalist) <- sp # 75
+names(datalist_bal) <- sp # 75
 
 ```
 
 ```{r}
-save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_balanced.Rdata")
+save(datalist_bal, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_balanced.Rdata")
 
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_balanced.Rdata")
 ```
+
+# Join eigenvectors
+```{r}
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/", full.names=T)
+eigenval <- lapply(filelist, read_csv)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/", "", filelist)
+filelist <- gsub(".csv", "", filelist)
+
+names(eigenval) <- filelist
+```
+
+```{r}
+datalist_eig <- datalist
+datalist_eig <- lapply(names(datalist), function(name) {
+  
+datalist_eig <- datalist_eig[[name]] %>% left_join(eigenval[[name]], by=c("Xutm", "Yutm"))
+  datalist_eig  # Return modified data frame
+})
+
+names(datalist_eig) <- names(datalist) # 75
+
+```
+
