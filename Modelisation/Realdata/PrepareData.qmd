@@ -91,13 +91,27 @@ names(eigenval) <- filelist
 
 ```{r}
 datalist_eig <- datalist
+
+# str(datalist_eig[[1]])
+
 datalist_eig <- lapply(names(datalist), function(name) {
   
-datalist_eig <- datalist_eig[[name]] %>% left_join(eigenval[[name]], by=c("Xutm", "Yutm"))
-  datalist_eig  # Return modified data frame
+  if(name %in% names(eigenval)){
+    datalist_eig[[name]] <- datalist_eig[[name]] %>%
+      left_join(unique(eigenval[[name]]), by=c("Xutm", "Yutm"), copy = T)
+  }
+  datalist_eig[[name]]  # Return modified data frame
 })
 
-names(datalist_eig) <- names(datalist) # 75
+names(datalist_eig) <- names(datalist) 
 
+datalist_eig[["Dicorynia_guianensis"]]
+```
+
+
+```{r}
+save(datalist_eig, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_eigenvectors.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha_eigenvectors.Rdata")
 ```
 

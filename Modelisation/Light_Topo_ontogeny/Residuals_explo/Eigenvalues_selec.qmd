@@ -10,6 +10,7 @@ editor: source
 code-fold: true
 ---
 Reference: Bauman et al., 2018
+https://cran.r-project.org/web/packages/adespatial/vignettes/tutorial.html
 
 Objectives:
 Remove the spatial autocorrelation from the residuals of a model of Y against X to respect the condition of independence of the model residuals  
@@ -30,7 +31,7 @@ print(sp)
 ```{r}
 DATA <- read_csv(paste0("./Spatial_bin_res/", sp, ".csv")) 
 
-CoordXY <- Residuals %>% select(x_m, y_m) %>% unique() # dataframe with x and y coordinates in columns
+CoordXY <- DATA %>% select(x_m, y_m) %>% unique() # dataframe with x and y coordinates in columns
 plot(CoordXY)
 ```
 
@@ -44,9 +45,25 @@ A spatial weighting matrix (SWM) describes the relations among a set of sampled 
 building a list of one or more SWMs.
 optimizing the selection of the SWM from the list of candidates
 
-```{r}
+```{r, eval=F}
 ?listw.explore
 listw.explore() # First visualizing with a shiny the connectivity schemes may help choosing the B matrices  
+
+library(sp);library(spdep)
+chooseCN(CoordXY, type = 1, plot.nb = T) # Delaunay triangulation
+chooseCN(CoordXY, type = 2, plot.nb = T) # Gabriel graph
+chooseCN(CoordXY, type = 3, plot.nb = T) # Relative neighbours
+chooseCN(CoordXY, type = 4, plot.nb = T) # Minimum spanning tree
+
+nb <- chooseCN(CoordXY, type = 4, plot.nb = T) # Minimum spanning tree
+distnb <- nbdists(nb, CoordXY)
+fdist <- lapply(distnb, function(x) 1 - x/max(dist(CoordXY)) ) 
+# linear: 1 - x/max(dist(CoordXY))
+# concave-down: 1 - (x/max(dist()))^1.15 
+# concave-up: x^1.15
+lw <- nb2listw(nb, style = 'B', glist = fdist, zero.policy = TRUE)
+# standardisation: “W”, “B”: binary , “C”, “U”, “minmax” and “S”
+plot(lw, CoordXY)
 ```
 
 # List spatial weighting matrices
@@ -62,6 +79,8 @@ Method :
 -  Minimum spanning tree (mst)
 -  Distance-based SWM based on the principal coordinates of neighbour matrices criteria (pcnm)
 
+mst ⊆ rel ⊆ gab ⊆ Delaunay
+
 Weights	:
 -  without weights (binary)
 -  Linear (flin)
@@ -76,7 +95,7 @@ Sys.time()
 SWM_candidate <- listw.candidates(coord = CoordXY, # point coordinates
                                   nb = c("mst", "gab", "rel"), # c("gab", "mst") 
                                   weights = c("binary", "flin", "fup", "fdown") ) # c("binary", "flin")
-Sys.time() # 
+Sys.time() # 1 sec
 # 40 sec pour 10 000 obs
 # 20 000 obs pas assez de RAM
 ```
@@ -109,12 +128,13 @@ SWM_selec <- listw.select(Residuals$e, # model residuals
                           MEM.autocor = "positive", # Sign of the spatial eigenvectors
                           p.adjust = TRUE, # p-value corrected for multiple tests 
                           method = "MIR") # select eigenvectors to minimize the spatial autocorrelation in the residuals
-Sys.time() 
+Sys.time() # 5 min pour all, 4 min pour positive
 ```
 
 ```{r}
 SWM_selec$candidates #pour chaque SWM l'indice I de Moran et la p-value, ainsi que le nombre de vecteurs propres à garder. Quand on a des NA, c'est bien quand il n'y a pas de corrélation spatiale au vue de l'indice I ? 
 SWM_selec$best.id # donne le nom de la meilleure SWM (NULL si aucune matrice ne montre de correlation spatiale des résidus)
+SWM <- names(SWM_selec$best.id)
 # -> MST_Linear 
 ```
 
@@ -122,7 +142,7 @@ SWM_selec$best.id # donne le nom de la meilleure SWM (NULL si aucune matrice ne 
 ```{r}
 # if (!(is.null(SWM_selec$best.id))) {
 # the selected eignevalues for the best SWM (NULL if no autocor)
-eigenval <- cbind(CoordXY, SWM_selec$best$MEM.select) # n rows = n residuals, n col = n eigenvectors
+eigenval <- cbind(CoordXY, SWM, SWM_selec$best$MEM.select) # n rows = n residuals, n col = n eigenvectors
 eigenval <- DATA %>%
   select(Xutm, Yutm, x_m, y_m) %>% 
   left_join(eigenval, by= c("x_m", "y_m"))
