@@ -13,69 +13,158 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+# metrre le 2 avec la correc bota
 
-# sp <- c("Licania_membranacea" , "Lecythis_persistens", "Symphonia_sp.1", "Tachigali_melinonii",
-#         "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx", "Pouteria_singularis", "Ryania_speciosa") # 4 forms
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
 
-# sp <- "Symphonia_sp.1"
+# sp <- "Dicorynia_guianensis"
 
-Var <- c("TWI", "HAND")
 ```
 
 ```{r fit}
 fits <- list()
 for(S in sp){
-  for(V in Var){
-    tryCatch({
-      chain_path <- file.path("Chains", "Affine", V, S)
-      fits[[S]][[V]] <- as_cmdstan_fit(list.files(chain_path,
-                                                  full.names = TRUE))},
-      error=function(e){cat("ERROR :",S, V, conditionMessage(e), "\n")}
-    )
-  }
+  tryCatch({
+    chain_path <- file.path("Chains", "Hybrid", S)
+    fits[[S]] <- as_cmdstan_fit(list.files(chain_path,
+                                           full.names = TRUE))},
+    error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
+  )
 }
 # names(fits[["Symphonia_sp.1"]])
 ```
 
-```{r BIC list}
-BIC <- list()
+```{r divergence}
+Div <- lapply(names(fits), function(x)
+  data.frame(Species = x,
+             Chain = c(1:4),
+             Divergences = fits[[x]]$diagnostic_summary("divergences") # divergences per chain
+  ) 
+) %>% 
+  bind_rows() %>% 
+  rename(Divergences = num_divergent) %>% 
+  group_by(Species) %>% 
+  mutate(`%divergence` = sum(Divergences)/4000*100)
 
-for(S in sp){
-  for(V in Var){
-    
-    k <- length(fits[[S]][[V]]$metadata()$stan_variables[!fits[[S]][[V]]$metadata()$stan_variables %in% c("lp__", "p", "a","O","gamma","beta2_p")]) # parameters nbr
-    N <- 47850 # observations nbr
-    L <- max(fits[[S]][[V]]$draws("lp__"))# the maximized value of the likelihood function of the model (fits[[f]]$summary("lp__"))
-    
-    BIC[[S]][[V]] <- k*log(N) - 2*L
-    
-  }
+```
+
+# Rhat
+R-hat convergence diagnostic, which compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don't agree), R-hat is larger than 1.01 (Vehtari et al., 2021). 
+R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
+```{r Rhat}
+Rhat_table <- lapply(names(fits), function(x)
+  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+    mutate(Species = x) %>% 
+    select(Species, variable, rhat) 
+) %>% 
+  bind_rows()
+
+# bayesplot::rhat(fits[[1]],pars="beta2_p")
+# posterior::rhat(extract_variable_matrix(fits[[1]], "beta2_p"))
+
+all(Rhat_table$rhat < 1.01)
+
+badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
+  left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
+```
+
+```{r}
+name <- unique(badRhat$Species) # names(fits) #
+lapply(name , function(x)
+  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+    mcmc_trace() +
+    ggtitle(x)
+)
+```
+```{r}
+13/75*100
+```
+
+# Posteriors
+Plot central (quantile-based) posterior interval estimates from MCMC draws
+```{r}
+# Plot data
+datap <- lapply(names(fits), function(x)
+  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "gamma", "tau", "iota")),
+                      prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+    mutate(Species = x)
+)  %>% 
+  bind_rows()
+# ll : outer start
+# l : iner start
+# m : point_est value
+# h : iner end
+# hh : outer end
+
+# mcmc_intervals() code 
+# trace(bayesplot::mcmc_intervals, edit=T)
+
+# 0 line
+x_lim <- range(c(datap$ll, datap$hh))
+x_range <- diff(x_lim)
+x_lim[1] <- x_lim[1] - 0.05 * x_range
+x_lim[2] <- x_lim[2] + 0.05 * x_range
+
+# 0 line
+layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
+  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
+
+ggplot(datap, aes(y = Species)) +
+  theme_minimal() + 
+  # xlim(range(c(datap$ll, datap$hh))) +
+  layer_vertical_line +
+  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
+                   color = "95%"), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
+                   color = "50%"), size = 1) +
+  geom_point(aes(x= m)) + # median
+  scale_color_manual(name = "Credible interval", 
+                     values = c("95%" = "#E7B800",
+                                "50%"= "#FC4E07")) + 
+  theme(axis.title.x =element_blank()) +
+  facet_grid(~parameter, scale= "free")
+
+
+ggsave("Light_topo_onto_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+
+# O et tau iront dans le biplot
+# les paramètres dont on veut la significativité : iota
+# a on veut sa valeur absolue pour juger la largeur de niche
+# gamma on s'en fout ?
 ```
 
-```{r predictions, eval=F}
-g <- lapply(names(fits[[1]]), function(f){
-  # f = "HAND"
+
+```{r}
+fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
+```
+
+# Biplot
+O in y, tau in x
+```{r}
+datap %>% 
+  select(-c(outer_width, inner_width, l, h, point_est)) %>% 
+  rename(Q5 = ll, Q95 = hh, median = m) %>% 
+  filter(parameter %in% c("O", "tau")) %>% 
+  pivot_wider(names_from = parameter, values_from = c(Q5, median, Q95),
+              names_glue = "{parameter}_{.value}") %>% 
   
-  fits[[1]][[f]]$summary("p") %>% # p posterior
-    mutate(x = seq(5.7325, 23.61375, length.out = 100)) %>% # prediction environment
-    ggplot(aes(x = x)) +
-    geom_point(aes(y = median), size=0.7) + # p posterior median
-    geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
-    # geom_vline(xintercept  = fits[[f]]$summary("O")$median, color = "#00AFBB", linewidth=1) + # Opt median
-    # geom_vline(xintercept  = fits[[f]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
-    # geom_vline(xintercept  = fits[[f]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
-    # facet_wrap(~ var1 + var2) +
-    ggtitle(f) + # gsub("_", " ", f)
-    theme_minimal() +
-    theme(axis.title = element_blank())
-})
+  ggplot(aes(x= tau_median, y = O_median)) +
+  theme_minimal() + 
+  # 95% credible interval
+  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median), size = 0.5, col = "grey") + # tau
+  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median), size = 0.5, col = "grey") + # O
+  geom_point() + # median
+  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
+  labs(x= "TWI effect (tau)", y= "Light optimum (O)")
 
-cowplot::plot_grid(plotlist = g)
+
 ```
 
 
+# Predictions
 ```{r predictions}
 Sys.time()
 
@@ -87,29 +176,9 @@ for(s in sp){
     g <- lapply(names(fits[[s]]), function(v){
       # v = "TWI"
       
-      if(v=="TWI") xtit <- "TWI"
-      if(v=="HAND") xtit <- "HAND (m)"
-      
-      
       DATA <- fits[[s]][[v]]$summary("p") # p posterior
       # prediction environment 
-      if(v=="HAND") DATA$x <- seq(-0.37, 23.34, length.out = 100)
-      if(v=="TWI") DATA$x <- seq(3.88, 11.02, length.out = 100)
-      
-      ggplot(DATA, aes(x = x)) +
-        geom_point(aes(y = median), size=0.7) + # p posterior median
-        geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
-        
-        annotate("text", # BIC
-                 label = paste("BIC =", round(BIC[[s]][[v]],0)),
-                 x = Inf, hjust= 1, y=Inf, vjust = "top") +
-        
-        labs(title = s, x= xtit, y = "Presence probability") + #paste(s, "-", f)
-        theme_minimal()
-      # theme(axis.title = element_blank())
     })
-    
-    cowplot::plot_grid(plotlist = g, labels=c("TWI", "HAND"), vjust = 3, hjust=-2, label_size=12)
     
   })
 }
@@ -117,9 +186,9 @@ for(s in sp){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
 # plots
 
-ggsave("Allsp_HAND_vs_TWI_niche.pdf",
-       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-       plots, width = 15, height = 10)
+# ggsave("Allsp_Light_TWI_niche.pdf",
+#        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+#        plots, width = 15, height = 10)
 
 Sys.time()
 ```

@@ -1,0 +1,27 @@
+
+```{r setup}
+# species <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+
+species <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+
+# species <- "Dicorynia_guianensis"
+
+```
+
+```{r}
+source("~/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/Functions/Spatial_bin_residual.R")
+source("~/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Residuals_explo/Functions/Eigenvectors_select.R")
+```
+
+```{r}
+lapply(species , function(x)
+  Spatial_bin_residual(sp = x)
+)
+```
+
+```{r}
+lapply(species , function(x)
+  Eigenvectors_select(sp = x)
+)
+```
+

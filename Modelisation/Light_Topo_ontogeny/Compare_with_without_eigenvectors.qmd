@@ -1,5 +1,5 @@
 ---
-title: "Diagnose all"
+title: "Compare models with and without space predictors"
 date: "`r Sys.Date()`"
 format: html
 self-contained: true
@@ -13,13 +13,11 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
-# mettre 2 pour treedatacor
+# sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
 
-# sp <- c("Licania_membranacea" , "Lecythis_persistens") # 4 forms
-# , "Symphonia_sp.1", "Tachigali_melinonii",
-#         "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx", "Pouteria_singularis", "Ryania_speciosa"
-# sp <- "Symphonia_sp.1"
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+
+sp <- "Dicorynia_guianensis"
 
 ```
 
@@ -33,31 +31,46 @@ for(S in sp){
     error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
   )
 }
-# names(fits[["Symphonia_sp.1"]])
+
+fits_eig <- list()
+for(S in sp){
+  tryCatch({
+    chain_path <- file.path("Chains", "Hybrid_eigenvectors", S)
+    fits_eig[[S]] <- as_cmdstan_fit(list.files(chain_path,
+                                               full.names = TRUE)[c(1,4)])
+  },
+  error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
+  )
+}
+names(fits_eig[["Dicorynia_guianensis"]])
 ```
 
-```{r divergence}
+```{r divergence, eval=F}
 Div <- lapply(names(fits), function(x)
   data.frame(Species = x,
              Chain = c(1:4),
-             Divergences = fits[[x]]$diagnostic_summary("divergences") # divergences per chain
+             Divergences = fits[[x]]$diagnostic_summary("divergences"), # divergences per chain
+             Divergences_eigen = fits_eig[[x]]$diagnostic_summary("divergences") # divergences per chain
   ) 
 ) %>% 
   bind_rows() %>% 
-  rename(Divergences = num_divergent) %>% 
+  rename(Divergences = num_divergent) %>%
+  rename(Divergences_eigen = num_divergent.1) %>%
   group_by(Species) %>% 
-  mutate(`%divergence` = sum(Divergences)/4000*100)
-
+  mutate(`%divergence` = sum(Divergences)/4000*100) %>% 
+  mutate(`%divergence_eigen` = sum(Divergences_eigen)/4000*100) %>% 
+  ungroup()
 ```
 
 # Rhat
 R-hat convergence diagnostic, which compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don't agree), R-hat is larger than 1.01 (Vehtari et al., 2021). 
 R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
-```{r Rhat}
+```{r Rhat, eval=F}
 Rhat_table <- lapply(names(fits), function(x)
-  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota"), "rhat") %>% 
     mutate(Species = x) %>% 
-    select(Species, variable, rhat) 
+    select(Species, variable, rhat) %>% 
+    mutate(rhat_eig = fits_eig[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota"), "rhat")$rhat)
 ) %>% 
   bind_rows()
 
@@ -67,15 +80,20 @@ Rhat_table <- lapply(names(fits), function(x)
 all(Rhat_table$rhat < 1.01)
 
 badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
-  left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
+  left_join(Div %>% select(Species, `%divergence`, `%divergence_eigen`) %>% unique(), by="Species")
 ```
 
-```{r}
-name <-names(fits)#  unique(badRhat$Species) # names(fits) #
-lapply(name , function(x)
-  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+```{r, eval=F}
+lapply(unique(badRhat$Species) , function(x)
+  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
     mcmc_trace() +
-    ggtitle(x)
+    ggtitle(paste("Without eigenvectors - ",x))
+)
+
+lapply(unique(badRhat$Species) , function(x)
+  fits_eig[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+    mcmc_trace() +
+    ggtitle(paste("With eigenvectors - ",x))
 )
 ```
 
@@ -84,9 +102,17 @@ Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "gamma", "tau")),
+  mcmc_intervals_data(fits[[1]]$draws(c("a", "O", "gamma", "tau", "iota")),
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
-    mutate(Species = x)
+    mutate(Eigenvectors = F) %>% 
+    bind_rows(
+      mcmc_intervals_data(fits_eig[[1]]$draws(c("a", "O", "gamma", "tau", "iota")),
+                          prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+        mutate(Eigenvectors = T)
+    ) %>% 
+    mutate(Species = x) %>% 
+        mutate(Eigenvectors = factor(Eigenvectors, labels = c(T,F))) 
+
 )  %>% 
   bind_rows()
 # ll : outer start
@@ -109,24 +135,23 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
 
-ggplot(datap, aes(y = Species)) +
+ggplot(datap, aes(y = Species, col = Eigenvectors)) +
   theme_minimal() + 
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
-  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
-                   color = "95%"), size = 0.5) +
-  geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
-                   color = "50%"), size = 1) +
+  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=Species, yend=Species), size = 1) +
   geom_point(aes(x= m)) + # median
-  scale_color_manual(name = "Credible interval", 
-                     values = c("95%" = "#E7B800",
-                                "50%"= "#FC4E07")) + 
+  scale_color_manual(values=c("#009E73","#FC4E07")) +
+  # scale_color_manual(name = "Credible interval",
+  #                    values = c("95%" = "#E7B800",
+  #                               "50%"= "#FC4E07")) +
   theme(axis.title.x =element_blank()) +
   facet_grid(~parameter, scale= "free")
 
 
-ggsave("Light_topo_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+# ggsave("Light_topo_onto_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+#        width = 25, height = 26, units = "cm", dpi=800, bg="white")
 
 # O et tau iront dans le biplot
 # les paramètres dont on veut la significativité : iota
