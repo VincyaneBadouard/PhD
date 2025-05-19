@@ -18,7 +18,7 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 
 # sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
 
-# sp <- "Dicorynia_guianensis"
+# sp <- "Iryanthera_hostmannii"
 
 ```
 
@@ -70,15 +70,62 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
 ```
 
 ```{r}
-name <- unique(badRhat$Species) # names(fits) #
+name <-  names(fits) # unique(badRhat$Species) # names(fits) #
 lapply(name , function(x)
-  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+  fits[[x]]$draws(c("lp__", "alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
     mcmc_trace() +
     ggtitle(x)
 )
 ```
+
 ```{r}
-13/75*100
+Lightp = seq(-7.308724, 8.941571e-08, length.out = 50)
+Topographyp = 1.764199
+dbhs <- c(2.5, 7.5, 15, 25, 35)
+post <- as.data.frame(fits[["Iryanthera_hostmannii"]]$draws(c("a", "O", "iota", "gamma", "tau", "p"))) # 2000 rows 4 cols per param
+
+post_long <- post %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("chain", "variable"),
+    names_sep = "\\.",
+    values_to = "value"
+  ) %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = value
+  ) %>%
+  unnest() %>% 
+  pivot_longer(
+    cols = starts_with("P["),
+    values_to = "p"
+  ) %>% 
+  mutate(name = str_remove(name, "p")) %>% 
+  rowwise() %>% 
+  mutate(Env = as.numeric(unlist(str_extract_all(name, "\\d+"))[1])) %>% 
+  mutate(dbh = as.numeric(unlist(str_extract_all(name, "\\d+"))[2])) %>% 
+  mutate(Environmentp = Lightp[Env]) %>% # 50
+  mutate(DBHp = dbhs[dbh]) # 5
+
+# post_long <- post_long %>% 
+#   group_by(chain) %>% 
+#   summarise(~mean)
+# mutate(p = brms::inv_logit(a*(Lightp - (O + iota*DBHp[i]))^2 + gamma + tau*Topographyp))
+```
+
+```{r}
+post_long %>% 
+  filter(DBHp %in% c(2.5, 35)) %>% 
+  ggplot(aes(x = Environmentp, y = p, col = chain, linetype = as.factor(DBHp))) +
+  theme_minimal() +
+  geom_smooth()
+
+post_long %>% 
+  filter(DBHp == 2.5) %>% 
+  ggplot(aes(x = a, y = iota, col = chain)) +
+  theme_minimal() +
+  geom_line()
+
 ```
 
 # Posteriors
