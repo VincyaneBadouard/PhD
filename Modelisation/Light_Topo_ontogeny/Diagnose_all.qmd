@@ -70,9 +70,19 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
 ```
 
 ```{r}
-name <-  names(fits) # unique(badRhat$Species) # names(fits) #
+name <- 
+  # "Iryanthera_hostmannii"
+  # c("Guarea_costata", "Virola_michelii",  "Cordia_nodosa",
+  #   "Paypayrola_hulkiana", "Pouteria_guianensis") # good now
+c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")
+# unique(badRhat$Species)
+# sort(names(fits))
+
 lapply(name , function(x)
-  fits[[x]]$draws(c("lp__", "alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+  fits[[x]]$draws(
+    c("lp__", "alpha", "beta1", "beta2_p", "O", "iota")
+    # c("lp__", "a", "O", "gamma", "tau", "iota")
+    ) %>% 
     mcmc_trace() +
     ggtitle(x)
 )
@@ -82,7 +92,7 @@ lapply(name , function(x)
 Lightp = seq(-7.308724, 8.941571e-08, length.out = 50)
 Topographyp = 1.764199
 dbhs <- c(2.5, 7.5, 15, 25, 35)
-post <- as.data.frame(fits[["Iryanthera_hostmannii"]]$draws(c("a", "O", "iota", "gamma", "tau", "p"))) # 2000 rows 4 cols per param
+post <- as.data.frame(fits[["Iryanthera_hostmannii"]]$draws(c("a", "O", "iota", "beta1", "alpha", "p"))) # 2000 rows 4 cols per param
 
 post_long <- post %>%
   pivot_longer(
@@ -118,7 +128,7 @@ post_long %>%
   filter(DBHp %in% c(2.5, 35)) %>% 
   ggplot(aes(x = Environmentp, y = p, col = chain, linetype = as.factor(DBHp))) +
   theme_minimal() +
-  geom_smooth()
+  geom_line()
 
 post_long %>% 
   filter(DBHp == 2.5) %>% 
@@ -126,7 +136,20 @@ post_long %>%
   theme_minimal() +
   geom_line()
 
+post_long %>% 
+  filter(DBHp == 2.5) %>% 
+  ggplot(aes(x = alpha, y = iota, col = chain)) +
+  theme_minimal() +
+  geom_line()
+
+post_long %>% 
+  filter(DBHp == 2.5) %>% 
+  ggplot(aes(x = beta1, y = iota, col = chain)) +
+  theme_minimal() +
+  geom_line()
+
 ```
+
 
 # Posteriors
 Plot central (quantile-based) posterior interval estimates from MCMC draws

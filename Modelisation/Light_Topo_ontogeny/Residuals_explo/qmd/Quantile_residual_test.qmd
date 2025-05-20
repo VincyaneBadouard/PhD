@@ -41,8 +41,13 @@ DATA <- datalist[[sp]] # only species in sp
 ```
 
 ```{r fit}
-chain_path <- paste("./Chains/Null/", sp, sep="") # ".." for the he directory above the current one
+chain_path <- paste("../Chains/Null/", sp, sep="") # ".." for the he directory above the current one
 fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
+```
+
+```{r, eval=F}
+fit$draws(c("lp__", "theta")) %>% 
+    mcmc_trace()
 ```
 
 ```{r Quantile residuals}

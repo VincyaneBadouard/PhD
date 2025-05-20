@@ -31,7 +31,7 @@ parameters {
   real<lower=7*2*-exp(beta2_p), upper=0> beta1;
   real alpha;
   real tau; // slope of the topography effect
-  real<lower=7*2*-exp(beta2_p), upper=0> iota; // ontogeny effect
+  real iota; // ontogeny effect
 }
 transformed parameters {
   real beta2 = -exp(beta2_p); // beta2<0 : forced for a concave form

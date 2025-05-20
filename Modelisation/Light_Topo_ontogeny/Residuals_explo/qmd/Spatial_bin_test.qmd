@@ -85,6 +85,7 @@ bind_rows(d) %>%
   geom_line() +
   labs(x="Spatial bin (m)", y= "Mean Nindiv per bin")
 ```
+
 # Observation vs estimation
 ```{r}
 plist <- list() 
