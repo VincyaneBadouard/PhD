@@ -73,17 +73,17 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
 name <- 
   # "Iryanthera_hostmannii"
   # c("Guarea_costata", "Virola_michelii",  "Cordia_nodosa",
-  #   "Paypayrola_hulkiana", "Pouteria_guianensis") # good now
-c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")
+#   #   "Paypayrola_hulkiana", "Pouteria_guianensis") # good now
+# c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")
 # unique(badRhat$Species)
-# sort(names(fits))
+sort(names(fits))
 
 lapply(name , function(x)
   fits[[x]]$draws(
     c("lp__", "alpha", "beta1", "beta2_p", "O", "iota")
     # c("lp__", "a", "O", "gamma", "tau", "iota")
     ) %>% 
-    mcmc_trace() +
+    mcmc_dens() +
     ggtitle(x)
 )
 ```
@@ -128,7 +128,7 @@ post_long %>%
   filter(DBHp %in% c(2.5, 35)) %>% 
   ggplot(aes(x = Environmentp, y = p, col = chain, linetype = as.factor(DBHp))) +
   theme_minimal() +
-  geom_line()
+  geom_smooth()
 
 post_long %>% 
   filter(DBHp == 2.5) %>% 
@@ -197,7 +197,7 @@ ggplot(datap, aes(y = Species)) +
   facet_grid(~parameter, scale= "free")
 
 
-ggsave("Light_topo_onto_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+ggsave("Light_topo_onto_posteriors_iotaprior.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        width = 25, height = 26, units = "cm", dpi=800, bg="white")
 
 # O et tau iront dans le biplot
