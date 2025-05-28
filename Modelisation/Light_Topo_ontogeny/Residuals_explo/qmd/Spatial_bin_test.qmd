@@ -33,7 +33,7 @@ datalist <- datalist[[sp]] # only species in sp
 ```
 
 ```{r fit}
-chain_path <- paste("./Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
+chain_path <- paste("../Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
 fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
 
 DATA <- fit$summary("p", "median") # p posterior
@@ -44,24 +44,31 @@ DATA <- fit$summary("p", "median") # p posterior
 # bin <- 20
 # for the exploration we keep only bins, but for the rest of the analyses we need initial coordinates
 e_complete <- list()
-for(bin in c("2", "5", "10", "15", "20", "50")){
+for(bin in c("2", "5", "10", "15", "20", "30", "40", "50")){
   e_complete[[bin]] <- data.frame(y = datalist$Presence, # Observed values (y = 0 or 1)
-                         p_hat = DATA$median) %>% # predicted probability from model
+                                  p_hat = DATA$median) %>% # predicted probability from model
     bind_cols(datalist %>% select(Xutm,Yutm, logDBH, logTransmittance, logTWI)) %>% 
+    
+    # filter(y!=0) %>% pas ici sinon tt reste à 1
     
     mutate(x_bin = cut(Xutm, seq(min(Xutm), max(Xutm), as.numeric(bin))), # to categories
            y_bin = cut(Yutm, seq(min(Yutm), max(Yutm), as.numeric(bin)))) %>% 
     group_by(x_bin, y_bin) %>% 
-    mutate(obs_m = mean(y), p_m = mean(p_hat), x_m = mean(Xutm), y_m = mean(Yutm), N = n()) %>% 
+    mutate(x_m = mean(Xutm), y_m = mean(Yutm), N = n(),
+           obs_m = mean(y), p_m = mean(p_hat),
+           logDBH_m = mean(logDBH),
+           logTransmittance_m = mean(logTransmittance), logTWI_m = mean(logTWI)) %>% 
     ungroup() %>% 
+    # filter(obs_m!=0) %>% # only cells >= 1 presence
     mutate(e = obs_m - p_m) %>% 
-    select(x_bin, y_bin, Xutm, Yutm, obs_m, p_m, x_m, y_m, N, e)
+    select(x_bin, y_bin, Xutm, Yutm, obs_m, p_m, x_m, y_m, N, e,
+           logDBH_m, logTransmittance_m, logTWI_m)
 }
 
 e <- e_complete
 e <- lapply(names(e_complete), function(name) {
   e <- e[[name]] %>%  select(-c(Xutm, Yutm)) %>% unique()
-    e  # Return modified data frame
+  e  # Return modified data frame
 })
 
 names(e) <- names(e_complete)
@@ -70,24 +77,37 @@ names(e) <- names(e_complete)
 
 # Number of individuals per bin
 ```{r}
+# bin = "50"
 d <- list()
-for(bin in c("2", "5", "10", "15", "20", "50")){
-  d[[bin]] <- e[[bin]] %>% mutate(Nmean = mean(N),
-                                  Nmin = min(N), Nmax = max(N)) %>% select(Nmean,Nmin,Nmax) %>% 
-    unique() %>% 
-    mutate(bin = as.numeric(bin))
+for(bin in c("2", "5", "10", "15", "20", "30", "40", "50")){  
+  if(any(e[[bin]]$N>=100)){
+    print(bin)
+    d[[bin]] <- e[[bin]] %>%
+      # mutate(Nmean = mean(N),
+      #        Nmin = min(N), Nmax = max(N)) %>% select(Nmean,Nmin,Nmax) %>% 
+      unique() %>% 
+      group_by(N>=100) %>% 
+      summarise(Nsup100 = n()) %>% 
+      pivot_wider(names_from = `N >= 100`, values_from = Nsup100) %>% 
+      mutate(Nsup100 = ifelse('FALSE' %in% names(.), `TRUE`/(`TRUE`+`FALSE`), `TRUE`/`TRUE`)) %>% 
+      mutate(bin = as.numeric(bin))
+  }
 }
 bind_rows(d) %>% 
-  ggplot(aes(x=bin, y=Nmean)) +
+  ggplot(aes(x=bin, y=`TRUE`)) + # Nmean
   theme_bw() +
+  # geom_hline(aes(yintercept=0.5), linetype="dashed") +
   geom_point() +
-  geom_errorbar(aes(ymin=Nmin, ymax=Nmax), width=.2) +
+  # geom_errorbar(aes(ymin=Nmin, ymax=Nmax), width=.2) +
   geom_line() +
-  labs(x="Spatial bin (m)", y= "Mean Nindiv per bin")
+  labs(x="Spatial bin (m)", y= "Nbr of cells >= 100 ind")
+
+# "Cells proportion with more or exactly 100 ind"
 ```
 
 # Observation vs estimation
 ```{r}
+# bin="2"
 plist <- list() 
 
 for(bin in c("2", "5", "10", "15", "20", "50")){
@@ -97,6 +117,10 @@ for(bin in c("2", "5", "10", "15", "20", "50")){
       geom_abline() +
       geom_point() +
       theme_bw() +
+      geom_text(x = Inf, y = Inf, vjust = 2, hjust = 1,
+                # binomial if still duplicated values 
+                label = paste("binomial :", any(duplicated(e[[bin]][e[[bin]]$obs_m>0,]$obs_m)))
+      ) +
       labs(title = paste("Spatial bin =", bin, "m"))
   })
 }
@@ -150,7 +174,43 @@ ggpubr::ggarrange(plotlist=plist, nrow = 1, ncol = 2)
 ```
 The grid is not regular for small bins because bins are created only from existing trees, if there are no trees in the zone, this zone is not include in a bin.  
 
-I'm not sure that these residuals catch all the information of the interest species when the bins are larger than 10m.  
+I'm not sure that these residuals catch all the information of the interest species when the bins are larger than 10m. 
+
+# Residus - relation with models variables
+```{r}
+plist <- list()
+for(bin in c("2", "5", "10", "15", "20", "30", "40", "50")){
+  
+  plist[[bin]] <- local({
+    
+    
+    e[[bin]] %>% pivot_longer(cols = c(logDBH_m, logTransmittance_m, logTWI_m),
+                                       names_to = "Var", values_to = "Covar") %>% 
+      
+      
+      ggplot(aes(x= Covar, y= e)) +
+      theme_minimal() +
+      geom_point() +
+      geom_smooth(method='lm', formula= y~x, col="red") +
+      ggpubr::stat_cor(aes(label = ..r.label..),
+                       label.x.npc = "centre", label.y.npc = "bottom", digits = 1, col="red") +
+      theme(axis.title.x=element_blank()) +
+      facet_wrap(~Var, scales ="free", nrow = 2, ncol = 3) +
+      labs(title = paste("Spatial bin =", bin, "m"))
+    
+    
+  })     
+}
+
+ggpubr::ggarrange(plotlist=plist, nrow = 1, ncol = 1)
+
+# p2 <- p1 %+% xs$`0`
+# p1 + ggtitle("Presence")
+# p2 + ggtitle("Absence")
+
+```
+- The residuals of the cells containing presences are positively correlated with the DBH (R between 0.6 and 0.8 depending on the bin size)
+- no correlation between residuals (of the cells containing presences) and topography
 
 # Moran's I
 ```{r, warning=F}
@@ -193,6 +253,6 @@ ggpubr::ggarrange(plotlist=plist, nrow = 2, ncol = 2)
 
 
 ```{r}
-write_csv(e_complete[["20"]], paste0("./Spatial_bin_res/", sp, ".csv"))
+write_csv(e_complete[["20"]], paste0("../Spatial_bin_res/", sp, ".csv"))
 ```
 

@@ -1,0 +1,29 @@
+---
+title: "Compare frequentist and bayesian results"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(readr)
+library(tidyverse)
+
+```
+
+```{r data}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+
+DATA <- datalist[[sp]] %>% # only species in sp
+
+data <- 
+```
+
+# Frequentist
+```{r frequentist}
+glm(formula, family = binomial(link = "logit"), data)
+```
+

@@ -28,16 +28,41 @@ print(sp)
 ```
 
 # Load data
-```{r}
-DATA <- read_csv(paste0("./Spatial_bin_res/", sp, ".csv")) 
+```{r Residuals, eval=F}
+DATA <- read_csv(paste0("../Spatial_bin_res/", sp, ".csv"))
 
 CoordXY <- DATA %>% select(x_m, y_m) %>% unique() # dataframe with x and y coordinates in columns
+Variable <- DATA %>% select(x_m, y_m, e) %>% unique() %>% select(e)
+
 plot(CoordXY)
 ```
 
-# Load residuals
-```{r}
-Residuals <- DATA %>% select(x_m, y_m, e) %>% unique() %>% select(e)
+```{r Observations}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+
+DATA <- datalist[[sp]] %>% # only species in sp
+  select(Xutm, Yutm, Presence, logTransmittance,logTWI,logDBH) %>% 
+  filter(Xutm > 285400 & Xutm < 285610 & Yutm > 581460 & Yutm < 581575)
+
+CoordXY <- DATA %>% select(Xutm, Yutm) %>% unique() # dataframe with x and y coordinates in columns
+Variable <- DATA %>% select(Presence)
+
+DATA %>% 
+  arrange(Presence) %>% 
+  ggplot(aes(x= Xutm, y= Yutm, col=as.factor(Presence))) +
+  geom_point()
+```
+
+```{r fit}
+chain_path <- paste("../Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
+
+Pred <- fit$summary("p", "median") # p posterior
+
+datalist[[sp]] %>% 
+  select(Xutm, Yutm, Presence, logTransmittance,logTWI,logDBH)
+bind_columns(Pred)
 ```
 
 # Create spatial weighting matrix (SWM)
@@ -94,14 +119,26 @@ Attention: the power decreased when too many SWMs were compared, so test a small
 Sys.time() 
 SWM_candidate <- listw.candidates(coord = CoordXY, # point coordinates
                                   nb = c("mst", "gab", "rel"), # c("gab", "mst") 
-                                  weights = c("binary", "flin", "fup", "fdown") ) # c("binary", "flin")
+                                  weights = c("flin", "fup", "fdown"), # c("binary", "flin")
+                                  y_fdown = 5, # default
+                                  y_fup = 0.5) # default
 Sys.time() # 1 sec
-# 40 sec pour 10 000 obs
+# 40 min pour 10 885 obs
 # 20 000 obs pas assez de RAM
 ```
 
+tu peux utiliser listw.candidates pour avoir ta (tes SWM) et ensuite prendre la fonction scores.listw pour transformer ta SWM en MEM
+```{r}
+Sys.time() 
+MEM <- scores.listw(SWM_candidate[["MST_Linear"]], MEM.autocor = "positive")
+Sys.time() 
+#  min pour 10 885 obs
+```
+
+
+
 # SWM and eigenvectors selection 
-If the MEM variables are to be further used in a model including actual predictors (e.g. environmental), then a subset of spatial eigenvectors needs to be selected before proceeding to further analyses to avoid model overfitting and/or a loss of statistical power to detect the contribution of the environment to the variability of the response data (Griffith 2003, Dray et al. 2006, Blanchet et al. 2008, Peres-Neto and Legendre 2010, Diniz-Filho et al. 2012).  
+If the MEM variables are to be further used in a model including actual predictors (e.g. environmental), then a subset of spatial eigenvectors needs to be selected before proceeding to further analyse to avoid model overfitting and/or a loss of statistical power to detect the contribution of the environment to the variability of the response data (Griffith 2003, Dray et al. 2006, Blanchet et al. 2008, Peres-Neto and Legendre 2010, Diniz-Filho et al. 2012).  
 The optimization is done by maximizing the adjusted R-squared (R2) or by minimizing the residual spatial autocorrelation.  
 The function controls the type I error rate by accounting for the number of tests performed. 
 
@@ -123,7 +160,7 @@ MEM.autocor = "all" au cas où il y a de la negative autocor pcq Janzen-Connell 
 # ?listw.select
 # ?mem.select # for method choice
 Sys.time() 
-SWM_selec <- listw.select(Residuals$e, # model residuals
+SWM_selec <- listw.select(Variable$e, # model residuals
                           SWM_candidate, 
                           MEM.autocor = "positive", # Sign of the spatial eigenvectors
                           p.adjust = TRUE, # p-value corrected for multiple tests 

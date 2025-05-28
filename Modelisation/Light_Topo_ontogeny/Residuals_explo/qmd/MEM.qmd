@@ -1,0 +1,80 @@
+---
+params:
+  species: Dicorynia_guianensis
+title: "Compute MEM on observations"
+subtitle: "*`r params$sp`*"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+MEM: Moran’s eigenvector maps
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(spmoran)
+
+sp <- params$species
+print(sp)
+```
+
+# Load data
+```{r Observations}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+
+DATA <- datalist[[sp]] %>% # only species in sp
+  select(Xutm, Yutm, Presence, logTransmittance,logTWI,logDBH)
+
+CoordXY <- DATA %>% select(Xutm, Yutm) # %>% unique() # dataframe with x and y coordinates in columns
+
+DATA %>% 
+  arrange(Presence) %>% 
+  ggplot(aes(x= Xutm, y= Yutm, col=as.factor(Presence))) +
+  geom_point()
+```
+
+```{r fit}
+chain_path <- paste("../Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
+fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
+
+Pred <- fit$summary("p", "median") # p posterior
+
+datalist[[sp]] %>% 
+  select(Xutm, Yutm, Presence, logTransmittance,logTWI,logDBH)
+bind_columns(Pred)
+```
+
+```{r Compute MEM}
+# approximated spatial eigenvectors
+# minimum spanning tree connecting sample sites (exp( -d(i,j)/h))
+Sys.time() 
+MEM <- meigen_f(CoordXY, model = "exp", enum = 200)
+Sys.time() # 8s
+# MEM$sf
+# sf : Matrix of the spatial eigenvectors (N x L)
+# ev : Vector of the spatial eigenvalues (L x 1), scaled to have the maximum value of 1
+
+```
+
+# Save the eignevectors
+```{r}
+eigenval <- as.data.frame(MEM$sf) # n rows = n obs, n col = n eigenvectors
+write_csv(eigenval, "D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/All_obs_Eigenvectors.csv")
+
+# for glmnet (MEM of the observations, covariables and prediction
+dataall <- DATA %>% 
+  bind_cols(Pred) %>% 
+  bind_cols(eigenval) %>% 
+  rename(P_hat = median) %>% 
+  select(-variable)
+
+write_csv(dataall, paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/dataall_", sp, ".csv"))
+# }
+```
+
+
+
