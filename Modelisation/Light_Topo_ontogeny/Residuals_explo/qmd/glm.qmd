@@ -10,20 +10,135 @@ code-fold: true
 ```{r setup}
 library(readr)
 library(tidyverse)
-
+library(cmdstanr)
 ```
 
 ```{r data}
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
 
-DATA <- datalist[[sp]] %>% # only species in sp
-
-data <- 
 ```
 
 # Frequentist
-```{r frequentist}
-glm(formula, family = binomial(link = "logit"), data)
+```{r frequentist, eval =F}
+rm(fits)
+
+Sys.time() 
+fits_F <- lapply(names(datalist), function(sp)
+  # sp = "Dicorynia_guianensis"
+  glm(Presence ~ poly(logTransmittance, 2) + logTWI,
+      family = binomial(link = "logit"), datalist[[sp]])
+)
+Sys.time() # 14 sec
+
+names(fits_F) <- names(datalist)
+
+as.data.frame(fits_F[[1]]$coefficients)
 ```
+
+```{r}
+DATA <- datalist %>% bind_rows(, .id = 'ISpecies') %>% 
+  mutate(logTransmittance2 = logTransmittance^2)
+
+Res <- DATA %>%
+  nest(data = -ISpecies) %>%
+  mutate(
+    fit = map(data,
+              ~ glm(Presence ~ logTransmittance + I(logTransmittance^2) + logTWI,
+                    family = binomial(link = "logit"), data = .x)),
+    tidied = map(fit, broom::tidy)
+  ) %>%
+  unnest(tidied) %>% 
+  select(ISpecies, term, estimate)
+
+Res_wid <- Res %>% 
+  pivot_wider(names_from = term,
+              values_from = estimate) %>% 
+  rename(alpha_F = `(Intercept)`,
+         beta1_F = logTransmittance,
+         beta2_F = `I(logTransmittance^2)`,
+         tau_F = logTWI)
+```
+
+
+
+# Bayesian
+```{r}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo/"
+
+fits_B <- list()
+for(S in names(datalist)){
+  tryCatch({
+    chain_path <- file.path(path, "Chains", "Hybrid", S)
+    fits_B[[S]] <- as_cmdstan_fit(list.files(chain_path,
+                                             full.names = TRUE))},
+    error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
+  )
+}
+
+datap <- lapply(names(fits_B), function(x)
+  fits_B[[x]]$summary(c("alpha", "beta1", "beta2", "tau"),
+                      "median") %>% 
+    mutate(ISpecies = x)
+)
+
+DATA_B <- datap %>% bind_rows()
+
+
+DATA_B_wid <- DATA_B %>% 
+  pivot_wider(names_from = variable,
+              values_from = median) %>% 
+  rename(alpha_B = alpha,
+         beta1_B = beta1,
+         beta2_B = beta2,
+         tau_B = tau)
+```
+
+```{r}
+Rslt <- Res_wid %>% 
+  left_join(DATA_B_wid , by = "ISpecies") %>% 
+  mutate(O_F = -beta1_F/(2*beta2_F)) %>% 
+  mutate(O_B = -beta1_B/(2*beta2_B))
+
+```
+
+# Biplot
+stan in y, glm in x
+```{r}
+Rslt %>% 
+  # ggplot(aes(x= beta1_F, y = beta1_B)) +
+  # ggplot(aes(x= beta2_F, y = beta2_B)) +
+  # ggplot(aes(x= tau_F, y = tau_B)) +
+    ggplot(aes(x= O_F, y = O_B)) +
+
+  
+  theme_minimal() + 
+  # 95% credible interval
+  # geom_abline() +
+  geom_point() + # median
+facet_grid()
+
+
+```
+
+```{r}
+datap %>% 
+  select(-c(outer_width, inner_width, l, h, point_est)) %>% 
+  rename(Q5 = ll, Q95 = hh, median = m) %>% 
+  filter(parameter %in% c("O", "tau")) %>% 
+  pivot_wider(names_from = parameter, values_from = c(Q5, median, Q95),
+              names_glue = "{parameter}_{.value}") %>% 
+  
+  ggplot(aes(x= tau_median, y = O_median)) +
+  theme_minimal() + 
+  # 95% credible interval
+  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median), size = 0.5, col = "grey") + # tau
+  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median), size = 0.5, col = "grey") + # O
+  geom_point() + # median
+  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
+  labs(x= "TWI effect (tau)", y= "Light optimum (O)")
+
+
+```
+
 

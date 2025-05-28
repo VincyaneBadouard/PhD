@@ -42,10 +42,6 @@ chain_path <- paste("../Chains/Hybrid_allpred/", sp, sep="") # ".." for the he d
 fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
 
 Pred <- fit$summary("p", "median") # p posterior
-
-datalist[[sp]] %>% 
-  select(Xutm, Yutm, Presence, logTransmittance,logTWI,logDBH)
-bind_columns(Pred)
 ```
 
 ```{r Compute MEM}
