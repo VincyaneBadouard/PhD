@@ -81,7 +81,7 @@ sort(names(fits))
 
 lapply(name , function(x)
   fits[[x]]$draws(
-    c("lp__", "alpha", "beta1", "beta2_p", "O", "iota")
+    c("lp__", "alpha", "beta1", "beta2_p", "O_1", "iota")
     # c("lp__", "a", "O", "gamma", "tau", "iota")
     ) %>% 
     mcmc_trace() +
@@ -158,7 +158,7 @@ Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "gamma", "tau", "iota")),
+  mcmc_intervals_data(fits[[x]]$draws(c("a", "O_1", "gamma", "tau", "iota")),
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
@@ -199,7 +199,7 @@ ggplot(datap, aes(y = Species)) +
   facet_grid(~parameter, scale= "free")
 
 
-ggsave("Light_topo_onto_posteriors_iotaprior.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+ggsave("Light_topo_onto_posteriors_iotabounds.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        width = 25, height = 26, units = "cm", dpi=800, bg="white")
 
 # O et tau iront dans le biplot
