@@ -90,6 +90,7 @@ ggplot(DATA, aes(x=DBH, y=logTransmittance, fill = median)) +
   scale_fill_viridis(name="Presence probabiblity") +
   labs(x="DBH (cm)")
 ```
+
 ```{r}
 DATA %>% 
   # filter(DBH==35) %>% 

@@ -237,6 +237,59 @@ datap %>%
 
 
 # Predictions
+```{r}
+# Bocoa_prouacensis
+S = "Tachigali_melinonii"
+DATA <- fits[[S]]$summary("p") # p posterior
+
+# prediction environment 
+DATA <- DATA %>% 
+  rowwise() %>% 
+  mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
+  mutate(Onto = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
+  mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 50)[Light]) %>% # -7.308724e+00 , 8.941571e-08
+  mutate(DBH = c(2.5, 7.5, 15, 25, 35)[Onto]) %>% 
+  mutate(Transmittance = round(exp(logTransmittance), 3))
+
+# prendre tout les posteriors de O et iota (fits[[1]]$draws("O", format = "df")) et calculer O et ses quantiles 
+Optdata <- data.frame(DBH = c(1, 2.5, 7.5, 15, 25, 35),
+                      Oinit = fits[[S]]$summary("O_1","median")$median,
+                      OinitQ5 = fits[[S]]$summary("O_1")$q5, 
+                      OinitQ95 = fits[[S]]$summary("O_1")$q95,
+                      iota = fits[[S]]$summary("iota","median")$median,
+                      iotaQ5 = fits[[S]]$summary("iota")$q5,
+                      iotaQ95 = fits[[S]]$summary("iota")$q95) %>% 
+  mutate(logDBH = log(DBH)) %>% 
+  mutate(O = Oinit + iota*logDBH) %>% 
+  mutate(OQ5 = OinitQ5 + iotaQ5*logDBH) %>% 
+  mutate(OQ95 = OinitQ95 + iotaQ95*logDBH) 
+  # mutate(OiQ5 = Oinit + iotaQ5*logDBH) %>%
+  # mutate(OiQ95 = Oinit + iotaQ95*logDBH)
+
+```
+
+```{r}
+library(viridis)
+
+DATA %>% 
+  # filter(DBH==35) %>% 
+  ggplot(aes(x= logTransmittance, y= median, col= factor(DBH), group=factor(DBH))) +
+  theme_minimal() +
+  
+  geom_ribbon(aes(ymin = q5, ymax = q95, fill= factor(DBH)),
+              alpha = 0.005, linetype="dashed", linewidth=0.5) + # P quantiles
+  
+  geom_vline(data = Optdata[-1,], aes(xintercept = O, col= factor(DBH)), linewidth=0.8) + # Opt median
+  # geom_vline(data = Optdata[-1,], aes(xintercept = OQ5, col= factor(DBH)), linetype="dashed") + # Opt Q5%
+  # geom_vline(data = Optdata[-1,], aes(xintercept = OQ95, col= factor(DBH)), linetype="dashed") + # Opt Q95%
+  
+  geom_line(linewidth= 1) +
+  scale_color_viridis(direction = -1, discrete = T) +
+  guides(fill = FALSE) +
+  labs(title = S, y = "Presence probabiblity median", col = "DBH")
+# rajouter opt et quantiles
+```
+
 ```{r predictions}
 Sys.time()
 

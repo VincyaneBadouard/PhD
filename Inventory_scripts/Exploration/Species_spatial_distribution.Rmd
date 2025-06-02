@@ -153,7 +153,7 @@ data <- Inventory %>%
   ungroup() %>% 
   mutate(cl = ifelse(Strategy =="Understory species" & !is.na(Strategy), "#009E73",
                      "#E7B800")) %>%  # color per sp strategy
-
+  
   # filter(ScientificName %in% c("Maytenus_oblongata", "Iryanthera_sagotiana",
   #                                  "Oxandra_asbeckii", "Hymenopus_heteromorphus", "Unonopsis_stipitata")) %>%
   # filter(!is.na(Xutm)) %>% 
@@ -853,7 +853,7 @@ plist <- vector('list', length(sp))
 for(p in 1:length(sp)){
   # message(s)
   plist[[p]] <- local({
-    # s <- s
+    # p <- 11
     dataS <- data %>% 
       na.omit() %>% 
       filter(ScientificName==sp[p]) %>% 
@@ -868,8 +868,12 @@ for(p in 1:length(sp)){
       geom_point() +
       geom_hline(aes(yintercept=med), linetype="dashed", size=0.8) +
       
-      scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by=0.1)) + # fix y
-      
+      # scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by=0.1)) + # fix y
+      scale_y_continuous(trans="log", limits = c(0.001, 1)) +
+      scale_x_continuous(trans="log") +
+      geom_smooth()+
+      geom_smooth(method='lm', formula= y~x, col="red") +
+      ggpubr::stat_cor(label.x.npc = "left", label.y.npc = "top", col="red") +
       theme_classic() +
       theme(plot.title = element_text(colour = cl)) + 
       guides(fill = FALSE) +
@@ -882,7 +886,7 @@ for(p in 1:length(sp)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 # plots
 
-ggsave(paste("Species_",var,"_niche_points_fixy.pdf",sep=''),
+ggsave(paste("Species_",var,"_niche_points_fixy_log.pdf",sep=''),
        path = Path,
        plots, width = 15, height = 10)
 
@@ -926,10 +930,10 @@ for(p in 1:length(sp)){
       filter(ScientificName==sp[p]) %>% 
       mutate(med = median(get(var)))
     
-        if(all(is.na(dataS$Strategy))){cl = "black"
+    if(all(is.na(dataS$Strategy))){cl = "black"
     }else if(unique(na.omit(dataS$Strategy))=="Canopy species"){cl = "#E7B800"
     }else if(unique(na.omit(dataS$Strategy=="Understory species"))){cl = "#009E73"}
-
+    
     
     COR <- round(cor(dataS$TreeHeight, dataS$Transmittance),2) # correlation
     
