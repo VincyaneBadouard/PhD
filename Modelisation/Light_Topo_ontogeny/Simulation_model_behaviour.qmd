@@ -1,0 +1,104 @@
+---
+title: "Simulation model behaviour"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+Source: code de Sylvain
+
+1) Générer des DBH et des transmittances qui dépendent de ces DBH pour créer le bruit de fond.  
+
+2) De notre équation générer une proba de présence pour un espèce qui aurait une préférence pour les fortes lumières à 1 cm de DBH (O_1 ~ 1), et pas de variation avec l'ontogénie (iota = 0).  
+
+3) Effectué des tirages avec cette proba pour générer des présences / absences.
+
+On voit que par effet de tirage avec ton diagnostique on a l'impression qu'effectivement 0_1 devrait être bas et pas proche du maximum. Mais quand on regarde la fréquence relative en raster on se rend compte en fait que même à petit diamètre l'espèce est relativement plus fréquente à forte lumière.
+
+
+```{r setup}
+library(tidyverse)
+```
+
+# Background data (i.e. absences)
+DBH and transmittance variables follows a Log Normal distribution 
+pas compris la relation donnée entre le dbh et la transmittance
+100 generated values of transmittance by DBH values
+```{r background}
+background <- data.frame(DBH = rlnorm(100, meanlog = 1, sdlog = 1)) %>% # Log Normal Distribution
+  rowwise() %>% 
+  filter(DBH>=1) %>% 
+  mutate(Transmittance = list(rlnorm(25, meanlog = 1/10*log(DBH)-1, sdlog = 0.1))) %>% # Log Normal Distribution
+  unnest(Transmittance)
+
+background$Transmittance[[1]]
+
+background %>% 
+  gather(variable, value) %>% 
+  ggplot(aes(value)) +
+  geom_histogram() +
+  theme_bw() +
+  facet_wrap(~ variable, scales = "free_x")
+```
+
+```{r}
+ggplot(background, aes(DBH, Transmittance)) +
+  geom_point() +
+  scale_x_log10() +
+  scale_y_log10() +
+  theme_bw()
+```
+
+# Species
+```{r Species}
+O_1 <- 0.7 # at the light
+iota <- 0 # no ontogeny effect on the light optimum
+a <- -2 #-1
+
+inv_logit <- function(x) 1/(1+exp(-x))
+
+data <- background %>% 
+  mutate(Suitability = inv_logit(a*(log(Transmittance) - (O_1 + iota*log(DBH)))^2)) %>% 
+  rowwise() %>% 
+  mutate(Presence = list(as.numeric(rbinom(n=10, size = 1, prob = Suitability)))) %>% 
+  unnest(Presence)
+```
+
+```{r}
+data %>% filter(Presence == 1) %>% nrow()
+nrow(data %>% filter(Presence == 1))/nrow(data) 
+```
+
+# Diagnostics
+```{r diagnostics}
+data %>% 
+  # filter(Presence == 1) %>% 
+  arrange(Presence) %>% 
+  ggplot(aes(DBH, Transmittance, col= as.factor(Presence))) +
+  geom_point() + # size=0.8
+  scale_x_log10() +
+  scale_y_log10() +
+  theme_bw()
+```
+
+```{r}
+# couper en 10x10 carrés
+data %>% 
+  mutate(log_dbh_bin = cut_interval(log(DBH), n = 10),
+         log_trans_bin = cut_interval(log(Transmittance), n = 10)) %>% 
+  group_by(Presence, log_dbh_bin, log_trans_bin) %>% 
+  summarise(n = n()) %>% # count
+  mutate(Presence = recode(as.character(Presence), "1" = "Presence", "0" = "Absence")) %>% 
+  pivot_wider(names_from = Presence, values_from = n) %>% 
+  mutate_at(vars(c("Absence", "Presence")), ~ ifelse(is.na(.), 0, .)) %>% 
+  mutate(freq = Presence/(Presence+Absence)) %>% # ratio presence/total 
+  
+  ggplot(aes(log_dbh_bin, log_trans_bin, fill = freq)) +
+  geom_raster() +
+  theme_bw() +
+  scale_fill_viridis_c()
+```
+

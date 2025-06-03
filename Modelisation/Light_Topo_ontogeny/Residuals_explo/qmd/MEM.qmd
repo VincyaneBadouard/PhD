@@ -37,13 +37,6 @@ DATA %>%
   geom_point()
 ```
 
-```{r fit}
-chain_path <- paste("../Chains/Hybrid_allpred/", sp, sep="") # ".." for the he directory above the current one
-fit <- as_cmdstan_fit(list.files(chain_path, full.names = TRUE)[1]) # only 1 chain
-
-Pred <- fit$summary("p", "median") # p posterior
-```
-
 ```{r Compute MEM}
 # approximated spatial eigenvectors
 # minimum spanning tree connecting sample sites (exp( -d(i,j)/h))
@@ -63,9 +56,7 @@ write_csv(eigenval, "D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors
 
 # for glmnet (MEM of the observations, covariables and prediction
 dataall <- DATA %>% 
-  bind_cols(Pred) %>% 
   bind_cols(eigenval) %>% 
-  rename(P_hat = median) %>% 
   select(-variable)
 
 write_csv(dataall, paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/dataall_", sp, ".csv"))
