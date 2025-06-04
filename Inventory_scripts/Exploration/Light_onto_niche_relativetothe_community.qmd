@@ -1,0 +1,153 @@
+---
+title: "Light ontogenic niche relative to the community"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(data.table)
+library(ggforce)
+library(sf)
+library(raster)
+library(terra)
+library(tidyterra)
+
+Path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots"
+# "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf"
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+
+```
+
+# Import cleaned inventory data
+```{r}
+# load real Presence-absences data on 25ha 
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
+# View(datalist[[1]])
+
+datalist <- datalist[names(datalist) %in% sp] # only species in sp
+
+```
+
+```{r}
+plist <- vector('list', length(sp))
+
+for(p in 1:length(sp)){
+  plist[[p]] <- local({
+    p = 24
+    dataS <- datalist[names(datalist) %in% sp[p]][[sp[p]]] # %>% 
+    # mutate(logDBH = round(logDBH, digits = 1)) %>% 
+    # mutate(logTransmittance = round(logTransmittance, digits = 0)) 
+    
+    
+    if(all(is.na(dataS[dataS$Presence==1,]$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS[dataS$Presence==1,]$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS[dataS$Presence==1,]$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    dataS %>% 
+      # loged bins
+      mutate(log_dbh_bin = cut_interval(log(DBHcor), n = 5), # n = number of intervals to create
+             log_trans_bin = cut_interval(log(Transmittance), n = 10)) %>% 
+      group_by(log_dbh_bin, log_trans_bin) %>% 
+      summarise(n = n()) %>% 
+      # mutate(Presence = recode(as.character(Presence),
+      #                          "1" = "Presence", "0" = "Absence")) %>% 
+      # pivot_wider(names_from = Presence, values_from = n) %>% 
+      # mutate_at(vars(c("Absence", "Presence")), ~ ifelse(is.na(.), 0, .)) %>% 
+      # mutate(freq = Presence/(Presence+Absence)) %>% # ratio Presence/total
+      ungroup() %>% 
+      # the labels debinned:
+      mutate_at(vars(c("log_dbh_bin", "log_trans_bin")),
+                ~gsub(c("\\[|]|\\(|)"), "", .)) %>% 
+      separate(log_dbh_bin, c("log_dbh_bin_l", "log_dbh_bin_h"),
+               sep = ",", convert = TRUE) %>% 
+      separate(log_trans_bin, c("log_trans_bin_l", "log_trans_bin_h"),
+               sep = ",", convert = TRUE) %>% 
+      rowwise() %>% 
+      mutate(log_dbh = mean(c(log_dbh_bin_l, log_dbh_bin_h)),
+             log_trans = mean(c(log_trans_bin_l, log_trans_bin_h))) %>% 
+      select(log_dbh, log_trans, n) %>% 
+      
+      ggplot(aes(log_dbh, log_trans, fill = n)) +
+      theme_minimal() +
+      geom_raster() +
+      geom_vline(xintercept = log(10)) + # 10 cm DBH
+      scale_fill_viridis_c("Individuals number", trans = "log10") +
+      scale_x_continuous("Diameter at Breast Height (DBH, cm)",
+                         n.breaks = 10, labels = ~round(exp(.),2)) + # delog
+      scale_y_continuous("Light Transmittance (%)",
+                         n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+      theme(plot.title = element_text(colour = cl)) +
+      labs(title = sp[p])
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+# plots
+
+```
+
+```{r}
+plist <- vector('list', length(sp))
+
+for(p in 1:length(sp)){
+  plist[[p]] <- local({
+    # p = 33
+    dataS <- datalist[names(datalist) %in% sp[p]][[sp[p]]]
+    
+    
+    if(all(is.na(dataS[dataS$Presence==1,]$Strategy))){cl = "black"
+    }else if(unique(na.omit(dataS[dataS$Presence==1,]$Strategy))=="Canopy species"){cl = "#E7B800"
+    }else if(unique(na.omit(dataS[dataS$Presence==1,]$Strategy=="Understory species"))){cl = "#009E73"}
+    
+    N <- nrow(dataS[dataS$Presence==1,])
+    
+    dataS %>% 
+      # loged bins
+      mutate(log_dbh_bin = cut_interval(log(DBHcor), n = 5), # n = number of intervals to create
+             log_trans_bin = cut_interval(log(Transmittance), n = 10)) %>% 
+      group_by(Presence, log_dbh_bin, log_trans_bin) %>% 
+      summarise(n = n()) %>% 
+      mutate(Presence = recode(as.character(Presence),
+                               "1" = "Presence", "0" = "Absence")) %>% 
+      pivot_wider(names_from = Presence, values_from = n) %>% 
+      mutate_at(vars(c("Absence", "Presence")), ~ ifelse(is.na(.), 0, .)) %>% 
+      mutate(freq = Presence/(Presence+Absence)) %>% # ratio Presence/total
+      ungroup() %>% 
+      # the labels debinned:
+      mutate_at(vars(c("log_dbh_bin", "log_trans_bin")),
+                ~gsub(c("\\[|]|\\(|)"), "", .)) %>% 
+      separate(log_dbh_bin, c("log_dbh_bin_l", "log_dbh_bin_h"),
+               sep = ",", convert = TRUE) %>% 
+      separate(log_trans_bin, c("log_trans_bin_l", "log_trans_bin_h"),
+               sep = ",", convert = TRUE) %>% 
+      rowwise() %>% 
+      mutate(log_dbh = mean(c(log_dbh_bin_l, log_dbh_bin_h)),
+             log_trans = mean(c(log_trans_bin_l, log_trans_bin_h))) %>% 
+      select(log_dbh, log_trans, freq) %>% 
+      
+      ggplot(aes(log_dbh, log_trans, fill = freq*100)) +
+      theme_minimal() +
+      geom_raster() +
+      geom_vline(xintercept = log(10)) + # 10 cm DBH
+      scale_fill_viridis_c("Species\nFrequency\n(%)") +
+      scale_x_continuous("Diameter at Breast Height (DBH, cm)",
+                         n.breaks = 10, labels = ~round(exp(.),2)) + # delog
+      scale_y_continuous("Light Transmittance (%)",
+                         n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+      theme(plot.title = element_text(colour = cl)) +
+      labs(title = paste(sp[p], " (N: ",N,")", sep=""))
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+# plots
+
+ggsave("Light_onto_niche_relativetothe_community.pdf",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
+       plots, width = 15, height = 10)
+```
+

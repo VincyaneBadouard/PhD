@@ -31,7 +31,7 @@ pas compris la relation donnée entre le dbh et la transmittance
 background <- data.frame(DBH = rlnorm(100, meanlog = 1, sdlog = 1)) %>% # Log Normal Distribution
   rowwise() %>% 
   filter(DBH>=1) %>% 
-  mutate(Transmittance = list(rlnorm(25, meanlog = 1/10*log(DBH)-1, sdlog = 0.1))) %>% # Log Normal Distribution
+  mutate(Transmittance = list(rlnorm(100, meanlog = 1/10*log(DBH)-1, sdlog = 0.1))) %>% # Log Normal Distribution
   unnest(Transmittance)
 
 background$Transmittance[[1]]
@@ -56,7 +56,7 @@ ggplot(background, aes(DBH, Transmittance)) +
 ```{r Species}
 O_1 <- 0.7 # at the light
 iota <- 0 # no ontogeny effect on the light optimum
-a <- -2 #-1
+a <- -1
 
 inv_logit <- function(x) 1/(1+exp(-x))
 
