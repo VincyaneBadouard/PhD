@@ -158,6 +158,12 @@ datap %>%
   ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
   labs(x= "TWI effect (tau)", y= "Light optimum (O)")
 
+# déloguer les valeurs de lumière
+# mettre du bleu à tau>0, du jaune à tau<0
+# foncé en bas, clair en haut
+
+ggsave("Light_topo_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
 

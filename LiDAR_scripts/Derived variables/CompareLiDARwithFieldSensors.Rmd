@@ -36,7 +36,7 @@ library(RColorBrewer)
 ```
 
 ```{r}
-zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Shapefiles/Parcelles_Understory.shp")) # 4 carrés
 ```
 
 ## Load LiDAR data
@@ -162,7 +162,7 @@ LiDAR <- LiDAR %>%
 ```
 
 # DZ
-```{r, include = F}
+```{r, eval=F, include = F}
 LiDAR <- DZ %>%
   filter(ID==2) %>% 
   group_by(`position.x`, `position.y`, `position.z`, ring) %>%
@@ -192,15 +192,15 @@ DZ %>% filter(ID==2) %>%# mutate(azimut= sort(abs(azimut), decreasing = T)) %>%
         plot.margin = unit(c(0.2,3,0.2,3),"cm")) +
   labs(y = "Transmittance")
 
-ggsave("DZ_transmittances_mean.png",
-       path = "D:/Mes Donnees/PhD/Figures/lidar/",
-       width = 15, height = 22, units = "cm", dpi=800, bg="white")
+# ggsave("DZ_transmittances_mean.png",
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/",
+#        width = 15, height = 22, units = "cm", dpi=800, bg="white")
 ```
 
 ## Local to UTM coord
 ```{r}
 # Lecture matrice de transformation
-VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP_P16_9ha.txt"))
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_9ha.txt"))
 
 # Apply inverse of VOP matrix to convert back to UTM
 LiDAR <- setDT(LiDAR)
@@ -215,9 +215,44 @@ rm(VOP,xyz)
 
 ## Load LAI2200 data
 ```{r, include = F}
-LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_coordshift_Qgis_local.csv") # LAI2200 sensors coordinates
+LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Coordinates/LAI2200_coordshift_Qgis_local.csv") # 46 LAI2200 sensors coordinates
 LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
+```
 
+```{r}
+
+LAI2200_data %>% 
+  group_by(Transect, Id, Ring) %>% 
+  summarise(n = n()) 
+# LAY id 22-26 only 2 rep
+# (20*4 +26*3)*5 = 790
+# 790-765 = 25 = 5*5
+
+LAI2200_data %>%
+  filter(File_Id == "P16LAY3") %>% 
+  select(Id) %>% unique() # 21
+
+LAI2200_data %>% 
+  ggplot(aes(Id, Transmittance, col=File_Id)) +
+  geom_point() +
+  facet_grid(~Transect, scales = "free")
+```
+
+According to the LAI2200 calibration description (see https://www.licor.com/support/LAI-2200C/topics/some-esoteric-details.html): “The wand calibration involves placing the wand into an integrating sphere (an isotropic environment), and results in the five ring multipliers that are stored in the wand's software. When these multipliers are applied, the wand can be used to make valid distribution measurements of brightness, in which the output of each ring can be compared to the others. That is, under a perfectly uniform sky, all rings would read the same value in a complete open area and homogeneous environment".  
+Our current understanding is that the radiance per ring is internally standardized so that each reading does not report the actual radiance of the corresponding sky sector. Therefore we fully agree that summing all 5 rings values to compute hemispherical transmittance (i.e. the ratio of the total transmitted radiant flux through the canopy to the total incident flux, where the incident light comes from all directions over a hemisphere) is not valid.
+
+We have changed this and now compute hemispherical transmittance from LAI as: 
+**sum((reading_i_below / reading_i above) * weighting factor)**.  
+
+Each ring should contribute in proportion of the sky view sampled by all rings together (instead of 20% after Licor calibration). Each weighting factor is computed (angle_sr_i)/sum(angle_sr_i), giving the following numerical values:  
+
+ring 1 = 0.14/3.52 ~0.04  
+ring 2 = 0.5/3.52 ~ 0.14  
+ring 3 = 0.74/3.52 ~0.21  
+ring 4 = 0.94/3.52 ~0.27  
+ring 5 = 1.2 / 3.52  ~0.34  
+
+```{r}
 LAI2200_data <- LAI2200_data %>% 
   mutate(Ring = case_when(
     Ring == "Ring1" ~ 1,
@@ -225,22 +260,30 @@ LAI2200_data <- LAI2200_data %>%
     Ring == "Ring3" ~ 3,
     Ring == "Ring4" ~ 4,
     Ring == "Ring5" ~ 5)) %>% 
+  # Transmittance integrated over all the rings (to validate with HOBOs)
+  # weighting factors
+  mutate(Transmittance_W = case_when(
+    Ring == 1 ~ Transmittance*(0.14/3.52),
+    Ring == 2 ~ Transmittance*(0.5/3.52),
+    Ring == 3 ~ Transmittance*(0.74/3.52),
+    Ring == 4 ~ Transmittance*(0.94/3.52),
+    Ring == 5 ~ Transmittance*(1.2/3.52))
+  ) %>% 
   group_by(File_Id, Id) %>% 
-  mutate(Transmittance_integrated = sum(BELOW)/sum(ABOVE)) %>% # transmittance integrated over all the rings (to validate with HOBOs)
+  # mutate(Transmittance_integrated = sum(BELOW)/sum(ABOVE)) %>% 
+  mutate(Transmittance_integrated = sum(Transmittance_W)) %>% # sum per location and repetition across the rings
   ungroup() %>% 
-  group_by(Id) %>% 
-  mutate(MeanTransmittance_integrated = mean(Transmittance_integrated)) %>% 
+  group_by(Transect, Id) %>% 
+  mutate(MeanTransmittance_integrated = mean(Transmittance_integrated)) %>% # average the repetitions per location in the transect
   ungroup() %>% 
-  select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
-  unique()
+  select(c(Transect, Id, Ring,
+           MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200,
+           MeanTransmittance_integrated)) %>%
+  unique() # 46*5 = 230
 
 # DZ <- LAI2200_data %>%
 #   select(c(Date,TimeA,Ring,ABOVE)) %>%
 #   unique()
-
-LAI2200_data <- LAI2200_data %>% 
-  select(c(Transect, Id, Ring, MeanTransmittance_LAI2200, SdTransmittance_LAI2200, SeTransmittance_LAI2200, MeanTransmittance_integrated)) %>%
-  unique()
 
 names(LAI2200_coord) # "Transect", "Id", "Xutm","Yutm","Zutm"
 names(LAI2200_data) # "Id", "Transect", "Ring", "Transmittance_mean" (Transmittance_mean for each sensor and for each ring)
@@ -256,10 +299,16 @@ LAI2200 <- LAI2200_coord %>%
 HOBO10 <- LAI2200 %>% filter(Transect=="LAY" & Id==6) %>% 
   mutate(Transect = "HOBO") %>% mutate(Id= 10)
 
-LAI2200 <- rbind(LAI2200, HOBO10) 
+LAI2200 <- rbind(LAI2200, HOBO10) # # 46*5 = 230
 
 nrow(unique(LAI2200 %>% select(Xutm,Yutm,Zutm))) # 45 <- 20+26 LAI2200 dont 1 en commun
 
+```
+
+```{r}
+ggplot(LAI2200_data, aes(x=as.factor(Id), y=MeanTransmittance_integrated)) +
+  geom_point() +
+  facet_grid(~Transect)
 ```
 
 ## Combine LiDAR and LAI2200 data
@@ -286,7 +335,7 @@ LAI2200_LiDAR %>% filter(is.nan(MeanTransmittance_UAVInt2m)) %>% select(Transect
 rm(NA_table)
 ```
 
-```{r,eval = F }
+```{r,eval = F}
 test <- unique(LAI2200_LiDAR %>% filter(Ring==1) %>% select(Transect, Id, Xutm,Yutm, MeanTransmittance_LAI2200, Transmittance_sd, MeanTransmittance_HighInt2m)) # 46 
 test[duplicated(test$MeanTransmittance_HighInt2m), ] 
 test %>% filter(Xutm == 285517 & Yutm==581503) # c'est 6 du LAY et le 10 du HOBO qui sont communs
@@ -400,7 +449,7 @@ LAI2200UTMsf <- LAI2200UTMsf %>% filter(Ring==1)
 
 ggplot() +
   geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
-  geom_sf(data = LAI2200UTMsf, aes(color = Transmittance_mean), size = 1.5) +
+  geom_sf(data = LAI2200UTMsf, aes(color = MeanTransmittance_LAI2200), size = 1.5) +
   scale_colour_gradientn(colors = terrain.colors(30, rev=T),
                          na.value="grey", limits = c(0,0.65)) +
   theme(title=element_text(size=16), axis.text=element_text(size=16), legend.title=element_text(size=16), legend.text=element_text(size=16)) +
@@ -561,9 +610,9 @@ print(
 #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
 #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
-ggsave("P16_2023_4ha_Long_profile_facet_Intensity1m.png",
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
-       width = 40, height = 30, units = "cm", dpi=800, bg="white")
+# ggsave("P16_2023_4ha_Long_profile_facet_Intensity1m.png",
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
+#        width = 40, height = 30, units = "cm", dpi=800, bg="white")
 
 #   }
 # }
@@ -614,7 +663,7 @@ measuredTranmittance_mean <- mean(LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_m
 label <- data.frame(
   Transect = as.factor("Both transect"),
   Ring = 4, 
-  MeanTransmittance_LAI2200_mean = c(0.079, 0.075, 0.071), 
+  MeanTransmittance_LAI2200_mean = c(0.079, 0.073, 0.067) + 0.03, 
   Acq = c("Low altitude ALS", "High altitude ALS", "UAV"),
   error = paste("RE = ",round(unique(c(
     mean(LAI2200_LiDAR_ring$MeanTransmittance_LowInt1m_mean-LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean),
@@ -641,7 +690,7 @@ LAI2200_LiDAR_ring %>%
                      ymax=MeanTransmittance_LowInt1m_mean+MeanTransmittance_LowInt1m_se,
                      colour = "Low altitude ALS"),alpha =1) +
   
-
+  
   geom_linerange(aes(ymin=MeanTransmittance_UAVInt1m_mean-MeanTransmittance_UAVInt1m_se,
                      ymax=MeanTransmittance_UAVInt1m_mean+MeanTransmittance_UAVInt1m_se,
                      colour = "UAV"),alpha =1) +
@@ -652,7 +701,7 @@ LAI2200_LiDAR_ring %>%
   geom_point(aes(y = MeanTransmittance_LowInt1m_mean, colour = "Low altitude ALS"),size = 3) +
   geom_line(aes(y = MeanTransmittance_LowInt1m_mean, colour = "Low altitude ALS")) +
   
-
+  
   geom_point(aes(y = MeanTransmittance_UAVInt1m_mean, colour = "UAV"),size = 3) +
   geom_line(aes(y = MeanTransmittance_UAVInt1m_mean, colour = "UAV")) +
   
@@ -666,9 +715,9 @@ LAI2200_LiDAR_ring %>%
                                  "LAI2200" = "#D55E00", 
                                  "Standard error" = "#666666"),
                       breaks=c("High altitude ALS", "Low altitude ALS",
-                        "UAV", 
-                        "LAI2200", 
-                        "Standard error")) +
+                               "UAV", 
+                               "LAI2200", 
+                               "Standard error")) +
   
   guides(colour = guide_legend(
     override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
@@ -807,9 +856,9 @@ print(
                                    "LAI2200" = "#D55E00", 
                                    "Standard error" = "#666666"),
                         breaks=c("High altitude ALS", "Low altitude ALS",
-                          "UAV", 
-                          "LAI2200", 
-                          "Standard error")) +
+                                 "UAV", 
+                                 "LAI2200", 
+                                 "Standard error")) +
     
     guides(colour = guide_legend(
       override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
@@ -819,12 +868,12 @@ print(
     # labs(title = paste(t," transect"), y="Mean transmittance of the transect", x="Ring", color = "Acquisition")
     labs(y="Mean transmittance", x="Ring") +
     geom_text(data = label, aes(y = MeanTransmittance_LAI2200_mean,label = error, color = Acq), size = 6, show.legend = F) +
-    facet_wrap(~ Transect, scales = "free",
+    facet_wrap(~ Transect, scales = "free_x",
                labeller = labeller(Transect = c("Both transect" = "Both transects",
                                                 "HOBO" = "HOBO transect",
                                                 "LAY" = "LAY transect"))) +
     
-    theme(legend.position="bottom",legend.title= element_blank(), strip.text = element_text(size=18), axis.title= element_text(size=15), axis.text= element_text(size=15), legend.text= element_text(size=18))
+    theme(legend.position="bottom",legend.title= element_blank(), strip.text = element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.text= element_text(size=18))
 )
 
 # ggsave(paste("Long_profile_",t," transect","_Transmittance_of_the_transect_byRing_Intensity1m_ring45corr.png", sep=""),
@@ -832,9 +881,9 @@ print(
 #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 # }
 
-ggsave("P16_2023_4ha_Long_profile_allrings_facet_Intensity1m.png",
-       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
-       width = 40, height = 20, units = "cm", dpi=800, bg="white")
+# ggsave("P16_2023_4ha_Long_profile_allrings_facet_Intensity1m.png",
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
+#        width = 30, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 
@@ -1051,6 +1100,7 @@ onlySignCorr(DF_cor_LiDAR, "LiDAR_ALSvsUAV_Acquisitions")
 ```{r}
 rm(corr, CorMatrix, CorMatrixS, DF_cor, DF_cor_LiDAR, DF_cor_LiDARvsLAI2200, LAI2200, mtx_corr, Pval_corr, LAI2200_LiDAR_transect, LAI2200_LiDAR_ring, LiDAR)
 ```
+
 # DZ
 ```{r}
 DZmean <- DZ %>% 
@@ -1179,25 +1229,25 @@ HOBO_LAI2200_LiDAR %>%
   # geom_linerange(aes(ymin=HOBO_Light_mean_Dry-HOBO_Light_se_Dry,
   #                    ymax=HOBO_Light_mean_Dry+HOBO_Light_se_Dry,  color = "Dry season")) +
   # geom_point(aes(y = HOBO_Light_mean_Dry, colour = "Dry season")) +
-# geom_line(aes(y = HOBO_Light_mean_Dry, colour = "Dry season")) +
-# 
-# # Wet season
-# geom_linerange(aes(ymin=HOBO_Light_mean_Wet-HOBO_Light_se_Wet,
-#                    ymax=HOBO_Light_mean_Wet+HOBO_Light_se_Wet, color = "Wet season")) +
-# geom_point(aes(y = HOBO_Light_mean_Wet, colour = "Wet season")) +
-# geom_line(aes(y = HOBO_Light_mean_Wet, colour = "Wet season")) +
-
-
-scale_colour_manual(values = c("HOBO annual" = "#0072B2", # "#CC79A7"
-                               # "Wet season" = "#0072B2",
-                               # "Dry season" = "#999999",
-                               # "October" = "#D55E00",
-                               "LAI2200 - Ring2" = "#D55E00", # "orange"
-                               "Standard error"= "#666666"),
-                    breaks=c("LAI2200 - Ring2", "HOBO annual",
-                             # "Dry season",  "Wet season",
-                             # "October",
-                             "Standard error")) +
+  # geom_line(aes(y = HOBO_Light_mean_Dry, colour = "Dry season")) +
+  # 
+  # # Wet season
+  # geom_linerange(aes(ymin=HOBO_Light_mean_Wet-HOBO_Light_se_Wet,
+  #                    ymax=HOBO_Light_mean_Wet+HOBO_Light_se_Wet, color = "Wet season")) +
+  # geom_point(aes(y = HOBO_Light_mean_Wet, colour = "Wet season")) +
+  # geom_line(aes(y = HOBO_Light_mean_Wet, colour = "Wet season")) +
+  
+  
+  scale_colour_manual(values = c("HOBO annual" = "#0072B2", # "#CC79A7"
+                                 # "Wet season" = "#0072B2",
+                                 # "Dry season" = "#999999",
+                                 # "October" = "#D55E00",
+                                 "LAI2200 - Ring2" = "#D55E00", # "orange"
+                                 "Standard error"= "#666666"),
+                      breaks=c("LAI2200 - Ring2", "HOBO annual",
+                               # "Dry season",  "Wet season",
+                               # "October",
+                               "Standard error")) +
   
   scale_y_continuous(
     # Features of the first axis
@@ -1277,7 +1327,7 @@ Pval_corr <- CorMatrixS$P # p-values
 write.csv(CorMatrix, "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Correlations/Intensity_1m/Correlation_plot_HOBOvsLAI2200.csv")
 
 # Plot de la matrice de corrélation :
-png("D:/Mes Donnees/PhD/Figures/Sensors/Correlation_plot_HOBOvsLAI2200.png", width = 1000, height = 743, pointsize=20)
+png("D:/Mes Donnees/PhD/Figures/Sensors/Correlation_plot_HOBOvsLAI2200_integrated_weighted.png", width = 1000, height = 743, pointsize=20)
 
 corrplot(CorMatrix, method="color", col=brewer.pal(n=6, name="PuBu")[2:6],  # "PuOr"
          type="upper",

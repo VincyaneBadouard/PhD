@@ -369,7 +369,7 @@ Transmittance_cor1 <- Transmittance_data %>%
   select(File_Id, Id, Ring, Transmittance) %>% # only var for cor test
   pivot_wider(names_from = File_Id,
               values_from = "Transmittance",
-              names_glue = "{.value}_{File_Id}") # ARRETE LA
+              names_glue = "{.value}_{File_Id}") 
 
 ggplot(Transmittance_cor1, aes(x = Transmittance_P16HOBO1, y = Transmittance_P16HOBO5)) + 
   geom_point() +
