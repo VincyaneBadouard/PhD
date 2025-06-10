@@ -219,8 +219,7 @@ LAI2200_coord <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lida
 LAI2200_data <- read_csv("D:/Mes Donnees/PhD/Microclimate/Light/LAI-2200/LAI2200_data.csv") # LAI2200 sensors data
 ```
 
-```{r}
-
+```{r, eval=F}
 LAI2200_data %>% 
   group_by(Transect, Id, Ring) %>% 
   summarise(n = n()) 
@@ -260,6 +259,17 @@ LAI2200_data <- LAI2200_data %>%
     Ring == "Ring3" ~ 3,
     Ring == "Ring4" ~ 4,
     Ring == "Ring5" ~ 5)) %>% 
+  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
+  mutate(Transmittance = ifelse(Ring==4, Transmittance * 0.96,
+                                Transmittance)) %>%
+  mutate(Transmittance = ifelse(Ring==5, Transmittance * 0.23,
+                                Transmittance)) %>%
+  group_by(Transect, Id, Ring) %>% 
+  mutate(MeanTransmittance_LAI2200 = mean(Transmittance)) %>% 
+  mutate(SdTransmittance_LAI2200 = sd(Transmittance)) %>% 
+  mutate(SeTransmittance_LAI2200 = plotrix::std.error(Transmittance)) %>% 
+  ungroup() %>% 
+  
   # Transmittance integrated over all the rings (to validate with HOBOs)
   # weighting factors
   mutate(Transmittance_W = case_when(
@@ -270,7 +280,7 @@ LAI2200_data <- LAI2200_data %>%
     Ring == 5 ~ Transmittance*(1.2/3.52))
   ) %>% 
   group_by(File_Id, Id) %>% 
-  # mutate(Transmittance_integrated = sum(BELOW)/sum(ABOVE)) %>% 
+  # mutate(Transmittance_integrated = sum(BELOW)/sum(ABOVE)) %>%
   mutate(Transmittance_integrated = sum(Transmittance_W)) %>% # sum per location and repetition across the rings
   ungroup() %>% 
   group_by(Transect, Id) %>% 
@@ -342,7 +352,7 @@ test %>% filter(Xutm == 285517 & Yutm==581503) # c'est 6 du LAY et le 10 du HOBO
 ```
 
 # Compute differences
-```{r}
+```{r, eval=F}
 # "MeanTransmittance_HighInt2m", "MeanTransmittance_LowInt2m","MeanTransmittance_HighInt1m"
 # names(LAI2200_LiDAR)
 LAI2200_LiDAR <- LAI2200_LiDAR %>% 
@@ -384,7 +394,7 @@ LAI2200_LiDAR <- LAI2200_LiDAR %>%
 
 ```
 
-```{r}
+```{r, eval=F}
 range(LAI2200_LiDAR$Transmittance_HighInt2mvsLAI2200) # -0.54124286  0.06917472
 range(LAI2200_LiDAR$Transmittance_LowInt2mvsLAI2200) # -0.49684541  0.06841737 : le plus proche du lAI2200
 range(LAI2200_LiDAR$Transmittance_HighInt1mvsLAI2200) # -0.57688611  0.09193129 : le moins proche du lAI2200 (sousestime le plus)
@@ -490,7 +500,7 @@ for(v in c("Transmittance_LowvsHigh_2m", "Transmittance_HighInt2mvsLAI2200", "Tr
 ```
 
 ## Graph à segments
-```{r}
+```{r, eval=F}
 # LAI2200_LiDAR %>% 
 #   filter(Ring==1) %>%
 #   ggplot() +
@@ -523,13 +533,7 @@ Transmittances le long du transect pour les différentes acquisitions LiDAR et l
 pour chaque ring
 ## 1m
 ```{r}
-LAI2200_LiDAR_corr <- LAI2200_LiDAR %>% 
-  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
-  mutate(MeanTransmittance_LAI2200 = ifelse(Ring==4, MeanTransmittance_LAI2200 * 0.96,
-                                            MeanTransmittance_LAI2200)) %>% 
-  mutate(MeanTransmittance_LAI2200 = ifelse(Ring==5, MeanTransmittance_LAI2200 * 0.23,
-                                            MeanTransmittance_LAI2200))
-
+LAI2200_LiDAR_corr <- LAI2200_LiDAR
 # for(t in c("HOBO", "LAY")){
 #   for(R in 1:5){
 
@@ -594,10 +598,109 @@ print(
     # scale_x_continuous(breaks = seq(1:idmax)) + # 26 # 20
     # theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.text= element_text(size=18)) +
     theme_minimal() +
-    facet_wrap(~ Transect + Ring, scales = "free",
-               labeller = labeller(Ring = c('1'='Ring 1', '2'='Ring 2'),
-                                   Transect = c("HOBO" = "HOBO transect",
-                                                "LAY" = "LAY transect"))) +
+    # facet_wrap(~ Transect + Ring, scales = "free",
+    #            labeller = labeller(Ring = c('1'='Ring 1', '2'='Ring 2'),
+    #                                Transect = c("HOBO" = "HOBO transect",
+    #                                             "LAY" = "LAY transect"))) +
+    ggh4x::facet_grid2(Ring ~ Transect, scales = "free",
+                       labeller = labeller(Ring = c('1'='Ring 1', '2'='Ring 2'),
+                                           Transect = c("HOBO" = "HOBO transect",
+                                                        "LAY" = "LAY transect")), independent = "all") +
+    
+    ggh4x::facetted_pos_scales(
+      x = list(
+        Transect == "LAY" ~ scale_x_continuous(breaks = seq(from =1, to=26, by=2)),
+        Transect == "HOBO" ~ scale_x_continuous(breaks = seq(from =1, to=20, by=2))
+      )
+    ) +
+    theme(legend.position="bottom",legend.title= element_blank(), strip.text = element_text(size=15), axis.title= element_text(size=15), axis.text= element_text(size=15), legend.text= element_text(size=15))
+)
+# ggsave(paste("P16_2023_4ha_Long_profile_",t,"_transect_Ring",R,"_se_Intensity1m.png", sep=""),
+#        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
+#        width = 25, height = 20, units = "cm", dpi=800, bg="white")
+
+ggsave("P16_2023_4ha_Long_profile_facet_Intensity1m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
+       width = 30, height = 20, units = "cm", dpi=800, bg="white")
+
+#   }
+# }
+
+```
+```{r other rings}
+LAI2200_LiDAR_corr <- LAI2200_LiDAR
+# for(t in c("HOBO", "LAY")){
+#   for(R in 1:5){
+
+# idmax = max(LAI2200_LiDAR_corr[LAI2200_LiDAR_corr$Transect==t,]$Id) # last sensor Id
+
+print(
+  LAI2200_LiDAR_corr %>% 
+    # filter(Transect==t) %>% # LAY # HOBO
+    # filter(Ring==R) %>%
+    mutate(Transect = factor(Transect, levels = c("LAY", "HOBO"))) %>% 
+    filter(Ring%in%c(3:5)) %>%
+    ggplot(aes(x = Id)) +
+    
+    geom_linerange(aes(ymin=MeanTransmittance_LAI2200-SeTransmittance_LAI2200,
+                       ymax=MeanTransmittance_LAI2200+SeTransmittance_LAI2200, colour = "Standard error")) +
+    
+    # Validation data
+    geom_point(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200")) +
+    geom_line(aes(y = MeanTransmittance_LAI2200, colour = "LAI2200"), linewidth = 1.2) +
+    geom_linerange(aes(ymin=MeanTransmittance_LAI2200-SeTransmittance_LAI2200,
+                       ymax=MeanTransmittance_LAI2200+SeTransmittance_LAI2200, colour = "LAI2200")) +
+    
+    geom_point(aes(y = MeanTransmittance_HighInt1m, colour = "High altitude ALS")) +
+    geom_line(aes(y = MeanTransmittance_HighInt1m, colour = "High altitude ALS")) +
+    geom_linerange(aes(ymin=MeanTransmittance_HighInt1m-SeTransmittance_HighInt1m,
+                       ymax=MeanTransmittance_HighInt1m+SeTransmittance_HighInt1m, colour = "High altitude ALS")) +
+    
+    geom_point(aes(y = MeanTransmittance_LowInt1m, colour = "Low altitude ALS")) +
+    geom_line(aes(y = MeanTransmittance_LowInt1m, colour = "Low altitude ALS")) +
+    geom_linerange(aes(ymin=MeanTransmittance_LowInt1m-SeTransmittance_LowInt1m,
+                       ymax=MeanTransmittance_LowInt1m+SeTransmittance_LowInt1m, colour = "Low altitude ALS")) +
+    
+    geom_point(aes(y = MeanTransmittance_UAVInt1m, colour = "UAV")) +
+    geom_line(aes(y = MeanTransmittance_UAVInt1m, colour = "UAV")) +
+    geom_linerange(aes(ymin=MeanTransmittance_UAVInt1m-SeTransmittance_UAVInt1m,
+                       ymax=MeanTransmittance_UAVInt1m+SeTransmittance_UAVInt1m, colour = "UAV")) +
+    
+    
+    scale_colour_manual(values = c("High altitude ALS" = "blue",
+                                   "Low altitude ALS" = "#56B4E9",
+                                   "UAV" = "#E69F00",
+                                   # "High altitude - Intens - 2m" = "blue",
+                                   # "Low altitude - Intens - 2m" = "#56B4E9",
+                                   # "UAV - Intens - 2m" = "#E69F00",
+                                   "LAI2200" = "#D55E00", 
+                                   "Standard error" = "#666666"),
+                        breaks=c("High altitude ALS",
+                                 "Low altitude ALS",
+                                 "UAV",
+                                 # "High altitude - Intens - 2m", "Low altitude - Intens - 2m", 
+                                 # "UAV - Intens - 2m",  
+                                 "LAI2200", 
+                                 "Standard error")) +
+    
+    guides(colour = guide_legend(
+      override.aes = list(linetype = c("blank", "blank", "blank", "blank", "solid"),
+                          linewidth = 0.4))) + 
+    
+    
+    # labs(title = paste(t," transect - Ring ",R), y="Mean transmittance", x="Sensor ID", color = "Acquisition") +
+    labs(y="Mean transmittance", x="Sensor ID") +
+    # scale_x_continuous(breaks = seq(1:idmax)) + # 26 # 20
+    # theme(title= element_text(size=18), axis.title= element_text(size=18), axis.text= element_text(size=18), legend.text= element_text(size=18)) +
+    theme_minimal() +
+    ggh4x::facet_grid2(Ring ~ Transect, scales = "free",
+                       labeller = labeller(Ring = c('3'='Ring 3', '4'='Ring 4', '5'='Ring 5'),
+                                           Transect = c("HOBO" = "HOBO transect",
+                                                        "LAY" = "LAY transect")), independent = "all") +
+    # facet_wrap(~ Transect + Ring, scales = "free",
+    #            labeller = labeller(Ring = c('3'='Ring 3', '4'='Ring 4', '5'='Ring 5'),
+    #                                Transect = c("HOBO" = "HOBO transect",
+    #                                             "LAY" = "LAY transect"))) +
     ggh4x::facetted_pos_scales(
       x = list(
         Transect == "LAY" ~ scale_x_continuous(breaks = seq(1:26)),
@@ -610,15 +713,14 @@ print(
 #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
 #        width = 25, height = 20, units = "cm", dpi=800, bg="white")
 
-# ggsave("P16_2023_4ha_Long_profile_facet_Intensity1m.png",
+# ggsave("P16_2023_4ha_Long_profile_facet_Intensity1m_otherRings.png",
 #        path = "D:/Mes Donnees/PhD/Figures/lidar/Correlations/Long_profile/Intensity_1m/DZ_cor",
-#        width = 40, height = 30, units = "cm", dpi=800, bg="white")
+#        width = 45, height = 15, units = "cm", dpi=800, bg="white")
 
 #   }
 # }
 
 ```
-
 
 # Profils en long (moyennes des Transmittances par acquisition, par ring)
 ```{r}
@@ -633,13 +735,7 @@ LAI2200_LiDAR_ring <- LAI2200_LiDAR %>%
                    list(mean = ~mean(.), # les stats
                         sd = ~sd(.),
                         se = ~plotrix::std.error(.)),
-                   .names = "{.col}_{.fn}")) %>% 
-  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
-  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==4, MeanTransmittance_LAI2200_mean*0.96,
-                                                 MeanTransmittance_LAI2200_mean)) %>% 
-  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
-                                                 MeanTransmittance_LAI2200_mean))
-
+                   .names = "{.col}_{.fn}")) 
 measuredTranmittance_mean <- mean(LAI2200_LiDAR_ring$MeanTransmittance_LAI2200_mean) # 0.032
 
 # Relative differences in percent (i.e. (estimated-measured)/mean(measured)*100)
@@ -800,12 +896,7 @@ LAI2200_LiDAR_transect <- LAI2200_LiDAR %>%
                    list(mean = ~mean(.), # les stats
                         sd = ~sd(.),
                         se = ~plotrix::std.error(.)),
-                   .names = "{.col}_{.fn}")) %>% 
-  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
-  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==4, MeanTransmittance_LAI2200_mean*0.96,
-                                                 MeanTransmittance_LAI2200_mean)) %>% 
-  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
-                                                 MeanTransmittance_LAI2200_mean)) 
+                   .names = "{.col}_{.fn}")) 
 LAI2200_LiDAR_ring <- cbind(LAI2200_LiDAR_ring, Transect = "Both transect")
 LAI2200_LiDAR_transect <- rbind(LAI2200_LiDAR_transect, LAI2200_LiDAR_ring)
 
@@ -1102,7 +1193,7 @@ rm(corr, CorMatrix, CorMatrixS, DF_cor, DF_cor_LiDAR, DF_cor_LiDARvsLAI2200, LAI
 ```
 
 # DZ
-```{r}
+```{r, eval=F}
 DZmean <- DZ %>% 
   group_by(Ring) %>% 
   mutate(MedianAbove_LAI2200 = median(ABOVE)) %>%
@@ -1177,11 +1268,6 @@ ggplot() +
 ## Combine HOBO with LiDAR and LAI2200 data (transmittance angulaire)
 ```{r}
 HOBO_LAI2200_LiDAR <- LAI2200_LiDAR %>% # LAI2200_LiDAR
-  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
-  mutate(MeanTransmittance_LAI2200 = ifelse(Ring==4, MeanTransmittance_LAI2200 * 0.96,
-                                            MeanTransmittance_LAI2200)) %>% 
-  mutate(MeanTransmittance_LAI2200 = ifelse(Ring==5, MeanTransmittance_LAI2200 * 0.23,
-                                            MeanTransmittance_LAI2200)) %>% 
   left_join(HOBO, by= c("Id","Xutm","Yutm")) %>% 
   select(-c("...1.x","...1.y"))
 
@@ -1271,9 +1357,9 @@ HOBO_LAI2200_LiDAR %>%
         axis.title.y.right= element_text(size=24, color = "#D55E00"),
         axis.text= element_text(size=22), legend.title= element_text(size=22), legend.text= element_text(size=22))
 
-ggsave("P16_2023_4ha_HOBO_LAI2200_light_annual_mean_se.png",
-       path = "D:/Mes Donnees/PhD/Figures/Sensors",
-       width = 40, height = 30, units = "cm", dpi=800, bg="white")
+# ggsave("P16_2023_4ha_HOBO_LAI2200_light_annual_mean_se.png",
+#        path = "D:/Mes Donnees/PhD/Figures/Sensors",
+#        width = 40, height = 30, units = "cm", dpi=800, bg="white")
 
 # ggsave("P16_2023_4ha_HOBO_light_lux_annual_mean_se.png",
 #        path = "D:/Mes Donnees/PhD/Figures/HOBO",
@@ -1309,9 +1395,6 @@ DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200) # remove HOBO without 
 
 DF_cor_HOBO_LAI2200 <- sapply(DF_cor_HOBO_LAI2200, as.numeric)
 DF_cor_HOBO_LAI2200 <- as.data.frame(DF_cor_HOBO_LAI2200) #%>%
-#   # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
-#   mutate(MeanTransmittance_LAI2200_Ring4 = MeanTransmittance_LAI2200_Ring4*0.96) %>% 
-#   mutate(MeanTransmittance_LAI2200_Ring5 = MeanTransmittance_LAI2200_Ring5*0.23) 
 
 
 names(DF_cor_HOBO_LAI2200) <- str_remove(names(DF_cor_HOBO_LAI2200), "MeanTransmittance_") # simplify the var names
