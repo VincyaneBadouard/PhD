@@ -15,12 +15,16 @@ library(ggforce)
 # Import cleaned inventory data
 ```{r,include = F, message=F}
 Inventory <- read_csv(
+    "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv"
   # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
-  "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
+  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
   # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
 ) %>% 
   filter(!is.na(DBHcor)) %>% 
-  arrange(DBHcor)
+  arrange(DBHcor) %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) 
+
 
 ```
 
@@ -127,14 +131,17 @@ ggplot(data, aes(x=DBHcor)) +
 ```
 
 ```{r}
-sp <- Inventory$ScientificName
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+
+Inventory <- Inventory %>% filter(ScientificName %in% sp)
 
 # Define nrow and ncol for the facet
 n <- length(unique(sp))
 if(n<4) {i = 1}else{ i = 4}
 
 
-pdf("DBH_distributions_by_species.pdf", width = 15, height = 10)
+pdf("//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots/DBH_distributions_by_species.pdf",
+    , width = 15, height = 10)
 for(p in 1:(ceiling(length(unique(sp))/16))){
   print(
     ggplot(Inventory, aes(x=DBHcor)) +
