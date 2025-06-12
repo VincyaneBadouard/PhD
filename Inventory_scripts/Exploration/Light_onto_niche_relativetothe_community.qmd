@@ -154,7 +154,7 @@ ggsave("Light_onto_niche_relativetothe_community.pdf",
 ```
 
 # Boxplots
-```{r}
+```{r, eval = F}
 plist <- vector('list', length(sp))
 
 for(p in 1:length(sp)){
@@ -171,21 +171,34 @@ for(p in 1:length(sp)){
     
     dataS %>% 
       # loged bins
-      mutate(log_dbh_bin = cut_interval(logDBH, n = 5), # n = number of intervals to create
-             log_trans_bin = cut_interval(logTransmittance, n = 10)) %>% 
-      group_by(Presence, log_dbh_bin, log_trans_bin) %>% 
-      summarise(logTransmittance_mean = mean(logTransmittance),
-                Sd = sd(logTransmittance)) %>% 
+      mutate(log_dbh_bin = cut_interval(logDBH, n = 5)) %>%  # n = number of intervals to create
+      # log_trans_bin = cut_interval(logTransmittance, n = 10)) %>% 
+      # group_by(Presence, log_dbh_bin, log_trans_bin) %>% 
+      # summarise(logTransmittance_mean = mean(logTransmittance),
+      #           Sd = sd(logTransmittance)) %>% 
       mutate(Presence = recode(as.character(Presence),
                                "1" = "Presence", "0" = "Absence")) %>% 
       ungroup() %>% 
-      ggplot(aes(log_dbh_bin, logTransmittance_mean, col = Presence)) +
+      # the labels debinned:
+      mutate_at(vars(c("log_dbh_bin")),
+                ~gsub(c("\\[|]|\\(|)"), "", .)) %>% 
+      separate(log_dbh_bin, c("log_dbh_bin_l", "log_dbh_bin_h"),
+               sep = ",", convert = T) %>% 
+      rowwise() %>% 
+      mutate_at(vars(c("log_dbh_bin_l", "log_dbh_bin_h")),
+                                ~as.character(.)) %>% 
+                # ~as.character(round(exp(.),2))) %>% # marche mais désorganise les labels
+      unite(col=dbh_bin, log_dbh_bin_l, log_dbh_bin_h, sep="-") %>% 
+      
+      ggplot(aes(dbh_bin, logTransmittance, col = Presence)) +
       theme_minimal() +
       geom_boxplot() +
       geom_vline(xintercept = log(10)) + # 10 cm DBH
-      scale_fill_viridis_d("Species\nFrequency\n(%)") +
       scale_y_continuous("Light Transmittance (%)",
                          n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+      # scale_x_continuous("Diameter at Breast Height (DBH, cm)",
+      #                    n.breaks = 10, labels = ~round(exp(.),2)) + # delog
+      
       scale_color_manual(values = c("Absence" = "#999999",
                                     "Presence"= "#009E73")) + # 
       theme(plot.title = element_text(colour = cl)) +
@@ -196,7 +209,7 @@ for(p in 1:length(sp)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
-ggsave("Light_onto_niche_relativetothe_community_mean.pdf",
+ggsave("Light_onto_niche_relativetothe_community_mean_debin.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
        plots, width = 15, height = 10)
 
@@ -220,6 +233,7 @@ datalist <- lapply(names(datalist), function(name) {
       # DBHcor < 5 ~ "1-5",
       # DBHcor >= 5 & DBHcor < 10 ~ "5-10",
       # DBHcor >= 10 & DBHcor < 20 ~ "10-20",
+      # DBHcor >= 20 ~ ">20"
       Strategy == "Canopy species" & DBHcor < 3 ~ "1-3",
       Strategy == "Canopy species" & DBHcor >= 3 & DBHcor < 10 ~ "3-10",
       Strategy == "Canopy species" & DBHcor >= 10 & DBHcor < 25 ~ "10-25",
@@ -241,7 +255,7 @@ plist <- vector('list', length(sp))
 
 for(p in 1:length(sp)){
   plist[[p]] <- local({
-    # p = 4
+    # p = 33
     dataS <- datalist[names(datalist) %in% sp[p]][[sp[p]]] %>% 
       mutate(Presence = recode(as.character(Presence),
                                "1" = "Presence", "0" = "Absence")) 
@@ -254,21 +268,25 @@ for(p in 1:length(sp)){
     
     test <- dataS %>% 
       mutate(cl = cl) %>% 
-      mutate(Size = case_when(
-        cl == "#E7B800" & DBHcor < 3 ~ "1-3",
-        cl == "#E7B800" & DBHcor >= 3 & DBHcor < 10 ~ "3-10",
-        cl == "#E7B800" & DBHcor >= 10 & DBHcor < 25 ~ "10-25",
-        cl == "#E7B800" & DBHcor >= 25 ~ ">25",
-        
-        cl == "#009E73" & DBHcor < 2.5 ~ "< 2.5",
-        cl == "#009E73" & DBHcor >= 2.5 & DBHcor < 16 ~ "2.5-16")) %>% 
-      filter(!is.na(Size)) 
-    
-    
-    if(cl == "#E7B800"){test$Size <- factor(test$Size,
-                                            levels = c("1-3","3-10","10-25",">25"))
-    }else if(cl == "#009E73"){test$Size <- factor(test$Size,
-                                                  levels = c("< 2.5","2.5-16"))}
+      mutate(Size = factor(case_when(
+      DBHcor < 5 ~ "1-5",
+      DBHcor >= 5 & DBHcor < 10 ~ "5-10",
+      DBHcor >= 10 & DBHcor < 20 ~ "10-20",
+      DBHcor >= 20 ~ ">20"), levels = c("1-5","5-10","10-20",">20")))
+# case_when(
+#   cl == "#E7B800" & DBHcor < 3 ~ "1-3",
+#   cl == "#E7B800" & DBHcor >= 3 & DBHcor < 10 ~ "3-10",
+#   cl == "#E7B800" & DBHcor >= 10 & DBHcor < 25 ~ "10-25",
+#   cl == "#E7B800" & DBHcor >= 25 ~ ">25",
+# 
+#   cl == "#009E73" & DBHcor < 2.5 ~ "< 2.5",
+#   cl == "#009E73" & DBHcor >= 2.5 & DBHcor < 16 ~ "2.5-16")) %>%
+# filter(!is.na(Size))
+#     
+#     if(cl == "#E7B800"){test$Size <- factor(test$Size,
+#                                             levels = c("1-3","3-10","10-25",">25"))
+#     }else if(cl == "#009E73"){test$Size <- factor(test$Size,
+#                                                   levels = c("< 2.5","2.5-16"))}
     
     label <- test %>% 
       group_by(Presence, Size) %>% 
@@ -277,26 +295,11 @@ for(p in 1:length(sp)){
     
     # loged bins
     test %>% 
-      mutate(log_trans_bin = cut_interval(logTransmittance, n = 10)) %>% 
-      group_by(Presence, Size, log_trans_bin) %>% 
-      summarise(logTransmittance_mean = mean(logTransmittance),
-                Sd = sd(logTransmittance)) %>% 
-      ungroup() %>% 
-      
-      ggplot(aes(Size, logTransmittance_mean, col = Presence, fill = Presence)) +
+      ggplot(aes(Size, logTransmittance, col = Presence, fill = Presence)) +
       theme_minimal() +
       geom_violin(aes(alpha = 0.5), position = position_dodge(width = 0.9)) + # trim = F, draw_quantiles = c(0.25, 0.5, 0.75)
       geom_boxplot(aes(alpha = 0.5), col = "black",position = position_dodge(width = 0.9), width=0.2) +
       
-      # geom_point(position = position_jitterdodge(seed = 1, dodge.width = 0.9)) +
-      # geom_point(position=position_jitterdodge()) +
-      # ggforce::geom_sina() +
-      
-      # geom_dotplot(binaxis='y', stackdir='center',
-      #            position=position_dodge(1)) +
-      # geom_jitter(shape=16, position=position_jitterdodge(seed = 1, dodge.width = 0.9)) +
-      
-      # scale_fill_viridis_d("Species\nFrequency\n(%)") +
       scale_y_continuous("Light Transmittance (%)",
                          n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
       scale_color_manual(values = c("Absence" = "#999999",
@@ -305,7 +308,7 @@ for(p in 1:length(sp)){
                                    "Presence"= "#009E73")) + 
       
       
-      geom_text(data = label, aes(label = N, y = 0), size = 3.5,
+      geom_text(data = label, aes(label = N, y = 0.3), size = 3.5,
                 position = position_dodge(width = 0.95), show.legend = F) +
       
       theme(plot.title = element_text(colour = cl)) +
@@ -317,7 +320,7 @@ for(p in 1:length(sp)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
-ggsave("Light_onto_niche_relativetothe_community_boxplots_new_size_class.pdf",
+ggsave("Light_onto_niche_relativetothe_community_boxplots_size_class_debin.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
        plots, width = 15, height = 10)
 

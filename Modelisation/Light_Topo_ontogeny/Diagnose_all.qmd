@@ -67,6 +67,8 @@ all(Rhat_table$rhat < 1.01)
 
 badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
   left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
+
+length(unique(badRhat$Species)) # 11/37
 ```
 
 ```{r}
@@ -88,6 +90,9 @@ lapply(name , function(x)
     # mcmc_dens() +
     ggtitle(x)
 )
+(3/40)*100 # 7.5% n'ont fait que 3 chaines au lieu de 4
+(4/37)*100 # 10% mixent mal, 10% ont une chaine qui dépasse de la chenille
+(11/40)*100 # 28% au total des sp n'ont pas supporté le modèle
 ```
 
 ```{r}

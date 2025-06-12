@@ -41,7 +41,7 @@ writeVoxelSpace(vsp,"//amap-data.cirad.fr/work/users/VincyaneBadouard/Anisotropy
 AMAPVox::run()
 #[compute LAI2200 for both options]#
 
-library(data.table)
+library(data.table); library(tidyverse)
 sphere <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Anisotropy_test/test_spherical")
 plano <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Anisotropy_test/test_plano")
 plagio <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Anisotropy_test/test_plagio")
@@ -66,11 +66,6 @@ LAI2200_ring <- LAI2200 %>%
                         sd = ~sd(.),
                         se = ~plotrix::std.error(.)),
                    .names = "{.col}_{.fn}")) %>% 
-  # Correction des rings 4 et 5 d'après la transmittance estimée de la DZ au LiDAR
-  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==4, MeanTransmittance_LAI2200_mean*0.96,
-                                                 MeanTransmittance_LAI2200_mean)) %>% 
-  mutate(MeanTransmittance_LAI2200_mean = ifelse(Ring==5, MeanTransmittance_LAI2200_mean*0.23,
-                                                 MeanTransmittance_LAI2200_mean)) %>% 
   select(Ring, MeanTransmittance_LAI2200_mean)
 
 # Error ------------------------------------------------------------------------
@@ -100,11 +95,10 @@ label <- data.frame(
   # Transmittance = c(0.08, 0.075, 0.07, 0.065, 0.06, 0.055), 
   Transmittance = c(0.078, 0.075, 0.07, 0.068, 0.065, 0.06), 
   LIDF = unique(long$LIDF),
-  error = c(paste("ME = ",round(unique(long$ME)*100,0), "%", sep=""),
-            paste("RE = ",round(unique(long$`Relative biases`*100),1), "%", sep=""))
+  error = c(paste("MAE = ",round(unique(long$ME)*100,0), "%", sep=""),
+            paste("MRE = ",round(unique(long$`Relative biases`*100),1), "%", sep=""))
 ) %>% filter(LIDF != "Planophile") 
 
-library(ggplot2)
 long %>% 
   filter(LIDF != "Planophile") %>% 
   mutate(LIDF = as.factor(LIDF)) %>% 
