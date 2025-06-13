@@ -1,0 +1,335 @@
+---
+title: "Diagnose all DBH classes"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])
+
+Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_DBHclas.csv")
+
+unique(Comb$DBH_classes)
+# 75
+# metrre le 2 avec la correc bota
+
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
+
+# sp <- "Iryanthera_hostmannii"
+
+```
+
+```{r fit}
+fits <- list()
+for(S in sp){
+  for(D in c("1-5","5-10","10-20","-20")){
+    tryCatch({
+      chain_path <- file.path("Chains", "Hybrid_no_iota", S, D)
+      fits[[S]][[D]] <- as_cmdstan_fit(list.files(chain_path,
+                                                  full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, D, conditionMessage(e), "\n")}
+    )
+  }
+}
+# names(fits[["Symphonia_sp.1"]])
+```
+
+```{r divergence}
+Div <- lapply(names(fits), function(x)
+  data.frame(Species = x,
+             Chain = c(1:4),
+             Divergences = fits[[x]]$diagnostic_summary("divergences") # divergences per chain
+  ) 
+) %>% 
+  bind_rows() %>% 
+  rename(Divergences = num_divergent) %>% 
+  group_by(Species) %>% 
+  mutate(`%divergence` = sum(Divergences)/4000*100)
+
+```
+
+# Rhat
+R-hat convergence diagnostic, which compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don't agree), R-hat is larger than 1.01 (Vehtari et al., 2021). 
+R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
+```{r Rhat}
+Rhat_table <- lapply(names(fits), function(x)
+  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+    mutate(Species = x) %>% 
+    select(Species, variable, rhat) 
+) %>% 
+  bind_rows()
+
+# bayesplot::rhat(fits[[1]],pars="beta2_p")
+# posterior::rhat(extract_variable_matrix(fits[[1]], "beta2_p"))
+
+all(Rhat_table$rhat < 1.01)
+
+badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
+  left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
+
+length(unique(badRhat$Species)) # 11/37
+```
+
+```{r}
+name <- 
+  # names(fits)[names(fits) %in% c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")]
+  # unique(badRhat$Species) 
+  sort(names(fits))
+
+for(S in name){
+  for(D in c("1-5","5-10","10-20","-20")){
+    print(
+      fits[[S]][[D]]$draws(
+        c("lp__", "alpha", "beta1", "beta2_p", "O", "tau")
+        # c("lp__", "a", "O", "gamma", "tau")
+      ) %>% 
+        mcmc_trace() +
+        # mcmc_dens() +
+        ggtitle(paste(S, D))
+    )
+  }}
+```
+
+```{r}
+Lightp = seq(-7.308724, 8.941571e-08, length.out = 50)
+Topographyp = 1.764199
+dbhs <- c(2.5, 7.5, 15, 25, 35)
+post <- as.data.frame(fits[["Iryanthera_hostmannii"]]$draws(c("a", "O", "iota", "beta1", "alpha", "p"))) # 2000 rows 4 cols per param
+
+post_long <- post %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = c("chain", "variable"),
+    names_sep = "\\.",
+    values_to = "value"
+  ) %>%
+  pivot_wider(
+    names_from = variable,
+    values_from = value
+  ) %>%
+  unnest() %>% 
+  pivot_longer(
+    cols = starts_with("P["),
+    values_to = "p"
+  ) %>% 
+  mutate(name = str_remove(name, "p")) %>% 
+  rowwise() %>% 
+  mutate(Env = as.numeric(unlist(str_extract_all(name, "\\d+"))[1])) %>% 
+  mutate(dbh = as.numeric(unlist(str_extract_all(name, "\\d+"))[2])) %>% 
+  mutate(Environmentp = Lightp[Env]) %>% # 50
+  mutate(DBHp = dbhs[dbh]) # 5
+
+# post_long <- post_long %>% 
+#   group_by(chain) %>% 
+#   summarise(~mean)
+# mutate(p = brms::inv_logit(a*(Lightp - (O + iota*DBHp[i]))^2 + gamma + tau*Topographyp))
+```
+
+```{r}
+post_long %>% 
+  filter(DBHp %in% c(2.5, 35)) %>% 
+  ggplot(aes(x = Environmentp, y = p, col = chain, linetype = as.factor(DBHp))) +
+  theme_minimal() +
+  geom_smooth()
+
+post_long %>% 
+  filter(DBHp == 2.5) %>% 
+  ggplot(aes(x = a, y = iota, col = chain)) +
+  theme_minimal() +
+  geom_line()
+
+post_long %>% 
+  filter(DBHp == 2.5) %>% 
+  ggplot(aes(x = alpha, y = iota, col = chain)) +
+  theme_minimal() +
+  geom_line()
+
+post_long %>% 
+  filter(DBHp == 2.5) %>% 
+  ggplot(aes(x = beta1, y = iota, col = chain)) +
+  theme_minimal() +
+  geom_line()
+
+```
+
+
+# Posteriors
+Plot central (quantile-based) posterior interval estimates from MCMC draws
+```{r}
+d <- list()
+# Plot data
+for(S in names(fits)){
+  for(D in c("1-5","5-10","10-20","-20")){
+    d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "gamma", "tau")),
+                        prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+      mutate(Species = S) %>% 
+      mutate(DBH_class = D)
+  }}
+
+datap <- list_rbind(list_flatten(d))
+# ll : outer start
+# l : iner start
+# m : point_est value
+# h : iner end
+# hh : outer end
+
+# mcmc_intervals() code 
+# trace(bayesplot::mcmc_intervals, edit=T)
+
+# 0 line
+x_lim <- range(c(datap$ll, datap$hh))
+x_range <- diff(x_lim)
+x_lim[1] <- x_lim[1] - 0.05 * x_range
+x_lim[2] <- x_lim[2] + 0.05 * x_range
+
+# 0 line
+layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
+  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
+}
+
+datap %>% 
+  mutate(DBH_class = factor(DBH_class, levels = rev(c("1-5","5-10","10-20","-20")))) %>% 
+ggplot(aes(y = DBH_class)) +
+  theme_minimal() + 
+  # xlim(range(c(datap$ll, datap$hh))) +
+  layer_vertical_line +
+  geom_segment(aes(x=ll, xend=hh, y=DBH_class, yend=DBH_class,
+                   color = "95%"), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=DBH_class, yend=DBH_class,
+                   color = "50%"), size = 1) +
+  geom_point(aes(x= m)) + # median
+  scale_color_manual(name = "Credible interval", 
+                     values = c("95%" = "#E7B800",
+                                "50%"= "#FC4E07")) + 
+  theme(axis.title.x =element_blank()) +
+  facet_grid(Species~parameter, scale= "free")
+
+
+ggsave("Light_topo_onto_posteriors_DBHclass.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+
+# O et tau iront dans le biplot
+# les paramètres dont on veut la significativité : iota
+# a on veut sa valeur absolue pour juger la largeur de niche
+# gamma on s'en fout ?
+```
+
+
+```{r}
+fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
+```
+
+# Biplot
+O in y, tau in x
+```{r}
+datap %>% 
+  select(-c(outer_width, inner_width, l, h, point_est)) %>% 
+  rename(Q5 = ll, Q95 = hh, median = m) %>% 
+  filter(parameter %in% c("O", "tau")) %>% 
+  pivot_wider(names_from = parameter, values_from = c(Q5, median, Q95),
+              names_glue = "{parameter}_{.value}") %>% 
+  
+  ggplot(aes(x= tau_median, y = O_median)) +
+  theme_minimal() + 
+  # 95% credible interval
+  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median), size = 0.5, col = "grey") + # tau
+  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median), size = 0.5, col = "grey") + # O
+  geom_point() + # median
+  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
+  labs(x= "TWI effect (tau)", y= "Light optimum (O)")
+
+
+```
+
+
+# Predictions
+```{r}
+# Bocoa_prouacensis
+S = "Tachigali_melinonii"
+DATA <- fits[[S]]$summary("p") # p posterior
+
+# prediction environment 
+DATA <- DATA %>% 
+  rowwise() %>% 
+  mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
+  mutate(Onto = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
+  mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 50)[Light]) %>% # -7.308724e+00 , 8.941571e-08
+  mutate(DBH = c(2.5, 7.5, 15, 25, 35)[Onto]) %>% 
+  mutate(Transmittance = round(exp(logTransmittance), 3))
+
+# prendre tout les posteriors de O et iota (fits[[1]]$draws("O", format = "df")) et calculer O et ses quantiles 
+Optdata <- data.frame(DBH = c(1, 2.5, 7.5, 15, 25, 35),
+                      Oinit = fits[[S]]$summary("O_1","median")$median,
+                      OinitQ5 = fits[[S]]$summary("O_1")$q5, 
+                      OinitQ95 = fits[[S]]$summary("O_1")$q95,
+                      iota = fits[[S]]$summary("iota","median")$median,
+                      iotaQ5 = fits[[S]]$summary("iota")$q5,
+                      iotaQ95 = fits[[S]]$summary("iota")$q95) %>% 
+  mutate(logDBH = log(DBH)) %>% 
+  mutate(O = Oinit + iota*logDBH) %>% 
+  mutate(OQ5 = OinitQ5 + iotaQ5*logDBH) %>% 
+  mutate(OQ95 = OinitQ95 + iotaQ95*logDBH) 
+# mutate(OiQ5 = Oinit + iotaQ5*logDBH) %>%
+# mutate(OiQ95 = Oinit + iotaQ95*logDBH)
+
+```
+
+```{r}
+library(viridis)
+
+DATA %>% 
+  # filter(DBH==35) %>% 
+  ggplot(aes(x= logTransmittance, y= median, col= factor(DBH), group=factor(DBH))) +
+  theme_minimal() +
+  
+  geom_ribbon(aes(ymin = q5, ymax = q95, fill= factor(DBH)),
+              alpha = 0.005, linetype="dashed", linewidth=0.5) + # P quantiles
+  
+  geom_vline(data = Optdata[-1,], aes(xintercept = O, col= factor(DBH)), linewidth=0.8) + # Opt median
+  # geom_vline(data = Optdata[-1,], aes(xintercept = OQ5, col= factor(DBH)), linetype="dashed") + # Opt Q5%
+  # geom_vline(data = Optdata[-1,], aes(xintercept = OQ95, col= factor(DBH)), linetype="dashed") + # Opt Q95%
+  
+  geom_line(linewidth= 1) +
+  scale_color_viridis(direction = -1, discrete = T) +
+  guides(fill = FALSE) +
+  labs(title = S, y = "Presence probabiblity median", col = "DBH")
+# rajouter opt et quantiles
+```
+
+```{r predictions}
+Sys.time()
+
+plist <- list()
+
+for(s in sp){
+  plist[[s]] <- local({
+    
+    g <- lapply(names(fits[[s]]), function(v){
+      # v = "TWI"
+      
+      DATA <- fits[[s]][[v]]$summary("p") # p posterior
+      # prediction environment 
+    })
+    
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
+# plots
+
+# ggsave("Allsp_Light_TWI_niche.pdf",
+#        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+#        plots, width = 15, height = 10)
+
+Sys.time()
+```
+
+
