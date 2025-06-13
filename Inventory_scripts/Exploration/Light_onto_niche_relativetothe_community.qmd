@@ -33,6 +33,48 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 ```
 
 # Check abundances in each bin
+## For the community
+```{r}
+dataS <- datalist[[1]] 
+
+dataS %>% 
+  # loged bins
+  mutate(log_dbh_bin = cut_interval(log(DBHcor), n = 5), # n = number of intervals to create
+         log_trans_bin = cut_interval(log(Transmittance), n = 10)) %>% 
+  group_by(log_dbh_bin, log_trans_bin) %>% 
+  summarise(n = n()) %>% 
+  ungroup() %>% 
+  # the labels debinned:
+  mutate_at(vars(c("log_dbh_bin", "log_trans_bin")),
+            ~gsub(c("\\[|]|\\(|)"), "", .)) %>% 
+  separate(log_dbh_bin, c("log_dbh_bin_l", "log_dbh_bin_h"),
+           sep = ",", convert = TRUE) %>% 
+  separate(log_trans_bin, c("log_trans_bin_l", "log_trans_bin_h"),
+           sep = ",", convert = TRUE) %>% 
+  rowwise() %>% 
+  mutate(log_dbh = mean(c(log_dbh_bin_l, log_dbh_bin_h)),
+         log_trans = mean(c(log_trans_bin_l, log_trans_bin_h))) %>% 
+  select(log_dbh, log_trans, n) %>% 
+  
+  ggplot(aes(log_dbh, log_trans, fill = n)) +
+  theme_minimal() +
+  geom_raster() +
+  geom_vline(xintercept = log(10)) + # 10 cm DBH
+  scale_fill_viridis_c("Individuals number", trans = "log10") +
+  scale_x_continuous("Diameter at Breast Height (DBH, cm)",
+                     n.breaks = 10, labels = ~round(exp(.),2)) + # delog
+  scale_y_continuous("Light Transmittance (%)",
+                     n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  theme(plot.title = element_text(colour = cl)) +
+  labs(title = "Community abundances")
+
+ggsave("Light_onto_niche_relativetothe_community_binabundances_logcolor.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
+       width = 8, height = 5)
+
+```
+
+## Per species
 ```{r abondances, eval =F}
 plist <- vector('list', length(sp))
 
@@ -52,6 +94,7 @@ for(p in 1:length(sp)){
       # loged bins
       mutate(log_dbh_bin = cut_interval(log(DBHcor), n = 5), # n = number of intervals to create
              log_trans_bin = cut_interval(log(Transmittance), n = 10)) %>% 
+      filter(Presence=="1") %>% 
       group_by(log_dbh_bin, log_trans_bin) %>% 
       summarise(n = n()) %>% 
       # mutate(Presence = recode(as.character(Presence),
@@ -76,7 +119,7 @@ for(p in 1:length(sp)){
       theme_minimal() +
       geom_raster() +
       geom_vline(xintercept = log(10)) + # 10 cm DBH
-      scale_fill_viridis_c("Individuals number", trans = "log10") +
+      scale_fill_viridis_c("Individuals number") +
       scale_x_continuous("Diameter at Breast Height (DBH, cm)",
                          n.breaks = 10, labels = ~round(exp(.),2)) + # delog
       scale_y_continuous("Light Transmittance (%)",
@@ -89,9 +132,12 @@ for(p in 1:length(sp)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
+ggsave("Light_onto_niche_relativetothe_community_binabundances.pdf",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
+       plots, width = 15, height = 10)
 ```
 
-# Environment bins
+# Environment bins per species
 ```{r}
 plist <- vector('list', length(sp))
 
@@ -135,7 +181,7 @@ for(p in 1:length(sp)){
       theme_minimal() +
       geom_raster() +
       geom_vline(xintercept = log(10)) + # 10 cm DBH
-      scale_fill_viridis_c("Species\nFrequency\n(%)") +
+      scale_fill_viridis_c("Species\nFrequency\n(%)", trans = "log10") +
       scale_x_continuous("Diameter at Breast Height (DBH, cm)",
                          n.breaks = 10, labels = ~round(exp(.),2)) + # delog
       scale_y_continuous("Light Transmittance (%)",
@@ -148,7 +194,7 @@ for(p in 1:length(sp)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
-ggsave("Light_onto_niche_relativetothe_community.pdf",
+ggsave("Light_onto_niche_relativetothe_community_logcolor.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
        plots, width = 15, height = 10)
 ```
@@ -186,8 +232,8 @@ for(p in 1:length(sp)){
                sep = ",", convert = T) %>% 
       rowwise() %>% 
       mutate_at(vars(c("log_dbh_bin_l", "log_dbh_bin_h")),
-                                ~as.character(.)) %>% 
-                # ~as.character(round(exp(.),2))) %>% # marche mais désorganise les labels
+                ~as.character(.)) %>% 
+      # ~as.character(round(exp(.),2))) %>% # marche mais désorganise les labels
       unite(col=dbh_bin, log_dbh_bin_l, log_dbh_bin_h, sep="-") %>% 
       
       ggplot(aes(dbh_bin, logTransmittance, col = Presence)) +
@@ -269,24 +315,24 @@ for(p in 1:length(sp)){
     test <- dataS %>% 
       mutate(cl = cl) %>% 
       mutate(Size = factor(case_when(
-      DBHcor < 5 ~ "1-5",
-      DBHcor >= 5 & DBHcor < 10 ~ "5-10",
-      DBHcor >= 10 & DBHcor < 20 ~ "10-20",
-      DBHcor >= 20 ~ ">20"), levels = c("1-5","5-10","10-20",">20")))
-# case_when(
-#   cl == "#E7B800" & DBHcor < 3 ~ "1-3",
-#   cl == "#E7B800" & DBHcor >= 3 & DBHcor < 10 ~ "3-10",
-#   cl == "#E7B800" & DBHcor >= 10 & DBHcor < 25 ~ "10-25",
-#   cl == "#E7B800" & DBHcor >= 25 ~ ">25",
-# 
-#   cl == "#009E73" & DBHcor < 2.5 ~ "< 2.5",
-#   cl == "#009E73" & DBHcor >= 2.5 & DBHcor < 16 ~ "2.5-16")) %>%
-# filter(!is.na(Size))
-#     
-#     if(cl == "#E7B800"){test$Size <- factor(test$Size,
-#                                             levels = c("1-3","3-10","10-25",">25"))
-#     }else if(cl == "#009E73"){test$Size <- factor(test$Size,
-#                                                   levels = c("< 2.5","2.5-16"))}
+        DBHcor < 5 ~ "1-5",
+        DBHcor >= 5 & DBHcor < 10 ~ "5-10",
+        DBHcor >= 10 & DBHcor < 20 ~ "10-20",
+        DBHcor >= 20 ~ ">20"), levels = c("1-5","5-10","10-20",">20")))
+    # case_when(
+    #   cl == "#E7B800" & DBHcor < 3 ~ "1-3",
+    #   cl == "#E7B800" & DBHcor >= 3 & DBHcor < 10 ~ "3-10",
+    #   cl == "#E7B800" & DBHcor >= 10 & DBHcor < 25 ~ "10-25",
+    #   cl == "#E7B800" & DBHcor >= 25 ~ ">25",
+    # 
+    #   cl == "#009E73" & DBHcor < 2.5 ~ "< 2.5",
+    #   cl == "#009E73" & DBHcor >= 2.5 & DBHcor < 16 ~ "2.5-16")) %>%
+    # filter(!is.na(Size))
+    #     
+    #     if(cl == "#E7B800"){test$Size <- factor(test$Size,
+    #                                             levels = c("1-3","3-10","10-25",">25"))
+    #     }else if(cl == "#009E73"){test$Size <- factor(test$Size,
+    #                                                   levels = c("< 2.5","2.5-16"))}
     
     label <- test %>% 
       group_by(Presence, Size) %>% 

@@ -1,5 +1,5 @@
 ---
-title: "Diagnose all"
+title: "Diagnose all DBH classes"
 date: "`r Sys.Date()`"
 format: html
 self-contained: true
@@ -13,7 +13,12 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])
+
+Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_DBHclas.csv")
+
+unique(Comb$DBH_classes)
+# 75
 # metrre le 2 avec la correc bota
 
 # sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
@@ -25,23 +30,34 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 ```{r fit}
 fits <- list()
 for(S in sp){
-  tryCatch({
-    chain_path <- file.path("Chains", "Hybrid", S)
-    fits[[S]] <- as_cmdstan_fit(list.files(chain_path,
-                                           full.names = TRUE))},
-    error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
-  )
+  for(D in c("1-5","5-10","10-20","-20")){
+    tryCatch({
+      chain_path <- file.path("Chains", "Hybrid_no_iota", S, D)
+      if(D=="-20") D <- ">20"
+      fits[[S]][[D]] <- as_cmdstan_fit(list.files(chain_path,
+                                                  full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, D, conditionMessage(e), "\n")}
+    )
+  }
 }
 # names(fits[["Symphonia_sp.1"]])
+
+names(fits)[names(fits) == "-20"] <- ">20"
 ```
 
 ```{r divergence}
-Div <- lapply(names(fits), function(x)
-  data.frame(Species = x,
-             Chain = c(1:4),
-             Divergences = fits[[x]]$diagnostic_summary("divergences") # divergences per chain
-  ) 
-) %>% 
+d <- list()
+for(S in names(fits)){
+  for(D in c("1-5","5-10","10-20",">20")){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- data.frame(Species = S,
+                                DBH = D,
+                                Chain = c(1:4),
+                                Divergences = fits[[S]][[D]]$diagnostic_summary("divergences") # divergences per chain
+      )
+    }}}
+Div <- list_rbind(list_flatten(d)) %>% 
   bind_rows() %>% 
   rename(Divergences = num_divergent) %>% 
   group_by(Species) %>% 
@@ -53,12 +69,18 @@ Div <- lapply(names(fits), function(x)
 R-hat convergence diagnostic, which compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don't agree), R-hat is larger than 1.01 (Vehtari et al., 2021). 
 R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
 ```{r Rhat}
-Rhat_table <- lapply(names(fits), function(x)
-  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
-    mutate(Species = x) %>% 
-    select(Species, variable, rhat) 
-) %>% 
-  bind_rows()
+d <- list()
+for(S in names(fits)){
+  for(D in c("1-5","5-10","10-20",">20")){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- fits[[S]][[D]]$summary(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+        mutate(Species = S) %>% 
+        mutate(DBH = D) %>% 
+        select(Species, DBH, variable, rhat) 
+    }}}
+Rhat_table <- list_rbind(list_flatten(d))
+
 
 # bayesplot::rhat(fits[[1]],pars="beta2_p")
 # posterior::rhat(extract_variable_matrix(fits[[1]], "beta2_p"))
@@ -68,31 +90,32 @@ all(Rhat_table$rhat < 1.01)
 badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
   left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
 
-length(unique(badRhat$Species)) # 11/37
+length(unique(badRhat$Species)) # (44/75)*100 = 59%
 ```
 
 ```{r}
 name <- 
-  # "Iryanthera_hostmannii"
-  # c("Guarea_costata", "Virola_michelii",  "Cordia_nodosa",
-#   #   "Paypayrola_hulkiana", "Pouteria_guianensis") # good now
-  
-# names(fits)[names(fits) %in% c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")]
-# unique(badRhat$Species) 
-sort(names(fits))
+  # names(fits)[names(fits) %in% c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")]
+  unique(badRhat$Species)
+# sort(names(fits))
 
-lapply(name , function(x)
-  fits[[x]]$draws(
-    c("lp__", "alpha", "beta1", "beta2_p", "O_1", "iota")
-    # c("lp__", "a", "O", "gamma", "tau", "iota")
-    ) %>% 
-    mcmc_trace() +
-    # mcmc_dens() +
-    ggtitle(x)
-)
-# (3/40)*100 # 7.5% n'ont fait que 3 chaines au lieu de 4
-# (4/37)*100 # 10% mixent mal, 10% ont une chaine qui dépasse de la chenille
-# (11/40)*100 # 28% au total des sp n'ont pas supporté le modèle
+for(S in name){
+  for(D in c("1-5","5-10","10-20",">20")){
+    # if(D %in% names(fits[[S]])){
+    if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
+       S = "Talisia_sylvatica"
+        D = "5-10"
+      print(
+        fits[[S]][[D]]$draws(
+          c("lp__", "alpha", "beta1", "beta2_p", "O", "tau")
+          # c("lp__", "a", "O", "gamma", "tau")
+        ) %>% 
+          mcmc_trace() +
+          # mcmc_dens() +
+          ggtitle(paste(S, D))
+      )
+    }
+  }}
 ```
 
 ```{r}
@@ -161,13 +184,19 @@ post_long %>%
 # Posteriors
 Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r}
+d <- list()
 # Plot data
-datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O_1", "gamma", "tau", "iota")),
-                      prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
-    mutate(Species = x)
-)  %>% 
-  bind_rows()
+for(S in names(fits)){
+  for(D in c("1-5","5-10","10-20",">20")){
+    if(D %in% names(fits[[S]])){
+      d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "tau")),
+                                         prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+        mutate(Species = S) %>% 
+        mutate(DBH_class = D)
+    }
+  }}
+
+datap <- list_rbind(list_flatten(d))
 # ll : outer start
 # l : iner start
 # m : point_est value
@@ -188,24 +217,40 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
 
-ggplot(datap, aes(y = Species)) +
+strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
+  select(ScientificName, Strategy_VB) %>%
+  rename(Strategy = Strategy_VB) %>% 
+  unique()
+
+datap <- left_join(datap, strategy, join_by("Species" == "ScientificName"))
+
+
+datap[1:100,] %>% # 780 [1:100,]
+  # filter(Strategy =="Understory species") %>% 
+  mutate(DBH_class = factor(DBH_class, levels = rev(c("1-5","5-10","10-20",">20")))) %>% 
+  mutate(cl = ifelse(Strategy =="Understory species" & !is.na(Strategy), "#009E73",
+                     "#E7B800")) %>%  # color per sp strategy
+  
+  ggplot(aes(y = DBH_class)) +
   theme_minimal() + 
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
-  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
+  geom_segment(aes(x=ll, xend=hh, y=DBH_class, yend=DBH_class,
                    color = "95%"), size = 0.5) +
-  geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
+  geom_segment(aes(x=l, xend=h, y=DBH_class, yend=DBH_class,
                    color = "50%"), size = 1) +
   geom_point(aes(x= m)) + # median
   scale_color_manual(name = "Credible interval", 
                      values = c("95%" = "#E7B800",
                                 "50%"= "#FC4E07")) + 
-  theme(axis.title.x =element_blank()) +
-  facet_grid(~parameter, scale= "free")
+  theme(axis.title.x =element_blank(),
+        strip.text.y.left = element_text(angle = 0)) +
+        # strip.text = element_text(colour = ~.$cl)) +
+  facet_grid(Species~parameter, scale= "free", switch = "y")
 
 
-ggsave("Light_topo_onto_posteriors_iotabounds.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+# ggsave("Light_topo_onto_posteriors_DBHclass.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+#        width = 25, height = 26, units = "cm", dpi=800, bg="white")
 
 # O et tau iront dans le biplot
 # les paramètres dont on veut la significativité : iota
@@ -228,7 +273,7 @@ datap %>%
   pivot_wider(names_from = parameter, values_from = c(Q5, median, Q95),
               names_glue = "{parameter}_{.value}") %>% 
   
-  ggplot(aes(x= tau_median, y = O_median)) +
+  ggplot(aes(x= tau_median, y = O_median, col=DBH_class)) +
   theme_minimal() + 
   # 95% credible interval
   geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median), size = 0.5, col = "grey") + # tau
@@ -268,8 +313,8 @@ Optdata <- data.frame(DBH = c(1, 2.5, 7.5, 15, 25, 35),
   mutate(O = Oinit + iota*logDBH) %>% 
   mutate(OQ5 = OinitQ5 + iotaQ5*logDBH) %>% 
   mutate(OQ95 = OinitQ95 + iotaQ95*logDBH) 
-  # mutate(OiQ5 = Oinit + iotaQ5*logDBH) %>%
-  # mutate(OiQ95 = Oinit + iotaQ95*logDBH)
+# mutate(OiQ5 = Oinit + iotaQ5*logDBH) %>%
+# mutate(OiQ95 = Oinit + iotaQ95*logDBH)
 
 ```
 
