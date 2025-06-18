@@ -161,6 +161,8 @@ datap %>%
 # déloguer les valeurs de lumière
 # mettre du bleu à tau>0, du jaune à tau<0
 # foncé en bas, clair en haut
+# alpha sur les postériors imprécis
+# une couleur pour les tau touchant le 0 
 
 ggsave("Light_topo_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        width = 25, height = 15, units = "cm", dpi=800, bg="white")
