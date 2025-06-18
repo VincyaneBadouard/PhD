@@ -84,7 +84,7 @@ Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "gamma", "tau")),
+  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "tau")),
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
@@ -108,8 +108,14 @@ x_lim[2] <- x_lim[2] + 0.05 * x_range
 layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
-
-ggplot(datap, aes(y = Species)) +
+datap %>% 
+  mutate(parameter = factor(parameter, levels=c("O","a","tau"))) %>% # "tau", "O", "a"
+  group_by(parameter) %>%
+  group_modify(~.x %>% 
+                 arrange(if(.y == 'O') m else desc(m)) ) %>%
+  ungroup() %>%
+  mutate(Species=factor(Species, levels=unique(Species))) %>% 
+  ggplot(aes(y = Species)) +
   theme_minimal() + 
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
@@ -142,30 +148,60 @@ fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
 # Biplot
 O in y, tau in x
 ```{r}
+rects <- data.frame(xstart = sort(rep(c(-7.5, 0.5, 0), times=2)), xend = sort(rep(c(-0.5, 0, 3), times=2)),
+                    ystart = rep(c(-7,log(0.5)), times =3), yend = rep(c(log(0.5),0), times =3), 
+                    col = rep(c("Hilltop", "No effect", "Bottomland"), each =2),
+                    light = rep(c("Sciaphile", "Heliophile"), times =3))
 datap %>% 
   select(-c(outer_width, inner_width, l, h, point_est)) %>% 
   rename(Q5 = ll, Q95 = hh, median = m) %>% 
   filter(parameter %in% c("O", "tau")) %>% 
   pivot_wider(names_from = parameter, values_from = c(Q5, median, Q95),
               names_glue = "{parameter}_{.value}") %>% 
+  mutate(Noeffect = ifelse(tau_Q5<0 & 0<tau_Q95, F, T)) %>% 
   
-  ggplot(aes(x= tau_median, y = O_median)) +
+  ggplot() +
   theme_minimal() + 
+  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
+                            xmax=xend, fill=col, alpha=light)) +
+  scale_fill_manual(name = "Topographic preference", values = c("Hilltop" = "#E7B800",
+                                                                "Bottomland"= "steelblue",
+                                                                "No effect"= "white")) + 
+  scale_alpha_manual(name = "Light preference", values=c(0.2,0.5)) +
+  
+  # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
+  ggpubr::stat_cor(aes(x= tau_median, y = O_median), label.x = -7.5, label.y = 0.1) +
+  
+  geom_vline(xintercept = 0, col="red", linetype = "dashed") +
+  
   # 95% credible interval
-  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median), size = 0.5, col = "grey") + # tau
-  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median), size = 0.5, col = "grey") + # O
-  geom_point() + # median
-  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
-  labs(x= "TWI effect (tau)", y= "Light optimum (O)")
+  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median,
+                   col = "95% CI"), size = 0.5) + # tau
+  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median,
+                   col = "95% CI"), size = 0.5) + # O
+  
+  geom_point(aes(x= tau_median, y = O_median, col=Noeffect)) + # median
+  scale_color_manual(name = "*tau* significantly different of 0",
+                     values = c("FALSE" = "grey",
+                                "TRUE"= "black",
+                                "95% CI" = "darkgrey"),
+                     breaks=c("TRUE",  "FALSE", 
+                              "95% CI")) + 
+  
+  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 2.5) +
+  
+  scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  # scale_y_continuous(trans="exp") +
+  theme(axis.title = ggtext::element_markdown(),
+        legend.title = ggtext::element_markdown(),
+        legend.position="bottom") +
+  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+       y= "Light optimum (*O*) (% transmittance)")
 
-# déloguer les valeurs de lumière
-# mettre du bleu à tau>0, du jaune à tau<0
-# foncé en bas, clair en haut
 # alpha sur les postériors imprécis
-# une couleur pour les tau touchant le 0 
 
 ggsave("Light_topo_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+       width = 32, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 
