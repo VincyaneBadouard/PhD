@@ -7,7 +7,6 @@ theme: cosmo
 editor: source
 code-fold: true
 ---
-
 ```{r setup}
 library(tidyverse)
 library(cmdstanr)
