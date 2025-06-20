@@ -21,6 +21,10 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 #         "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx", "Pouteria_singularis", "Ryania_speciosa"
 # sp <- "Symphonia_sp.1"
 
+strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
+  select(ScientificName, Strategy_VB) %>%
+  rename(Strategy = Strategy_VB) %>% 
+  unique()
 ```
 
 ```{r fit}
@@ -71,12 +75,20 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
 ```
 
 ```{r}
-name <-names(fits)#  unique(badRhat$Species) # names(fits) #
+name <- names(fits)#  unique(badRhat$Species) # names(fits) #
 lapply(name , function(x)
   fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
     mcmc_trace() +
     ggtitle(x)
 )
+```
+
+```{r}
+# no light effect (flat) :
+no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana", "Virola_michelii", "Pouteria_guianensis", "Eschweilera_congestiflora", "Couratari_multiflora", "Tachigali_melinonii", "Pouteria_gonggrijpii", "Thyrsodium_puberulum", "Anacardium_spruceanum")
+
+# a_Q5 < -0.07
+# (a = 0 -> large niche)
 ```
 
 # Posteriors
@@ -88,7 +100,12 @@ datap <- lapply(names(fits), function(x)
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
-  bind_rows()
+  bind_rows() %>% 
+    # tau significantly different of 0
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, T))  %>% 
+  # Light effect (not flat)
+  mutate(Sg_effect = ifelse(parameter=="O" & Species %in% no_light_effect, F, Sg_effect)) 
+
 # ll : outer start
 # l : iner start
 # m : point_est value
@@ -109,13 +126,18 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
 datap %>% 
-  mutate(parameter = factor(parameter, levels=c("O","a","tau"))) %>% # "tau", "O", "a"
+  mutate(parameter = factor(parameter,
+                            levels=c("tau", "O", "a")
+                            # levels=c("O","a","tau")
+                            )) %>% 
   group_by(parameter) %>%
   group_modify(~.x %>% 
-                 arrange(if(.y == 'O') m else desc(m)) ) %>%
+                 arrange(if(.y == 'tau') m else desc(m))
+                 # arrange(if(.y == 'O') m else desc(m))
+               ) %>%
   ungroup() %>%
   mutate(Species=factor(Species, levels=unique(Species))) %>% 
-  ggplot(aes(y = Species)) +
+  ggplot(aes(y = Species, alpha = Sg_effect)) +
   theme_minimal() + 
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
@@ -127,6 +149,8 @@ datap %>%
   scale_color_manual(name = "Credible interval", 
                      values = c("95%" = "#E7B800",
                                 "50%"= "#FC4E07")) + 
+    scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+                       breaks=c("TRUE","FALSE")) +
   theme(axis.title.x =element_blank()) +
   facet_grid(~parameter, scale= "free")
 
@@ -148,7 +172,8 @@ fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
 # Biplot O vs tau
 O in y, tau in x
 ```{r}
-rects <- data.frame(xstart = sort(rep(c(-7.5, 0.5, 0), times=2)), xend = sort(rep(c(-0.5, 0, 3), times=2)),
+# color and alpha background for topo and light env
+rects <- data.frame(xstart = sort(rep(c(-7.5, .5, -0.5), times=2)), xend = sort(rep(c(-0.5, .5, 3), times=2)),
                     ystart = rep(c(-7,log(0.5)), times =3), yend = rep(c(log(0.5),0), times =3), 
                     col = rep(c("Hilltop", "No effect", "Bottomland"), each =2),
                     light = rep(c("Sciaphile", "Heliophile"), times =3))
@@ -158,27 +183,36 @@ rects <- data.frame(xstart = sort(rep(c(-7.5, 0.5, 0), times=2)), xend = sort(re
 databp <- datap %>% 
   select(-c(outer_width, inner_width, point_est)) %>% 
   rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
-  filter(parameter %in% c("O", "tau")) %>% 
+  filter(parameter %in% c("O", "tau")) %>%
+  select(-Sg_effect) %>% 
   pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
               names_glue = "{parameter}_{.value}") %>% 
   # tau significantly different of 0
-  mutate(Tau_effect = ifelse(tau_Q5<0 & 0<tau_Q95, F, T)) 
+  mutate(Tau_effect = ifelse(tau_Q5<0 & 0<tau_Q95, F, T))  %>% 
+  # Light effect (not flat)
+  mutate(Sg_light_effect = ifelse(Species %in% no_light_effect, F, T)) %>% 
+  left_join(strategy, by = c("Species" = "ScientificName"))
+
 
 (nrow(databp %>% filter(Tau_effect))/nrow(databp))*100 # 66% sp with tau significantly (95% CI) different of 0
 
-hc <- hclust(dist(databp[c("tau_median", "O_median")])) # Hierarchical Clustering
-plot(hc)
-databp$cluster <- cutree(hc, k = 4) # Cut a Tree into Groups
+# hc <- hclust(dist(databp[c("tau_median", "O_median")])) # Hierarchical Clustering
+# plot(hc)
+# databp$cluster <- cutree(hc, k = 4) # Cut a Tree into Groups
 ```
 
+## Complete
 ```{r}
 ggplot(databp) +
   theme_minimal() + 
   geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
                             xmax=xend, fill=col, alpha=light)) +
-  scale_fill_manual(name = "Topographic preference", values = c("Hilltop" = "#E7B800",
-                                                                "Bottomland"= "steelblue",
-                                                                "No effect"= "white")) + 
+  scale_fill_manual(name = "Topographic preference",
+                    values = c("Hilltop" = "#E7B800",
+                               "Bottomland"= "steelblue",
+                               "No effect"= "grey"),
+                    breaks = c("Hilltop","No effect","Bottomland")) + 
+  
   scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
   
   # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
@@ -197,8 +231,13 @@ ggplot(databp) +
                    col = "95 and 50% CI"), size = .6) + # O
   
   
-  geom_point(aes(x= tau_median, y = O_median, col=Tau_effect)) + # median
-  scale_color_manual(name = "*tau* significantly different of 0",
+  geom_point(aes(x= tau_median, y = O_median, # median
+                 col=Tau_effect, shape = Sg_light_effect)) + 
+  scale_shape_manual(name="Light effect",
+                     values=c("FALSE" = 1, "TRUE" = 19),
+                     breaks = c("TRUE","FALSE")) +
+  
+  scale_color_manual(name = "Significant topographic effect",
                      values = c("FALSE" = "grey",
                                 "TRUE"= "black",
                                 "95 and 50% CI" = "darkgrey"),
@@ -212,43 +251,83 @@ ggplot(databp) +
   
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   # scale_y_continuous(trans="exp") +
+  guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
+         col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
   theme(axis.title = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
-        legend.position="bottom") +
+        legend.position="bottom") + # , legend.box="vertical"
   labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
        y= "Light optimum (*O*) (% transmittance)")
 
 # alpha sur les postériors imprécis
 
-# ggsave("Light_topo_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-#        width = 32, height = 20, units = "cm", dpi=800, bg="white")
+ggsave("Light_topo_biplot_complete.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 32, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
+
+## No error bar
+```{r}
+ggplot(databp) +
+  theme_minimal() + 
+  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
+                            xmax=xend, fill=col, alpha=light)) +
+  scale_fill_manual(name = "Topographic preference",
+                    values = c("Hilltop" = "#E7B800",
+                               "Bottomland"= "steelblue",
+                               "No effect"= "grey"),
+                    breaks = c("Hilltop","No effect","Bottomland")) + 
+  
+  scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
+  
+  # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
+  ggpubr::stat_cor(aes(x= tau_median, y = O_median), label.x = -7.5, label.y = .1) +
+  
+  geom_vline(xintercept = 0, col="red", linetype = "dashed") +
+  
+  geom_point(aes(x= tau_median, y = O_median, # median
+                 col=Tau_effect, shape = Sg_light_effect)) + 
+  scale_shape_manual(name="Light effect",
+                     values=c("FALSE" = 1, "TRUE" = 19),
+                     breaks = c("TRUE","FALSE")) +
+  
+  scale_color_manual(name = "Significant topographic effect",
+                     values = c("FALSE" = "grey",
+                                "TRUE"= "black",
+                                "95 and 50% CI" = "darkgrey"),
+                     breaks=c("TRUE",  "FALSE", 
+                              "95 and 50% CI")) + 
+  
+  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 2.5) +
+  
+  # stat_ellipse(aes(x= tau_median, y = O_median, color = as.factor(cluster)),
+  #              type = "t",geom = "polygon",alpha = 0.4) +
+  
+  scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  # scale_y_continuous(trans="exp") +
+  guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
+         col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
+  theme(axis.title = ggtext::element_markdown(),
+        legend.title = ggtext::element_markdown(),
+        legend.position="bottom") + # , legend.box="vertical"
+  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+       y= "Light optimum (*O*) (% transmittance)")
+
+# alpha sur les postériors imprécis
+
+ggsave("Light_topo_biplot_noerrorbar.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 32, height = 20, units = "cm", dpi=800, bg="white")
+
+```
+
 
 # Biplot O vs a
-```{r}
-# light noeffect :
-# Iryanthera_sagotiana (O imprécis, a = 0 précis)
-# Symphonia_sp.1 (O imprécis, a = 0 précis)
-# Inga_loubryana
-# Virola_michelii idem
-# Pouteria_guianensis idem
-# Eschweilera_congestiflora idem
-# Couratari_multiflora idem
-# Tachigali_melinonii
-# Pouteria_gonggrijpii
-# Thyrsodium_puberulum
-# Anacardium_spruceanum
-# 
-# a >-0.1
-# (a = 0 -> large niche)
-```
 
 O in y, tau in x
 ```{r}
+# color and alpha background for light env
 rects <- data.frame(xstart = sort(rep(c(-7.5, 0.5, 0), times=2)), xend = sort(rep(c(-0.5, 0, 3), times=2)),
                     ystart = rep(c(-7,log(0.5)), times =3), yend = rep(c(log(0.5),0), times =3), 
-                    # col = rep(c("Hilltop", "No effect", "Bottomland"), each =2),
                     light = rep(c("Sciaphile", "Heliophile"), times =3))
 ```
 
@@ -258,11 +337,14 @@ databp <- datap %>%
   rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
   filter(parameter %in% c("O", "a")) %>% 
   pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
-              names_glue = "{parameter}_{.value}")
+              names_glue = "{parameter}_{.value}") %>% 
+  # Light effect (not flat)
+  mutate(Sg_light_effect = ifelse(Species %in% no_light_effect, F, T)) 
 
-hc <- hclust(dist(databp[c("a_median", "O_median")])) # Hierarchical Clustering
-plot(hc)
-databp$cluster <- cutree(hc, k = 2) # Cut a Tree into Groups
+
+# hc <- hclust(dist(databp[c("a_median", "O_median")])) # Hierarchical Clustering
+# plot(hc)
+# databp$cluster <- cutree(hc, k = 2) # Cut a Tree into Groups
 ```
 
 ```{r}
@@ -289,8 +371,11 @@ ggplot(databp) +
                    col = "95 and 50% CI"), size = .6) + # O
   
   
-  geom_point(aes(x= a_median, y = O_median)) + # median
-  scale_color_manual(name="",values = c("95 and 50% CI" = "darkgrey")) + 
+  geom_point(aes(x= a_median, y = O_median, shape = Sg_light_effect)) + # median
+  scale_shape_manual(name="Light effect",
+                     values=c("FALSE" = 1, "TRUE" = 19),
+                     breaks = c("TRUE","FALSE")) +
+  scale_color_manual(name="", values = c("95 and 50% CI" = "darkgrey")) + 
   
   ggrepel::geom_text_repel(aes(x= a_median, y = O_median, label = Species), col = "black", size = 2.5) +
   
@@ -307,8 +392,8 @@ ggplot(databp) +
 
 # alpha sur les postériors imprécis
 
-# ggsave("O_a_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-#        width = 32, height = 20, units = "cm", dpi=800, bg="white")
+ggsave("O_a_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 32, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 
@@ -327,6 +412,13 @@ DATA <- DATA %>%
   mutate(TWI = exp(logTWI))
 
 ```
+
+# Strategies boxplot
+```{r}
+ggplot(databp, aes(x= Strategy, y= O_median)) +
+  geom_boxplot()
+```
+
 
 
 ```{r predictions}
