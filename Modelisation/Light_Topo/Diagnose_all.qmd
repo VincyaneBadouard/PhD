@@ -12,6 +12,7 @@ code-fold: true
 library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
+library(patchwork)
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 # mettre 2 pour treedatacor
@@ -101,7 +102,7 @@ datap <- lapply(names(fits), function(x)
     mutate(Species = x)
 )  %>% 
   bind_rows() %>% 
-    # tau significantly different of 0
+  # tau significantly different of 0
   mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, T))  %>% 
   # Light effect (not flat)
   mutate(Sg_effect = ifelse(parameter=="O" & Species %in% no_light_effect, F, Sg_effect)) 
@@ -129,12 +130,12 @@ datap %>%
   mutate(parameter = factor(parameter,
                             levels=c("tau", "O", "a")
                             # levels=c("O","a","tau")
-                            )) %>% 
+  )) %>% 
   group_by(parameter) %>%
   group_modify(~.x %>% 
                  arrange(if(.y == 'tau') m else desc(m))
-                 # arrange(if(.y == 'O') m else desc(m))
-               ) %>%
+               # arrange(if(.y == 'O') m else desc(m))
+  ) %>%
   ungroup() %>%
   mutate(Species=factor(Species, levels=unique(Species))) %>% 
   ggplot(aes(y = Species, alpha = Sg_effect)) +
@@ -149,11 +150,12 @@ datap %>%
   scale_color_manual(name = "Credible interval", 
                      values = c("95%" = "#E7B800",
                                 "50%"= "#FC4E07")) + 
-    scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
-                       breaks=c("TRUE","FALSE")) +
+  scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+                     breaks=c("TRUE","FALSE")) +
   theme(axis.title.x =element_blank()) +
   facet_grid(~parameter, scale= "free")
 
+gridExtra::grid.arrange()
 
 ggsave("Light_topo_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
        width = 25, height = 26, units = "cm", dpi=800, bg="white")
@@ -164,6 +166,94 @@ ggsave("Light_topo_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/Vinc
 # gamma on s'en fout ?
 ```
 
+## Posteriors with O deloged
+```{r}
+# Plot data
+datap <- lapply(names(fits), function(x)
+  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "tau")),
+                      prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+    mutate(Species = x)
+)  %>% 
+  bind_rows() %>% 
+  # tau significantly different of 0
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, T))  %>% 
+  # Light effect (not flat)
+  mutate(Sg_effect = ifelse(parameter=="O" & Species %in% no_light_effect, F, Sg_effect)) 
+
+# ll : outer start
+# l : iner start
+# m : point_est value
+# h : iner end
+# hh : outer end
+
+# mcmc_intervals() code 
+# trace(bayesplot::mcmc_intervals, edit=T)
+
+# 0 line
+x_lim <- range(c(datap$ll, datap$hh))
+x_range <- diff(x_lim)
+x_lim[1] <- x_lim[1] - 0.05 * x_range
+x_lim[2] <- x_lim[2] + 0.05 * x_range
+
+# 0 line
+layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
+  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
+}
+datap_ord <- datap %>% 
+  mutate(parameter = factor(parameter,
+                            # levels=c("tau", "O", "a")
+                            levels=c("O","a","tau")
+  )) %>% 
+  group_by(parameter) %>%
+  group_modify(~.x %>% 
+                 # arrange(if(.y == 'tau') m else desc(m))
+                 arrange(if(.y == 'O') m else desc(m))
+  ) %>%
+  ungroup() %>%
+  mutate(Species=factor(Species, levels=unique(Species))) 
+
+xs <- split(datap_ord, f = datap_ord$parameter)
+
+# Residuals_covar %>% 
+p1 <- xs$O %>% 
+  ggplot(aes(y = Species, alpha = Sg_effect)) +
+  theme_minimal() + 
+  # xlim(range(c(datap$ll, datap$hh))) +
+  layer_vertical_line +
+  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
+                   color = "95%"), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
+                   color = "50%"), size = 1) +
+  geom_point(aes(x= m)) + # median
+  scale_color_manual(name = "Credible interval", 
+                     values = c("95%" = "#E7B800",
+                                "50%"= "#FC4E07")) + 
+  scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+                     breaks=c("TRUE","FALSE"))+
+  theme(axis.title.x =element_blank())
+
+p2 <- p1 %+% xs$a +
+  ggtitle("a") +
+  theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  guides(color = FALSE, alpha = FALSE)
+
+p3 <- p1 %+% xs$tau  +
+  ggtitle("tau") +
+  theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+        axis.ticks.y=element_blank())
+
+p1 <- p1 + ggtitle("O (% transmittance)") +
+  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
+  guides(color = FALSE, alpha = FALSE)
+
+
+p1+p2+p3
+
+ggsave("Light_topo_posteriors_delog.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+
+```
 
 ```{r}
 fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
@@ -192,6 +282,8 @@ databp <- datap %>%
   # Light effect (not flat)
   mutate(Sg_light_effect = ifelse(Species %in% no_light_effect, F, T)) %>% 
   left_join(strategy, by = c("Species" = "ScientificName"))
+
+exp(quantile(databp$O_median, probs = 0.5))*100
 
 
 (nrow(databp %>% filter(Tau_effect))/nrow(databp))*100 # 66% sp with tau significantly (95% CI) different of 0
@@ -320,6 +412,58 @@ ggsave("Light_topo_biplot_noerrorbar.png", path = "//amap-data.cirad.fr/work/use
 
 ```
 
+## Without no light effect
+```{r}
+databp %>% 
+  filter(Sg_light_effect) %>% 
+  ggplot() +
+  theme_minimal() + 
+  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
+                            xmax=xend, fill=col, alpha=light)) +
+  scale_fill_manual(name = "Topographic preference",
+                    values = c("Hilltop" = "#E7B800",
+                               "Bottomland"= "steelblue",
+                               "No effect"= "grey"),
+                    breaks = c("Hilltop","No effect","Bottomland")) + 
+  
+  scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
+  
+  # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
+  ggpubr::stat_cor(aes(x= tau_median, y = O_median), label.x = -7.5, label.y = .1) +
+  
+  geom_vline(xintercept = 0, col="red", linetype = "dashed") +
+  
+  geom_point(aes(x= tau_median, y = O_median, # median
+                 col=Tau_effect)) + 
+  
+  scale_color_manual(name = "Significant topographic effect",
+                     values = c("FALSE" = "grey",
+                                "TRUE"= "black",
+                                "95 and 50% CI" = "darkgrey"),
+                     breaks=c("TRUE",  "FALSE", 
+                              "95 and 50% CI")) + 
+  
+  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 2.5) +
+  
+  # stat_ellipse(aes(x= tau_median, y = O_median, color = as.factor(cluster)),
+  #              type = "t",geom = "polygon",alpha = 0.4) +
+  
+  scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  # scale_y_continuous(trans="exp") +
+  guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
+         col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
+  theme(axis.title = ggtext::element_markdown(),
+        legend.title = ggtext::element_markdown(),
+        legend.position="bottom") + # , legend.box="vertical"
+  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+       y= "Light optimum (*O*) (% transmittance)")
+
+# alpha sur les postériors imprécis
+
+ggsave("Light_topo_biplot_noerrorbar_onlysg_light_effect.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 32, height = 20, units = "cm", dpi=800, bg="white")
+
+```
 
 # Biplot O vs a
 
@@ -399,29 +543,6 @@ ggsave("O_a_biplot.png", path = "//amap-data.cirad.fr/work/users/VincyaneBadouar
 
 # Predictions
 ```{r predictions}
-DATA <- fit$summary("p") # p posterior
-
-# prediction environment 
-DATA <- DATA %>% 
-  rowwise() %>% 
-  mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
-  mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
-  mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 50)[Light]) %>% # -7.308724e+00 , 8.941571e-08
-  mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) %>% # 1.358045 - 2.400176
-  mutate(Transmittance = round(exp(logTransmittance), 3)) %>%
-  mutate(TWI = exp(logTWI))
-
-```
-
-# Strategies boxplot
-```{r}
-ggplot(databp, aes(x= Strategy, y= O_median)) +
-  geom_boxplot()
-```
-
-
-
-```{r predictions}
 Sys.time()
 
 plist <- list()
@@ -436,10 +557,7 @@ for(s in names(fits)){
       mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
       mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
       mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 50)[Light]) %>% # -7.308724e+00 , 8.941571e-08
-      mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) %>% # 1.358045 - 2.400176
-      mutate(Transmittance = round(exp(logTransmittance), 3)) %>%
-      mutate(TWI = exp(logTWI))
-    
+      mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) # 1.358045 - 2.400176
     
     DATA %>% 
       group_by(Light) %>% 
@@ -453,6 +571,8 @@ for(s in names(fits)){
       geom_vline(xintercept  = fits[[s]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
       geom_vline(xintercept  = fits[[s]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
       # scale_x_continuous(trans="log") +
+      scale_x_continuous(name = "Light (% transmittance)",
+                         n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
       ggtitle(paste(s,"- at logTWI optimum")) +
       ylab("Presence probabiblity median")
     
@@ -468,6 +588,12 @@ ggsave("Allsp_Light_niche_atTWIoptimum.pdf",
        plots, width = 15, height = 10)
 
 Sys.time() # 32 min
+```
+
+# Strategies boxplot
+```{r}
+ggplot(databp, aes(x= Strategy, y= O_median)) +
+  geom_boxplot()
 ```
 
 
