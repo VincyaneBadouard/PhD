@@ -92,7 +92,7 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
 length(unique(badRhat$Species)) # (44/75)*100 = 59%
 ```
 
-```{r}
+```{r chains}
 name <- 
   # names(fits)[names(fits) %in% c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")]
   unique(badRhat$Species)

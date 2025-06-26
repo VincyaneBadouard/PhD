@@ -28,6 +28,7 @@ strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strate
   unique()
 ```
 
+# Fits
 ```{r fit}
 fits <- list()
 for(S in sp){
@@ -40,7 +41,7 @@ for(S in sp){
 }
 # names(fits[["Symphonia_sp.1"]])
 ```
-
+# Divergence
 ```{r divergence}
 Div <- lapply(names(fits), function(x)
   data.frame(Species = x,
@@ -74,8 +75,8 @@ all(Rhat_table$rhat < 1.01)
 badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
   left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
 ```
-
-```{r}
+# Chains
+```{r chains}
 name <- names(fits)#  unique(badRhat$Species) # names(fits) #
 lapply(name , function(x)
   fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
@@ -88,7 +89,7 @@ lapply(name , function(x)
 # no light effect (flat) :
 no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana", "Virola_michelii", "Pouteria_guianensis", "Eschweilera_congestiflora", "Couratari_multiflora", "Tachigali_melinonii", "Pouteria_gonggrijpii", "Thyrsodium_puberulum", "Anacardium_spruceanum")
 
-# a_Q5 < -0.07
+# a_Q95 > -0.07
 # (a = 0 -> large niche)
 ```
 
