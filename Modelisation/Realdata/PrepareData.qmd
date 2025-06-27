@@ -22,6 +22,47 @@ Inv <- Inv %>%
 summary(Inv)
 ```
 
+# Keep environment values for predictions
+50 values each
+```{r}
+Combin <- read_csv("../../../PhD_cluster/Data/Combin_Sp_DBHclas.csv") %>% 
+  select(-ID, -Species) %>% 
+  unique()
+
+```
+
+```{r}
+Np <- 50 # number of predictions
+
+x <- Inv %>% 
+  select(DBHcor, logTransmittance, logTWI)
+
+Community <- data.frame(
+  DBH_classes = 'All',
+  Lightp = seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np),
+  Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np)
+)
+
+d <- list()
+for(i in 1:nrow(Combin)){
+# i=2
+x <- Inv %>% 
+  filter(DBHcor >= Combin[i,]$Min & DBHcor < Combin[i,]$Max) # only the DBH class)
+
+d[[i]] <- data.frame(
+  DBH_classes = Combin[i,]$DBH_classes,
+  Lightp = seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np),
+  Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np)
+)
+
+}
+
+Envpred <- do.call("rbind",d) %>% rbind(Community) # 5*50 = 250
+
+write_csv(Envpred, "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction.csv")
+```
+
+
 # Create presence-absence data format for each species
 ```{r}
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
