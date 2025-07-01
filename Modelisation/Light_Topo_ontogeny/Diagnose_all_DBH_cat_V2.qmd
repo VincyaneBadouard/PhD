@@ -12,17 +12,14 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])[1:10]
 
 Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_DBHclas.csv")
 
 unique(Comb$DBH_classes)
 # 75
-# metrre le 2 avec la correc bota
+# mettre le 2 avec la correc bota
 
-# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana", "Symphonia_sp.1", "Pogonophora_schomburgkiana")
-
-# sp <- "Iryanthera_hostmannii"
 
 strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
   select(ScientificName, Strategy_VB) %>%
@@ -35,10 +32,10 @@ strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strate
 ```{r fit}
 fits <- list()
 for(S in sp){
-  for(D in c("1-5","5-10","10-20","-20")){
+  for(D in c("1-3","3-10","10-25","-25")){
     tryCatch({
       chain_path <- file.path("Chains", "Hybrid_no_iota", S, D)
-      if(D=="-20") D <- ">20"
+      if(D=="-25") D <- ">25"
       fits[[S]][[D]] <- as_cmdstan_fit(list.files(chain_path,
                                                   full.names = TRUE))},
       error=function(e){cat("ERROR :",S, D, conditionMessage(e), "\n")}
@@ -47,14 +44,14 @@ for(S in sp){
 }
 # names(fits[["Symphonia_sp.1"]])
 
-names(fits)[names(fits) == "-20"] <- ">20"
+names(fits)[names(fits) == "-25"] <- ">25"
 ```
 
 # Divergence
 ```{r divergence}
 d <- list()
 for(S in names(fits)){
-  for(D in c("1-5","5-10","10-20",">20")){
+  for(D in c("1-3","3-10","10-25",">25")){
     if(D %in% names(fits[[S]])){
       
       d[[S]][[D]] <- data.frame(Species = S,
@@ -77,7 +74,7 @@ R-hat which is the maximum of rank normalized split-R-hat and rank normalized fo
 ```{r Rhat}
 d <- list()
 for(S in names(fits)){
-  for(D in c("1-5","5-10","10-20",">20")){
+  for(D in c("1-3","3-10","10-25",">25")){
     if(D %in% names(fits[[S]])){
       
       d[[S]][[D]] <- fits[[S]][[D]]$summary(c("alpha", "beta1", "beta2_p", "tau")) %>% 
@@ -107,7 +104,7 @@ name <-
 # sort(names(fits))
 
 for(S in name){
-  for(D in c("1-5","5-10","10-20",">20")){
+  for(D in c("1-3","3-10","10-25",">25")){
     # if(D %in% names(fits[[S]])){
     if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
       S = "Talisia_sylvatica"
@@ -130,7 +127,7 @@ for(S in name){
 d <- list()
 # Plot data
 for(S in names(fits)){
-  for(D in c("1-5","5-10","10-20",">20")){
+  for(D in c("1-3","3-10","10-25",">25")){
     if(D %in% names(fits[[S]])){
       
       d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "tau")),
@@ -152,11 +149,16 @@ datap <- datap %>%
   # tau significantly different of 0
   mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
   mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>% 
-  mutate(DBH = factor(DBH, levels=c("1-5","5-10","10-20",">20"))) %>% 
+  mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25"))) %>% 
   left_join(strategy, by = c("Species" = "ScientificName")) %>% 
   mutate(Strategy = factor(Strategy, levels=c("Canopy species","Understory species"))) %>% 
   arrange(Species) %>% arrange(Strategy) %>% 
-  mutate(Species=factor(Species, levels=unique(Species))) 
+  mutate(Species=factor(Species, levels=unique(Species))) %>% 
+  mutate(Topo= case_when(
+    parameter=="tau" & m > 0 ~ "More flood tolerant",
+    parameter=="tau" & m < 0 ~ "Less flood tolerant")) %>% 
+  mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "Generalist", Topo))
+
 
 ord_sp <- unique(datap$Species)
 
@@ -182,26 +184,26 @@ fixer y pour toutes les pages
 # trace(bayesplot::mcmc_intervals, edit=T)
 
 for(P in c('O', 'a', 'tau')){
-  i = 15 # nbr of sp per page
+  i = 10 # nbr of sp per page
   plist <- vector('list', round(length(names(fits))/i))
   
   for(p in 1:round(length(names(fits))/i)){
-    # p1 to 5 for 15 sp each
+    # p1 to 8 for 10 sp each
     # message(s)
     plist[[p]] <- local({
-      # p <- 3
+      # p <- 7
       if (p==1) {start = 1
-      }else{start = i*(p-1) + (p-1)}
+      }else{start = i*(p-1) + 1}
       stop = start + (i-1)
       
-      datap %>% 
+      print(p) ;  print(P)
+      
+      datas <- datap %>% 
         filter(parameter==P) %>%
-        filter(sp_code >= start & sp_code <= stop) %>% 
-        
-        ggplot(aes(x= DBH, y = m, group=1)) +
+        filter(sp_code >= start & sp_code <= stop)
+      
+      ggplot(datas, aes(x= DBH, y = m, group=1)) +
         theme_minimal() + 
-        xlim(range(c(datap$ll, datap$hh))) +
-        layer_vertical_line +
         geom_segment(aes(y=ll, yend=hh, x=DBH, xend=DBH,
                          color = "95%"), size = 0.5) +
         geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH,
@@ -209,10 +211,17 @@ for(P in c('O', 'a', 'tau')){
         scale_color_manual(name = "Credible interval", 
                            values = c("95%" = "#E7B800",
                                       "50%"= "#FC4E07")) + 
-        geom_point(aes(alpha = Sg_effect)) + # median
+        {if(P!='tau') geom_point() } + # median
+        {if(P=='tau') geom_point(aes(alpha = Sg_effect)) } +
         geom_line() +
+        {if(P=='tau') geom_hline(yintercept=0, linetype = "dashed", col = "red") } +
         scale_x_discrete(position = "top") +
-        scale_y_continuous(position = "right") +
+        
+        {if(P=='O') scale_y_continuous(position = "right") } +
+        {if(P=='tau') scale_y_continuous(position = "right", limits = c(-20, NA))  } +
+        {if(P=='a')  scale_y_continuous(position = "right", limits = c(-3, NA)) } +
+
+        # , limits = c(min(datas$ll), max(datas$hh))
         labs(x= 'DBH (cm)', y= P) +
         facet_grid(Species ~ ., switch = "y") +
         theme(strip.text.y.left = element_text(angle = 0))
@@ -223,36 +232,52 @@ for(P in c('O', 'a', 'tau')){
   # plots
   
   
-  ggsave(paste(P,"_posteriors_stages_sg.pdf", sep=''), path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+  ggsave(paste(P,"_posteriors_stages.pdf", sep=''), path = # _sg
+           "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
          plot = plots, width = 25, height = 26, units = "cm", dpi=800, bg="white")
 }
 ```
+
 # Parameters accross onto
 ```{r}
 for(S in c('Understory species', 'Canopy species')){
+  # S='Understory species'
   for(P in c('a', 'O', 'tau')){
+    # P='a'
     
     datap %>% 
       filter(parameter==P) %>% 
       filter(Strategy==S) %>% 
-      ggplot(aes(x= DBH, y = m, col = Species, group = Species, alpha= Sg_effect)) +
+      ggplot(aes(x= DBH, y = m, col = Species, group = Species, alpha= Sg_effect)) + # 
       theme_minimal() + 
-      geom_point() +
-      geom_line() +
+      {if(P!='tau') list(geom_point(), geom_line(), guides(col = guide_legend(ncol = 2)) ) } + # median
+      {if(P=='tau') list(geom_point(aes(col=Topo)), geom_line(aes(col=Topo)),
+                         scale_y_continuous(limits = c(-20, NA)) ) } +
       {if(P=='O')  scale_y_continuous(limits = c(NA,0), n.breaks = 10, labels = ~round(exp(.)*100,2)) } +
       scale_alpha_manual(values = c("FALSE" = .2, "TRUE"= 1)) +
       # guides(color = F) +
-      guides(col = guide_legend(ncol = 2)) +
-      {if(P=='a')  guides(alpha = F) } +
+      {if(P=='a')  list(guides(alpha = F), scale_y_continuous(limits = c(-3, NA))) } +
+      {if(P=='tau') geom_hline(yintercept=0, linetype = "dashed", col = "red") } +
       labs(title=S, y=P)
     
-    ggsave(paste(S,P,"accross_onto_sg.png", sep='_'), path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+    ggsave(paste(S,P,"accross_onto.png", sep='_'), path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
            width = 25, height = 26, units = "cm", dpi=800, bg="white")
   }
 }
 ```
 
-# a boxplot accross onto
+```{r}
+datap %>% 
+  select(Species, DBH, Topo) %>% 
+  na.omit() %>% 
+  # summarise(N = n()) %>% 
+  ggplot(aes(x= DBH, fill= Topo)) +
+  theme_minimal() + 
+  geom_histogram(stat="count") +
+  labs(y = 'Species number', fill = "Topographic sensitivity")
+```
+
+# Boxplot parameters accross onto
 ```{r}
 for(S in c('Understory species', 'Canopy species')){
   for(P in c('a', 'O', 'tau')){
@@ -263,6 +288,9 @@ for(S in c('Understory species', 'Canopy species')){
         ggplot(aes(x= DBH, y = m)) +
         theme_minimal() + 
         geom_boxplot() +
+        {if(P=='tau') scale_y_continuous(limits = c(-20, NA))  } +
+        {if(P=='a')  scale_y_continuous(limits = c(-2, NA)) } +
+        
         labs(title=S, y=P)
     )
     # ggsave(paste(S,"a_boxplot_accross_onto_sg.png", sep='_'), path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
@@ -276,7 +304,7 @@ il faut l'environnement de chaque classe onto...
 1 plot par sp et une couleur par stade
 ```{r}
 Envpred <- read_csv("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction.csv") %>% 
-  mutate(DBH_classes = recode(DBH_classes, "-20" = ">20"))
+  mutate(DBH_classes = recode(DBH_classes, "-25" = ">25"))
 ```
 
 ```{r predictions}
@@ -289,7 +317,7 @@ plist <- list()
 for(s in names(fits)){
   plist[[s]] <- local({
     # s= "Lecythis_persistens"
-    for(d in c("1-5","5-10","10-20",">20")){
+    for(d in c("1-3","3-10","10-25",">25")){
       # d= "1-5"
       if(d %in% names(fits[[s]])){
         
@@ -312,9 +340,9 @@ for(s in names(fits)){
       }
     }
     DATA <- list_rbind(list_flatten(datalist)) %>% 
-      mutate(DBH = factor(DBH, levels=c("1-5","5-10","10-20",">20")))
+      mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25")))
     ODATA <- list_rbind(list_flatten(Olist)) %>% 
-      mutate(DBH = factor(DBH, levels=c("1-5","5-10","10-20",">20")))
+      mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25")))
     
     DATA %>% 
       ggplot(aes(col = DBH, fill=DBH)) +
@@ -329,17 +357,17 @@ for(s in names(fits)){
       
       # geom_vline(data = ODATA, aes(xintercept  = OQ5, col= DBH),  linetype="dashed") + # Opt Q5%
       # geom_vline(data = ODATA, aes(xintercept  = OQ95, col= DBH),  linetype="dashed") + # Opt Q95%
-      scale_color_manual(values = c("1-5" = "#00AFBB",
-                                   "5-10"= "#CC79A7",
-                                   "10-20"= "#E7B800",
-                                   ">20" = "#FC4E07"),
-                        breaks=c("1-5","5-10","10-20",">20")) + 
+      scale_color_manual(values = c("1-3" = "#00AFBB",
+                                    "3-10"= "#CC79A7",
+                                    "10-25"= "#E7B800",
+                                    ">25" = "#FC4E07"),
+                         breaks=c("1-3","3-10","10-25",">25")) + 
       
-      scale_fill_manual(values = c("1-5" = "#00AFBB",
-                                   "5-10"= "#CC79A7",
-                                   "10-20"= "#E7B800",
-                                   ">20" = "#FC4E07"),
-                        breaks=c("1-5","5-10","10-20",">20")) + 
+      scale_fill_manual(values = c("1-3" = "#00AFBB",
+                                    "3-10"= "#CC79A7",
+                                    "10-25"= "#E7B800",
+                                    ">25" = "#FC4E07"),
+                        breaks=c("1-3","3-10","10-25",">25")) + 
       
       scale_x_continuous(name = "Light (% transmittance)",
                          n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog

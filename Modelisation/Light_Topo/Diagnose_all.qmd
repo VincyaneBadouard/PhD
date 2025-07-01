@@ -13,6 +13,7 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 library(patchwork)
+library(grid)
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 # mettre 2 pour treedatacor
@@ -23,7 +24,7 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 # sp <- "Symphonia_sp.1"
 
 strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
-  select(ScientificName, Strategy_VB) %>%
+  select(ScientificName, Strategy_VB, Q95, DBHmax) %>%
   rename(Strategy = Strategy_VB) %>% 
   unique()
 ```
@@ -41,6 +42,7 @@ for(S in sp){
 }
 # names(fits[["Symphonia_sp.1"]])
 ```
+
 # Divergence
 ```{r divergence}
 Div <- lapply(names(fits), function(x)
@@ -93,8 +95,7 @@ no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana",
 # (a = 0 -> large niche)
 ```
 
-# Posteriors
-Plot central (quantile-based) posterior interval estimates from MCMC draws
+# Prepare plots data
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
@@ -102,11 +103,22 @@ datap <- lapply(names(fits), function(x)
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
-  bind_rows() %>% 
+  bind_rows() 
+
+# Light effect (not flat)
+O_sg <- datap %>% 
+  # mutate(incertitude = hh-ll) %>% 
+  # filter(parameter=="O"& incertitude > 4) %>%
+  filter(parameter=="a"& m > -0.02) %>% # no light effect
+  select(Species) %>% 
+  mutate(parameter="O") %>% 
+  mutate(Sg_effect = F)
+
+datap <- datap %>%
+  left_join(O_sg, by=c("Species", "parameter")) %>% 
   # tau significantly different of 0
-  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, T))  %>% 
-  # Light effect (not flat)
-  mutate(Sg_effect = ifelse(parameter=="O" & Species %in% no_light_effect, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>%
   left_join(strategy, by = c("Species" = "ScientificName"))
 
 # ll : outer start
@@ -128,6 +140,42 @@ x_lim[2] <- x_lim[2] + 0.05 * x_range
 layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
+
+min((datap %>% filter(Species %in% no_light_effect & parameter=='a'))$m) # min a median : -0.019
+range((datap %>% filter(Species %in% no_light_effect & parameter=='O') %>% mutate(incertitude = hh-ll))$incertitude) # O incertitude : 4.5-6.5
+```
+
+# Check strategies
+```{r}
+datap %>% 
+  filter(parameter=='O' & Sg_effect) %>% 
+  filter(!Species %in% c('Talisia_sylvatica', 'Votomita_guianensis', 'Protium_opacum')) %>% # because misidentifications so wrong Q95
+  ggplot(aes(x=Q95, y=m, col = Strategy)) +
+  theme_minimal() + 
+  scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  ggrepel::geom_text_repel(aes(label = Species), col = "black", size = 2.5) +
+  geom_point()
+```
+# Check extremes
+```{r}
+for(P in c("O", "tau")){
+  # P="O"
+  print(
+    datap %>% 
+      filter(parameter==P & Sg_effect) %>% 
+      # summarise(N = n()) %>% 
+      ggplot(aes(x= m)) +
+      theme_minimal() + 
+      geom_histogram(bins=10, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # binwidth=1, 
+      {if(P=='O') scale_x_continuous("O median (transmittance %)", n.breaks = 13, labels = ~round(exp(.)*100,2))} + # delog
+      {if(P=='tau') xlab(P)} +
+      labs(y = 'Species number')
+  )}
+```
+
+# Posteriors
+Plot central (quantile-based) posterior interval estimates from MCMC draws
+```{r}
 datap %>% 
   mutate(parameter = factor(parameter,
                             levels=c("tau", "O", "a")
@@ -170,37 +218,6 @@ ggsave("Light_topo_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/Vinc
 
 ## Posteriors with O deloged
 ```{r}
-# Plot data
-datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "tau")),
-                      prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
-    mutate(Species = x)
-)  %>% 
-  bind_rows() %>% 
-  # tau significantly different of 0
-  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, T))  %>% 
-  # Light effect (not flat)
-  mutate(Sg_effect = ifelse(parameter=="O" & Species %in% no_light_effect, F, Sg_effect)) 
-
-# ll : outer start
-# l : iner start
-# m : point_est value
-# h : iner end
-# hh : outer end
-
-# mcmc_intervals() code 
-# trace(bayesplot::mcmc_intervals, edit=T)
-
-# 0 line
-x_lim <- range(c(datap$ll, datap$hh))
-x_range <- diff(x_lim)
-x_lim[1] <- x_lim[1] - 0.05 * x_range
-x_lim[2] <- x_lim[2] + 0.05 * x_range
-
-# 0 line
-layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
-  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
-}
 datap_ord <- datap %>% 
   mutate(parameter = factor(parameter,
                             # levels=c("tau", "O", "a")
@@ -257,6 +274,62 @@ ggsave("Light_topo_posteriors_delog.pdf", path = "//amap-data.cirad.fr/work/user
 
 ```
 
+# Monoplots
+```{r}
+for(P in c('O', 'tau', 'a')){
+  # P="O"
+  print(
+    datap %>% 
+      filter(parameter==P) %>% 
+      arrange(m) %>%
+      mutate(Species=factor(Species, levels=unique(Species))) %>% 
+      
+      ggplot(aes(y = Species, alpha = Sg_effect)) +
+      theme_minimal() + 
+      {if(P=='tau') geom_vline(xintercept=0, linetype = "dashed", col = "red") } +
+      {if(P=='a') geom_vline(xintercept=-0.02, linetype = "dashed", col = "red") } + 
+      
+      # xlim(range(c(datap$ll, datap$hh))) +
+      # layer_vertical_line +
+      geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
+                       color = "95%"), size = 0.5) +
+      geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
+                       color = "50%"), size = 1) +
+      geom_point(aes(x= m)) + # median
+      xlab(P) +
+      {if(P=='O')  scale_x_continuous("O (% transmittance)", n.breaks = 14,labels = ~round(exp(.)*100,2)) } + #  breaks = log(c(.002, .01, .05, .1, .5, 1, .2, .3, 1))
+      scale_color_manual(name = "Credible interval", 
+                         values = c("95%" = "#E7B800",
+                                    "50%"= "#FC4E07")) + 
+      scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+                         breaks=c("TRUE","FALSE"))+
+      {if(P=='a') guides(alpha = FALSE) } +
+      theme(axis.title.x =element_blank(), legend.position="bottom") +
+      # coord_flip() + theme(axis.text.x = element_text(angle = 90, vjust = 0.3, hjust=1)) +
+      
+      theme(plot.margin = unit(c(1,1,1,4), "lines")) +
+      coord_flip(clip = "off") + theme(axis.text.x = element_text(angle = 90, vjust = 0.3, hjust=1)) +
+      
+      {if(P=='a') list(
+        annotation_custom(textGrob("Wide light\nniche"),xmin= 0,xmax=0,ymin=-6,ymax=-6), 
+        annotation_custom(textGrob("Narrow light\nniche"),xmin= -.7,xmax=-.7,ymin=-6,ymax=-6)
+      ) } +
+      {if(P=='O') list(
+        annotation_custom(textGrob("Heliophile"),xmin= 0,xmax=0,ymin=-7,ymax=-7), 
+        annotation_custom(textGrob("Sciaphile"),xmin= -7,xmax=-7,ymin=-7,ymax=-7)
+      ) } +
+      {if(P=='tau') list(
+        annotation_custom(textGrob("More flood\ntolerant"),xmin= 2.5,xmax=2.5,ymin=-6,ymax=-6), 
+        annotation_custom(textGrob("Less flood\ntolerant"),xmin= -7.5,xmax=-7.5,ymin=-6,ymax=-6)
+      ) }
+  )
+  
+  ggsave(paste(P,"monoplot.png", sep='_'), path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+         width = 23, height = 13, units = "cm", dpi=800, bg="white")
+}
+
+```
+
 ```{r}
 fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
 ```
@@ -273,6 +346,7 @@ rects <- data.frame(xstart = sort(rep(c(-7.5, .5, -0.5), times=2)), xend = sort(
 
 ```{r}
 databp <- datap %>% 
+  select(-Q95) %>% 
   select(-c(outer_width, inner_width, point_est)) %>% 
   rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
   filter(parameter %in% c("O", "tau")) %>%
@@ -525,6 +599,7 @@ rects <- data.frame(xstart = rep(-0.75, times=2), xend = rep(0, times=2),
 
 ```{r}
 databp <- datap %>% 
+  select(-Q95) %>% 
   select(-c(outer_width, inner_width, point_est, Sg_effect)) %>% 
   rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
   filter(parameter %in% c("O", "a")) %>% 
@@ -573,6 +648,7 @@ ggplot(databp) +
   #              type = "t",geom = "polygon",alpha = 0.4) +
   
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  scale_x_continuous(n.breaks = 10, labels = ~round(log(-.),2)) + # log
   # scale_y_continuous(trans="exp") +
   theme(axis.title = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),

@@ -146,15 +146,15 @@ check <- test %>% left_join(strategy, by="ScientificName", suffix = c("_VB", "_G
 ```
 
 # Modulo des sp qui ne respectent pas cette méthode
-Talisia_guianensis is definitely un understory, it fruits at 1.5m tall and 1cm DBH! 
+*Talisia_guianensis* is definitely un understory, it fruits at 1.5m tall and 1cm DBH! 
 
-Protium_pilosum  this is known to be tall up to 12m, a real understory  
+*Protium_pilosum*  this is known to be tall up to 12m, a real understory  
 
-Talisia_sylvatica All IDs come form BAFOG, and all are in BotaCertainty '3', not sure we can say these are really T. sylvatica. Also, flowering samples, from the herbarium, are noted as "small trees". I'd keep it in Understory  
+*Talisia_sylvatica* All IDs come form BAFOG, and all are in BotaCertainty '3', not sure we can say these are really T. sylvatica. Also, flowering samples, from the herbarium, are noted as "small trees". I'd keep it in Understory  
 
-Votomita_guianensis : but i think these are misidentifications: Votomita guyanensis is an understory treelet even to Aublet in 1775 (https://www.biodiversitylibrary.org/page/362067#page/125/mode/1up 6 feet tall)
+*Votomita_guianensis* : but i think these are misidentifications: Votomita guyanensis is an understory treelet even to Aublet in 1775 (https://www.biodiversitylibrary.org/page/362067#page/125/mode/1up 6 feet tall)
 
-Miconia_plukenetii c'est une plante « pas strictement du sous-bois »
+*Miconia_plukenetii* c'est une plante « pas strictement du sous-bois »
 
 Source : Giacomo Sellan
 
