@@ -13,11 +13,13 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 
-# sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
 # sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
 
-sp <- "Dicorynia_guianensis"
+# sp <- "Dicorynia_guianensis"
+
+setwd("../Light_Topo/")
 
 ```
 
@@ -67,10 +69,10 @@ R-hat convergence diagnostic, which compares the between- and within-chain estim
 R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
 ```{r Rhat, eval=F}
 Rhat_table <- lapply(names(fits), function(x)
-  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota"), "rhat") %>% 
+  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau"), "rhat") %>% 
     mutate(Species = x) %>% 
     select(Species, variable, rhat) %>% 
-    mutate(rhat_eig = fits_eig[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau", "iota"), "rhat")$rhat)
+    mutate(rhat_eig = fits_eig[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau"), "rhat")$rhat)
 ) %>% 
   bind_rows()
 
@@ -85,13 +87,13 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
 
 ```{r, eval=F}
 lapply(unique(badRhat$Species) , function(x)
-  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
     mcmc_trace() +
     ggtitle(paste("Without eigenvectors - ",x))
 )
 
 lapply(unique(badRhat$Species) , function(x)
-  fits_eig[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "iota")) %>% 
+  fits_eig[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
     mcmc_trace() +
     ggtitle(paste("With eigenvectors - ",x))
 )
@@ -102,11 +104,11 @@ Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[1]]$draws(c("a", "O", "gamma", "tau", "iota")),
+  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "gamma", "tau")),
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
     mutate(Eigenvectors = F) %>% 
     bind_rows(
-      mcmc_intervals_data(fits_eig[[1]]$draws(c("a", "O", "gamma", "tau", "iota")),
+      mcmc_intervals_data(fits_eig[[x]]$draws(c("a", "O", "gamma", "tau")),
                           prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
         mutate(Eigenvectors = T)
     ) %>% 
@@ -161,7 +163,7 @@ ggplot(datap, aes(y = Species, col = Eigenvectors)) +
 
 
 ```{r}
-fits[[1]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
+fits[[x]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
 ```
 
 # Biplot

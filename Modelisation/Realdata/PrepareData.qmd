@@ -58,6 +58,7 @@ d[[i]] <- data.frame(
 }
 
 Envpred <- do.call("rbind",d) %>% rbind(Community) # 5*50 = 250
+unique(Envpred$DBH_classes)
 
 write_csv(Envpred, "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction.csv")
 ```
@@ -122,9 +123,13 @@ save(datalist_bal, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/R
 
 # Join eigenvectors
 ```{r}
-filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/", full.names=T)
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
+```
+
+```{r}
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", full.names=T)
 eigenval <- lapply(filelist, read_csv)
-filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/", "", filelist)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", "", filelist)
 filelist <- gsub(".csv", "", filelist)
 
 names(eigenval) <- filelist
@@ -136,10 +141,12 @@ datalist_eig <- datalist
 # str(datalist_eig[[1]])
 
 datalist_eig <- lapply(names(datalist), function(name) {
-  
-  if(name %in% names(eigenval)){
+  # name = "Sextonia_rubra"
+  if(name %in% names(eigenval) & ncol(eigenval[[name]])>0){
     datalist_eig[[name]] <- datalist_eig[[name]] %>%
-      left_join(unique(eigenval[[name]]), by=c("Xutm", "Yutm"), copy = T)
+      # left_join(unique(eigenval[[name]]), by=c("Xutm", "Yutm"), copy = T)
+            bind_cols(eigenval[[name]])
+
   }
   datalist_eig[[name]]  # Return modified data frame
 })

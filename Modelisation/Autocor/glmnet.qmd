@@ -1,0 +1,155 @@
+---
+params:
+  species: Dicorynia_guianensis
+title: "glmnet"
+subtitle: "*`r params$sp`*"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+Glmnet fits generalized linear and similar models via **penalized maximum likelihood**.
+It fits linear, **logistic** and multinomial, poisson, and Cox regression models.  
+
+The function glmnet returns a sequence of models for the users to choose from. Cross-validation is perhaps the simplest and most widely used method for that task. **cv.glmnet** is the main function to do cross-validation here.  
+
+lambda.min = λ that gives minimum mean cross-validated error.  
+
+
+```{r setup}
+library(readr)
+library(tidyverse)
+library(glmnet)
+
+sp <- params$species
+```
+
+# Load eigenvectors
+```{r eigenvectors, include=F}
+eigenval <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/All_obs_Eigenvectors.csv") # %>% filter(Xutm > 285400 & Xutm < 285610 & Yutm > 581460 & Yutm < 581575)
+```
+
+# Load species data
+```{r observations}
+path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
+load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+
+DATA <- datalist[[sp]] %>% # only species in sp
+  select(Xutm, Yutm, Presence, logTransmittance,logTWI,logDBH)
+
+y <- DATA$Presence # response vector
+```
+
+# Bind
+```{r}
+dataall <- DATA %>% 
+  bind_cols(eigenval)
+```
+
+# Plot species spatial distribution
+```{r, eval=F}
+DATA %>% 
+  arrange(Presence) %>% 
+  ggplot(aes(x= Xutm, y= Yutm, col=as.factor(Presence))) +
+  geom_point()
+```
+
+# Model with only environment
+```{r only env}
+# Formula
+formula_ini <- as.formula("Presence ~ logTransmittance + I(logTransmittance^2) + logTWI")
+
+# Matrix of dimension nobs x nvars
+matrix_ini <- model.matrix(formula_ini, data=DATA)[,-1] 
+
+# Simple glm
+glm_fit <- glm(formula_ini, data=DATA, family = "binomial")
+
+# Cross validation
+cv_fit_ini <- cv.glmnet(matrix_ini, y, family = "binomial", type.measure = "auc") # according to ROC curve
+coef_glmnet_ini <- coef(cv_fit_ini, s = "lambda.min") #  model coefficients at that value of λ
+coef_glmnet_ini
+```
+
+# Model with eigenvectors
+```{r all}
+# Formula
+formula_full <- as.formula(paste("~ logTransmittance + I(logTransmittance^2) + logTWI",
+                                 paste(paste0("V",1:200), collapse="+"), sep="+"))
+
+# Matrix of dimension nobs x nvars
+matrix_full <- model.matrix(formula_full, data=dataall)[,-1] 
+
+# Cross-validation
+Sys.time() 
+cv_fit <- cv.glmnet(matrix_full, y, family = "binomial", type.measure = "auc") # according to ROC curve
+Sys.time() # 6 min for 25ha
+
+coef_glmnet <- coef(cv_fit, s = "lambda.min") #  model coefficients at that value of λ
+coef_glmnet 
+```
+
+```{r}
+vars <- data.frame(Vars = c("Intercept","logTransmittance","I(logTransmittance^2)","logTWI", paste0("V",1:200))) %>%
+  tibble::rownames_to_column("i") %>% 
+  mutate(i=as.numeric(i))
+
+selection <- as.data.frame(summary(coef_glmnet)) %>% 
+  select(-j) %>% 
+  left_join(vars, by="i") %>% 
+  arrange(desc(abs(x))) %>% 
+  filter(!Vars %in% c("Intercept","logTransmittance","I(logTransmittance^2)","logTWI")) %>% 
+  select(-i) %>% 
+  slice(1:5)
+
+eigenval_select <- eigenval %>% 
+  select(selection$Vars)
+
+write_csv(eigenval_select, paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", sp, ".csv"))
+
+```
+
+```{r}
+plot(cv_fit)
+```
+# Compare model predictictions and observations
+```{r Predictions, eval=F}
+# Predictions
+Sys.time() 
+fit_glmnet <- glmnet(matrix_full, y, family = "binomial", lambda = cv_fit$lambda.min)
+Sys.time() # très long et ne marche pas
+
+Sys.time() 
+pred_glmnet <- predict(fit_glmnet, newx = matrix_full, type="response")
+Sys.time()
+
+mean((y-pred_glm)^2)
+mean((y-pred_glmnet)^2)
+```
+pour mettre un poids sur les var env : ‘grplasso’ ou ‘ggplasso’
+
+--------------------------------------------------------------------------------
+Df: number of nonzero coefficients  
+%Dev: percent (of null) deviance explained  
+
+The function glmnet returns a sequence of models for the users to choose from. In many cases, users may prefer the software to select one of them. Cross-validation is perhaps the simplest and most widely used method for that task. **cv.glmnet** is the main function to do cross-validation here.  
+```{r cross-validation}
+filter <- function(x, y, weights, ...) {}
+
+cvfit <- cv.glmnet(x, y,
+                   family = "binomial",
+                   type.measure = "auc", # ROC curve
+                   exclude = filter) # exclude variables
+```
+
+```{r}
+plot(cvfit)
+cvfit$lambda.min #  λ that gives minimum mean cross-validated error
+coef(cvfit, s = "lambda.min") # model coefficients at that value of λ
+```
+
+“offset”. This is a fixed vector of N numbers that is added into the linear predictor. For example, you may have fitted some other logistic regression using other variables (and data), and now you want to see if the present variables can add further predictive power. To do this, you can use the predicted logit from the other model as an offset in the glmnet call.  
+
+
