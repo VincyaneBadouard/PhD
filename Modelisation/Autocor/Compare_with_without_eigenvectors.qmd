@@ -19,15 +19,14 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 
 # sp <- "Dicorynia_guianensis"
 
-setwd("../Light_Topo/")
-
+PATH = '../Light_Topo'
 ```
 
 ```{r fit}
 fits <- list()
 for(S in sp){
   tryCatch({
-    chain_path <- file.path("Chains", "Hybrid", S)
+    chain_path <- file.path(PATH, "Chains", "Hybrid", S)
     fits[[S]] <- as_cmdstan_fit(list.files(chain_path,
                                            full.names = TRUE))},
     error=function(e){cat("ERROR :",S, conditionMessage(e), "\n")}
@@ -37,7 +36,7 @@ for(S in sp){
 fits_eig <- list()
 for(S in sp){
   tryCatch({
-    chain_path <- file.path("Chains", "Hybrid_eigenvectors", S)
+    chain_path <- file.path(PATH, "Chains", "Hybrid_eigenvectors", S)
     fits_eig[[S]] <- as_cmdstan_fit(list.files(chain_path,
                                                full.names = TRUE)[c(1,4)])
   },
@@ -79,9 +78,9 @@ Rhat_table <- lapply(names(fits), function(x)
 # bayesplot::rhat(fits[[1]],pars="beta2_p")
 # posterior::rhat(extract_variable_matrix(fits[[1]], "beta2_p"))
 
-all(Rhat_table$rhat < 1.01)
+all(Rhat_table$rhat_eig < 1.01)
 
-badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
+badRhat <- Rhat_table %>% filter(rhat > 1.01 | rhat_eig > 1.01) %>%
   left_join(Div %>% select(Species, `%divergence`, `%divergence_eigen`) %>% unique(), by="Species")
 ```
 
@@ -104,19 +103,34 @@ Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "gamma", "tau")),
+  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "tau")),
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
-    mutate(Eigenvectors = F) %>% 
+    mutate(Eigenvectors = 'FALSE') %>% 
     bind_rows(
-      mcmc_intervals_data(fits_eig[[x]]$draws(c("a", "O", "gamma", "tau")),
+      mcmc_intervals_data(fits_eig[[x]]$draws(c("a", "O", "tau")),
                           prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
-        mutate(Eigenvectors = T)
+        mutate(Eigenvectors = 'TRUE')
     ) %>% 
-    mutate(Species = x) %>% 
-        mutate(Eigenvectors = factor(Eigenvectors, labels = c(T,F))) 
-
+    mutate(Species = x)  %>% 
+    mutate(Eigenvectors = factor(Eigenvectors, levels = c('TRUE','FALSE')))
+  
 )  %>% 
   bind_rows()
+
+O_sg <- datap %>% 
+  # mutate(incertitude = hh-ll) %>% 
+  # filter(parameter=="O"& incertitude > 4) %>%
+  filter(parameter=="a"& m > -0.02) %>% # no light effect
+  select(Species, Eigenvectors) %>% 
+  mutate(parameter="O") %>% 
+  mutate(Sg_effect = F)
+
+datap <- datap %>%
+  left_join(O_sg, by=c("Species", "Eigenvectors", "parameter")) %>% 
+  # tau significantly different of 0
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))
+
 # ll : outer start
 # l : iner start
 # m : point_est value
@@ -136,15 +150,17 @@ x_lim[2] <- x_lim[2] + 0.05 * x_range
 layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
+```
 
-ggplot(datap, aes(y = Species, col = Eigenvectors)) +
+```{r}
+ggplot(datap, aes(y = Species, col = Eigenvectors, alpha = Sg_effect)) +
   theme_minimal() + 
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
   geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species), size = 0.5) +
   geom_segment(aes(x=l, xend=h, y=Species, yend=Species), size = 1) +
   geom_point(aes(x= m)) + # median
-  scale_color_manual(values=c("#009E73","#FC4E07")) +
+  scale_color_manual(values=c('TRUE' = "#009E73", 'FALSE' = "#FC4E07")) +
   # scale_color_manual(name = "Credible interval",
   #                    values = c("95%" = "#E7B800",
   #                               "50%"= "#FC4E07")) +
@@ -152,70 +168,33 @@ ggplot(datap, aes(y = Species, col = Eigenvectors)) +
   facet_grid(~parameter, scale= "free")
 
 
-# ggsave("Light_topo_onto_posteriors.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-#        width = 25, height = 26, units = "cm", dpi=800, bg="white")
-
-# O et tau iront dans le biplot
-# les paramètres dont on veut la significativité : iota
-# a on veut sa valeur absolue pour juger la largeur de niche
-# gamma on s'en fout ?
+ggsave("Light_topo_posteriors_comparaison_autocor.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 25, height = 26, units = "cm", dpi=800, bg="white")
 ```
 
+Comparaison des résultats avec et sans autocor :  
 
-```{r}
-fits[[x]]$draws(c("a", "O", "gamma", "tau")) %>% mcmc_areas_ridges()
-```
++ de divergences avec le modèle avec autocor mais meilleur Rhat et meilleur mix des chaînes  
 
-# Biplot
-O in y, tau in x
-```{r}
-datap %>% 
-  select(-c(outer_width, inner_width, l, h, point_est)) %>% 
-  rename(Q5 = ll, Q95 = hh, median = m) %>% 
-  filter(parameter %in% c("O", "tau")) %>% 
-  pivot_wider(names_from = parameter, values_from = c(Q5, median, Q95),
-              names_glue = "{parameter}_{.value}") %>% 
-  
-  ggplot(aes(x= tau_median, y = O_median)) +
-  theme_minimal() + 
-  # 95% credible interval
-  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median), size = 0.5, col = "grey") + # tau
-  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median), size = 0.5, col = "grey") + # O
-  geom_point() + # median
-  ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
-  labs(x= "TWI effect (tau)", y= "Light optimum (O)")
+Tau (topo effect) :  
+- valeurs proches en général  
+- Ryania speciosa :  plateau > no effect  
+- Pogonophora : plateau > no effect (Vincent 2011 : plateau)  
+- esch sago : plateau > no effect  
+- Dicorynia : plateau > no effect (Allié, Bonal : plateau)  
+- Faramea : plateau incertain > no effect  
+- guarea costata : BF > no effect  
+- Palicourea : BF > no effect  
+- ocotea argy : BF > no effect  
+- mouriri sago :  BF > no effect  
+- esch coria :  BF > no effect  
+- Micropholis no effect > BF  
+- poraqueiba : no effect > BF  
 
+-> est-ce que c'est aberrant de ne pas trouver Dicorynia en plateau ? D'après le modèle avec ontogénie (sans autocor)   il se spécialise en plateau à l'âge adulte donc on pourrait le trouver généraliste à l'échelle spécifique  
 
-```
+a ( largeur de niche) :  
+- valeurs similaires  
 
-
-# Predictions
-```{r predictions}
-Sys.time()
-
-plist <- list()
-
-for(s in sp){
-  plist[[s]] <- local({
-    
-    g <- lapply(names(fits[[s]]), function(v){
-      # v = "TWI"
-      
-      DATA <- fits[[s]][[v]]$summary("p") # p posterior
-      # prediction environment 
-    })
-    
-  })
-}
-
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
-# plots
-
-# ggsave("Allsp_Light_TWI_niche.pdf",
-#        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
-#        plots, width = 15, height = 10)
-
-Sys.time()
-```
-
-
+O (optimum de lumière) :  
+- valeurs proches/similaires, diagnostic cohérent du no effect  

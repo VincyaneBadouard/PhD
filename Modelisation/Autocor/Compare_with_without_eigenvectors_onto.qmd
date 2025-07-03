@@ -1,0 +1,326 @@
+---
+title: "Compare models with and without space predictors"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+
+# sp <- c("Anaxagorea_dolichocarpa", "Tabernaemontana_macrocalyx", "Eperua_falcata", "Dicorynia_guianensis", "Paypayrola_hulkiana")
+
+# sp <- "Dicorynia_guianensis"
+
+PATH = '../Light_Topo_ontogeny/'
+```
+
+```{r fit}
+fits <- list()
+for(S in sp){
+  for(D in c("1-3","3-10","10-25","-25")){
+    tryCatch({
+      chain_path <- file.path(PATH, "Chains", "Hybrid_no_iota", S, D)
+      if(D=="-25") D <- ">25"
+      fits[[S]][[D]] <- as_cmdstan_fit(list.files(chain_path,
+                                                  full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, D, conditionMessage(e), "\n")}
+    )
+  }
+}
+
+names(fits)[names(fits) == "-25"] <- ">25"
+
+fits_eig <- list()
+for(S in sp){
+  for(D in c("1-3","3-10","10-25","-25")){
+    tryCatch({
+      chain_path <- file.path(PATH, "Chains", "Hybrid_eigenvectors", S, D)
+      if(D=="-25") D <- ">25"
+      fits_eig[[S]][[D]] <- as_cmdstan_fit(list.files(chain_path,
+                                                      full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, D, conditionMessage(e), "\n")}
+    )
+  }
+}
+# names(fits[["Symphonia_sp.1"]])
+
+names(fits_eig)[names(fits_eig) == "-25"] <- ">25"
+
+```
+
+```{r divergence, eval=F}
+d <- list()
+for(S in names(fits)){
+  for(D in c("1-3","3-10","10-25",">25")){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- data.frame(Species = S,
+                                DBH = D,
+                                Chain = c(1:4),
+                                # divergences per chain
+                                Divergences = fits[[S]][[D]]$diagnostic_summary("divergences"), 
+                                Divergences_eigen = fits_eig[[S]][[D]]$diagnostic_summary("divergences") 
+      )
+    }}}
+Div <- list_rbind(list_flatten(d)) %>% 
+  bind_rows() %>% 
+  rename(Divergences = num_divergent) %>% 
+  rename(Divergences_eigen = num_divergent.1) %>%
+  group_by(Species) %>% 
+  mutate(`%divergence` = sum(Divergences)/4000*100) %>% 
+  mutate(`%divergence_eigen` = sum(Divergences_eigen)/4000*100) %>% 
+  ungroup()
+```
+
+# Rhat
+R-hat convergence diagnostic, which compares the between- and within-chain estimates for model parameters and other univariate quantities of interest. If chains have not mixed well (ie, the between- and within-chain estimates don't agree), R-hat is larger than 1.01 (Vehtari et al., 2021). 
+R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
+```{r Rhat, eval=F}
+d <- list()
+for(S in names(fits)){
+  for(D in c("1-3","3-10","10-25",">25")){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- fits[[S]][[D]]$summary(c("alpha", "beta1", "beta2_p", "tau"), "rhat") %>% 
+        mutate(Species = S) %>% 
+        mutate(DBH = D) %>% 
+        select(Species, DBH, variable, rhat) %>% 
+        mutate(rhat_eig = fits_eig[[S]][[D]]$summary(c("alpha", "beta1", "beta2_p", "tau"), "rhat")$rhat) 
+    }}}
+Rhat_table <- list_rbind(list_flatten(d))
+
+all(Rhat_table$rhat_eig < 1.01)
+
+badRhat <- Rhat_table %>% filter(rhat > 1.01 | rhat_eig > 1.01) %>%
+  left_join(Div %>% select(Species, `%divergence`, `%divergence_eigen`) %>% unique(), by="Species")
+```
+```{r}
+ggplot(Rhat_table, aes(x = rhat, y = rhat_eig)) +
+  geom_point() +
+  geom_abline() +
+  coord_fixed(ratio=1)
+
+Rhat_table %>% 
+pivot_longer(cols = c('rhat', 'rhat_eig'),
+  names_to = "Model",
+  values_to = "value") %>% 
+  ggplot(aes(x=Model, y=value)) +
+  geom_boxplot() +
+  scale_y_continuous(trans="log")
+```
+
+```{r, eval=F}
+name <- ((Rhat_table %>% filter(rhat > 1.01))$Species) # 49 sp, 179 models
+
+for(S in name){
+  for(D in c("1-3","3-10","10-25",">25")){
+    # if(D %in% names(fits[[S]])){
+    if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
+      # S = "Talisia_sylvatica"
+      # D = "5-10"
+      print(
+        fits[[S]][[D]]$draws(
+          c("alpha", "beta1", "beta2_p", "tau")
+          # c("lp__", "a", "O", "gamma", "tau")
+        ) %>% 
+          mcmc_trace() +
+          # mcmc_dens() +
+          ggtitle(paste("Without eigenvectors - ", S, D))
+      )
+    }
+  }}
+
+name <- ((Rhat_table %>% filter(rhat_eig > 1.01))$Species) # 28 sp, 90 models
+
+for(S in name){
+  for(D in c("1-3","3-10","10-25",">25")){
+    # if(D %in% names(fits[[S]])){
+    if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
+      # S = "Talisia_sylvatica"
+      # D = "5-10"
+      print(
+        fits_eig[[S]][[D]]$draws(
+          c("alpha", "beta1", "beta2_p", "tau")
+          # c("lp__", "a", "O", "gamma", "tau")
+        ) %>% 
+          mcmc_trace() +
+          # mcmc_dens() +
+          ggtitle(paste("With eigenvectors - ", S, D))
+      )
+    }
+  }}
+```
+
+# Prepare data for plots
+```{r}
+d <- list()
+# Plot data
+for(S in names(fits)){
+  for(D in c("1-3","3-10","10-25",">25")){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "tau")),
+                                         prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+        mutate(Eigenvectors = 'FALSE') %>% 
+        bind_rows(
+          mcmc_intervals_data(fits_eig[[S]][[D]]$draws(c("a", "O", "tau")),
+                              prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+            mutate(Eigenvectors = 'TRUE')
+        ) %>% 
+        mutate(Species = S) %>% 
+        mutate(DBH = D) %>% 
+        mutate(Eigenvectors = factor(Eigenvectors, levels = c('TRUE','FALSE')))
+      
+    }}}
+datap <- list_rbind(list_flatten(d))
+
+O_sg <- datap %>% 
+  # mutate(incertitude = hh-ll) %>% 
+  # filter(parameter=="O"& incertitude > 4) %>%
+  filter(parameter=="a"& m > -0.02) %>% # no light effect
+  select(Species, DBH, Eigenvectors) %>% 
+  mutate(parameter="O") %>% 
+  mutate(Sg_effect = F)
+
+datap <- datap %>%
+  left_join(O_sg, by=c("Species", "DBH", "Eigenvectors", "parameter")) %>% 
+  # tau significantly different of 0
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>% 
+  mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25")))
+
+ord_sp <- unique(datap$Species)
+
+species_to_number <- setNames(seq_along(ord_sp), ord_sp)
+
+numeric_vector <- species_to_number[datap$Species]
+
+datap$sp_code <- numeric_vector
+
+
+# ll : outer start
+# l : iner start
+# m : point_est value
+# h : iner end
+# hh : outer end
+```
+
+# Posteriors
+Plot central (quantile-based) posterior interval estimates from MCMC draws
+```{r}
+# mcmc_intervals() code 
+# trace(bayesplot::mcmc_intervals, edit=T)
+
+for(P in c('O', 'a', 'tau')){
+  i = 10 # nbr of sp per page
+  plist <- vector('list', round(length(names(fits))/i))
+  
+  for(p in 1:round(length(names(fits))/i)){
+    # p1 to 8 for 10 sp each
+    # message(s)
+    plist[[p]] <- local({
+      # p <- 7
+      if (p==1) {start = 1
+      }else{start = i*(p-1) + 1}
+      stop = start + (i-1)
+      
+      # print(p) ;  print(P)
+      
+      datas <- datap %>% 
+        filter(parameter==P) %>%
+        filter(sp_code >= start & sp_code <= stop)
+      
+      ggplot(datas, aes(x= DBH, col = Eigenvectors, y = m, group=1)) +
+        theme_minimal() + 
+        {if(P=='a') list(
+          geom_point(),
+          geom_segment(aes(y=ll, yend=hh, x=DBH, xend=DBH), size = 0.5),
+          geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH), size = 1) )} +
+        {if(P!='a') list(
+          geom_point(aes(alpha = Sg_effect)),
+          geom_segment(aes(alpha = Sg_effect, y=ll, yend=hh, x=DBH, xend=DBH), size = 0.5),
+          geom_segment(aes(alpha = Sg_effect, y=l, yend=h, x=DBH, xend=DBH), size = 1),
+          scale_alpha_manual(values = c("FALSE" = .3, "TRUE"= 1)) )} +
+        
+        
+        scale_color_manual(values=c('TRUE' = "#009E73", 'FALSE' = "#FC4E07")) +
+        geom_line() +
+        {if(P=='tau') geom_hline(yintercept=0, linetype = "dashed", col = "red") } +
+        scale_x_discrete(position = "top") +
+        
+        scale_y_continuous(position = "right") +
+        # {if(P=='O') scale_y_continuous(position = "right") } +
+        # {if(P=='tau') scale_y_continuous(position = "right", limits = c(-20, NA))  } +
+        # {if(P=='a')  scale_y_continuous(position = "right", limits = c(-3, NA)) } +
+        
+        # , limits = c(min(datas$ll), max(datas$hh))
+        labs(x= 'DBH (cm)', y= P) +
+        facet_grid(Species ~ ., switch = "y") +
+        theme(strip.text.y.left = element_text(angle = 0))
+    })
+  }
+  
+  plots <- gridExtra::marrangeGrob(plist, nrow = 1, ncol = 1)
+  # plots
+  
+  
+  ggsave(paste(P,"_posteriors_stages_comparison_autocor.pdf", sep=''),
+         path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/1-3/",
+         plot = plots, width = 25, height = 26, units = "cm", dpi=800, bg="white")
+}
+```
+
+```{r}
+ggplot(datap, aes(y = Species, col = Eigenvectors, alpha = Sg_effect)) +
+  theme_minimal() + 
+  # xlim(range(c(datap$ll, datap$hh))) +
+  layer_vertical_line +
+  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=Species, yend=Species), size = 1) +
+  geom_point(aes(x= m)) + # median
+  scale_color_manual(values=c('TRUE' = "#009E73", 'FALSE' = "#FC4E07")) +
+  # scale_color_manual(name = "Credible interval",
+  #                    values = c("95%" = "#E7B800",
+  #                               "50%"= "#FC4E07")) +
+  theme(axis.title.x =element_blank()) +
+  facet_grid(~parameter, scale= "free")
+
+
+ggsave("Light_topo_posteriors_comparaison_autocor.pdf", path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots",
+       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+```
+
+Comparaison des résultats avec et sans autocor :  
+
++ de divergences avec le modèle avec autocor mais meilleur Rhat et meilleur mix des chaînes  
+
+Tau (topo effect) :  
+- valeurs proches en général  
+- Ryania speciosa :  plateau > no effect  
+- Pogonophora : plateau > no effect (Vincent 2011 : plateau)  
+- esch sago : plateau > no effect  
+- Dicorynia : plateau > no effect (Allié, Bonal : plateau)  
+- Faramea : plateau incertain > no effect  
+- guarea costata : BF > no effect  
+- Palicourea : BF > no effect  
+- ocotea argy : BF > no effect  
+- mouriri sago :  BF > no effect  
+- esch coria :  BF > no effect  
+- Micropholis no effect > BF  
+- poraqueiba : no effect > BF  
+
+-> est-ce que c'est aberrant de ne pas trouver Dicorynia en plateau ? D'après le modèle avec ontogénie (sans autocor)   il se spécialise en plateau à l'âge adulte donc on pourrait le trouver généraliste à l'échelle spécifique  
+
+a ( largeur de niche) :  
+- valeurs similaires  
+
+O (optimum de lumière) :  
+- valeurs proches/similaires, diagnostic cohérent du no effect  

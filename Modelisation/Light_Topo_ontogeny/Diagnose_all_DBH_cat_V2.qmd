@@ -94,7 +94,7 @@ all(Rhat_table$rhat < 1.01)
 badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
   left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
 
-length(unique(badRhat$Species)) # (44/75)*100 = 59%
+length(unique(badRhat$Species)) # (6/75)*100 = 8%
 ```
 
 # Chains
@@ -162,6 +162,8 @@ datap <- datap %>%
     parameter=="tau" & m < 0 ~ "Less flood tolerant")) %>% 
   mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "Generalist", Topo))
 
+datap <- datap %>% 
+  mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", log(-.), .)) 
 
 ord_sp <- unique(datap$Species)
 
@@ -224,7 +226,7 @@ for(P in c('O', 'a', 'tau')){
         # {if(P=='O') scale_y_continuous(position = "right") } +
         # {if(P=='tau') scale_y_continuous(position = "right", limits = c(-20, NA))  } +
         # {if(P=='a')  scale_y_continuous(position = "right", limits = c(-3, NA)) } +
-
+        
         # , limits = c(min(datas$ll), max(datas$hh))
         labs(x= 'DBH (cm)', y= P) +
         facet_grid(Species ~ ., switch = "y") +
@@ -244,7 +246,7 @@ for(P in c('O', 'a', 'tau')){
 # Parameters accross onto
 ```{r}
 for(S in c('Understory species', 'Canopy species')){
-  # S='Understory species'
+  # S='Canopy species'
   for(P in c('a', 'O', 'tau')){
     # P='a'
     
@@ -255,6 +257,7 @@ for(S in c('Understory species', 'Canopy species')){
       theme_minimal() + 
       {if(P!='tau') list(geom_point(), geom_line(), guides(col = guide_legend(ncol = 2)) ) } + # median
       {if(P=='tau') list(geom_point(aes(col=Topo)), geom_line(aes(col=Topo)) ) } + # , scale_y_continuous(limits = c(-20, NA))
+      # geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH), size = .5) + # 5O% CI
       
       {if(P=='O')  scale_y_continuous(limits = c(NA,0), n.breaks = 10, labels = ~round(exp(.)*100,2)) } +
       scale_alpha_manual(values = c("FALSE" = .2, "TRUE"= 1)) +
@@ -368,9 +371,9 @@ for(s in names(fits)){
                          breaks=c("1-3","3-10","10-25",">25")) + 
       
       scale_fill_manual(values = c("1-3" = "#00AFBB",
-                                    "3-10"= "#CC79A7",
-                                    "10-25"= "#E7B800",
-                                    ">25" = "#FC4E07"),
+                                   "3-10"= "#CC79A7",
+                                   "10-25"= "#E7B800",
+                                   ">25" = "#FC4E07"),
                         breaks=c("1-3","3-10","10-25",">25")) + 
       
       scale_x_continuous(name = "Light (% transmittance)",
