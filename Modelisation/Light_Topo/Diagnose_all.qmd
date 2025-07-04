@@ -589,7 +589,7 @@ ggsave("Light_topo_biplot_strategy.png", path = "//amap-data.cirad.fr/work/users
 
 # Biplot O vs a
 
-O in y, tau in x
+O in y, a in x
 ```{r}
 # color and alpha background for light env
 rects <- data.frame(xstart = rep(-0.75, times=2), xend = rep(0, times=2),
