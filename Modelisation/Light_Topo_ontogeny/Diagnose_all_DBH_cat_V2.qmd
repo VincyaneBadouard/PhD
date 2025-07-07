@@ -188,8 +188,9 @@ datap <- datap %>%
     parameter=="tau" & m < 0 ~ "Less flood tolerant")) %>% 
   mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "Generalist", Topo))
 
-# datap <- datap %>% 
-#   mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .)) 
+# -a
+datap <- datap %>%
+  mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
 
 ord_sp <- unique(datap$Species)
 
@@ -433,8 +434,8 @@ databp <- datap %>%
   mutate(Sg_effect = ifelse(a_median > -0.02, F, T))  %>% # no light effect
   mutate(a_median = -a_median)
 
-datap <- datap %>%
-  mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
+# databp <- databp %>%
+#   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q95)), ~ (-.))
 
 ```
 
