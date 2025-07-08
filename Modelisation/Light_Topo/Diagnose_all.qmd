@@ -16,7 +16,8 @@ library(patchwork)
 library(grid)
 library(stringr)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+interestsp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")
+sp <- interestsp[,3] # 75
 # mettre 2 pour treedatacor
 
 # sp <- c("Licania_membranacea" , "Lecythis_persistens") # 4 forms
@@ -149,6 +150,7 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
 # min((datap %>% filter(Species %in% no_light_effect & parameter=='a'))$m) # min a median : -0.019
 # range((datap %>% filter(Species %in% no_light_effect & parameter=='O') %>% mutate(incertitude = hh-ll))$incertitude) # O incertitude : 4.5-6.5
 ```
+
 
 # Check strategies
 ```{r}
@@ -348,6 +350,27 @@ for(P in c('O', 'tau', 'a')){
 
 ```
 
+# Relation incertitude vs species abundance
+```{r}
+datap %>% 
+  mutate(Incertitude = hh-ll) %>% 
+  left_join(interestsp %>% select(ScientificName,N), by = c('Species' = 'ScientificName')) %>% 
+  select(Species, N, parameter,Incertitude) %>% unique() %>% 
+  
+  ggplot(aes(x=N, y= Incertitude)) +
+  theme_minimal() +
+  # geom_point() +
+  geom_line() +
+  scale_x_continuous(trans="log", labels = ~round(.,0), breaks = c(30, 50, 100, 200, 500, 1000, 2140)) +
+  ggpubr::stat_cor(aes(x=log(N), y= Incertitude), method = "pearson",
+                   label.x.npc = 0.36, label.y.npc = 1) + 
+  facet_wrap(~parameter, scale= "free") +
+  labs(y= "Parameter 95% incertitude", x= 'Species abundance')
+# N range : 30-2 140
+
+ggsave("Incertitude_vs_sp_abundance.png", path = PATH,
+         width = 23, height = 13, units = "cm", dpi=800, bg="white")
+```
 
 # Biplot O vs tau
 O in y, tau in x
@@ -392,6 +415,8 @@ exp(quantile(databp$O_median, probs = 0.5))*100
 (nrow(databp %>% filter(Tau_effect))/nrow(databp))*100
 # 56% sp with tau significantly (95% CI) different of 0
 # 80% sp with tau significantly (50% CI) different of 0
+(nrow(databp %>% filter(Sg_light_effect))/nrow(databp))*100 # 80% sp with 
+
 
 range(databp$tau_median) # -2.9 ; 2.3
 min(databp$tau_Q5) # -6
@@ -618,6 +643,92 @@ ggsave("Light_topo_biplot_strategy.png", path = PATH,
        width = 23, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
+# Experts validation
+```{r, echo=F}
+Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>% 
+  filter(OurSpecies) %>% 
+  select(-OurSpecies, -`...11`) %>%
+  # select(Species, Temperament, Topography) %>% 
+  mutate(Species = str_replace(Species, " ", "_"))
+
+estimate <- databp %>% 
+  select(Species, O_median, tau_median, Sg_light_effect, Tau_effect) %>% 
+  mutate(Estimate_light_optimum = round(exp(O_median)*100, 2)) %>% 
+  mutate(Chap2_TWI = case_when(
+    !Tau_effect ~ "generalist",
+    tau_median > 0 & Tau_effect ~ "positif",
+    tau_median < 0 & Tau_effect ~ "negatif") 
+  ) %>% 
+  mutate(Chap2_Light = case_when(
+    !Sg_light_effect ~ "generalist",
+    Estimate_light_optimum >= 30 & Sg_light_effect ~ "Heliophile", # >30%
+    # Estimate_light_optimum > log(30/100) & Sg_light_effect ~ "intermediate",
+    Estimate_light_optimum <= 5 & Sg_light_effect ~ "Sciaphile",
+    .default = "intermediate") # <5%
+  ) %>% 
+  select(Species, Chap2_Light, Chap2_TWI, Estimate_light_optimum, Sg_light_effect, tau_median, Tau_effect) # Estimate_light_optimum, Sg_light_effect, tau_median, Tau_effect, 
+
+validation <- left_join(Experts, estimate, by= 'Species') %>% 
+  # Validate topo
+  left_join(interestsp %>% select(ScientificName,N), by = c('Species' = 'ScientificName')) %>% 
+  mutate(Validate_topo = case_when(
+    Topography == "Bottomland" & Chap2_TWI=="negatif" ~ F,
+    Topography == "Hilltop" & Chap2_TWI=="positif" ~ F,
+    
+    Topography == "no associated" & Chap2_TWI=="generalist" ~ T,
+    grepl("Bottomland", Topography) & Chap2_TWI=="positif" ~ T,
+    grepl("Hilltop", Topography) & Chap2_TWI=="negatif" ~ T
+  )) %>% 
+  # Validate light
+  mutate(Validate_light = case_when(
+    Temperament == "Hard struggler" & Chap2_Light=="Heliophile" ~ F,
+    Temperament == "Hard gambler" & Chap2_Light=="Sciaphile" ~ F,
+    # Hard gambler	generalist
+    
+    grepl("Hard gambler", Temperament) & Chap2_Light=="Heliophile" ~ T,
+    grepl("Hard struggler", Temperament) & Chap2_Light=="Sciaphile" ~ T,
+    grepl("Shade tolerant", Temperament) & grepl("Favrichon", Temperament) & Chap2_Light=="Sciaphile" ~ T
+  )) %>% 
+  select(Species, N, Topography, Temperament, Chap2_TWI, Chap2_Light, Validate_topo, Validate_light, References)
+
+
+# Check topo
+unique((validation %>% filter(Chap2_TWI=="negatif" & !is.na(Topography)))$Topography)
+unique((validation %>% filter(Chap2_TWI=="positif" & !is.na(Topography)))$Topography)
+
+unique((validation %>% filter(is.na(Validate_topo) & !is.na(Topography)))$Topography)
+validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: NA # 8
+
+validation %>% filter(Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: T # 18/27
+validation %>% filter(!Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: F # 2/27
+validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>% filter(Chap2_TWI=="generalist"|Topography=='no associated') %>% select(Species, N, Topography, Chap2_TWI) # Validate_topo: no effect # 7/27
+
+
+# Check light
+validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% select(Temperament, Chap2_Light) # Validate_topo: NA # 18
+
+validation %>% filter(Validate_light) %>% select(Temperament, Chap2_Light) # Validate_light: T # 7/8
+validation %>% filter(!Validate_light) %>% select(Temperament, Chap2_Light) # Validate_light: F # 0
+validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% filter(grepl("Hard", Temperament) & Chap2_Light=="generalist") %>%  select(Species, N, Temperament, Chap2_Light) # Validate_light: no effect # 1/8
+
+
+# conserve generalist info of lit and estimated
+
+validation_table <- validation %>% 
+  filter(!is.na(Topography) | !is.na(Temperament)) %>% 
+  filter((!is.na(Validate_topo) | Chap2_TWI=="generalist" | Topography=='no associated') | ( !is.na(Validate_light) | grepl("Hard", Temperament) & Chap2_Light=="generalist")) %>%
+  arrange(Validate_light, desc(Validate_topo)) %>% 
+  rename(`Estimated light preference` = Chap2_Light,
+         `Estimated wetness preference` = Chap2_TWI,
+         `Literature light preference` = Temperament,
+         `Literature wetness preference` = Topography,
+         `Topographic effect validation` = Validate_topo,
+         `Light effect validation` = Validate_light,
+  )
+
+write_csv(validation_table, paste(PATH, "/Model_validation_table.csv", sep=''))
+```
+
 
 # Biplot O vs a
 
@@ -831,5 +942,6 @@ ggplot(datap, aes(x= Strategy, y= m, col= Strategy)) +
 ggsave("Boxplots_parameters_strategy.png", path = PATH,
        width = 20, height = 10, units = "cm", dpi=800, bg="white")
 ```
+
 
 
