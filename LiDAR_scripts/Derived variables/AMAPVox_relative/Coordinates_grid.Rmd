@@ -34,7 +34,7 @@ grid <- data.frame(expand.grid(
 # Plot
 ```{r, eval=F}
 ggplot() +
-  geom_point(data=grid, aes(x = x, y = y), size=0.000001) + # il faut mettre l'argument data sinon ça ne marche pas
+  geom_point(data=grid, aes(x = x, y = y), size=0.000001) + 
   coord_fixed(ratio=1) # same axis size
 ```
 

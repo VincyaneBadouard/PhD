@@ -226,6 +226,9 @@ vxsp_UAV1m <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/L
 
 vxsp_UAVbuf <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_bufferALS_PadHLE_intensity2m.vox")
 
+# 25 ha
+vxsp <- readVoxelSpace("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Vox/P16_2019_25ha_buffer_PadHLE_intensity2m.vox") # 2019 intensity2m 
+
 vxsp_High@header
 # $mincorner
 #         x         y         z 
@@ -256,6 +259,9 @@ vxsp_UAVbuf@header
 vxsp_UAV2m <- vxsp_UAV2m@data
 vxsp_UAVbuf <- vxsp_UAVbuf@data
 vxsp_High <- vxsp_High@data
+
+# vxsp_High <- vxsp@data
+
 
 names(vxsp_High) %in% names(vxsp_UAVbuf)
 ```
@@ -293,6 +299,10 @@ rm(vxsp_UAV2m)
 dataUAV1m <- Compute_PAD_nbSampling_mean(vxsp_UAV1m)
 rm(vxsp_UAV1m)
 
+dataHigh <- Compute_PAD_nbSampling_mean(vxsp)
+rm(vxsp)
+
+
 gc()
 
 # dataLow_pulseMin4 <- Compute_PAD_nbSampling_mean(vxsp_low_pulseMin4)
@@ -313,19 +323,21 @@ gc()
 
 
 ```{r}
+Title <- "P16-2019-25ha+buffer - PAD profile after estimation (intensity2m)"
+  # "P16-2023-4ha+buffer - PAD profile after estimation (intensity) - pulse min=20"
 dataHigh %>% 
   ggplot(aes(x= ground_distance_disc, y= MeanPAD )) +
   geom_point(data = dataHigh, aes(y = MeanPAD, colour = "High altitude - 2m")) +
   geom_line(data = dataHigh, aes(y = MeanPAD, colour = "High altitude - 2m")) +
   
-  geom_point(data = dataLow, aes(y = MeanPAD, colour = "Low altitude - 2m")) +
-  geom_line(data = dataLow, aes(y = MeanPAD, colour = "Low altitude - 2m")) +
-  
-  geom_point(data = dataUAV2m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 2m")) +
-  geom_line(data = dataUAV2m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 2m")) +
-  
-  geom_point(data = dataUAV1m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 1m")) +
-  geom_line(data = dataUAV1m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 1m")) +
+  # geom_point(data = dataLow, aes(y = MeanPAD, colour = "Low altitude - 2m")) +
+  # geom_line(data = dataLow, aes(y = MeanPAD, colour = "Low altitude - 2m")) +
+  # 
+  # geom_point(data = dataUAV2m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 2m")) +
+  # geom_line(data = dataUAV2m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 2m")) +
+  # 
+  # geom_point(data = dataUAV1m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 1m")) +
+  # geom_line(data = dataUAV1m, aes(x = ground_distance_disc, y = MeanPAD, colour = "UAV - 1m")) +
   
   # geom_point(data = dataLow_pulseMin4, aes(y = MeanPAD, colour = "Low altitude (pulse min=4)")) +
   # geom_line(data = dataLow_pulseMin4, aes(y = MeanPAD, colour = "Low altitude (pulse min=4)")) +
@@ -353,14 +365,14 @@ scale_colour_manual(values = c("High altitude - 2m" = "blue",
                                # "Low altitude (pulse min=44)" = "black"
                                )) +
 
-  ggtitle("P16-2023-4ha+buffer - PAD profile after estimation (intensity) - pulse min=20") +
-  labs(y="Average PAD", x="Absolute Tree Height", color = "LiDAR acquisition") +
+  ggtitle(Title) +
+  labs(y="Average PAD", x="Absolute Tree Height (m)", color = "LiDAR acquisition") +
   theme_minimal() +
   coord_flip() #+ # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le PAD
 # geom_errorbar(aes(ymin=MinPAD, ymax=MaxPAD), width=.2)#+ 
 # options(repr.plot.width=8, repr.plot.height=15) # higher height
 
-ggsave("ALS2023_P16_4ha_ALSvsUAV_PAD_after_fillEmptyVxl_pulsemin=20_intensity.png",
+ggsave(paste(Title,".png", sep=''),
        path = "D:/Mes Donnees/PhD/Figures/lidar/Voxélisation/PAD_profil/Intensity_2m",
        width = 18, height = 20, units = "cm", dpi=800, bg="white")
 ```

@@ -480,6 +480,10 @@ Pathgrid_Low_Wet <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2
 Pathgrid_UAV2m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_4ha_UAV_Light_Grid10x10m_each1mZ_intensity2m.txt"
 Pathgrid_UAV1m <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_4ha_UAV_Light_Grid10x10m_each1mZ_intensity1m.txt"
 
+# 25 ha
+Pathgrid_25ha_2019 <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt" # 2019 intensity2m each2mxyz
+
+Lightgrid <- ReadLightFile(Pathgrid_25ha_2019)
 
 Lightgrid_HighAlt <- ReadLightFile(Pathgrid_HighAlt)
 Lightgrid_LowAlt <- ReadLightFile(Pathgrid_LowAlt)
@@ -518,6 +522,7 @@ Lightgrid_High_Wet <- average_Periods(Lightgrid_High_Wet)
 Lightgrid_Low_Dry <- average_Periods(Lightgrid_Low_Dry)
 Lightgrid_Low_Wet <- average_Periods(Lightgrid_Low_Wet)
 
+setnames(Lightgrid, "Period 1", "Transmittance")
 setnames(Lightgrid_HighAlt, "Period 1", "Transmittance")
 setnames(Lightgrid_LowAlt, "Period 1", "Transmittance") 
 setnames(Lightgrid_UAV2m, "Period 1", "Transmittance")
@@ -540,6 +545,9 @@ compute_Transmitance_byAlt <- function(data){
     select(Z_disc, MeanTransmittance, MinTransmittance, MaxTransmittance, SdTransmittance) %>% unique()
 }
 
+Lightgrid <- compute_Transmitance_byAlt(Lightgrid)
+
+
 Lightgrid_HighAlt <- compute_Transmitance_byAlt(Lightgrid_HighAlt)
 Lightgrid_LowAlt <- compute_Transmitance_byAlt(Lightgrid_LowAlt)
 
@@ -556,7 +564,7 @@ Lightgrid_Low_Wet <- compute_Transmitance_byAlt(Lightgrid_Low_Wet)
 
 ## Light profiles plot
 ```{r}
-plotLightProfiles <- function(data1, data2, data3 = NULL, LegCol, Title){ 
+plotLightProfiles <- function(data1, data2 = NULL, data3 = NULL, LegCol, Title){ 
   data1 %>% 
     # filter(Z_disc>=0 & Z_disc<=60) %>% 
     ggplot(aes(x= Z_disc, y= MeanTransmittance)) +
@@ -564,8 +572,11 @@ plotLightProfiles <- function(data1, data2, data3 = NULL, LegCol, Title){
     geom_point(data = data1, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[1])) +
     geom_line(data = data1, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[1])) +
     
-    geom_point(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])) +
-    geom_line(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])) +
+    {if(!is.null(data2))
+      list(
+        geom_point(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2])),
+        geom_line(data = data2, aes(x = Z_disc, y = MeanTransmittance, colour = names(LegCol)[2]))
+      )} +
     
     {if(!is.null(data3))
       list(
@@ -578,15 +589,22 @@ plotLightProfiles <- function(data1, data2, data3 = NULL, LegCol, Title){
     
     scale_colour_manual(values = LegCol) +
     theme_minimal() +
-    ggtitle(paste("P16 - 2023 - 4ha - ", Title, "Light profile (Grid 10x10m, each 1m in Z)")) +
-    labs(y="Transmittance", x="Altitude", color = "LiDAR acquisition") +
-    xlim(0,70) +
+    ggtitle(Title) +
+    # ggtitle(paste("P16 - 2023 - 4ha - ", Title, "Light profile (Grid 10x10m, each 1m in Z)")) +
+    labs(y="Transmittance", x="Altitude (m)", color = "LiDAR acquisition") +
+    xlim(4,70) +
     coord_flip() # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
   
-  ggsave(paste("ALS2023_P16_4ha_",Title,"_Light_profile_(Grid_10x10m_each_1m_in_Z)_intensity_2m.png"),
+  ggsave(paste(Title,".png", sep=''),
+    # paste("ALS2023_P16_4ha_",Title,"_Light_profile_(Grid_10x10m_each_1m_in_Z)_intensity_2m.png"),
          path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Light_profil/Intensity_2m",
          width = 18, height = 20, units = "cm", dpi=800, bg="white")
 }
+
+plotLightProfiles(data1=Lightgrid,
+                  LegCol = c("High altitude" = "blue"),
+                  Title = "P16 - 2019 - 25ha - Light profile (2m grid resolution) (intensity2m)")
+
 
 plotLightProfiles(Lightgrid_HighAlt, Lightgrid_LowAlt,
                   LegCol = c("High altitude" = "blue","Low altitude" = "#56B4E9"),
@@ -792,7 +810,7 @@ datacor <- datacor %>%
   unite(Height, Height1, Height2, sep = " vs ")  %>% 
   filter(startsWith(Height,"1 ")) %>% 
   unique() %>% 
-    mutate(Acquisition = recode(Acquisition, "High" = "High altitude ALS" , "Low" = "Low altitude ALS")) %>% 
+  mutate(Acquisition = recode(Acquisition, "High" = "High altitude ALS" , "Low" = "Low altitude ALS")) %>% 
   na.omit()
 ```
 
