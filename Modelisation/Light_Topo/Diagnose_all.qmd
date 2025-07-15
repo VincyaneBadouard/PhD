@@ -30,6 +30,11 @@ strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strate
   rename(Strategy = Strategy_VB) %>% 
   unique()
 
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv") %>% 
+  # select(ScientificName, TreeHeight)
+  group_by(ScientificName) %>% 
+  summarise(MaxTreeHeight = max(TreeHeight))
+
 PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor"
 ```
 
@@ -67,7 +72,7 @@ R-hat convergence diagnostic, which compares the between- and within-chain estim
 R-hat which is the maximum of rank normalized split-R-hat and rank normalized folded-split-R-hat, which works for thick tailed distributions and is sensitive also to differences in scale.
 ```{r Rhat}
 Rhat_table <- lapply(names(fits), function(x)
-  fits[[x]]$summary(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+  fits[[x]]$summary() %>% # c("alpha", "beta1", "beta2_p", "tau")
     mutate(Species = x) %>% 
     select(Species, variable, rhat) 
 ) %>% 
@@ -85,7 +90,7 @@ badRhat <- Rhat_table %>% filter(rhat > 1.01) %>% # 0
 ```{r chains}
 name <- unique(badRhat$Species) # names(fits) #
 lapply(name , function(x)
-  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+  fits[[x]]$draws(c("alpha", "beta1", "beta2_p", "tau", "psi")) %>% 
     mcmc_trace() +
     ggtitle(x)
 )
@@ -103,11 +108,13 @@ lapply(name , function(x)
 ```{r}
 # Plot data
 datap <- lapply(names(fits), function(x)
-  mcmc_intervals_data(fits[[x]]$draws(c("a", "O", "tau")),
+  mcmc_intervals_data(fits[[x]]$draws(), # c("a", "O", "tau")
                       prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
-  bind_rows() 
+  bind_rows() %>% 
+  filter(parameter %in% c("a", "O", "tau",
+                          'psi[1]','psi[2]','psi[3]','psi[4]', 'psi[5]'))
 
 # Light effect (not flat)
 O_sg <- datap %>% 
@@ -123,7 +130,8 @@ datap <- datap %>%
   # tau significantly different of 0 if 0 in the Q50%
   mutate(Sg_effect = ifelse(parameter=="tau" & l<0 & 0<h, F, Sg_effect))  %>% 
   mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>%
-  left_join(strategy, by = c("Species" = "ScientificName"))
+  left_join(strategy, by = c("Species" = "ScientificName")) %>% 
+  left_join(Inv, by = c("Species" = "ScientificName"))
 # -a
 # datap <- datap %>%
 #   mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
@@ -153,10 +161,10 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
 
 
 # Check strategies
-```{r}
+```{r DBH Q95%}
 datap %>% 
   filter(parameter=='O' & Sg_effect) %>% 
-  filter(!Species %in% c('Talisia_sylvatica', 'Votomita_guianensis', 'Protium_opacum')) %>% # because misidentifications so wrong Q95
+  filter(!Species %in% c('Talisia_sylvatica', 'Votomita_guianensis')) %>% # because misidentifications so wrong Q95
   ggplot(aes(x=Q95, y=m, col = Strategy)) +
   theme_minimal() + 
   scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
@@ -165,11 +173,32 @@ datap %>%
   scale_color_manual(values = c("Canopy species" = "#E7B800",
                                 "Understory species"= "#009E73",
                                 "NA" = "darkgrey")) +
-  labs(x= "DBH Q95% (cm)")
+  labs(x= "DBH Q95% (cm)") +
+  theme(legend.position="bottom")
 
 
-ggsave("Light_topo_checkstrategies.pdf", path = PATH,
-       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+ggsave("Light_topo_DBHmax_checkstrategies.png", path = PATH,
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+```{r MaxTreeHeight}
+datap %>% 
+  filter(parameter=='O' & Sg_effect) %>% 
+  # filter(!Species %in% c('Talisia_sylvatica', 'Votomita_guianensis')) %>% # because misidentifications so wrong Q95
+  ggplot(aes(x=MaxTreeHeight, y=m, col = Strategy)) +
+  theme_minimal() + 
+  scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  ggrepel::geom_text_repel(aes(label = Species), col = "black", size = 2.5) +
+  geom_point() +
+  scale_color_manual(values = c("Canopy species" = "#E7B800",
+                                "Understory species"= "#009E73",
+                                "NA" = "darkgrey")) +
+    labs(x= "Species maximum tree height (m)") +
+  theme(legend.position="bottom")
+
+
+ggsave("Light_topo_MaxTreeHeight_checkstrategies.png", path = PATH,
+       width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 # Check extremes
@@ -291,6 +320,56 @@ ggsave("Light_topo_posteriors_delog.pdf", path = PATH,
 
 ```
 
+# Psi (autocor parameter)
+Plot central (quantile-based) posterior interval estimates from MCMC draws
+```{r, eval=F}
+psi_sum <- datap %>% 
+  filter(parameter %in% c('psi[1]','psi[2]','psi[3]','psi[4]', 'psi[5]')) %>% 
+  group_by(Species) %>% 
+  summarise_at(vars(ll:hh), sum, na.rm = TRUE) %>% 
+  ungroup() %>% 
+  mutate(parameter = 'psi') 
+
+datap %>% 
+  filter(parameter %in% c('psi[1]','psi[2]','psi[3]','psi[4]', 'psi[5]')) %>% 
+  bind_rows(psi_sum) %>% 
+  mutate(Sg_effect = ifelse(l<0 & 0<h, F, T))  %>% # 0 in 50% CI 
+  mutate(parameter = factor(parameter,
+                            levels=c('psi', 'psi[1]','psi[2]','psi[3]','psi[4]', 'psi[5]')
+  )) %>% 
+  group_by(parameter) %>%
+  group_modify(~.x %>% 
+                 arrange(if(.y == 'psi') m else desc(m))
+  ) %>%
+  ungroup() %>%
+  mutate(Species=factor(Species, levels=unique(Species))) %>% 
+  ggplot(aes(y = Species, alpha = Sg_effect)) +
+  theme_minimal() + 
+  # xlim(range(c(datap$ll, datap$hh))) +
+  layer_vertical_line +
+  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
+                   color = "95%"), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
+                   color = "50%"), size = 1) +
+  geom_point(aes(x= m)) + # median
+  scale_color_manual(name = "Credible interval", 
+                     values = c("95%" = "#E7B800",
+                                "50%"= "#FC4E07")) + 
+  scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+                     breaks=c("TRUE","FALSE")) +
+  theme(axis.title.x =element_blank()) +
+  facet_grid(~parameter, scale= "free")
+
+ggsave("Light_topo_psi_posterior.pdf", path = PATH,
+       width = 25, height = 26, units = "cm", dpi=800, bg="white")
+```
+Agregative species :  
+"Anaxagorea_dolichocarpa" :  negatif sauf psi3, 4  
+"Tabernaemontana_macrocalyx" : negatif sauf psi3  
+"Eperua_falcata" : psi =0, psi1,2,4 = negatif, psi3,5 = positif  
+"Dicorynia_guianensis" : psi =0, psi1,3 = positif, psi2,4,5 = negatif  
+"Paypayrola_hulkiana" : negatif sauf psi5 qui est positif  
+
 # Monoplots
 ```{r}
 for(P in c('O', 'tau', 'a')){
@@ -369,7 +448,7 @@ datap %>%
 # N range : 30-2 140
 
 ggsave("Incertitude_vs_sp_abundance.png", path = PATH,
-         width = 23, height = 13, units = "cm", dpi=800, bg="white")
+       width = 23, height = 13, units = "cm", dpi=800, bg="white")
 ```
 
 # Biplot O vs tau
