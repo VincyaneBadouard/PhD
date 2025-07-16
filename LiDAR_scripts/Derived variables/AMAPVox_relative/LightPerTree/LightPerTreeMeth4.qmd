@@ -212,7 +212,7 @@ table(toodark$ScientificName) # max 2 ind concerned
 # [1] 47 sp
 ```
 J'ai estimé la lumière des arbres sur 1ha, en prenant 8 voisins et un radius de 5m, on a des transmittances entre 0.001 et  0.996,
-sans moyenner le voisinage, les transmittances au dessu des arbres sont entre 0.0002 et 0.9999
+sans moyenner le voisinage, les transmittances au dessus des arbres sont entre 0.0002 et 0.9999
 
 # Write data
 Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittance
