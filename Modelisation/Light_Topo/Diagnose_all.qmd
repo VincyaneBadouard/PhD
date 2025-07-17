@@ -98,7 +98,7 @@ lapply(name , function(x)
 
 ```{r}
 # no light effect (flat) :
-# no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana", "Virola_michelii", "Pouteria_guianensis", "Eschweilera_congestiflora", "Couratari_multiflora", "Tachigali_melinonii", "Pouteria_gonggrijpii", "Thyrsodium_puberulum", "Anacardium_spruceanum")
+no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana", "Virola_michelii", "Pouteria_guianensis", "Eschweilera_congestiflora", "Couratari_multiflora", "Tachigali_melinonii", "Pouteria_gonggrijpii", "Thyrsodium_puberulum", "Anacardium_spruceanum")
 
 # a_Q95 > -0.07
 # (a = 0 -> large niche)
@@ -113,7 +113,7 @@ datap <- lapply(names(fits), function(x)
     mutate(Species = x)
 )  %>% 
   bind_rows() %>% 
-  filter(parameter %in% c("a", "O", "tau",
+  filter(parameter %in% c("a", "O", "tau",  
                           'psi[1]','psi[2]','psi[3]','psi[4]', 'psi[5]'))
 
 # Light effect (not flat)
@@ -155,7 +155,10 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
   vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
 }
 
-# min((datap %>% filter(Species %in% no_light_effect & parameter=='a'))$m) # min a median : -0.019
+# min((datap %>% filter(Species %in% no_light_effect & parameter=='a'))$m) # min a median : -0.022
+# range((datap %>% filter(Species %in% no_light_effect & parameter=='gamma'))$m) # -9.041810 -0.528554
+# range((datap %>% filter(!Species %in% no_light_effect & parameter=='gamma'))$m) # -9.406300  1.133145
+
 # range((datap %>% filter(Species %in% no_light_effect & parameter=='O') %>% mutate(incertitude = hh-ll))$incertitude) # O incertitude : 4.5-6.5
 ```
 
@@ -193,7 +196,7 @@ datap %>%
   scale_color_manual(values = c("Canopy species" = "#E7B800",
                                 "Understory species"= "#009E73",
                                 "NA" = "darkgrey")) +
-    labs(x= "Species maximum tree height (m)") +
+  labs(x= "Species maximum tree height (m)") +
   theme(legend.position="bottom")
 
 
@@ -810,7 +813,6 @@ write_csv(validation_table, paste(PATH, "/Model_validation_table.csv", sep=''))
 
 
 # Biplot O vs a
-
 O in y, a in x
 ```{r}
 # color and alpha background for light env
@@ -828,7 +830,8 @@ databp <- datap %>%
   pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
               names_glue = "{parameter}_{.value}") %>% 
   # Light effect (not flat)
-  mutate(Sg_effect = ifelse(a_median > -0.02, F, T)) # no light effect
+  mutate(Sg_effect = ifelse(a_median > -0.02, F, T)) %>% # no light effect
+  mutate(Incertitude =(exp(O_Q95)*100)-(exp(O_Q5)*100)) # 50% CI : O_Q50_1-O_Q50_0 ; 95% CI : O_Q95-O_Q5
 
 # databp <- databp %>%
 #   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q95)), ~ (-.))
@@ -891,6 +894,31 @@ ggplot(databp) +
 ggsave("O_a_biplot.png", path = PATH,
        width = 21, height = 15, units = "cm", dpi=800, bg="white")
 
+```
+
+# Incertitude O vs a
+```{r}
+ggplot(databp, aes(x=Incertitude, y= a_median)) +
+  theme_minimal() + 
+  # geom_point() +
+  geom_line() +
+  # scale_x_continuous(trans="log", labels = ~round(.,1)) +
+  # scale_x_continuous(n.breaks = 10, labels = ~round(exp(.),2)) + # delog
+  geom_hline(yintercept = -0.02, linetype = 'dashed') +
+  ggpubr::stat_cor(method = "pearson",
+                   label.x.npc = 0.7, label.y.npc = 0.05) +
+  labs(x='*O* 95% incertitude (transmittance %)', y= '*a* median') +
+  theme(axis.title = ggtext::element_markdown(),
+        legend.title = ggtext::element_markdown())
+
+ggsave("O_incertitude_a_.png", path = PATH,
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
+
+
+cor(databp$Incertitude, databp$a_median)
+cor(log(databp$Incertitude), databp$a_median)
+# not log : 0.40
+# log : 0.55
 ```
 
 ## Strategy

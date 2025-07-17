@@ -12,6 +12,7 @@ library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
 library(viridis)
+library(posterior)
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) #[1:10]
 
@@ -187,11 +188,13 @@ datap <- datap %>%
   mutate(Topo= case_when(
     parameter=="tau" & m > 0 ~ "More flood tolerant",
     parameter=="tau" & m < 0 ~ "Less flood tolerant")) %>% 
-  mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "Generalist", Topo))
+  mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "Generalist", Topo)) %>% 
+  mutate(incertitude = hh-ll)
+
 
 # -a
-datap <- datap %>%
-  mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
+# datap <- datap %>%
+#   mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
 
 ord_sp <- unique(datap$Species)
 
@@ -208,6 +211,27 @@ datap$sp_code <- numeric_vector
 # hh : outer end
 
 ```
+
+```{r}
+# no light effect (flat) :
+no_light_effect <- c("Symphonia_sp.1", "Tachigali_melinonii", Lecythis_persistens, Licania_alba, Eschweilera_coriacea, Eschweilera_sagotiana, Pogonophora_schomburgkiana, Ruizterania_albiflora, Pouteria_gonggrijpii,
+                     Mouriri_crassifolia, Tachigali_melinonii, Homalolepis_cedron, Hirtella_bicornis, Dicorynia_guianensis)
+
+# a_Q95 > -0.07
+# (a = 0 -> large niche)
+
+noeffect <- datap %>%
+  filter(parameter %in% c('a', "O")) %>% 
+  filter(
+    (DBH == '1-3' & Species %in% c("Symphonia_sp.1", "Lecythis_persistens", "Eschweilera_sagotiana", "Homalolepis_cedron", "Mouriri_crassifolia", "Hirtella_bicornis", "Dicorynia_guianensis")) |
+      (DBH == '10-25' & Species %in% c("Licania_alba", "Eschweilera_coriacea", "Ruizterania_albiflora", "Mouriri_crassifolia", "Hirtella_bicornis", "Dicorynia_guianensis")) |
+      (DBH == '3-10' & Species %in% c("Pogonophora_schomburgkiana", "Pouteria_gonggrijpii", "Tachigali_melinonii", "Mouriri_crassifolia", "Hirtella_bicornis", "Dicorynia_guianensis"))
+  )
+
+min(noeffect$m) # max a median : -0.019
+
+```
+
 
 # Posteriors
 ajouter le alpha sur O
@@ -266,7 +290,7 @@ for(P in c('O', 'a', 'tau')){
   # plots
   
   
-  ggsave(paste(P,"_posteriors_stages_autocor.pdf", sep=''), path = PATH, # _sg
+  ggsave(paste(P,"_posteriors_stages.pdf", sep=''), path = PATH, # _sg
          plot = plots, width = 25, height = 26, units = "cm", dpi=800, bg="white")
 }
 ```
@@ -295,7 +319,7 @@ for(S in c('Understory species', 'Canopy species')){
       {if(P=='tau') geom_hline(yintercept=0, linetype = "dashed", col = "red") } +
       labs(title=S, y=P)
     
-    ggsave(paste(S,P,"accross_onto_autocor.png", sep='_'), path = PATH,
+    ggsave(paste(S,P,"accross_onto.png", sep='_'), path = PATH,
            width = 25, height = 26, units = "cm", dpi=800, bg="white")
   }
 }
@@ -313,25 +337,44 @@ datap %>%
 ```
 
 # Boxplot parameters accross onto
+# Boxplot parameters accross onto
 ```{r}
-for(S in c('Understory species', 'Canopy species')){
-  for(P in c('a', 'O', 'tau')){
-    print(
-      datap %>% 
-        filter(parameter==P) %>% 
-        filter(Strategy==S) %>% 
-        ggplot(aes(x= DBH, y = m)) +
-        theme_minimal() + 
-        geom_boxplot() +
-        {if(P=='tau') scale_y_continuous(limits = c(-20, NA))  } +
-        {if(P=='a')  scale_y_continuous(limits = c(-2, NA)) } +
-        
-        labs(title=S, y=P)
-    )
-    # ggsave(paste(S,"a_boxplot_accross_onto_sg.png", sep='_'), path = PATH,
-    #        width = 25, height = 26, units = "cm", dpi=800, bg="white")
-  }
+for(P in c('a', 'O', 'tau')){
+  print(
+    datap %>% 
+      filter(parameter==P) %>% 
+      ggplot(aes(x= DBH, y = m)) +
+      theme_minimal() + 
+      geom_boxplot() +
+      theme(legend.position="bottom") +
+      labs(y=P) # title=S, 
+  )
+  ggsave(paste(P,"_boxplot_accross_onto.png", sep='_'), path = PATH,
+         width = 10, height = 10, units = "cm", dpi=800, bg="white")
 }
+# }
+```
+
+```{r}
+# for(S in c('Understory species', 'Canopy species')){
+for(P in c('a', 'O', 'tau')){
+  print(
+    datap %>% 
+      filter(parameter==P) %>% 
+      # filter(Strategy==S) %>% 
+      ggplot(aes(x= DBH, y = m, col=Strategy)) +
+      theme_minimal() + 
+      geom_boxplot() +
+      scale_color_manual(values = c("Canopy species" = "#E7B800",
+                                    "Understory species"= "#009E73",
+                                    "NA" = "darkgrey")) +
+      theme(legend.position="bottom") +
+      labs(y=P) # title=S, 
+  )
+  ggsave(paste(P,"_boxplot_accross_onto_strategy.png", sep='_'), path = PATH,
+         width = 10, height = 10, units = "cm", dpi=800, bg="white")
+}
+# }
 ```
 
 # Predictions
@@ -348,6 +391,7 @@ Sys.time()
 
 datalist <- list()
 Olist <- list()
+alist <- list()
 plist <- list()
 
 for(s in names(fits)){
@@ -369,26 +413,48 @@ for(s in names(fits)){
         Olist[[d]] <- data.frame(
           DBH = d,
           O = fits[[s]][[d]]$summary("O", median)$median,
-          OQ5 = fits[[s]][[d]]$summary("O")$q5, # Opt Q5%
-          OQ95 =fits[[s]][[d]]$summary("O")$q95
+          fits[[s]][[d]]$summary("O",
+                                 quantiles = ~ quantile2(., probs = c(0.2, 0.8)))
+          # OQ5 = fits[[s]][[d]]$summary("O")$q5, # Opt Q5%
+          # OQ95 =fits[[s]][[d]]$summary("O")$q95
+        )
+        
+        alist[[d]] <- data.frame(
+          DBH = d,
+          a = fits[[s]][[d]]$summary("a", median)$median
         )
         
       }
     }
     DATA <- list_rbind(list_flatten(datalist)) %>% 
       mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25")))
+    
+    aDATA <- list_rbind(list_flatten(alist)) %>% 
+      mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25")))
+    
     ODATA <- list_rbind(list_flatten(Olist)) %>% 
       mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25")))
+    
+    DATA <-  DATA %>% 
+      left_join(aDATA, by="DBH") %>% 
+      left_join(ODATA, by="DBH") %>% 
+      mutate(Incertitude = q20-q80) %>% 
+      mutate(Sg_effect = ifelse(a > -0.02 | Incertitude > 5, F, T)) # -0.02
+    
+    
     
     DATA %>% 
       ggplot(aes(col = DBH, fill=DBH)) +
       theme_minimal() +
-      geom_line(aes(x = logTransmittance, y = median), size=0.7) + # p posterior median
+      geom_line(aes(x = logTransmittance, y = median, linetype = Sg_effect), size=0.7) + # p posterior median
+      scale_linetype_manual(values = c('TRUE' = "solid",
+                                       'FALSE' = "dashed")) +
+      
       geom_ribbon(aes(x = logTransmittance, ymin = q5, ymax = q95),
                   alpha = .1, col=NA, linewidth=0.5) + # P quantiles
       geom_vline(data = ODATA, aes(xintercept  = O, col= DBH), linewidth=0.8) + # Opt median
       
-      geom_rect(data = ODATA, aes(xmin = OQ5, xmax = OQ95, # O quantiles
+      geom_rect(data = ODATA, aes(xmin = q20, xmax = q80, # O quantiles
                                   ymin=0, ymax=Inf), fill=NA, linetype="dotted") +
       
       # geom_vline(data = ODATA, aes(xintercept  = OQ5, col= DBH),  linetype="dashed") + # Opt Q5%
@@ -417,7 +483,7 @@ for(s in names(fits)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
 # plots
 
-ggsave("Allsp_Light_niche_atTWIoptimum_stages_autocor.pdf",
+ggsave("Allsp_Light_niche_atTWIoptimum_stages.pdf",
        path = PATH,
        plots, width = 15, height = 10)
 
@@ -433,8 +499,8 @@ databp <- datap %>%
   pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
               names_glue = "{parameter}_{.value}") %>% 
   mutate(Sg_effect = ifelse(a_median > -0.02, F, T))  %>% # no light effect
-  mutate(a_median = -a_median) %>% 
-  mutate(Incertitude = O_Q50_1-O_Q50_0) # 50% CI
+  # mutate(a_median = -a_median) %>% 
+  mutate(Incertitude =(exp(O_Q50_1)*100)-(exp(O_Q50_0)*100)) # 50% CI : O_Q50_1-O_Q50_0 ; 95% CI : O_Q95-O_Q5
 
 
 databp <- databp %>%
@@ -492,7 +558,7 @@ databp %>%
 
 # alpha sur les postériors imprécis
 
-ggsave("O_a_biplot_onto_autocor.png", path = PATH, 
+ggsave("O_a_biplot_onto.png", path = PATH, 
        width = 32, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
@@ -525,7 +591,8 @@ for(s in names(fits)){
       
       # ggrepel::geom_text_repel(aes(x= a_median, y = O_median, label = Species), col = "black", size = 2.5) +
       scale_y_continuous(limits = range(databp$O_median), n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
-      scale_x_continuous(limits = range(databp$a_median), trans="log") +
+      scale_x_continuous(limits = range(databp$a_median), trans="log",
+                         n.breaks = 8, labels = ~round(.,2)) +
       theme(axis.title = ggtext::element_markdown(),
             legend.title = ggtext::element_markdown()) +
       labs(x= "Niche width (log(-*a*))",
@@ -538,7 +605,7 @@ for(s in names(fits)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
 # plots
 
-ggsave("O_a_biplot_onto_autocor_perspecies.pdf",
+ggsave("O_a_biplot_onto_perspecies.pdf",
        path = PATH,
        plots, width = 15, height = 10)
 
@@ -546,9 +613,32 @@ Sys.time() # 4 min
 
 
 
-# ggsave("O_a_biplot_onto_autocor_perspecies.png", path = PATH, 
+# ggsave("O_a_biplot_onto_perspecies.png", path = PATH, 
 #        width = 32, height = 20, units = "cm", dpi=800, bg="white")
 
+```
+
+# Incertitude O vs a
+```{r}
+ggplot(databp, aes(x=Incertitude, y= a_median)) +
+  theme_minimal() + 
+  # geom_point() +
+  geom_line() +
+  # scale_x_continuous(trans="log", labels = ~round(.,1)) +
+  geom_hline(yintercept = -0.02, linetype = 'dashed') +
+  ggpubr::stat_cor(method = "pearson",
+                   label.x.npc = 0.7, label.y.npc = 0.05) +
+  labs(x='*O* 95% incertitude (transmittance %)', y= '*a* median') +
+  theme(axis.title = ggtext::element_markdown(),
+        legend.title = ggtext::element_markdown())
+
+# ggsave("O_incertitude_a_.png", path = PATH,
+#        width = 15, height = 10, units = "cm", dpi=800, bg="white")
+
+cor(databp$Incertitude, databp$a_median)
+cor(log(databp$Incertitude), databp$a_median)
+# not log : -0.55
+# log : -0.69
 ```
 
 # ACP O, a, incertitude O, incertitude a
