@@ -16,7 +16,7 @@ library(posterior)
 library(factoextra)
 library(grid)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])[1:10]
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])#[1:10]
 
 Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_DBHclas.csv")
 
@@ -30,7 +30,8 @@ strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strate
   rename(Strategy = Strategy_VB) %>% 
   unique()
 
-PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/1-3/Autocor/First10sp"
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/1-3/Autocor"
+# /First10sp
 ```
 
 # Fits
