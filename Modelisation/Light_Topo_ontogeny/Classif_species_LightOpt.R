@@ -8,10 +8,10 @@
 # j'ai sélectionné son overlap minimum enregistré et
 # j'ai fait un histogramme pour décider de l'overlap minimum acceptable
 # pour considérer deux valeurs de O comme différentes, similaires ou on ne sait pas.
-# Je mes suis aidée des biplot O-a par espèce pour visualiser ses recouvrements. 
+# Je me suis aidée des biplot O-a par espèce pour visualiser ses recouvrements. 
 
 # ------------------------------------------------------------------------------
-# library(bayestestR)
+library(bayestestR)
 # S = "Eugenia_coffeifolia"
 # 
 # x <- fits[[S]][["1-3"]]$draws("O")
@@ -26,7 +26,7 @@
 d <- list()
 for(S in names(fits)){
   # S = "Oxandra_asbeckii"
-  print(S)
+  # print(S)
   
   if(all(c("1-3", "3-10") %in% names(fits[[S]]))){
     `1-2` = round(as.numeric(overlap(fits[[S]][["1-3"]]$draws("O"), fits[[S]][["3-10"]]$draws("O")))*100,0)
@@ -88,11 +88,8 @@ datah <- datah %>%
     `MinCover%` <= 20 ~ "yes")) %>% 
   mutate(Ontoeffect = ifelse(is.na(Ontoeffect), "No signifiant pattern", Ontoeffect))
 
-
-fits[[s]][[d]]$summary("O", median)$median
-
+# O tree -----------------------------------------------------------------------
 d <- list()
-# Plot data
 for(S in names(fits)){
   for(D in c("1-3","3-10","10-25",">25")){
     if(D %in% names(fits[[S]])){
@@ -118,18 +115,50 @@ test <- datam %>%
          `2-3` = `10-25`-`3-10`,
          # `2-4` = `>25`-`3-10`,
          `3-4` = `>25`-`10-25`) %>% 
-  # mutate(SameDirection = ifelse(`1-2`>0 & `2-3`>0 & `3-4`>0, "Increasing order", NA))
+  # 2) Plateaus?
+  mutate(Plateaus = ifelse(Ontoeffect== "yes" &
+                             ((abs(`1-2`)<.06 & !is.na(`1-2`)) | (abs(`2-3`)<.06 & !is.na(`2-3`)) | (abs(`3-4`)<.06 & !is.na(`3-4`))),
+                           "plateau", "")) %>% 
+  # 3) all in the same direction?
   mutate(SameDirection = case_when(
-    Ontoeffect== "yes" & (`1-2`>0 | is.na(`1-2`)) & (`2-3`>0 | is.na(`2-3`)) & (`3-4`>0 | is.na(`3-4`)) ~ "Increasing order",
-    Ontoeffect== "yes" & (`1-2`<0 | is.na(`1-2`)) & (`2-3`<0 | is.na(`2-3`)) & (`3-4`<0 | is.na(`3-4`)) ~ "Decreasing order")) %>% 
-  mutate(SameDirection = ifelse(Ontoeffect== "yes" & is.na(SameDirection), "not all in the same direction", SameDirection))
+    Ontoeffect== "yes" & Plateaus=="" & ((`1-2`>0 | is.na(`1-2`)) & (`2-3`>0 | is.na(`2-3`)) & (`3-4`>0 | is.na(`3-4`))) ~ "Increasing order",
+    Ontoeffect== "yes" & Plateaus=="" & ((`1-2`<0 | is.na(`1-2`)) & (`2-3`<0 | is.na(`2-3`)) & (`3-4`<0 | is.na(`3-4`))) ~ "Decreasing order",
+    .default = "")) %>%  
+  mutate(SameDirection = ifelse(Ontoeffect== "yes" &
+                                  SameDirection=="" &
+                                          ((`1-2`< -.06 | is.na(`1-2`)) | (`2-3`< -.06 | is.na(`2-3`)) | (`3-4`< -.06 | is.na(`3-4`))),
+                                "not all in the same direction", SameDirection))
 
-nrow(test %>% filter(Ontoeffect== "Invariant"))/70*100 # 18.6% no ontogenetic effect (13 sp)
+nrow(test %>% filter(Ontoeffect== "Invariant"))/70*100 # 8.57% no ontogenetic effect (6 sp)
 nrow(test %>% filter(Ontoeffect== "yes"))/70*100 # 54.2% ontogenetic effect (38 sp)
+nrow(test %>% filter(Plateaus == "plateau"))/38*100 # 10.5% with plateaus (4 sp)
 nrow(test %>% filter(SameDirection == "Increasing order"))/38*100 # 39.5% Increasing order (15 sp)
 nrow(test %>% filter(SameDirection == "Decreasing order"))/38*100 # 2.6% Decreasing order (1 sp)
-nrow(test %>% filter(SameDirection == "not all in the same direction"))/38*100 # 58% not all in the same direction (22 sp)
+nrow(test %>% filter(SameDirection == "not all in the same direction"))/38*100 # 50% not all in the same direction (19 sp)
 
+# Histo growth importance -------------------------
+test %>% 
+  filter(SameDirection == "Increasing order") %>% 
+  select(c(Species,`1-2`,`2-3`,`3-4`)) %>% 
+  pivot_longer(cols = c(`1-2`,`2-3`,`3-4`),
+               names_to = "Pairs",
+               values_to = "Growth") %>% 
+  # group_by(Species) %>% 
+  # summarise(`MinCover%` = min(Growth, na.rm = TRUE))
 
+ggplot(aes(x=Growth)) +
+  theme_minimal() +
+  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(trans="sqrt", n.breaks = 15) +
+  labs(x= 'O increase between increasing pairs of DBH classes (log(transmittance))')
 
+# >= 2 : strong increase
+# <= 1 : low increase
+# et entre : intermediate increase
+# ------------------------------------------------------------------------------
 
+# test <- test %>%
+#   mutate(SameDirection = case_when(
+#     SameDirection == "Increasing order" &  ~ "Increasing order",
+#     SameDirection == "Increasing order" &  ~ "Decreasing order")) %>% 
+  
