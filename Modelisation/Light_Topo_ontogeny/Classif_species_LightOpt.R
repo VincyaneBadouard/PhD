@@ -86,7 +86,7 @@ datah <- datah %>%
   mutate(Ontoeffect = case_when(
     `MinCover%` >= 80 ~ "Invariant",
     `MinCover%` <= 20 ~ "yes")) %>% 
-  mutate(Ontoeffect = ifelse(is.na(Ontoeffect), "No signifiant pattern", Ontoeffect))
+  mutate(Ontoeffect = ifelse(is.na(Ontoeffect), "No significant pattern", Ontoeffect))
 
 # O tree -----------------------------------------------------------------------
 d <- list()
@@ -126,11 +126,12 @@ test <- datam %>%
     .default = "")) %>%  
   mutate(SameDirection = ifelse(Ontoeffect== "yes" &
                                   SameDirection=="" &
-                                          ((`1-2`< -.06 | is.na(`1-2`)) | (`2-3`< -.06 | is.na(`2-3`)) | (`3-4`< -.06 | is.na(`3-4`))),
+                                  ((`1-2`< -.06 | is.na(`1-2`)) | (`2-3`< -.06 | is.na(`2-3`)) | (`3-4`< -.06 | is.na(`3-4`))),
                                 "not all in the same direction", SameDirection))
 
-nrow(test %>% filter(Ontoeffect== "Invariant"))/70*100 # 8.57% no ontogenetic effect (6 sp)
-nrow(test %>% filter(Ontoeffect== "yes"))/70*100 # 54.2% ontogenetic effect (38 sp)
+nrow(test %>% filter(Ontoeffect== "Invariant"))/70*100 # 8.6% no ontogenetic effect (6 sp)
+nrow(test %>% filter(Ontoeffect== "No significant pattern"))/70*100 # 37.1% with no significant pattern (26 sp)
+nrow(test %>% filter(Ontoeffect== "yes"))/70*100 # 54.3% ontogenetic effect (38 sp)
 nrow(test %>% filter(Plateaus == "plateau"))/38*100 # 10.5% with plateaus (4 sp)
 nrow(test %>% filter(SameDirection == "Increasing order"))/38*100 # 39.5% Increasing order (15 sp)
 nrow(test %>% filter(SameDirection == "Decreasing order"))/38*100 # 2.6% Decreasing order (1 sp)
@@ -145,8 +146,8 @@ test %>%
                values_to = "Growth") %>% 
   # group_by(Species) %>% 
   # summarise(`MinCover%` = min(Growth, na.rm = TRUE))
-
-ggplot(aes(x=Growth)) +
+  
+  ggplot(aes(x=Growth)) +
   theme_minimal() +
   geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(trans="sqrt", n.breaks = 15) +
@@ -161,4 +162,52 @@ ggplot(aes(x=Growth)) +
 #   mutate(SameDirection = case_when(
 #     SameDirection == "Increasing order" &  ~ "Increasing order",
 #     SameDirection == "Increasing order" &  ~ "Decreasing order")) %>% 
-  
+
+
+# Temperament ------------------------------------------------------------------
+
+truc <- test %>% 
+  mutate(Temperament = case_when(
+    (`1-3`>= -2 | is.na(`1-3`)) &
+      (`3-10`>= -2 | is.na(`3-10`)) &
+      (`10-25`>= -2 | is.na(`10-25`)) &
+      (`>25`>= -2 | is.na(`>25`)) ~ "Heliophile all life",
+    (`1-3`< -2 | is.na(`1-3`)) &
+      (`3-10`< -2 | is.na(`3-10`)) &
+      (`10-25`< -2 | is.na(`10-25`)) &
+      (`>25`< -2 | is.na(`>25`)) ~ "Sciaphile all life",
+    
+    (`1-3`< -2 | is.na(`1-3`)) &
+      ((`3-10`>= -2 | is.na(`3-10`)) |
+         (`10-25`>= -2 | is.na(`10-25`)) |
+         (`>25`>= -2 | is.na(`>25`))) ~ "Shade then light",
+    
+    (`1-3`>= -2 | is.na(`1-3`)) &
+      ((`3-10`< -2 | is.na(`3-10`)) |
+         (`10-25`< -2 | is.na(`10-25`)) |
+         (`>25`< -2 | is.na(`>25`))) ~ "Light then shade"
+    
+  )) %>% 
+  # mutate(Temperament = as.character(Temperament)) %>% 
+  rowwise() %>% 
+  mutate(Temperament = ifelse(`1-3`>= -2 & # light
+                                any(`3-10`< -2 & !is.na(`3-10`), `10-25`< -2 & !is.na(`10-25`)) & # shade
+                                any(`10-25`>= -2 & !is.na(`10-25`),`>25`>= -2 & !is.na(`>25`)), # light
+                              "Light, shade then light", Temperament)) %>%
+  rowwise() %>% 
+  mutate(Temperament = ifelse(`1-3` < -2 & # shade
+                                any(`3-10`>= -2 & !is.na(`3-10`), `10-25`>= -2 & !is.na(`10-25`)) & # light
+                                any(`10-25`< -2 & !is.na(`10-25`),`>25`< -2 & !is.na(`>25`)), # shade
+                              "Shade, light then shade", Temperament)) %>% 
+  ungroup()
+
+
+nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 # 3.3% Heliophile all life (3 sp)
+nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 # 47.1% Sciaphile all life (33 sp)
+nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 # 40% Shade then light (28 sp)
+nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 # 1.4% Light then shade (1 sp)
+nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 # 2.9% Light, shade then light (2 sp)
+nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 # 4.3% Shade, light then shade (3 sp)
+
+
+

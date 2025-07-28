@@ -86,7 +86,7 @@ datah_a <- datah_a %>%
   mutate(NicheWidthDiff = case_when(
     `MinCover%` >= 80 ~ "Invariant",
     `MinCover%` <= 20 ~ "yes")) %>% 
-  mutate(NicheWidthDiff = ifelse(is.na(NicheWidthDiff), "No signifiant pattern", NicheWidthDiff))
+  mutate(NicheWidthDiff = ifelse(is.na(NicheWidthDiff), "No significant pattern", NicheWidthDiff))
 
 d_a <- list()
 for(S in names(fits)){
@@ -169,6 +169,7 @@ test_a <- datam_a %>%
                                 "not all in the same direction", SameDirection))
 
 nrow(test_a %>% filter(NicheWidthDiff== "Invariant"))/70*100 # 7.1% no Niche width difference (5 sp)
+nrow(test_a %>% filter(NicheWidthDiff== "No significant pattern"))/70*100 # 54.3% no significant niche width difference (38 sp)
 nrow(test_a %>% filter(NicheWidthDiff== "yes"))/70*100 # 38.6% Niche width difference (27 sp)
 nrow(test_a %>% filter(Plateaus == "plateau"))/27*100 # 14.8% with plateaus (4 sp)
 nrow(test_a %>% filter(SameDirection == "Increasing order"))/27*100 # 0% Increasing order (0 sp)
@@ -223,35 +224,43 @@ con1_df <- as.data.frame(con1) %>%
   mutate(Percent= round((Freq/70)*100, 0))
 sum(con1_df$Freq) # 70
 
+con2df <- as.data.frame(con1) %>% # real contingency table
+  rename(O_pattern = Var1, a_pattern = Var2) %>% 
+  pivot_wider(names_from = a_pattern,
+              values_from = Freq) %>% 
+  mutate(O_pattern = factor(O_pattern,
+                            levels = c("Invariant", "Increasing order ", "Decreasing order ","not all in the same direction ","not all in the same direction plateau"," plateau","No signifiant pattern"))) %>% 
+  arrange(O_pattern) %>% 
+  select("O_pattern","Invariant","Decreasing order ","not all in the same direction ","not all in the same direction plateau"," plateau","No signifiant pattern")
 
-write_csv(con1_df, paste(PATH, "/Contigency_table.csv", sep=""))
+write_csv(con2df, paste(PATH, "/Contigency_table.csv", sep=""))
 
-mosaicplot(con1, xlab ="a", ylab = "O", cex = .5, color = T)
-
-con2 <-table(Pattern_O$O_pattern)
-
-# 2) Calculate percentages %
-tab2 = prop.table(con1)
-percent <- round(tab2*100,1)
-
-# 3a) Create labels for each pie in the chart
-pielabels <- paste(percent, "%", sep="")
-
-
-# 3b) Generate the Pie Chart
-pie(tab2, 
-    col = c("gray","black"), 
-    labels = pielabels,
-    main = '% of cars by Transmission (am)', 
-    cex = .6)
-
-# 3c) Legend for the pie chart
-legend("topright", 
-       c("0","1"), 
-       cex=0.8, 
-       fill=c("gray","black"))
-
-
-
-# 3) (Optional) Display the percentages on the Bar Plot
-text(bp, 0, tab3, pos=3)
+# mosaicplot(con1, xlab ="a", ylab = "O", cex = .5, color = T)
+# 
+# con2 <-table(Pattern_O$O_pattern)
+# 
+# # 2) Calculate percentages %
+# tab2 = prop.table(con1)
+# percent <- round(tab2*100,1)
+# 
+# # 3a) Create labels for each pie in the chart
+# pielabels <- paste(percent, "%", sep="")
+# 
+# 
+# # 3b) Generate the Pie Chart
+# pie(tab2, 
+#     col = c("gray","black"), 
+#     labels = pielabels,
+#     main = '% of cars by Transmission (am)', 
+#     cex = .6)
+# 
+# # 3c) Legend for the pie chart
+# legend("topright", 
+#        c("0","1"), 
+#        cex=0.8, 
+#        fill=c("gray","black"))
+# 
+# 
+# 
+# # 3) (Optional) Display the percentages on the Bar Plot
+# text(bp, 0, tab3, pos=3)
