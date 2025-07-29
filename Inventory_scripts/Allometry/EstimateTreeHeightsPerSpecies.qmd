@@ -82,11 +82,11 @@ other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
 # Cleaned inventory data
 ```{r, message=F}
 Understory <- read.csv(
-    # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv" # at final
-  "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # for the moment
+    "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv" # at final
+  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # for the moment
   ) %>% 
   rename(idTree = IdTree) %>% # 36 311
-  rename(SubPlot = Subplot)
+  rename(SubPlot = subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha 11 539
   mutate(idTree = as.character(idTree))
 
@@ -172,7 +172,7 @@ nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```{r}
 same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
 same_sp$TreeHeight <- same_sp_pred[,1]
-range(same_sp$TreeHeight) #  2.003142 49.087198
+range(same_sp$TreeHeight) #  2.003142 49.087198 -> 2.034959 49.109834 apres coord cor
 ```
 ## Plot
 ```{r}
@@ -187,7 +187,7 @@ si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen e
 ```{r}
 other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, robust=T, na.action = na.omit) # 1 min; , robust=T to take the posterior median
 other_sp$TreeHeight <- other_sp_pred[,1]
-range(other_sp$TreeHeight) # 2.646925 36.729651
+range(other_sp$TreeHeight) # 2.646925 36.729651 ->  2.63676 36.75312 apres coord cor
 ```
 ## Plot
 ```{r}
@@ -246,11 +246,11 @@ for(S in unique(FTH$ScientificName)[unique(FTH$ScientificName) %in% unique(same_
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
-ggsave("Treeheights_species_vs_nospecies_effect_vs_FTH.pdf",
+ggsave("Treeheights_species_vs_nospecies_effect_vs_FTH_aftercoordcor.pdf",
        path = "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf",
        plots, width = 15, height = 10)
 ```
-Pour :
+Pour (before coord cor):
 species effect:
 Mouriri_huberi
 Couepia_caryophylloides

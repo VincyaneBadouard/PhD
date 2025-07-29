@@ -28,7 +28,7 @@ cores = 5 # nbr of cores to use
 # parallel::detectCores() # 8
 i <- NULL
 j = length(species)
-
+une journée 
 # L'enregistrement des clusters
 cl <- parallel::makeCluster(cores)
 doSNOW::registerDoSNOW(cl)

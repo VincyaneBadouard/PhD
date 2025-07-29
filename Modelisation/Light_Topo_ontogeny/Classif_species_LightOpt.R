@@ -137,7 +137,29 @@ nrow(test %>% filter(SameDirection == "Increasing order"))/38*100 # 39.5% Increa
 nrow(test %>% filter(SameDirection == "Decreasing order"))/38*100 # 2.6% Decreasing order (1 sp)
 nrow(test %>% filter(SameDirection == "not all in the same direction"))/38*100 # 50% not all in the same direction (19 sp)
 
-# Histo growth importance -------------------------
+# Flat 1st stage ---------------------------------------------------------------
+# flattable <- datam_a[,1:5] %>% 
+#   pivot_longer(cols = names(datam_a[,2:5]),
+#                values_to = "a") %>% 
+#   mutate(Flat = ifelse(a> -0.02,"yes","no")) %>% 
+#   pivot_wider(names_from = name,
+#               values_from = c(a,Flat))
+
+flattable <- datam_a[,1:2] %>% # Only first stage
+  mutate(Flat_1st_stage = ifelse(`1-3`> -0.02,T,F)) %>% 
+  select(Species, Flat_1st_stage)
+
+see <- test %>% 
+  left_join(flattable, by="Species") 
+
+nrow(see %>% filter(Flat_1st_stage))/70*100 # 11.4% with flat 1st stage among all sp (8 sp)
+nrow(see %>% filter(Flat_1st_stage & Ontoeffect== "yes"))/38*100 # 7.9% with flat 1st stage among sp with onto effect (3 sp)
+nrow(see %>% filter(Flat_1st_stage & SameDirection == "Increasing order")) # 2 sp with flat 1st stage among sp in increasing order
+nrow(see %>% filter(Flat_1st_stage & SameDirection == "not all in the same direction")) # 1 sp with flat 1st stage among sp with non-linear order
+
+
+
+# Histo growth importance ------------------------------------------------------
 test %>% 
   filter(SameDirection == "Increasing order") %>% 
   select(c(Species,`1-2`,`2-3`,`3-4`)) %>% 
@@ -172,36 +194,70 @@ truc <- test %>%
       (`3-10`>= -2 | is.na(`3-10`)) &
       (`10-25`>= -2 | is.na(`10-25`)) &
       (`>25`>= -2 | is.na(`>25`)) ~ "Heliophile all life",
-    (`1-3`< -2 | is.na(`1-3`)) &
-      (`3-10`< -2 | is.na(`3-10`)) &
-      (`10-25`< -2 | is.na(`10-25`)) &
-      (`>25`< -2 | is.na(`>25`)) ~ "Sciaphile all life",
+    (`1-3`<= -3 | is.na(`1-3`)) &
+      (`3-10`<= -3 | is.na(`3-10`)) &
+      (`10-25`<= -3 | is.na(`10-25`)) &
+      (`>25`<= -3 | is.na(`>25`)) ~ "Sciaphile all life",
     
-    (`1-3`< -2 | is.na(`1-3`)) &
+    (`1-3`> -3 & `1-3`< -2| is.na(`1-3`)) &
+      (`3-10`> -3 & `3-10`< -2 | is.na(`3-10`)) &
+      (`10-25`> -3 & `10-25`< -2 | is.na(`10-25`)) &
+      (`>25`> -3 & `>25`< -2 | is.na(`>25`)) ~ "Intermediate all life",
+    
+    (`1-3`<= -3 | is.na(`1-3`)) &
       ((`3-10`>= -2 | is.na(`3-10`)) |
          (`10-25`>= -2 | is.na(`10-25`)) |
          (`>25`>= -2 | is.na(`>25`))) ~ "Shade then light",
     
+    (`1-3`<= -3 | is.na(`1-3`)) &
+      ((`3-10`> -3 & `3-10`< -2 | is.na(`3-10`)) |
+         (`10-25`> -3 & `10-25`< -2 | is.na(`10-25`)) |
+         (`>25`> -3 & `>25`< -2 | is.na(`>25`))) ~ "Shade then intermediate",
+    
+    (`1-3`> -3 & `1-3`< -2 | is.na(`1-3`)) &
+      ((`3-10`>= -2 | is.na(`3-10`)) |
+         (`10-25`>= -2 | is.na(`10-25`)) |
+         (`>25`>= -2 | is.na(`>25`))) ~ "Intermediate then light",
+    
     (`1-3`>= -2 | is.na(`1-3`)) &
-      ((`3-10`< -2 | is.na(`3-10`)) |
-         (`10-25`< -2 | is.na(`10-25`)) |
-         (`>25`< -2 | is.na(`>25`))) ~ "Light then shade"
+      ((`3-10`<= -3 | is.na(`3-10`)) |
+         (`10-25`<= -3 | is.na(`10-25`)) |
+         (`>25`<= -3 | is.na(`>25`))) ~ "Light then shade",
+    
+    (`1-3`>= -2 | is.na(`1-3`)) &
+      ((`3-10`> -3 & `3-10`< -2 | is.na(`3-10`)) |
+         (`10-25`> -3 & `10-25`< -2 | is.na(`10-25`)) |
+         (`>25`> -3 & `>25`< -2 | is.na(`>25`))) ~ "Light then intermediate"
     
   )) %>% 
-  # mutate(Temperament = as.character(Temperament)) %>% 
   rowwise() %>% 
   mutate(Temperament = ifelse(`1-3`>= -2 & # light
-                                any(`3-10`< -2 & !is.na(`3-10`), `10-25`< -2 & !is.na(`10-25`)) & # shade
+                                any(`3-10`<= -3 & !is.na(`3-10`), `10-25`<= -3 & !is.na(`10-25`)) & # shade
                                 any(`10-25`>= -2 & !is.na(`10-25`),`>25`>= -2 & !is.na(`>25`)), # light
                               "Light, shade then light", Temperament)) %>%
   rowwise() %>% 
-  mutate(Temperament = ifelse(`1-3` < -2 & # shade
+  mutate(Temperament = ifelse(`1-3` <= -3 & # shade
                                 any(`3-10`>= -2 & !is.na(`3-10`), `10-25`>= -2 & !is.na(`10-25`)) & # light
-                                any(`10-25`< -2 & !is.na(`10-25`),`>25`< -2 & !is.na(`>25`)), # shade
-                              "Shade, light then shade", Temperament)) %>% 
+                                any(`10-25`<= -3 & !is.na(`10-25`),`>25`<= -3 & !is.na(`>25`)), # shade
+                              "Shade, light then shade", Temperament)) %>%
+  rowwise() %>% 
+  mutate(Temperament = ifelse(`1-3` <= -3 & # shade
+                                any(`3-10`> -3 & `3-10`< -2 & !is.na(`3-10`), `10-25`> -3 & `10-25`< -2 & !is.na(`10-25`)) & # intermediate
+                                any(`10-25`<= -3 & !is.na(`10-25`),`>25`<= -3 & !is.na(`>25`)), # shade
+                              "Shade, intermediate then shade", Temperament)) %>%
+  rowwise() %>% 
+  mutate(Temperament = ifelse(`1-3`>= -2 & # light
+                                any(`3-10`> -3 & `3-10`< -2 & !is.na(`3-10`), `10-25`> -3 & `10-25`< -2 & !is.na(`10-25`)) & # intermediate
+                                any(`10-25`>= -2 & !is.na(`10-25`),`>25`>= -2 & !is.na(`>25`)), # light
+                              "Light, intermediate then light", Temperament)) %>%
+  rowwise() %>% 
+  mutate(Temperament = ifelse(`1-3`> -3 & `1-3`< -2 & # intermediate
+                                any(`3-10`>= -2 & !is.na(`3-10`), `10-25`>= -2 & !is.na(`10-25`)) & # light
+                                any(`10-25`> -3 & `10-25`< -2 & !is.na(`10-25`),`>25`> -3 & `>25`< -2 & !is.na(`>25`)), # intermediate
+                              "Intermediate, light then intermediate", Temperament)) %>%
   ungroup()
 
-
+# Without intermediate class
 nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 # 3.3% Heliophile all life (3 sp)
 nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 # 47.1% Sciaphile all life (33 sp)
 nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 # 40% Shade then light (28 sp)
@@ -209,5 +265,25 @@ nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 # 1.4% Light then
 nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 # 2.9% Light, shade then light (2 sp)
 nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 # 4.3% Shade, light then shade (3 sp)
 
+# With intermediate class
+nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 # 4.3% Heliophile all life (3 sp)
+nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 # 30% Sciaphile all life (21 sp)
+nrow(truc %>% filter(Temperament== "Intermediate all life"))/70*100 # 0% Intermediate all life (0 sp)
 
+nrow(truc %>% filter(Temperament== "Shade then intermediate"))/70*100 # 8.6% Shade then intermediate (6 sp)
+nrow(truc %>% filter(Temperament== "Light then intermediate"))/70*100 # 0% Light then intermediate (0 sp)
+nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 # 38.6% Shade then light (27 sp)
+nrow(truc %>% filter(Temperament== "Intermediate then light"))/70*100 # 11.4% Intermediate then light (8 sp) 
 
+nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 # 1.4% Light then shade (1 sp)
+nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 # 1.4% Light, shade then light (1 sp)
+nrow(truc %>% filter(Temperament== "Shade, intermediate then shade"))/70*100 # 2.9% Shade, intermediate then shade (2 sp)
+nrow(truc %>% filter(Temperament== "Light, intermediate then light"))/70*100 # 1.4% Light, intermediate then light (1 sp)
+nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 # 0% Shade, light then shade (0 sp)
+
+# LogT : -6, -4, -2, 0
+# %T : 0, 1.83, 14, 100
+
+con3 <- truc %>% 
+  group_by(Temperament) %>% 
+  count()

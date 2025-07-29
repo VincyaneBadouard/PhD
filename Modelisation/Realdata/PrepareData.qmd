@@ -9,8 +9,10 @@ library(tidyverse)
 ```{r, include = F, message=F}
 Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
 # length(unique(sp))
+# sp %>% 
+#   filter(ScientificName_TreeDataCor !=ScientificName )
 ```
 
 ```{r}
