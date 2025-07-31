@@ -1,0 +1,139 @@
+# Prepare data for 9ha
+what change:
+- remove a big part of individuals
+- species abundance per DBH class
+- species abundance so the **number of interest species** ...
+- **eigenvectors..**
+
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+```
+
+```{r, include = F, message=F}
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+# length(unique(sp))
+```
+
+# Filter to 9ha
+```{r}
+all <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% 
+  rename(idTree = IdTree) %>% 
+  select(idTree, Xutm, Yutm, subplot)
+
+
+test <- Inv %>% 
+  left_join(all, by='idTree')
+```
+
+
+
+```{r}
+Inv <- Inv %>% 
+  mutate(logTransmittance =  log(Transmittance)) %>% 
+  mutate(logTWI = log(TWI)) %>% 
+  mutate(logDBH = log(DBHcor))
+
+```
+
+```{r}
+summary(Inv)
+```
+
+# Abundance table
+```{r}
+data <- Inv %>%
+  filter(ScientificName %in% sp) %>% 
+  mutate(Size = factor(case_when(
+    DBHcor < 3 ~ "1-3",
+    DBHcor >= 3 & DBHcor < 10 ~ "3-10",
+    DBHcor >= 10 & DBHcor < 25 ~ "10-25",
+    DBHcor >= 25 ~ ">25"), levels = c("1-3","3-10","10-25",">25"))
+  ) %>% 
+  group_by(ScientificName, Size) %>% 
+  summarise(N = n()) %>% 
+  pivot_wider(names_from = Size,
+              values_from = N)
+
+data[is.na(data)] <- 0
+
+data <- data %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = sum(`1-3`,`3-10`,`10-25`,`>25`)) %>% 
+  select(ScientificName, N, `1-3`,`3-10`,`10-25`,`>25`)
+
+length(unique(data$ScientificName))
+
+write_csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_9ha.csv")
+```
+
+# Create presence-absence data format for each species
+```{r}
+# Create a list of the inventory replicated, 1 per ScientificName
+datalist <- replicate(length(sp), Inv, simplify = F) 
+names(datalist) <- sp # 1 per ScientificName
+
+# Presence=1 if it's the interest species, 0 if not
+datalist <- lapply(names(datalist), function(name) {
+  datalist[[name]]$Presence <- ifelse(
+    !is.na(datalist[[name]]$ScientificName) & datalist[[name]]$ScientificName == name, 1, 0)
+  
+  datalist[[name]]  # Return modified data frame
+})
+names(datalist) <- sp # 75
+
+# view(datalist[["Anaxagorea_dolichocarpa"]])
+```
+
+```{r}
+save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha.Rdata")
+```
+
+
+# Join eigenvectors
+```{r}
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
+```
+
+```{r}
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", full.names=T)
+eigenval <- lapply(filelist, read_csv)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", "", filelist)
+filelist <- gsub(".csv", "", filelist)
+
+names(eigenval) <- filelist
+```
+
+```{r}
+datalist_eig <- datalist
+
+# str(datalist_eig[[1]])
+
+datalist_eig <- lapply(names(datalist), function(name) {
+  # name = "Sextonia_rubra"
+  if(name %in% names(eigenval) & ncol(eigenval[[name]])>0){
+    datalist_eig[[name]] <- datalist_eig[[name]] %>%
+      # left_join(unique(eigenval[[name]]), by=c("Xutm", "Yutm"), copy = T)
+      bind_cols(eigenval[[name]])
+    
+  }
+  datalist_eig[[name]]  # Return modified data frame
+})
+
+names(datalist_eig) <- names(datalist) 
+
+datalist_eig[["Eperua_falcata"]]
+```
+
+
+```{r}
+save(datalist_eig, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors.Rdata")
+```
+

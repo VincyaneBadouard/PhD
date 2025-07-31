@@ -1,0 +1,135 @@
+---
+title: "Evaluate_CanopyConstructor_treeheights"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+execute: 
+  cache: true
+---
+  
+Objective:  
+Evaluate CC treeheights estimations, by CC iteration and for the mean of the iterations, with measured tree heights by Claudia.
+RMSE
+```{r setup}
+library(readr)
+library(data.table)
+library(tidyverse)
+```
+
+```{r}
+path <- "D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Output_P16_sim_Hby2/"
+```
+
+```{r}
+# Small measured trees
+Measured_Giacomo <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_20240125.csv")
+
+# Claudias's measured trees
+Measured_Claudia <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/Database_unified_ALS_FTH_James_v14_6.csv") %>% 
+  filter(plot==16) %>% 
+  select(D_idtree, xutmr, yutmr, genus, species, Taxon_accepted, dbh, H)
+```
+
+```{r}
+# Input
+Inv_input <- fread("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Input/P16coord0_inventory.txt") %>% select(x,y,species_name,dbh,xoriginal, yoriginal) %>% unique() %>% 
+  filter(species_name!="smalltrees") %>% 
+  mutate(dbh=dbh*100)
+# pq beaucoup plus d'arbres que dans le datset que j'ai fourni ?
+Understory <- read.csv(
+    "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv"
+  ) %>% 
+  rename(idTree = IdTree) %>% # 36 311
+  rename(SubPlot = subplot)
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha 11 539
+  mutate(idTree = as.character(idTree))
+
+Inventory <- bind_rows(Understory, Adults) %>% 
+  select(Xutm,Yutm, idTree, DBHcor, ScientificName)
+
+match <- Inventory %>% 
+  left_join(Inv_input, by = c('Xutm' = 'xoriginal', 'Yutm' = 'yoriginal', 'DBHcor' = 'dbh'))
+
+match <- Inv_input %>% 
+  left_join(Inventory, by = c('xoriginal' = 'Xutm', 'yoriginal'='Yutm', 'dbh' = 'DBHcor'))
+
+match <- Inventory %>% 
+  filter(DBHcor>10) %>% 
+  left_join(Coord, by = c('Xutm' = 'xoriginal', 'Yutm' = 'yoriginal'))
+
+sum(is.na(match$x))/nrow(match)
+```
+
+```{r}
+# CC estimation
+Invfiles <- list.files(path, pattern = ".*_final\\.txt$", full.names = TRUE, recursive = TRUE)
+
+all_trees <- rbindlist(lapply(Invfiles, fread), idcol = "file_id")
+all_trees$simulation <- gsub(".*/(CC_\\d+)/.*", "\\1", Invfiles[all_trees$file_id])
+
+Coord <- fread("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Input/P16coord0_plotmask.txt") %>% 
+  select(-plot_code)
+# plot(Coord$xoriginal, Coord$yoriginal)
+```
+
+```{r}
+# names(all_trees)
+CCoutputs <- all_trees %>% 
+  select(x,y,dbh,height,species) %>% 
+  left_join(Coord, by=c('x','y'))
+```
+
+```{r}
+# inputs
+inventoryVivi <- fread("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/inventory_forCC.csv")
+
+# length(unique(inventoryVivi$TreeID))
+CCinput <- fread("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Input/P16coord0_inventory.txt")
+
+setnames(inventoryVivi, "x", "xoriginal")
+setnames(inventoryVivi, "y", "yoriginal")
+setnames(inventoryVivi, "Binomial_name", "species_name")
+setnames(inventoryVivi, "TreeID", "id")
+
+# ouputs
+path <- "D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Output_P16_sim_Hby2/"
+Invfiles <- list.files(path, pattern = ".*_final\\.txt$", full.names = TRUE, recursive = TRUE)
+all_trees <- rbindlist(lapply(Invfiles, fread), idcol = "file_id")
+all_trees$simulation <- gsub(".*/(CC_\\d+)/.*", "\\1", Invfiles[all_trees$file_id])
+
+trees_mean <- all_trees[, .(
+  x = first(x),
+  y = first(y),
+  species = first(species),
+  height = mean(height),
+  dbh = mean(dbh),
+  CR = mean(CR)
+), by = id]
+
+tree <- merge(inventoryVivi[, .(id, species_name, xoriginal, yoriginal)],  
+              trees_mean,
+              by.x = "id",  
+              by.y = "id",  
+              all.x= TRUE)
+tree$dbh <- tree$dbh*100
+
+sum(is.na(tree$height))#23
+
+match <- Inventory %>% 
+  left_join(tree, by= c('idTree' = 'id'))
+
+sum(is.na(match$height))#390
+
+NAH <- match[is.na(match$height),]
+
+all(Inventory$idTree %in% tree$id)
+range((match[is.na(match$height),])$DBHcor, na.rm = T) # ALT trees >10 cm have been removed + some adults and small (<10 cm dbh) trees have no estimated tree heights
+
+min((Inventory[!Inventory$idTree %in% tree$id,])$DBHcor) # ALT trees >10 cm have been removed
+tree$id[!tree$id %in% Inventory$idTree]
+
+```
+
