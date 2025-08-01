@@ -37,8 +37,8 @@ library(sf)
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
 path <-
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16C19_2023_1ha_HighAlt_Light_intensity2m_all2m.txt"
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
- # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
+ "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
 
 # P16_2023_1ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 10201 obs
 # P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 491 401 obs
@@ -49,10 +49,10 @@ setnames(Light, "Period 1", "Transmittance")
 
 Light <- Light[Transmittance>0,]
 
-range(Light$Transmittance) # 0.000206811 - 1
+range(Light$Transmittance) # 0.000206811 - 1 -> 2019: 1.363128e-10 - 1
 any(is.na(Light$Transmittance)) # FALSE
-nrow(Light[Transmittance<0.01, ])/nrow(Light)*100 # 7.8% 
-nrow(Light[Transmittance<0.001, ])/nrow(Light)*100 # 0.2% 
+nrow(Light[Transmittance<0.01, ])/nrow(Light)*100 # 7.8% -> 2019: 13%
+nrow(Light[Transmittance<0.001, ])/nrow(Light)*100 # 0.2% -> 2019: 1%
 hist(Light$Transmittance)
 hist(Light$Z)
 hist(Light[Transmittance<0.001, Z])
@@ -67,7 +67,7 @@ hist(Light[Transmittance>=1, Z])
 ```
 
 ```{r}
-plotly::plot_ly(Light, x = ~X, y = ~Y, z = ~Z, color=~Transmittance)
+# plotly::plot_ly(Light, x = ~X, y = ~Y, z = ~Z, color=~Transmittance)
 ```
 
 # Trees coordinates and height
@@ -135,7 +135,7 @@ datalocal <- matrix %*% t(VOP) # same dimensions
 
 datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
 names(datalocal) <- c("X","Y","Z")
-datalocal <- datalocal %>% cbind(data[,.(idTree, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, TreeHeight)]) %>% setDT()
+datalocal <- datalocal %>% cbind(data[,.(SubPlot, idTree, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, TreeHeight)]) %>% setDT()
 # datalocal
 ```
 
@@ -165,7 +165,7 @@ result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
                     # The maximum number of nearest neighbours to compute
                     k = 8, # including target # 5, 8, 9, 15, 27, 30, 35, 35
                     # !!!mettre 8 et augmenter potentiellment le radius pour éviter les NA en bord de scene 
-                    searchtype = "radius", radius = 5)
+                    searchtype = "radius", radius = 4)
 # k = 30, radius = 3
 # k = 7, radius = 5
 
@@ -195,18 +195,22 @@ ggplot(datalocal, aes(x=TreeHeight, y=Transmittance, col=Strategy)) +
 # Minimal values of transmittance
 ```{r, eval=F}
 range(na.omit(datalocal$Transmittance)) # 0.0006453574 1.0000000894 -> 0.0002028763 1.0000000894 after coord cor
+# 2019 :  0.0002724181 1.0000000032
 hist(datalocal$Transmittance)
-datalocal[Transmittance<0.001,] # 15 trees
-range(datalocal[Transmittance<0.001, Z]) # 15.29792 23.84516
+datalocal[Transmittance<0.001,] # 46 trees
+range(datalocal[Transmittance<0.001, Z]) # 10.34081 27.12297
 (nrow(datalocal[Transmittance<0.001,])/nrow(datalocal))*100 # 0.4% ->  0.4% after coord cor
+# 2019 : 0.1%
 
-hist(datalocal[Transmittance<0.001, TreeHeight])
+hist(datalocal[Transmittance<0.001, TreeHeight]) # max tree height : 9m
 
 
 toodark <- datalocal[Transmittance<0.001,]
-length(unique(toodark$ScientificName)) # 14
+length(unique(toodark$ScientificName)) # 36
 
-table(toodark$ScientificName) # max 2 ind concerned
+table(toodark$ScientificName) # max 3 ind concerned
+
+# -> on n'applique pas de seuillage supp sur la transmittance. on utilise les données telles quelles (Greg 08/2025)
 
 # Median : moins bon
 #  0.0003992877 1.0000000894
@@ -214,11 +218,10 @@ table(toodark$ScientificName) # max 2 ind concerned
 # [1] 0.15 %
 # [1] 47 sp
 ```
-J'ai estimé la lumière des arbres sur 1ha, en prenant 8 voisins et un radius de 5m, on a des transmittances entre 0.001 et  0.996,
-sans moyenner le voisinage, les transmittances au dessus des arbres sont entre 0.0002 et 0.9999
+
 
 # Compare light before and after coordines correction
-```{r}
+```{r eval=F}
 before <- read_csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_before_coor_cor.csv") %>% # 47 875
   select(idTree, Transmittance) %>% 
   rename(Transmittance_before = Transmittance)
@@ -264,7 +267,7 @@ Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittan
 ```{r}
 datalocal <- datalocal %>% select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, TreeHeight, Z, Transmittance)
 
-write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light.csv") # 47 875
+write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") # 47 875
 ```
 
 # Check

@@ -561,7 +561,8 @@ writeVoxelSpace(vxsp, path)
 
 ```{r}
 vxsp <- readVoxelSpace(
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_PadHLE_intensity2m.vox"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Vox/P16_2019_25ha_buffer_PadHLE_intensity2m.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_2m/P16_2023_UAV_4ha_buffer_PadHLE_intensity2m.vox"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/Intensity_1m/P16_2023_UAV_4ha_buffer_PadHLE_intensity1m.vox"
 )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_4ha_buffer_HighAlt_PadHLE.vox"

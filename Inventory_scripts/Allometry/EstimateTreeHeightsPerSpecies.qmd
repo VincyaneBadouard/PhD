@@ -22,6 +22,7 @@ Objective:
 -   https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/
 
 ```{r, packages, include=F}
+library(readr)
 library(terra)
 library(sf)
 library(tidyverse)
@@ -92,7 +93,7 @@ Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv"
 
 Inventory <- bind_rows(Understory, Adults)
 
-nrow(Inventory) == nrow(Understory) + nrow(Adults)
+nrow(Inventory) == nrow(Understory) + nrow(Adults) # 47850
 ```
 
 # Modify inventory for predictions
@@ -300,6 +301,8 @@ ggplot(aes(x=DBHcor, y=TreeHeight)) +
 # Write data
 ```{r}
 write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv")
+read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv") # 47,850
+
 ```
 
 

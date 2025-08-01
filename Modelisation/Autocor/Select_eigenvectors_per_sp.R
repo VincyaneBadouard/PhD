@@ -17,44 +17,13 @@ library(parallel)
 species <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv"))[,3]
 
 # Load eigenvectors
-eigenval <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/All_obs_Eigenvectors.csv")
+eigenval <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/All_obs_Eigenvectors_9ha.csv")
 
 # Load species data
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
-load(paste(path, "Realdata/Realsp_25ha.Rdata", sep=''))
+load(paste(path, "Realdata/Realsp_9ha.Rdata", sep=''))
 
-# -----------------------------------------------------------------------------
-cores = 5 # nbr of cores to use
-# parallel::detectCores() # 8
-i <- NULL
-j = length(species)
-une journée 
-# L'enregistrement des clusters
-cl <- parallel::makeCluster(cores)
-doSNOW::registerDoSNOW(cl)
-
-# Progress bar:
-pb <- txtProgressBar(min = 0, max = j, style = 3)
-progress <- function(n) setTxtProgressBar(pb, n)
-opts <- list(progress = progress)
-
-
-# ------------------------------------------------------------------------------
-foreach::foreach(
-  i=1:j,
-  .packages = c("tidyverse", "glmnet"), # necessary packages
-  .options.snow = opts # ProgressBar
-) %dopar% {
-  print(i) # to check
-  # the function to parallelise:
-  Select_eigenvectors_per_sp(sp = species[i], datalist = datalist, eigenval = eigenval)
-}
-
-# close progressbar and cluster
-close(pb)
-stopCluster(cl)
-
-# Function
+# Function ---------------------------------------------------------------------
 Select_eigenvectors_per_sp <- function(sp, datalist = datalist, eigenval = eigenval){
   print(sp)
   
@@ -104,3 +73,38 @@ Select_eigenvectors_per_sp <- function(sp, datalist = datalist, eigenval = eigen
   write_csv(eigenval_select,
             paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", sp, ".csv"))
 }
+
+# Function end -----------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
+cores = 5 # nbr of cores to use
+# parallel::detectCores() # 8
+i <- NULL
+j = length(species)
+# une journée 
+# L'enregistrement des clusters
+cl <- parallel::makeCluster(cores)
+doSNOW::registerDoSNOW(cl)
+
+# Progress bar:
+pb <- txtProgressBar(min = 0, max = j, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+
+Sys.time() 
+# ------------------------------------------------------------------------------
+foreach::foreach(
+  i=1:j,
+  .packages = c("tidyverse", "glmnet"), # necessary packages
+  .options.snow = opts # ProgressBar
+) %dopar% {
+  print(i) # to check
+  # the function to parallelise:
+  Select_eigenvectors_per_sp(sp = species[i], datalist = datalist, eigenval = eigenval)
+}
+
+# close progressbar and cluster
+close(pb)
+stopCluster(cl)
+Sys.time() # 6h for 25ha
+

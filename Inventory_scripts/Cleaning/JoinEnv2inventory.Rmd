@@ -16,7 +16,7 @@ library(tidyverse)
 # Import environmental data
 HAND : Height Above the Nearest Drainage
 ```{r}
-warning("Recalculer TWI & HAND avec biffer si encore des NA") # !!!!!
+warning("Recalculer TWI & HAND avec buffer si encore des NA") # !!!!!
 
 # Topography
 MNT <- terra::rast("~/PhD/Env_data_forModel/dtm2023_HighAlt_25ha_buffer.asc")
@@ -47,8 +47,7 @@ TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels
 # Import inventory data
 ```{r, include = F}
 Inventory <- read.csv(
-  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light.csv" # 47 850
-  # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv" # 47 850
 )
 
 Inventory_sf <- Inventory %>% 
@@ -88,7 +87,7 @@ any(is.na(Inventory$HAND))
 
 # Write
 ```{r}
-write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv")
 ```
 
 
@@ -99,7 +98,7 @@ write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16
 # Too small values of transmittance (Meth3)
 
 ```{r, eval=F}
-Inventory <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv") %>% 
+Inventory <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_Paracou_InvandEnv.csv") %>% 
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
   ungroup()

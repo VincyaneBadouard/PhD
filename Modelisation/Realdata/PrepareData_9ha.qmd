@@ -12,23 +12,27 @@ library(tidyverse)
 ```
 
 ```{r, include = F, message=F}
-Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv")%>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 40 928
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 # length(unique(sp))
 ```
 
-# Filter to 9ha
-```{r}
-all <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% 
-  rename(idTree = IdTree) %>% 
-  select(idTree, Xutm, Yutm, subplot)
+```{r check abundances, eval=F}
+newsp <- Inv %>% 
+  group_by(ScientificName) %>% 
+  summarise(N=n()) %>% 
+  ungroup() %>% 
+  filter(N >= 30) # 203
 
+all(sp %in% newsp$ScientificName) # all the 75 sp have >30 ind on 9ha
 
-test <- Inv %>% 
-  left_join(all, by='idTree')
+abun <- newsp %>% 
+  filter(ScientificName %in% sp) %>% 
+  arrange(N)
+range(abun$N) # 30-2410
 ```
-
 
 
 ```{r}

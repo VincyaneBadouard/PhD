@@ -7,7 +7,7 @@ library(tidyverse)
 ```
 
 ```{r, include = F, message=F}
-Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv")
 
 sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
 # length(unique(sp))
@@ -51,7 +51,7 @@ data <- data %>%
 
 length(unique(data$ScientificName))
 
-write_csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass.csv")
+write_csv(data, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_25ha.csv")
 ```
 
 
@@ -93,7 +93,7 @@ for(i in 1:nrow(Combin)){
 Envpred <- do.call("rbind",d) %>% rbind(Community) # 5*50 = 250
 unique(Envpred$DBH_classes)
 
-write_csv(Envpred, "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction.csv")
+write_csv(Envpred, "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction_25ha.csv")
 ```
 
 
@@ -157,9 +157,9 @@ load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
 ```
 
 ```{r}
-filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", full.names=T)
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_25ha/", full.names=T)
 eigenval <- lapply(filelist, read_csv)
-filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", "", filelist)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_25ha/", "", filelist)
 filelist <- gsub(".csv", "", filelist)
 
 names(eigenval) <- filelist

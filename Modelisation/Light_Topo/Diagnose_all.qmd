@@ -8,6 +8,21 @@ editor: source
 code-fold: true
 ---
 
+Changements figures :
+Figure posterior :
+- noms sp en y pas en x
+- enlver les _ dans les noms d'sp
+- noms d'sp en italique
+- tau en lettre greque
+- remplacer more/less flood tolerant par wetter, drier
+- remplacé non-null effect par significiant
+
+Biplot :
+travailler les étiquettes pour que ttes les sp soient visibles
+
+Biplot O-tau :
+pas de couleur mais ajouter wetter, drier
+
 ```{r setup}
 library(tidyverse)
 library(cmdstanr)
