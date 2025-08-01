@@ -101,13 +101,13 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 
 # Join eigenvectors
 ```{r}
-load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_25ha.Rdata")
+load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha.Rdata")
 ```
 
 ```{r}
-filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", full.names=T)
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", full.names=T)
 eigenval <- lapply(filelist, read_csv)
-filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species/", "", filelist)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", "", filelist)
 filelist <- gsub(".csv", "", filelist)
 
 names(eigenval) <- filelist
@@ -117,7 +117,7 @@ names(eigenval) <- filelist
 datalist_eig <- datalist
 
 # str(datalist_eig[[1]])
-
+v
 datalist_eig <- lapply(names(datalist), function(name) {
   # name = "Sextonia_rubra"
   if(name %in% names(eigenval) & ncol(eigenval[[name]])>0){

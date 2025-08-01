@@ -75,7 +75,7 @@ Select_eigenvectors_per_sp <- function(sp, datalist = datalist, eigenval = eigen
 }
 
 # Function end -----------------------------------------------------------------
-
+gc()
 # ------------------------------------------------------------------------------
 cores = 5 # nbr of cores to use
 # parallel::detectCores() # 8
@@ -106,5 +106,4 @@ foreach::foreach(
 # close progressbar and cluster
 close(pb)
 stopCluster(cl)
-Sys.time() # 6h for 25ha
-
+Sys.time() # 6h for 25ha, 3h pour 9ha
