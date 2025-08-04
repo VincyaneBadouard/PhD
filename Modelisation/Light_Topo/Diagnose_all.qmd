@@ -8,8 +8,10 @@ editor: source
 code-fold: true
 ---
 
+*nosgeffect tau at 80% CI*
+
 Changements figures :
-Figure posterior :
+Monoplot posterior :
 - noms sp en y pas en x
 - enlver les _ dans les noms d'sp
 - noms d'sp en italique
@@ -45,7 +47,7 @@ strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strate
   rename(Strategy = Strategy_VB) %>% 
   unique()
 
-Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv") %>% 
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
   # select(ScientificName, TreeHeight)
   group_by(ScientificName) %>% 
   summarise(MaxTreeHeight = max(TreeHeight))
@@ -111,7 +113,7 @@ lapply(name , function(x)
 )
 ```
 
-```{r}
+```{r, eval =F}
 # no light effect (flat) :
 no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana", "Virola_michelii", "Pouteria_guianensis", "Eschweilera_congestiflora", "Couratari_multiflora", "Tachigali_melinonii", "Pouteria_gonggrijpii", "Thyrsodium_puberulum", "Anacardium_spruceanum")
 
@@ -124,12 +126,11 @@ no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana",
 # Plot data
 datap <- lapply(names(fits), function(x)
   mcmc_intervals_data(fits[[x]]$draws(), # c("a", "O", "tau")
-                      prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+                      prob = 0.5, prob_outer = 0.80, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
   bind_rows() %>% 
-  filter(parameter %in% c("a", "O", "tau",  
-                          'psi[1]','psi[2]','psi[3]','psi[4]', 'psi[5]'))
+  filter(parameter %in% c("a", "O", "tau"))
 
 # Light effect (not flat)
 O_sg <- datap %>% 
@@ -143,10 +144,12 @@ O_sg <- datap %>%
 datap <- datap %>%
   left_join(O_sg, by=c("Species", "parameter")) %>% 
   # tau significantly different of 0 if 0 in the Q50%
-  mutate(Sg_effect = ifelse(parameter=="tau" & l<0 & 0<h, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
   mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>%
   left_join(strategy, by = c("Species" = "ScientificName")) %>% 
-  left_join(Inv, by = c("Species" = "ScientificName"))
+  left_join(Inv, by = c("Species" = "ScientificName")) %>% 
+  mutate(ScientificName = Species) %>% 
+  mutate(Species = str_replace(Species, "_", " "))
 # -a
 # datap <- datap %>%
 #   mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
@@ -256,19 +259,17 @@ datap %>%
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
   geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
-                   color = "95%"), size = 0.5) +
+                   color = "80%"), size = 0.5) +
   geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
                    color = "50%"), size = 1) +
   geom_point(aes(x= m)) + # median
   scale_color_manual(name = "Credible interval", 
-                     values = c("95%" = "#E7B800",
+                     values = c("80%" = "#E7B800",
                                 "50%"= "#FC4E07")) + 
-  scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+  scale_alpha_manual(name = "Significant", values=c(1,.2),
                      breaks=c("TRUE","FALSE")) +
   theme(axis.title.x =element_blank()) +
   facet_grid(~parameter, scale= "free")
-
-gridExtra::grid.arrange()
 
 ggsave("Light_topo_posteriors.pdf", path = PATH,
        width = 25, height = 26, units = "cm", dpi=800, bg="white")
@@ -303,14 +304,14 @@ p1 <- xs$O %>%
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
   geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
-                   color = "95%"), size = 0.5) +
+                   color = "80%"), size = 0.5) +
   geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
                    color = "50%"), size = 1) +
   geom_point(aes(x= m)) + # median
   scale_color_manual(name = "Credible interval", 
-                     values = c("95%" = "#E7B800",
+                     values = c("80%" = "#E7B800",
                                 "50%"= "#FC4E07")) + 
-  scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+  scale_alpha_manual(name = "Significant", values=c(1,.2),
                      breaks=c("TRUE","FALSE"))+
   theme(axis.title.x =element_blank())
 
@@ -366,14 +367,14 @@ datap %>%
   # xlim(range(c(datap$ll, datap$hh))) +
   layer_vertical_line +
   geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
-                   color = "95%"), size = 0.5) +
+                   color = "80%"), size = 0.5) +
   geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
                    color = "50%"), size = 1) +
   geom_point(aes(x= m)) + # median
   scale_color_manual(name = "Credible interval", 
-                     values = c("95%" = "#E7B800",
+                     values = c("80%" = "#E7B800",
                                 "50%"= "#FC4E07")) + 
-  scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+  scale_alpha_manual(name = "Significant", values=c(1,.2),
                      breaks=c("TRUE","FALSE")) +
   theme(axis.title.x =element_blank()) +
   facet_grid(~parameter, scale= "free")
@@ -389,9 +390,15 @@ Agregative species :
 "Paypayrola_hulkiana" : negatif sauf psi5 qui est positif  
 
 # Monoplots
+- noms sp en y pas en x
+- enlver les _ dans les noms d'sp
+- noms d'sp en italique
+- tau en lettre greque
+- remplacer more/less flood tolerant par wetter, drier
+- remplacé non-null effect par significant
 ```{r}
 for(P in c('O', 'tau', 'a')){
-  # P="O"
+  # P="tau"
   print(
     datap %>% 
       filter(parameter==P) %>% 
@@ -400,7 +407,9 @@ for(P in c('O', 'tau', 'a')){
       
       ggplot(aes(y = Species, alpha = Sg_effect)) +
       theme_minimal() + 
-      {if(P=='tau') geom_vline(xintercept=0, linetype = "dashed", col = "red") } +
+      xlab(P) +
+      {if(P=='tau') list(geom_vline(xintercept=0, linetype = "dashed", col = "red"),
+                         xlab(expression(tau)) ) } +
       {if(P=='a') list(geom_vline(xintercept=-0.02, linetype = "dashed", col = "red")#,
                        # scale_x_continuous(trans="log")
       )} + 
@@ -408,41 +417,47 @@ for(P in c('O', 'tau', 'a')){
       # xlim(range(c(datap$ll, datap$hh))) +
       # layer_vertical_line +
       geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
-                       color = "95%"), size = 0.5) +
+                       color = "80%"), size = 0.5) +
       geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
                        color = "50%"), size = 1) +
       geom_point(aes(x= m)) + # median
-      xlab(P) +
-      {if(P=='O')  scale_x_continuous("O (% transmittance)", n.breaks = 14,labels = ~round(exp(.)*100,2)) } + #  breaks = log(c(.002, .01, .05, .1, .5, 1, .2, .3, 1))
+      {if(P=='O')  scale_x_continuous("O (% transmittance)", n.breaks = 10,labels = ~round(exp(.)*100,2)) } + #  breaks = log(c(.002, .01, .05, .1, .5, 1, .2, .3, 1))
       scale_color_manual(name = "Credible interval", 
-                         values = c("95%" = "#E7B800",
+                         values = c("80%" = "#E7B800",
                                     "50%"= "#FC4E07")) + 
-      scale_alpha_manual(name = "Non-null effect", values=c(1,.2),
+      scale_alpha_manual(name = "Significant", values=c(1,.2),
                          breaks=c("TRUE","FALSE"))+
       {if(P=='a') guides(alpha = FALSE) } +
-      theme(axis.title.x =element_blank(), legend.position="bottom") +
-      # coord_flip() + theme(axis.text.x = element_text(angle = 90, vjust = 0.3, hjust=1)) +
+      theme(axis.title.y = element_blank(), # , legend.position="bottom"
+            axis.text.y = element_text(face = 'italic')) +
+      guides(color = guide_legend(nrow=2),alpha = guide_legend(nrow=2)) +
       
       # Annotations
-      theme(plot.margin = unit(c(1,1,1,4), "lines")) +
-      coord_flip(clip = "off") + theme(axis.text.x = element_text(angle = 90, vjust = 0.3, hjust=1)) +
+      theme(plot.margin = unit(c(.5,.5,1.5,.5), "lines")) + # 3e
+      coord_cartesian(clip = "off") + theme(axis.text.y = element_text(vjust = 1)) + # , hjust=0.3
       
       {if(P=='a') list(
-        annotation_custom(textGrob("Wide light\nniche"),xmin= 0,xmax=0,ymin=-6,ymax=-6), 
-        annotation_custom(textGrob("Narrow light\nniche"),xmin= -.7,xmax=-.7,ymin=-6,ymax=-6)
+        annotation_custom(textGrob("Wide light\nniche", gp = gpar(fontsize=10)),
+                          xmin= -.05,xmax=-.05,ymin=-4,ymax=-4), 
+        annotation_custom(textGrob("Narrow light\nniche", gp = gpar(fontsize=10)),
+                          xmin= -.45,xmax=-.45,ymin=-4,ymax=-4)
       ) } +
       {if(P=='O') list(
-        annotation_custom(textGrob("Heliophile"),xmin= 0,xmax=0,ymin=-7,ymax=-7), 
-        annotation_custom(textGrob("Sciaphile"),xmin= -7,xmax=-7,ymin=-7,ymax=-7)
+        annotation_custom(textGrob("Heliophile", gp = gpar(fontsize=10)),
+                          xmin= 0,xmax=0,ymin=-3,ymax=-3), 
+        annotation_custom(textGrob("Sciaphile", gp = gpar(fontsize=10)),
+                          xmin= -7,xmax=-7,ymin=-3,ymax=-3)
       ) } +
       {if(P=='tau') list(
-        annotation_custom(textGrob("More flood\ntolerant"),xmin= 2.5,xmax=2.5,ymin=-6,ymax=-6), 
-        annotation_custom(textGrob("Less flood\ntolerant"),xmin= -6,xmax=-6,ymin=-6,ymax=-6)
+        annotation_custom(textGrob("Wetter", gp = gpar(fontsize=10)),
+                          xmin= 2.5,xmax=2.5,ymin=-3,ymax=-3), 
+        annotation_custom(textGrob("Drier", gp = gpar(fontsize=10)),
+                          xmin= -5,xmax=-5,ymin=-3,ymax=-3)
       ) }
   )
   
   ggsave(paste(P,"monoplot.png", sep='_'), path = PATH,
-         width = 23, height = 13, units = "cm", dpi=800, bg="white")
+         width = 15, height = 20, units = "cm", dpi=800, bg="white")
 }
 
 ```
@@ -451,7 +466,7 @@ for(P in c('O', 'tau', 'a')){
 ```{r}
 datap %>% 
   mutate(Incertitude = hh-ll) %>% 
-  left_join(interestsp %>% select(ScientificName,N), by = c('Species' = 'ScientificName')) %>% 
+  left_join(interestsp %>% select(ScientificName,N), by = 'ScientificName') %>% 
   select(Species, N, parameter,Incertitude) %>% unique() %>% 
   
   ggplot(aes(x=N, y= Incertitude)) +
@@ -460,9 +475,9 @@ datap %>%
   geom_line() +
   scale_x_continuous(trans="log", labels = ~round(.,0), breaks = c(30, 50, 100, 200, 500, 1000, 2140)) +
   ggpubr::stat_cor(aes(x=log(N), y= Incertitude), method = "pearson",
-                   label.x.npc = 0.36, label.y.npc = 1) + 
+                   label.x.npc = 0.36, label.y.npc = 1) +
   facet_wrap(~parameter, scale= "free") +
-  labs(y= "Parameter 95% incertitude", x= 'Species abundance')
+  labs(y= "Parameter 80% incertitude", x= 'Species abundance')
 # N range : 30-2 140
 
 ggsave("Incertitude_vs_sp_abundance.png", path = PATH,
@@ -471,6 +486,7 @@ ggsave("Incertitude_vs_sp_abundance.png", path = PATH,
 
 # Biplot O vs tau
 O in y, tau in x
+Biplot O-tau :
 ```{r, eval=F}
 # color and alpha background for topo and light env
 # rects <- data.frame(xstart = sort(rep(c(-7.5, .5, -0.5), times=2)), xend = sort(rep(c(-0.5, .5, 3), times=2)),
@@ -480,7 +496,7 @@ O in y, tau in x
 
 rects <- data.frame(xstart = c(-3, 0), xend = c(0, 3),
                     ystart = rep(-7, times =2), yend = rep(0, times =2),
-                    col = c("Less flood\ntolerant", "More flood\ntolerant") #,
+                    col = c("Drier", "Wetter") #,
                     # light = rep(c("Sciaphile", "Heliophile"), times =3)
 )
 
@@ -500,8 +516,8 @@ databp <- datap %>%
   # Light effect (not flat)
   left_join(O_sg, by=c("Species")) %>%
   mutate(Sg_light_effect = ifelse(is.na(Sg_light_effect), T, Sg_light_effect)) %>% 
-  rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
-  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
+  rename(Q5 = ll, Q80 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
+  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q80),
               names_glue = "{parameter}_{.value}") %>% 
   # tau significantly different of 0
   mutate(Tau_effect = ifelse(tau_Q50_0<0 & 0<tau_Q50_1, F, T))
@@ -512,14 +528,16 @@ exp(quantile(databp$O_median, probs = 0.5))*100
 (nrow(databp %>% filter(Tau_effect))/nrow(databp))*100
 # 56% sp with tau significantly (95% CI) different of 0
 # 80% sp with tau significantly (50% CI) different of 0
-(nrow(databp %>% filter(Sg_light_effect))/nrow(databp))*100 # 80% sp with 
+# 84% sp with tau significantly (80% CI) different of 0 (9ha, coord cor, 2019 light)
+(nrow(databp %>% filter(Sg_light_effect))/nrow(databp))*100 # 80% sp with non-flat light niche
+# 79% (9ha, coord cor, 2019 light)
 
 
-range(databp$tau_median) # -2.9 ; 2.3
-min(databp$tau_Q5) # -6
-max(databp$tau_Q95) # 3
+range(databp$tau_median) # -2.9 ; 2.3 -> -3.2  2.0 (9ha, coord cor, 2019 light)
+# min(databp$tau_Q5) # -6
+# max(databp$tau_Q95) # 3
 
-cor(databp$tau_median, databp$O_median, method = "pearson") #  -0.15
+cor(databp$tau_median, databp$O_median, method = "pearson") #  -0.15 -> -0.09 (9ha, coord cor, 2019 light)
 
 # hc <- hclust(dist(databp[c("tau_median", "O_median")])) # Hierarchical Clustering
 # plot(hc)
@@ -530,30 +548,30 @@ cor(databp$tau_median, databp$O_median, method = "pearson") #  -0.15
 ```{r}
 ggplot(databp) +
   theme_minimal() + 
-  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
-                            xmax=xend, fill=col, alpha=light)) +
-  scale_fill_manual(name = "Topographic preference",
-                    values = c("Hilltop" = "#E7B800",
-                               "Bottomland"= "steelblue",
-                               "No effect"= "grey"),
-                    breaks = c("Hilltop","No effect","Bottomland")) + 
+  # geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
+  #                           xmax=xend, fill=col, alpha=light)) +
+  # scale_fill_manual(name = "Topographic preference",
+  #                   values = c("Hilltop" = "#E7B800",
+  #                              "Bottomland"= "steelblue",
+  #                              "No effect"= "grey"),
+  #                   breaks = c("Hilltop","No effect","Bottomland")) + 
   
   scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
   
   # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
-  ggpubr::stat_cor(aes(x= tau_median, y = O_median), method = "pearson", label.x = -7.5, label.y = .1) +
+  ggpubr::stat_cor(aes(x= tau_median, y = O_median), method = "pearson", label.x = -5, label.y = .1) +
   
   geom_vline(xintercept = 0, col="red", linetype = "dashed") +
   
-  # 95% credible interval
-  geom_segment(aes(x=tau_Q5, xend=tau_Q95, y=O_median, yend=O_median,
-                   col = "95 and 50% CI"), size = .5) + # tau
-  geom_segment(aes(y=O_Q5, yend=O_Q95, x=tau_median, xend=tau_median,
-                   col = "95 and 50% CI"), size = .5) + # O
+  # 80% credible interval
+  geom_segment(aes(x=tau_Q5, xend=tau_Q80, y=O_median, yend=O_median,
+                   col = "80 and 50% CI"), size = .4) + # tau
+  geom_segment(aes(y=O_Q5, yend=O_Q80, x=tau_median, xend=tau_median,
+                   col = "80 and 50% CI"), size = .4) + # O
   geom_segment(aes(x=tau_Q50_0, xend=tau_Q50_1, y=O_median, yend=O_median,
-                   col = "95 and 50% CI"), size = .6) + # tau
+                   col = "80 and 50% CI"), size = .8) + # tau
   geom_segment(aes(y=O_Q50_0, yend=O_Q50_1, x=tau_median, xend=tau_median,
-                   col = "95 and 50% CI"), size = .6) + # O
+                   col = "80 and 50% CI"), size = .8) + # O
   
   
   geom_point(aes(x= tau_median, y = O_median, # median
@@ -565,9 +583,9 @@ ggplot(databp) +
   scale_color_manual(name = "Significant topographic effect",
                      values = c("FALSE" = "grey",
                                 "TRUE"= "black",
-                                "95 and 50% CI" = "darkgrey"),
+                                "80 and 50% CI" = "darkgrey"),
                      breaks=c("TRUE",  "FALSE", 
-                              "95 and 50% CI")) + 
+                              "80 and 50% CI")) + 
   
   ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 2.5) +
   
@@ -576,12 +594,21 @@ ggplot(databp) +
   
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   # scale_y_continuous(trans="exp") +
+  # Annotations
+  theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  coord_cartesian(clip = "off") + 
+  
+  annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
+                    xmin= -5,xmax=-5,ymin=-7.6,ymax=-7.6) +
+  annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
+                    xmin= 2.5,xmax=2.5,ymin=-7.6,ymax=-7.6) + 
+  
   guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
          col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
-  theme(axis.title = ggtext::element_markdown(),
+  theme(axis.title.y = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
         legend.position="bottom") + # , legend.box="vertical"
-  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+  labs(x= expression(Topographic~Wetness~Index~(TWI)~linear~effect~"(" * tau * ")"),
        y= "Light optimum (*O*) (% transmittance)")
 
 # alpha sur les postériors imprécis
@@ -592,14 +619,15 @@ ggsave("Light_topo_biplot_complete.png", path = PATH,
 ```
 
 ## No error bar
+**pas de couleur mais ajouter wetter, drier**
 ```{r}
 ggplot(databp) +
   theme_minimal() + 
-  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
-                            xmax=xend, fill=col), alpha=.4) + # , alpha=light
-  scale_fill_manual(values = c("Less flood\ntolerant" = "#E7B800",
-                               "More flood\ntolerant"= "steelblue"),
-                    breaks = c("Less flood\ntolerant","More flood\ntolerant")) + 
+  # geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
+  #                           xmax=xend, fill=col), alpha=.4) + # , alpha=light
+  # scale_fill_manual(values = c("Drier" = "#E7B800",
+  #                              "Wetter"= "steelblue"),
+  #                   breaks = c("Drier","Wetter")) + 
   
   # scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
   
@@ -616,9 +644,9 @@ ggplot(databp) +
   
   scale_color_manual(values = c("FALSE" = "#999999",
                                 "TRUE"= "black",
-                                "95 and 50% CI" = "darkgrey"),
+                                "80 and 50% CI" = "darkgrey"),
                      breaks=c("TRUE",  "FALSE", 
-                              "95 and 50% CI")) + 
+                              "80 and 50% CI")) + 
   
   ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
   
@@ -627,12 +655,22 @@ ggplot(databp) +
   
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   # scale_y_continuous(trans="exp") +
+  
+  # Annotations
+  theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  coord_cartesian(clip = "off") + 
+  
+  annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
+                    xmin= -3,xmax=-3,ymin=-7.6,ymax=-7.6) +
+  annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
+                    xmin= 2,xmax=2,ymin=-7.6,ymax=-7.6) + 
+  
   guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
          col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
-  theme(axis.title = ggtext::element_markdown(),
+  theme(axis.title.y = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
         legend.position="bottom") + # , legend.box="vertical"
-  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+  labs(x= expression(Topographic~Wetness~Index~(TWI)~linear~effect~"(" * tau * ")"),
        y= "Light optimum (*O*) (% transmittance)",
        fill="Topographic\npreference", col ="Significant\ntopographic effect")
 
@@ -649,18 +687,10 @@ databp %>%
   filter(Sg_light_effect) %>% 
   ggplot() +
   theme_minimal() + 
-  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
-                            xmax=xend, fill=col, alpha=light)) +
-  scale_fill_manual(name = "Topographic preference",
-                    values = c("Hilltop" = "#E7B800",
-                               "Bottomland"= "steelblue",
-                               "No effect"= "grey"),
-                    breaks = c("Hilltop","No effect","Bottomland")) + 
-  
   scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
   
   # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
-  ggpubr::stat_cor(aes(x= tau_median, y = O_median), label.x = -7.5, label.y = .1) +
+  ggpubr::stat_cor(aes(x= tau_median, y = O_median), label.x = -5, label.y = .1) +
   
   geom_vline(xintercept = 0, col="red", linetype = "dashed") +
   
@@ -670,9 +700,9 @@ databp %>%
   scale_color_manual(name = "Significant topographic effect",
                      values = c("FALSE" = "grey",
                                 "TRUE"= "black",
-                                "95 and 50% CI" = "darkgrey"),
+                                "80 and 50% CI" = "darkgrey"),
                      breaks=c("TRUE",  "FALSE", 
-                              "95 and 50% CI")) + 
+                              "80 and 50% CI")) + 
   
   ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 2.5) +
   
@@ -681,12 +711,21 @@ databp %>%
   
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   # scale_y_continuous(trans="exp") +
+  # Annotations
+  theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  coord_cartesian(clip = "off") + 
+  
+  annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
+                    xmin= -4,xmax=-4,ymin=-7.6,ymax=-7.6) +
+  annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
+                    xmin= 2,xmax=2,ymin=-7.6,ymax=-7.6) + 
+  
   guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
          col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
-  theme(axis.title = ggtext::element_markdown(),
+  theme(axis.title.y = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
         legend.position="bottom") + # , legend.box="vertical"
-  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+  labs(x= expression(Topographic~Wetness~Index~(TWI)~linear~effect~"(" * tau * ")"),
        y= "Light optimum (*O*) (% transmittance)")
 
 # alpha sur les postériors imprécis
@@ -699,13 +738,6 @@ ggsave("Light_topo_biplot_noerrorbar_onlysg_light_effect.png", path = PATH,
 ```{r}
 ggplot(databp) +
   theme_minimal() + 
-  geom_rect(data=rects, aes(ymin=ystart, ymax=yend, xmin=xstart,
-                            xmax=xend, fill=col), alpha=.4) + # , alpha=light
-  scale_fill_manual(name = "Topographic preference",
-                    values = c("Less flood\ntolerant" = "#E7B800",
-                               "More flood\ntolerant"= "steelblue"),
-                    breaks = c("Less flood\ntolerant","More flood\ntolerant")) + 
-  
   # scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
   
   # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
@@ -726,12 +758,21 @@ ggplot(databp) +
   
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   # scale_y_continuous(trans="exp") +
+  # Annotations
+  theme(plot.margin = unit(c(1,1,1,1), "lines")) +
+  coord_cartesian(clip = "off") + 
+  
+  annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
+                    xmin= -3,xmax=-3,ymin=-7.5,ymax=-7.5) +
+  annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
+                    xmin= 2,xmax=2,ymin=-7.5,ymax=-7.5) + 
+  
   guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
          col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
-  theme(axis.title = ggtext::element_markdown(),
+  theme(axis.title.y = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
         legend.position="bottom") + # , legend.box="vertical"
-  labs(x= "Topographic Wetness Index (TWI) linear effect (*tau*)",
+  labs(x= expression(Topographic~Wetness~Index~(TWI)~linear~effect~"(" * tau * ")"),
        y= "Light optimum (*O*) (% transmittance)")
 
 # alpha sur les postériors imprécis
@@ -744,35 +785,36 @@ ggsave("Light_topo_biplot_strategy.png", path = PATH,
 ```{r, echo=F}
 Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>% 
   filter(OurSpecies) %>% 
-  select(-OurSpecies, -`...11`) %>%
+  select(-OurSpecies, -`...11`) #%>%
   # select(Species, Temperament, Topography) %>% 
-  mutate(Species = str_replace(Species, " ", "_"))
+  # mutate(Species = str_replace(Species, " ", "_"))
 
 estimate <- databp %>% 
-  select(Species, O_median, tau_median, Sg_light_effect, Tau_effect) %>% 
-  mutate(Estimate_light_optimum = round(exp(O_median)*100, 2)) %>% 
+  select(ScientificName, Species, O_median, tau_median, Sg_light_effect, Tau_effect) %>% 
+  mutate(Estimate_light_optimum = round(exp(O_median)*100, 2)) %>% # transmittance%
   mutate(Chap2_TWI = case_when(
-    !Tau_effect ~ "generalist",
+    !Tau_effect ~ "no significant effect",
     tau_median > 0 & Tau_effect ~ "positif",
     tau_median < 0 & Tau_effect ~ "negatif") 
   ) %>% 
   mutate(Chap2_Light = case_when(
-    !Sg_light_effect ~ "generalist",
-    Estimate_light_optimum >= 30 & Sg_light_effect ~ "Heliophile", # >30%
+    !Sg_light_effect ~ "no significant effect",
+    Estimate_light_optimum >= 14 & Sg_light_effect ~ "Heliophile", # >=14%
     # Estimate_light_optimum > log(30/100) & Sg_light_effect ~ "intermediate",
-    Estimate_light_optimum <= 5 & Sg_light_effect ~ "Sciaphile",
-    .default = "intermediate") # <5%
+    Estimate_light_optimum <= 5 & Sg_light_effect ~ "Sciaphile", # <=5%
+    .default = "intermediate") # rest
   ) %>% 
-  select(Species, Chap2_Light, Chap2_TWI, Estimate_light_optimum, Sg_light_effect, tau_median, Tau_effect) # Estimate_light_optimum, Sg_light_effect, tau_median, Tau_effect, 
+  select(ScientificName, Species, Chap2_Light, Chap2_TWI, Estimate_light_optimum, Sg_light_effect, tau_median, Tau_effect) # Estimate_light_optimum, Sg_light_effect, tau_median, Tau_effect, 
 
 validation <- left_join(Experts, estimate, by= 'Species') %>% 
   # Validate topo
-  left_join(interestsp %>% select(ScientificName,N), by = c('Species' = 'ScientificName')) %>% 
+  left_join(interestsp %>% select(ScientificName,N), by = 'ScientificName') %>% 
   mutate(Validate_topo = case_when(
     Topography == "Bottomland" & Chap2_TWI=="negatif" ~ F,
     Topography == "Hilltop" & Chap2_TWI=="positif" ~ F,
+    Topography == "Hilltop <10 cm DBH" & Chap2_TWI=="positif" ~ F,
     
-    Topography == "no associated" & Chap2_TWI=="generalist" ~ T,
+    Topography == "no associated" & Chap2_TWI=="no significant effect" ~ T,
     grepl("Bottomland", Topography) & Chap2_TWI=="positif" ~ T,
     grepl("Hilltop", Topography) & Chap2_TWI=="negatif" ~ T
   )) %>% 
@@ -790,30 +832,35 @@ validation <- left_join(Experts, estimate, by= 'Species') %>%
 
 
 # Check topo
-unique((validation %>% filter(Chap2_TWI=="negatif" & !is.na(Topography)))$Topography)
-unique((validation %>% filter(Chap2_TWI=="positif" & !is.na(Topography)))$Topography)
+unique((validation %>% filter(Chap2_TWI=="negatif" & !is.na(Topography)))$Topography) # all experts opinion
+unique((validation %>% filter(Chap2_TWI=="positif" & !is.na(Topography)))$Topography) # all experts opinion
 
 unique((validation %>% filter(is.na(Validate_topo) & !is.na(Topography)))$Topography)
-validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: NA # 8
+validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: NA # 8 -> 4 (9ha)
 
-validation %>% filter(Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: T # 18/27
-validation %>% filter(!Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: F # 2/27
-validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>% filter(Chap2_TWI=="generalist"|Topography=='no associated') %>% select(Species, N, Topography, Chap2_TWI) # Validate_topo: no effect # 7/27
+validation %>% filter(!is.na(Topography)) # 28 sp with experts opinion
+validation %>% filter(Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: T # 20/28
+validation %>% filter(!Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: F # 4/28
+validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>%
+  filter(Chap2_TWI=="no significant effect"|Topography=='no associated') %>%
+  select(Species, N, Topography, Chap2_TWI) # Validate_topo: no effect # 4/28
 
 
 # Check light
-validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% select(Temperament, Chap2_Light) # Validate_topo: NA # 18
+validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% select(Temperament, Chap2_Light) # Validate_topo: NA # 17
 
-validation %>% filter(Validate_light) %>% select(Temperament, Chap2_Light) # Validate_light: T # 7/8
+validation %>% filter(Validate_light) %>% select(Temperament, Chap2_Light) # Validate_light: T # 8/9
 validation %>% filter(!Validate_light) %>% select(Temperament, Chap2_Light) # Validate_light: F # 0
-validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% filter(grepl("Hard", Temperament) & Chap2_Light=="generalist") %>%  select(Species, N, Temperament, Chap2_Light) # Validate_light: no effect # 1/8
+validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% filter(grepl("Hard", Temperament) & Chap2_Light=="no significant effect") %>%  select(Species, N, Temperament, Chap2_Light) # Validate_light: no effect # 1/9
 
 
 # conserve generalist info of lit and estimated
 
 validation_table <- validation %>% 
+  # with experts opinion
   filter(!is.na(Topography) | !is.na(Temperament)) %>% 
-  filter((!is.na(Validate_topo) | Chap2_TWI=="generalist" | Topography=='no associated') | ( !is.na(Validate_light) | grepl("Hard", Temperament) & Chap2_Light=="generalist")) %>%
+  # that can be comparable to our study
+  filter((!is.na(Validate_topo) | Chap2_TWI=="no significant effect" | Topography=='no associated') | ( !is.na(Validate_light) | grepl("Hard", Temperament) & Chap2_Light=="no significant effect")) %>%
   arrange(Validate_light, desc(Validate_topo)) %>% 
   rename(`Estimated light preference` = Chap2_Light,
          `Estimated wetness preference` = Chap2_TWI,
@@ -840,16 +887,16 @@ O in y, a in x
 databp <- datap %>% 
   select(-Q95) %>% 
   select(-c(outer_width, inner_width, point_est, Sg_effect)) %>% 
-  rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
+  rename(Q5 = ll, Q80 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
   filter(parameter %in% c("O", "a")) %>% 
-  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
+  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q80),
               names_glue = "{parameter}_{.value}") %>% 
   # Light effect (not flat)
   mutate(Sg_effect = ifelse(a_median > -0.02, F, T)) %>% # no light effect
-  mutate(Incertitude =(exp(O_Q95)*100)-(exp(O_Q5)*100)) # 50% CI : O_Q50_1-O_Q50_0 ; 95% CI : O_Q95-O_Q5
+  mutate(Incertitude =(exp(O_Q80)*100)-(exp(O_Q5)*100)) # 50% CI : O_Q50_1-O_Q50_0 ; 80% CI : O_Q80-O_Q5
 
 # databp <- databp %>%
-#   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q95)), ~ (-.))
+#   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q80)), ~ (-.))
 ```
 
 ```{r}
@@ -863,22 +910,22 @@ ggplot(databp) +
   #                           xmax=xend, alpha=light), fill="grey") +
   # scale_alpha_manual(name = "Light preference", values=c(.1,.5)) +
   
-  # 95% credible interval
-  # geom_segment(aes(x=a_Q5, xend=a_Q95, y=O_median, yend=O_median,
-  #                  col = "95 and 50% CI"), size = .5) + # tau
-  # geom_segment(aes(y=O_Q5, yend=O_Q95, x=a_median, xend=a_median,
-  #                  col = "95 and 50% CI"), size = .5) + # O
+  # 80% credible interval
+  # geom_segment(aes(x=a_Q5, xend=a_Q80, y=O_median, yend=O_median,
+  #                  col = "80 and 50% CI"), size = .5) + # tau
+  # geom_segment(aes(y=O_Q5, yend=O_Q80, x=a_median, xend=a_median,
+  #                  col = "80 and 50% CI"), size = .5) + # O
   # geom_segment(aes(x=a_Q50_0, xend=a_Q50_1, y=O_median, yend=O_median,
-  #                  col = "95 and 50% CI"), size = .6) + # tau
+  #                  col = "80 and 50% CI"), size = .6) + # tau
   # geom_segment(aes(y=O_Q50_0, yend=O_Q50_1, x=a_median, xend=a_median,
-  #                  col = "95 and 50% CI"), size = .6) + # O
+  #                  col = "80 and 50% CI"), size = .6) + # O
   
   
   geom_point(aes(x= a_median, y = O_median, shape = Sg_effect)) + # median
   scale_shape_manual(name="Light effect",
                      values=c("FALSE" = 1, "TRUE" = 19),
                      breaks = c("TRUE","FALSE")) +
-  # scale_color_manual(name="", values = c("95 and 50% CI" = "darkgrey")) + 
+  # scale_color_manual(name="", values = c("80 and 50% CI" = "darkgrey")) + 
   
   ggrepel::geom_text_repel(aes(x= a_median, y = O_median, label = Species), col = "black", size = 3) +
   
@@ -894,9 +941,9 @@ ggplot(databp) +
   theme(plot.margin = unit(c(1,1,1,1), "lines")) +
   coord_cartesian(clip = "off") + 
   
-  annotation_custom(textGrob("Narrow light\nniche"),xmin= -.35,xmax=-.35,ymin=-7.5,ymax=-7.5) +
-  annotation_custom(textGrob("Wide light\nniche"),xmin= -.05,xmax=-.05,ymin=-7.5,ymax=-7.5) + 
-  annotation_custom(textGrob("Flat light\nniche"),xmin= 0,xmax=0,ymin=-7.5,ymax=-7.5) + 
+  annotation_custom(textGrob("Narrow light\nniche"),xmin= -.3,xmax=-.3,ymin=-7.7,ymax=-7.7) +
+  annotation_custom(textGrob("Wide light\nniche"),xmin= -.05,xmax=-.05,ymin=-7.7,ymax=-7.7) + 
+  annotation_custom(textGrob("Flat light\nniche"),xmin= 0,xmax=0,ymin=-7.7,ymax=-7.7) + 
   
   theme(axis.title = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
@@ -917,23 +964,23 @@ ggplot(databp, aes(x=Incertitude, y= a_median)) +
   theme_minimal() + 
   # geom_point() +
   geom_line() +
-  # scale_x_continuous(trans="log", labels = ~round(.,1)) +
+  scale_x_continuous(trans="log", labels = ~round(.,1)) +
   # scale_x_continuous(n.breaks = 10, labels = ~round(exp(.),2)) + # delog
   geom_hline(yintercept = -0.02, linetype = 'dashed') +
   ggpubr::stat_cor(method = "pearson",
                    label.x.npc = 0.7, label.y.npc = 0.05) +
-  labs(x='*O* 95% incertitude (transmittance %)', y= '*a* median') +
+  labs(x='*O* 80% incertitude (transmittance %)', y= '*a* median') +
   theme(axis.title = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown())
 
-ggsave("O_incertitude_a_.png", path = PATH,
+ggsave("O_incertitude_a_xaxislogged.png", path = PATH,
        width = 15, height = 10, units = "cm", dpi=800, bg="white")
 
 
 cor(databp$Incertitude, databp$a_median)
 cor(log(databp$Incertitude), databp$a_median)
-# not log : 0.40
-# log : 0.55
+# not log : 0.40 -> 0.52 (9ha, coord cor, 2019 light)
+# log : 0.55 -> 0.63 (9ha, coord cor, 2019 light)
 ```
 
 ## Strategy
@@ -947,15 +994,15 @@ ggplot(databp) +
   # scale_alpha_manual(name = "Light preference", values=c(.1,.5)) +
   
   # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
-  # 95% credible interval
-  # geom_segment(aes(x=a_Q5, xend=a_Q95, y=O_median, yend=O_median,
-  #                  col = "95 and 50% CI"), size = .5) + # tau
-  # geom_segment(aes(y=O_Q5, yend=O_Q95, x=a_median, xend=a_median,
-  #                  col = "95 and 50% CI"), size = .5) + # O
+  # 80% credible interval
+  # geom_segment(aes(x=a_Q5, xend=a_Q80, y=O_median, yend=O_median,
+  #                  col = "80 and 50% CI"), size = .5) + # tau
+  # geom_segment(aes(y=O_Q5, yend=O_Q80, x=a_median, xend=a_median,
+  #                  col = "80 and 50% CI"), size = .5) + # O
   # geom_segment(aes(x=a_Q50_0, xend=a_Q50_1, y=O_median, yend=O_median,
-  #                  col = "95 and 50% CI"), size = .6) + # tau
+  #                  col = "80 and 50% CI"), size = .6) + # tau
   # geom_segment(aes(y=O_Q50_0, yend=O_Q50_1, x=a_median, xend=a_median,
-  #                  col = "95 and 50% CI"), size = .6) + # O
+  #                  col = "80 and 50% CI"), size = .6) + # O
   
   
   geom_point(aes(x= a_median, y = O_median, col = Strategy, shape = Sg_effect)) + # median
@@ -965,8 +1012,8 @@ ggplot(databp) +
   scale_color_manual('Strategy', values = c("Canopy species" = "#E7B800",
                                             "Understory species"= "#009E73",
                                             "NA" = "darkgrey",
-                                            "95 and 50% CI" = "darkgrey"),
-                     breaks=c("Canopy species", "Understory species", "NA", "95 and 50% CI")) + 
+                                            "80 and 50% CI" = "darkgrey"),
+                     breaks=c("Canopy species", "Understory species", "NA", "80 and 50% CI")) + 
   
   
   ggrepel::geom_text_repel(aes(x= a_median, y = O_median, label = Species), col = "black", size = 2.5) +
@@ -1015,8 +1062,8 @@ for(s in names(fits)){
       rowwise() %>% 
       mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
       mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
-      mutate(logTransmittance = seq(-7.308724e+00, 8.941571e-08, length.out = 50)[Light]) %>% # -7.308724e+00 , 8.941571e-08
-      mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) # 1.358045 - 2.400176
+      mutate(logTransmittance = seq(-8.208173, 1.07194e-09, length.out = 50)[Light]) # %>% 
+      # mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) # 1.358045 - 2.400176
     
     DATA %>% 
       group_by(Light) %>% 

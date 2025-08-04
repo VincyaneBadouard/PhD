@@ -117,7 +117,7 @@ names(eigenval) <- filelist
 datalist_eig <- datalist
 
 # str(datalist_eig[[1]])
-v
+
 datalist_eig <- lapply(names(datalist), function(name) {
   # name = "Sextonia_rubra"
   if(name %in% names(eigenval) & ncol(eigenval[[name]])>0){
