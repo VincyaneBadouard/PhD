@@ -33,8 +33,8 @@ library(patchwork)
 library(grid)
 library(stringr)
 
-interestsp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")
-sp <- interestsp[,3] # 75
+sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
+abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_9ha.csv")
 # mettre 2 pour treedatacor
 
 # sp <- c("Licania_membranacea" , "Lecythis_persistens") # 4 forms
@@ -182,6 +182,7 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
 
 
 # Check strategies
+## DBH Q95%
 ```{r DBH Q95%}
 datap %>% 
   filter(parameter=='O' & Sg_effect) %>% 
@@ -201,7 +202,7 @@ datap %>%
 ggsave("Light_topo_DBHmax_checkstrategies.png", path = PATH,
        width = 25, height = 15, units = "cm", dpi=800, bg="white")
 ```
-
+## MaxTreeHeight
 ```{r MaxTreeHeight}
 datap %>% 
   filter(parameter=='O' & Sg_effect) %>% 
@@ -211,15 +212,41 @@ datap %>%
   scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   ggrepel::geom_text_repel(aes(label = Species), col = "black", size = 2.5) +
   geom_point() +
-  scale_color_manual(values = c("Canopy species" = "#E7B800",
+  geom_hline(aes(yintercept=log(5/100)), col = "red", linetype='dashed') +
+  geom_vline(aes(xintercept=25), col = "black", linetype='dashed') +
+  geom_vline(aes(xintercept=40), col = "black", linetype='dashed') +
+  
+  scale_color_manual(name= "Initial classification",
+                     values = c("Canopy species" = "#E7B800",
                                 "Understory species"= "#009E73",
                                 "NA" = "darkgrey")) +
   labs(x= "Species maximum tree height (m)") +
-  theme(legend.position="bottom")
-
+  theme(legend.position="bottom") +
+  
+  # Annotations
+  # theme(plot.margin = unit(c(.5,.5,1,.5), "lines")) + # 3e
+  coord_cartesian(clip = "off") +
+  
+  annotation_custom(textGrob("Understorey", gp = gpar(fontsize=10, col="#999999")),
+                    xmin= 15,xmax=15,ymin=-7.2,ymax=-7.2) +
+  annotation_custom(textGrob("Mid-canopy", gp = gpar(fontsize=10, col="#999999")),
+                    xmin= 33,xmax=33,ymin=-7.2,ymax=-7.2) +
+  annotation_custom(textGrob("Upper-canopy", gp = gpar(fontsize=10, col="#999999")),
+                    xmin= 45,xmax=45,ymin=-7.2,ymax=-7.2)
 
 ggsave("Light_topo_MaxTreeHeight_checkstrategies.png", path = PATH,
-       width = 25, height = 15, units = "cm", dpi=800, bg="white")
+       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+```
+
+# New guild classif
+```{r, new guild classif}
+datap <- datap %>% 
+  mutate(Guild = case_when(
+  MaxTreeHeight <25 ~ "Understorey",
+  MaxTreeHeight >40  ~ "Upper-canopy",
+  .default = "Mid-canopy")
+) %>% 
+  mutate(Guild = factor(Guild, levels=c("Upper-canopy", "Mid-canopy", "Understorey")))
 ```
 
 # Check extremes
@@ -234,7 +261,7 @@ for(P in c("O", "tau")){
       theme_minimal() + 
       geom_histogram(bins=10, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # binwidth=1, 
       {if(P=='O') scale_x_continuous("O median (transmittance %)", n.breaks = 13, labels = ~round(exp(.)*100,2))} + # delog
-      {if(P=='tau') xlab(P)} +
+      {if(P=='tau') xlab(expression(tau))} +
       labs(y = 'Species number')
   )}
 ```
@@ -323,7 +350,7 @@ p2 <- p1 %+% xs$a +
   guides(color = FALSE, alpha = FALSE)
 
 p3 <- p1 %+% xs$tau  +
-  ggtitle("tau") +
+  ggtitle(expression(tau)) +
   theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
         axis.ticks.y=element_blank())
 
@@ -466,7 +493,7 @@ for(P in c('O', 'tau', 'a')){
 ```{r}
 datap %>% 
   mutate(Incertitude = hh-ll) %>% 
-  left_join(interestsp %>% select(ScientificName,N), by = 'ScientificName') %>% 
+  left_join(abund %>% select(ScientificName,N), by = 'ScientificName') %>% 
   select(Species, N, parameter,Incertitude) %>% unique() %>% 
   
   ggplot(aes(x=N, y= Incertitude)) +
@@ -476,7 +503,7 @@ datap %>%
   scale_x_continuous(trans="log", labels = ~round(.,0), breaks = c(30, 50, 100, 200, 500, 1000, 2140)) +
   ggpubr::stat_cor(aes(x=log(N), y= Incertitude), method = "pearson",
                    label.x.npc = 0.36, label.y.npc = 1) +
-  facet_wrap(~parameter, scale= "free") +
+  facet_wrap(~parameter, scale= "free", labeller = label_parsed) +
   labs(y= "Parameter 80% incertitude", x= 'Species abundance')
 # N range : 30-2 140
 
@@ -734,6 +761,7 @@ ggsave("Light_topo_biplot_noerrorbar_onlysg_light_effect.png", path = PATH,
        width = 32, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
+
 ## With strategy
 ```{r}
 ggplot(databp) +
@@ -744,15 +772,20 @@ ggplot(databp) +
   geom_vline(xintercept = 0, col="red", linetype = "dashed") +
   
   geom_point(aes(x= tau_median, y = O_median, # median
-                 col=Strategy, shape = Sg_light_effect)) + 
+                 col=Guild, shape = Sg_light_effect)) + # Strategy
   scale_shape_manual(name="Light effect",
                      values=c("FALSE" = 1, "TRUE" = 19),
                      breaks = c("TRUE","FALSE")) +
   
-  scale_color_manual(values = c("Canopy species" = "#E7B800",
-                                "Understory species"= "#009E73",
-                                "NA" = "darkgrey"),
-                     breaks=c("Canopy species", "Understory species", "NA")) + 
+  # scale_color_manual(values = c("Canopy species" = "#E7B800",
+  #                               "Understory species"= "#009E73",
+  #                               "NA" = "darkgrey"),
+  #                    breaks=c("Canopy species", "Understory species", "NA")) + 
+  
+  scale_color_manual(values = c("Upper-canopy" = "#E7B800",
+                                "Understorey"= "#009E73",
+                                "Mid-canopy" = "#D55E00"),
+                     breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
   
   ggrepel::geom_text_repel(aes(x= tau_median, y = O_median, label = Species), col = "black", size = 3) +
   
@@ -767,8 +800,7 @@ ggplot(databp) +
   annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
                     xmin= 2,xmax=2,ymin=-7.5,ymax=-7.5) + 
   
-  guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2),
-         col = guide_legend(nrow=2), shape = guide_legend(nrow=2)) +
+  guides(fill = guide_legend(nrow=2), alpha = guide_legend(nrow=2)) +
   theme(axis.title.y = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
         legend.position="bottom") + # , legend.box="vertical"
@@ -777,8 +809,8 @@ ggplot(databp) +
 
 # alpha sur les postériors imprécis
 
-ggsave("Light_topo_biplot_strategy.png", path = PATH,
-       width = 23, height = 20, units = "cm", dpi=800, bg="white")
+ggsave("Light_topo_biplot_Guild.png", path = PATH,
+       width = 21, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
 # Experts validation
@@ -786,8 +818,8 @@ ggsave("Light_topo_biplot_strategy.png", path = PATH,
 Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>% 
   filter(OurSpecies) %>% 
   select(-OurSpecies, -`...11`) #%>%
-  # select(Species, Temperament, Topography) %>% 
-  # mutate(Species = str_replace(Species, " ", "_"))
+# select(Species, Temperament, Topography) %>% 
+# mutate(Species = str_replace(Species, " ", "_"))
 
 estimate <- databp %>% 
   select(ScientificName, Species, O_median, tau_median, Sg_light_effect, Tau_effect) %>% 
@@ -808,7 +840,7 @@ estimate <- databp %>%
 
 validation <- left_join(Experts, estimate, by= 'Species') %>% 
   # Validate topo
-  left_join(interestsp %>% select(ScientificName,N), by = 'ScientificName') %>% 
+  left_join(abund %>% select(ScientificName,N), by = 'ScientificName') %>% 
   mutate(Validate_topo = case_when(
     Topography == "Bottomland" & Chap2_TWI=="negatif" ~ F,
     Topography == "Hilltop" & Chap2_TWI=="positif" ~ F,
@@ -1005,15 +1037,20 @@ ggplot(databp) +
   #                  col = "80 and 50% CI"), size = .6) + # O
   
   
-  geom_point(aes(x= a_median, y = O_median, col = Strategy, shape = Sg_effect)) + # median
+  geom_point(aes(x= a_median, y = O_median, col = Guild, shape = Sg_effect)) + # median
   scale_shape_manual(name="Light effect",
                      values=c("FALSE" = 1, "TRUE" = 19),
                      breaks = c("TRUE","FALSE")) +
-  scale_color_manual('Strategy', values = c("Canopy species" = "#E7B800",
-                                            "Understory species"= "#009E73",
-                                            "NA" = "darkgrey",
-                                            "80 and 50% CI" = "darkgrey"),
-                     breaks=c("Canopy species", "Understory species", "NA", "80 and 50% CI")) + 
+  # scale_color_manual('Strategy', values = c("Canopy species" = "#E7B800",
+  #                                           "Understory species"= "#009E73",
+  #                                           "NA" = "darkgrey",
+  #                                           "80 and 50% CI" = "darkgrey"),
+  #                    breaks=c("Canopy species", "Understory species", "NA", "80 and 50% CI")) + 
+  
+    scale_color_manual(values = c("Upper-canopy" = "#E7B800",
+                                "Understorey"= "#009E73",
+                                "Mid-canopy" = "#D55E00"),
+                     breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
   
   
   ggrepel::geom_text_repel(aes(x= a_median, y = O_median, label = Species), col = "black", size = 2.5) +
@@ -1027,12 +1064,9 @@ ggplot(databp) +
   theme(plot.margin = unit(c(1,1,1,1), "lines")) +
   coord_cartesian(clip = "off") + 
   
-  annotation_custom(textGrob("Narrow light\nniche", gp = gpar(fontsize=10)),
-                    xmin= -.35,xmax=-.35,ymin=-7,ymax=-7) +
-  annotation_custom(textGrob("Wide light\nniche", gp = gpar(fontsize=10)),
-                    xmin= -.05,xmax=-.05,ymin=-7,ymax=-7) + 
-  annotation_custom(textGrob("Flat light\nniche", gp = gpar(fontsize=10)),
-                    xmin= 0,xmax=0,ymin=-7,ymax=-7) + 
+  annotation_custom(textGrob("Narrow light\nniche"),xmin= -.3,xmax=-.3,ymin=-7.7,ymax=-7.7) +
+  annotation_custom(textGrob("Wide light\nniche"),xmin= -.05,xmax=-.05,ymin=-7.7,ymax=-7.7) + 
+  annotation_custom(textGrob("Flat light\nniche"),xmin= 0,xmax=0,ymin=-7.7,ymax=-7.7) + 
   
   theme(axis.title = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
@@ -1042,8 +1076,8 @@ ggplot(databp) +
 
 # alpha sur les postériors imprécis
 
-ggsave("O_a_biplot_strategy.png", path = PATH,
-       width = 17, height = 25, units = "cm", dpi=800, bg="white")
+ggsave("O_a_biplot_Guild.png", path = PATH,
+       width = 21, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
 
@@ -1063,7 +1097,7 @@ for(s in names(fits)){
       mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
       mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
       mutate(logTransmittance = seq(-8.208173, 1.07194e-09, length.out = 50)[Light]) # %>% 
-      # mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) # 1.358045 - 2.400176
+    # mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) # 1.358045 - 2.400176
     
     DATA %>% 
       group_by(Light) %>% 
@@ -1098,18 +1132,23 @@ Sys.time() # 32 min
 
 # Strategies boxplot
 ```{r}
-ggplot(datap, aes(x= Strategy, y= m, col= Strategy)) +
+ggplot(datap, aes(x= Guild, y= m, col= Guild)) +
   theme_minimal() +
   geom_boxplot() +
-  scale_color_manual(values = c("Canopy species" = "#E7B800",
-                                "Understory species"= "#009E73",
-                                "NA" = "darkgrey")) + 
-  labs(y="Median") +
-  theme(axis.title.x =element_blank(), axis.text.x =element_blank()) +
-  facet_wrap(~parameter, scales = "free_y")
+    # scale_color_manual(values = c("Canopy species" = "#E7B800",
+  #                               "Understory species"= "#009E73",
+  #                               "NA" = "darkgrey")) + 
+  scale_color_manual(values = c("Upper-canopy" = "#E7B800",
+                                "Understorey"= "#009E73",
+                                "Mid-canopy" = "#D55E00"),
+                     breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
 
-ggsave("Boxplots_parameters_strategy.png", path = PATH,
-       width = 20, height = 10, units = "cm", dpi=800, bg="white")
+  labs(y="Parameters median") +
+  theme(axis.title.x =element_blank(), axis.text.x =element_blank()) +
+  facet_wrap(~parameter, scales = "free_y", labeller = label_parsed)
+
+ggsave("Boxplots_parameters_Guild.png", path = PATH,
+       width = 15, height = 8, units = "cm", dpi=800, bg="white")
 ```
 
 

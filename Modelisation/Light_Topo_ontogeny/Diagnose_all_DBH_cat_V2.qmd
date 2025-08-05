@@ -7,6 +7,21 @@ theme: cosmo
 editor: source
 code-fold: true
 ---
+
+Changements figures :
+Monoplot posterior :
+- noms sp en y pas en x
+- enlver les _ dans les noms d'sp
+- noms d'sp en italique
+- tau en lettre greque
+- remplacer more/less flood tolerant par wetter, drier
+- remplacé non-null effect par significiant
+
+Biplot :
+travailler les étiquettes pour que ttes les sp soient visibles
+
+Biplot O-tau :
+pas de couleur mais ajouter wetter, drier
 ```{r setup}
 library(tidyverse)
 library(cmdstanr)
@@ -24,13 +39,17 @@ unique(Comb$DBH_classes)
 # 75
 # mettre le 2 avec la correc bota
 
+# strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
+#   select(ScientificName, Strategy_VB) %>%
+#   rename(Strategy = Strategy_VB) %>% 
+#   unique()
 
-strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
-  select(ScientificName, Strategy_VB) %>%
-  rename(Strategy = Strategy_VB) %>% 
-  unique()
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  # select(ScientificName, TreeHeight)
+  group_by(ScientificName) %>% 
+  summarise(MaxTreeHeight = max(TreeHeight))
 
-PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/1-3/Autocor"
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor"
 # /First10sp
 ```
 
@@ -60,7 +79,7 @@ for(S in sp){
 names(fits)[names(fits) == "-25"] <- ">25"
 # names(fits)[names(fits) == "-20"] <- ">20"
 
-
+sp[!sp %in% names(fits)] # "Ryania_speciosa""Palicourea_quadrifolia" "Ixora_ferrea" "Faramea_paniculata" "Eugenia_albicans" only 1 dbh class with more than 10 ind
 # 70 sp with more than 1 DBH class
 ```
 
@@ -118,7 +137,10 @@ length(unique(badRhat$Species))
 # (40/70)*100 = 53% for 1-5 classes (sans filtre pour le nombre d'individu)
 # (46/70)*100 = 66% for 1-3 classes
 # (26/70)*100 = 37% for 1-3 classes with autocor
-
+# (21/70)*100 = 30% for 1-3 classes with autocor + 2019 light + corrected coordinates
+# only on 1-3 and 3-10 dbh classes
+# (6/70)*100  pour badrhat > 1.05
+write_csv(badRhat, paste(PATH, "/badRhat.csv", sep=''))
 ```
 
 
@@ -130,7 +152,7 @@ name <-
 # sort(names(fits))
 
 for(S in name){
-  for(D in c("1-3","3-10","10-25",">25")){
+  for(D in c("1-3","3-10")){
     # for(D in c("1-5","5-10","10-20",">20")){
     # if(D %in% names(fits[[S]])){
     if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
@@ -150,7 +172,7 @@ for(S in name){
 ```
 
 # Filter species with bad Rhat
-```{r}
+```{r, eval =F}
 fits <- fits[!names(fits) %in% name] # 44 sp
 ```
 
@@ -163,7 +185,7 @@ for(S in names(fits)){
     if(D %in% names(fits[[S]])){
       
       d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "tau")),
-                                         prob = 0.5, prob_outer = 0.95, point_est = "median") %>% 
+                                         prob = 0.5, prob_outer = 0.80, point_est = "median") %>% 
         mutate(Species = S) %>% 
         mutate(DBH = D)
       
@@ -184,15 +206,21 @@ datap <- datap %>%
   mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
   mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>% 
   mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25"))) %>% 
-  left_join(strategy, by = c("Species" = "ScientificName")) %>% 
-  mutate(Strategy = factor(Strategy, levels=c("Canopy species","Understory species"))) %>% 
-  arrange(Species) %>% arrange(Strategy) %>% 
+  left_join(Inv, by = c("Species" = "ScientificName")) %>% 
+  mutate(Guild = case_when(
+    MaxTreeHeight <25 ~ "Understorey",
+    MaxTreeHeight >40  ~ "Upper-canopy",
+    .default = "Mid-canopy")
+  ) %>% 
+  mutate(Guild = factor(Guild, levels=c("Upper-canopy", "Mid-canopy", "Understorey"))) %>% 
+  arrange(Species) %>% arrange(Guild) %>% 
   mutate(Species=factor(Species, levels=unique(Species))) %>% 
   mutate(Topo= case_when(
-    parameter=="tau" & m > 0 ~ "More flood tolerant",
-    parameter=="tau" & m < 0 ~ "Less flood tolerant")) %>% 
-  mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "Generalist", Topo)) %>% 
-  mutate(incertitude = hh-ll)
+    parameter=="tau" & m > 0 ~ "Wetter habitat preference",
+    parameter=="tau" & m < 0 ~ "Drier habitat preference")) %>% 
+  mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "No significant effect", Topo)) %>% 
+  mutate(incertitude = hh-ll) %>% 
+  mutate(Species = str_replace(Species, "_", " "))
 
 
 # -a
@@ -265,11 +293,11 @@ for(P in c('O', 'a', 'tau')){
       ggplot(datas, aes(x= DBH, y = m, group=1)) +
         theme_minimal() + 
         geom_segment(aes(y=ll, yend=hh, x=DBH, xend=DBH,
-                         color = "95%"), size = 0.5) +
+                         color = "80%"), size = 0.5) +
         geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH,
                          color = "50%"), size = 1) +
         scale_color_manual(name = "Credible interval", 
-                           values = c("95%" = "#E7B800",
+                           values = c("80%" = "#E7B800",
                                       "50%"= "#FC4E07")) + 
         {if(P=='a') geom_point() } + # median
         {if(P!='a') geom_point(aes(alpha = Sg_effect)) } +
@@ -284,6 +312,7 @@ for(P in c('O', 'a', 'tau')){
         
         # , limits = c(min(datas$ll), max(datas$hh))
         labs(x= 'DBH (cm)', y= P) +
+        {if(P=='tau') ylab(expression(tau)) } +
         facet_grid(Species ~ ., switch = "y") +
         theme(strip.text.y.left = element_text(angle = 0))
     })
@@ -325,7 +354,9 @@ for(P in c('a', 'O', 'tau')){
       
       {if(P=='tau') geom_hline(yintercept=0, linetype = "dashed", col = "red") } +
       {if(P!='O')  guides(alpha = F) } +
-      labs(y=P) # title=S,
+      labs(y=P)  +
+      {if(P=='tau') ylab(expression(tau)) }
+    # title=S,
   )
   ggsave(paste(P,"accross_onto.png", sep='_'), path = PATH,
          width = 15, height = 11, units = "cm", dpi=800, bg="white")
@@ -350,11 +381,18 @@ for(P in c('a', 'O', 'tau')){
   print(
     datap %>% 
       filter(parameter==P) %>% 
+      mutate(m = ifelse(parameter=='a', -m, m)) %>% 
+      
       ggplot(aes(x= DBH, y = m)) +
       theme_minimal() + 
       geom_boxplot() +
+      {if(P=='a') scale_y_continuous(trans="log",
+                                     n.breaks = 8, labels = ~round(.,2)) } +
+      
       theme(legend.position="bottom") +
-      labs(y=P) # title=S, 
+      labs(y=P) + 
+      {if(P=='tau') ylab(expression(tau)) }
+    # title=S, 
   )
   ggsave(paste(P,"_boxplot_accross_onto.png", sep='_'), path = PATH,
          width = 10, height = 10, units = "cm", dpi=800, bg="white")
@@ -368,17 +406,27 @@ for(P in c('a', 'O', 'tau')){
   print(
     datap %>% 
       filter(parameter==P) %>% 
+      mutate(m = ifelse(parameter=='a', -m, m)) %>% 
       # filter(Strategy==S) %>% 
-      ggplot(aes(x= DBH, y = m, col=Strategy)) +
+      ggplot(aes(x= DBH, y = m, col=Guild)) +
       theme_minimal() + 
       geom_boxplot() +
-      scale_color_manual(values = c("Canopy species" = "#E7B800",
-                                    "Understory species"= "#009E73",
-                                    "NA" = "darkgrey")) +
+      {if(P=='a') scale_y_continuous(trans="log",
+                                     n.breaks = 8, labels = ~round(.,2)) } +
+      # scale_color_manual(values = c("Canopy species" = "#E7B800",
+      #                               "Understory species"= "#009E73",
+      #                               "NA" = "darkgrey")) +
+      scale_color_manual(values = c("Upper-canopy" = "#E7B800",
+                                    "Understorey"= "#009E73",
+                                    "Mid-canopy" = "#D55E00"),
+                         breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
+      
       theme(legend.position="bottom") +
-      labs(y=P) # title=S, 
+      labs(y=P) + # title=S, 
+      {if(P=='tau') ylab(expression(tau)) }
+    
   )
-  ggsave(paste(P,"_boxplot_accross_onto_strategy.png", sep='_'), path = PATH,
+  ggsave(paste(P,"_boxplot_accross_onto_Guild.png", sep='_'), path = PATH,
          width = 10, height = 10, units = "cm", dpi=800, bg="white")
 }
 # }
@@ -388,7 +436,7 @@ for(P in c('a', 'O', 'tau')){
 il faut l'environnement de chaque classe onto...
 1 plot par sp et une couleur par stade
 ```{r}
-Envpred <- read_csv("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction.csv") %>% 
+Envpred <- read_csv("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Envrmt_prediction_25ha.csv") %>% 
   mutate(DBH_classes = recode(DBH_classes, "-25" = ">25"))
 ```
 
@@ -425,7 +473,6 @@ for(s in names(fits)){
           # OQ5 = fits[[s]][[d]]$summary("O")$q5, # Opt Q5%
           # OQ95 =fits[[s]][[d]]$summary("O")$q95
         )
-        
         alist[[d]] <- data.frame(
           DBH = d,
           a = fits[[s]][[d]]$summary("a", median)$median
@@ -480,7 +527,7 @@ for(s in names(fits)){
       
       scale_x_continuous(name = "Light (% transmittance)",
                          n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
-      ggtitle(paste(s,"- at logTWI optimum")) +
+      ggtitle(paste(str_replace(s, "_", " "),"- at logTWI optimum")) +
       labs(y="Presence probabiblity median", col='DBH (cm)', fill='DBH (cm)')
     
   })
@@ -501,38 +548,38 @@ Sys.time() # 4 min
 ```{r}
 databp <- datap %>% 
   select(-c(outer_width, inner_width, point_est, Sg_effect, incertitude)) %>% 
-  rename(Q5 = ll, Q95 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
+  rename(Q5 = ll, Q80 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
   filter(parameter %in% c("O", "a")) %>% 
-  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q95),
+  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q80),
               names_glue = "{parameter}_{.value}") %>% 
   mutate(Sg_effect = ifelse(a_median > -0.02, F, T))  %>% # no light effect
   # mutate(a_median = -a_median) %>% 
-  mutate(Incertitude =(exp(O_Q50_1)*100)-(exp(O_Q50_0)*100)) # 50% CI : O_Q50_1-O_Q50_0 ; 95% CI : O_Q95-O_Q5
+  mutate(Incertitude =(exp(O_Q80)*100)-(exp(O_Q5)*100)) 
 ```
 
 ```{r}
 databp %>% 
   # filter(Species %in% c("Ruizterania_albiflora", "Pouteria_gonggrijpii", "Trichilia_schomburgkii", "Virola_michelii", "Lecythis_corrugata", "Symphonia_sp.1", "Dicorynia_guianensis", "Anaxagorea_dolichocarpa", "Vouacapoua_americana")) %>% 
-  mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q95)), ~ (-.)) %>% 
-  ggplot(aes(col = DBH, group = Species, shape = Strategy)) +
+  mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q80)), ~ (-.)) %>% 
+  ggplot(aes(col = DBH, group = Species, shape = Guild)) +
   theme_minimal() + 
   geom_vline(aes(xintercept=0.02), linetype='dashed') +
-  # 95% credible interval
-  # geom_segment(aes(x=a_Q5, xend=a_Q95, y=O_median, yend=O_median,
-  #                  col = "95 and 50% CI"), size = .5) + # tau
-  # geom_segment(aes(y=O_Q5, yend=O_Q95, x=a_median, xend=a_median,
-  #                  col = "95 and 50% CI"), size = .5) + # O
+  # 80% credible interval
+  # geom_segment(aes(x=a_Q5, xend=a_Q80, y=O_median, yend=O_median,
+  #                  col = "80 and 50% CI"), size = .5) + # tau
+  # geom_segment(aes(y=O_Q5, yend=O_Q80, x=a_median, xend=a_median,
+  #                  col = "80 and 50% CI"), size = .5) + # O
   # geom_segment(aes(x=a_Q50_0, xend=a_Q50_1, y=O_median, yend=O_median,
-  #                  col = "95 and 50% CI"), size = .6) + # tau
+  #                  col = "80 and 50% CI"), size = .6) + # tau
   # geom_segment(aes(y=O_Q50_0, yend=O_Q50_1, x=a_median, xend=a_median,
-  #                  col = "95 and 50% CI"), size = .6) + # O
+  #                  col = "80 and 50% CI"), size = .6) + # O
   
   # geom_line(aes(x= a_median, y = O_median), col = "grey") +
   geom_point(aes(x= a_median, y = O_median), size =3) + # median
   # scale_shape_manual(name="Light effect",
   #                    values=c("FALSE" = 1, "TRUE" = 19),
   #                    breaks = c("TRUE","FALSE")) +
-  # scale_color_manual(name="", values = c("95 and 50% CI" = "darkgrey")) +
+  # scale_color_manual(name="", values = c("80 and 50% CI" = "darkgrey")) +
   scale_color_manual(values = c("1-3" = "#00AFBB",
                                 "3-10"= "#CC79A7",
                                 "10-25"= "#E7B800",
@@ -580,18 +627,18 @@ for(s in names(fits)){
     
     
     databp %>% 
-      filter(Species == s) %>%
-      mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q95)), ~ (-.)) %>% 
+      filter(Species == str_replace(s, "_", " ")) %>%
+      mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q80)), ~ (-.)) %>% 
       ggplot(aes(x= a_median, y = O_median, col = Incertitude, group = Species, shape = DBH)) +
       theme_minimal() + 
       geom_vline(aes(xintercept=0.02), linetype='dashed') +
       
-      # 95% credible interval
-      # geom_segment(aes(x=a_Q5, xend=a_Q95, y=O_median, yend=O_median), size = .5, col= "grey") + # tau
-      geom_segment(aes(y=O_Q5, yend=O_Q95, x=a_median, xend=a_median), size = .5, col = "#E7B800") + # O
+      # 80% credible interval
+      # geom_segment(aes(x=a_Q5, xend=a_Q80, y=O_median, yend=O_median), size = .5, col= "grey") + # tau
+      geom_segment(aes(y=O_Q5, yend=O_Q80, x=a_median, xend=a_median), size = .5, col = "#E7B800") + # O
       geom_segment(aes(x=a_Q50_0, xend=a_Q50_1, y=O_median, yend=O_median), size = .6, col= "grey") + # tau
       geom_segment(aes(y=O_Q50_0, yend=O_Q50_1, x=a_median, xend=a_median), size = .6, col = "#FC4E07") + # O
-      # scale_color_manual(name="", values = c("95 and 50% CI" = "darkgrey")) +
+      # scale_color_manual(name="", values = c("80 and 50% CI" = "darkgrey")) +
       
       # geom_line(col = "grey") +
       geom_path(arrow = arrow(angle = 17, length = unit(0.15, "inches"), type = "closed"), col = "black") +
@@ -612,8 +659,8 @@ for(s in names(fits)){
             legend.title = ggtext::element_markdown()) +
       labs(x= "Niche width (log(-*a*))",
            y= "Light optimum (*O*) (% transmittance)",
-           col="*O* 50% CI", shape='DBH (cm)') +
-      ggtitle(s)
+           col="*O* 80% CI", shape='DBH (cm)') +
+      ggtitle(str_replace(s, "_", " "))
   })
 }
 
@@ -644,7 +691,7 @@ ggplot(databp, aes(x=Incertitude, y= a_median)) +
   geom_hline(yintercept = -0.02, linetype = 'dashed') +
   ggpubr::stat_cor(method = "pearson",
                    label.x.npc = 0.7, label.y.npc = 0.05) +
-  labs(x='*O* 50% incertitude (transmittance %)', y= '*a* median') +
+  labs(x='*O* 80% incertitude (transmittance %)', y= '*a* median') +
   theme(axis.title = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown())
 

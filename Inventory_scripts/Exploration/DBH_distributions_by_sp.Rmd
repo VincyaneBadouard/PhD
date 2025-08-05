@@ -15,32 +15,35 @@ library(ggforce)
 # Import cleaned inventory data
 ```{r,include = F, message=F}
 Inventory <- read_csv(
-    "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv"
+  "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv"
   # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
   # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
   # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
 ) %>% 
-  filter(!is.na(DBHcor)) %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # 9ha; 40 928
+  # filter(!is.na(DBHcor)) %>% 
   arrange(DBHcor) %>% 
   group_by(ScientificName) %>% 
   mutate(N = n()) 
 
-
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots"
 ```
 
 # Plot
 ```{r}
 # All
 ggplot(Inventory, aes(x=DBHcor)) +
-  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9)
-```
+  theme_minimal() +
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  labs(title='DBH distribution of the 9ha community',
+       y= 'Number of individuals', x='Diameter at Breast Height (cm)')
 
-```{r}
-
+ggsave("DBH_distribution_9ha_community.png", path = PATH,
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 # Data transformation
-```{r}
+```{r, eval =F}
 Quantiles <- data.frame(Q =c("50%", "5%", "mean", "95%"),
                         x = c(quantile(Inventory$DBHcor, .5),
                               quantile(Inventory$DBHcor, .05),
@@ -81,7 +84,7 @@ log10 <- ggplot(Inventory, aes(x=DBHcor)) +
                      labels = as.character(c(1, 2, 5, 10, 20, 40, 100, round(max(Inventory$DBHcor))))) +
   geom_vline(xintercept = mean(Inventory$DBHcor)) +
   geom_vline(xintercept = quantile(Inventory$DBHcor, .05), linetype = "dashed") +
-    geom_vline(xintercept = quantile(Inventory$DBHcor, .5), linetype = "dashed") +
+  geom_vline(xintercept = quantile(Inventory$DBHcor, .5), linetype = "dashed") +
   geom_vline(xintercept = quantile(Inventory$DBHcor, .95), linetype = "dashed") +
   geom_text(data = Quantiles, mapping = aes(x= x, y = Inf, label= Q), vjust=1.5, hjust=1.2, size = 3) +
   labs(title = "log10 transformed")
@@ -117,8 +120,8 @@ ne prendre que :
 - la tige principale (?)
 - les vivants
 - les mesures les plus récentes des arbres cirad 
-```{r}
-sort(unique(Inventory$ScientificName))
+```{r, eval=F}
+# sort(unique(Inventory$ScientificName))
 
 data <- Inventory %>%
   filter(Genus=="Xylopia"|Genus=="Parkia"| Genus=="Ocotea")
@@ -133,25 +136,30 @@ ggplot(data, aes(x=DBHcor)) +
 ```{r}
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
-Inventory <- Inventory %>% filter(ScientificName %in% sp)
+Inventory <- Inventory %>% filter(ScientificName %in% sp) %>% 
+  mutate(Species = str_replace(ScientificName, "_", " ")) %>% 
+  arrange(desc(N)) %>% 
+  mutate(Species = factor(Species, levels=c(unique(.$Species)))) %>% 
+  mutate(N = paste('N=',N,sep=''))
 
 # Define nrow and ncol for the facet
 n <- length(unique(sp))
 if(n<4) {i = 1}else{ i = 4}
 
 
-pdf("//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots/DBH_distributions_by_species.pdf",
-    , width = 15, height = 10)
+pdf("//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots/DBH_distributions_by_species_9ha_interestsp.pdf",
+    width = 15, height = 10)
 for(p in 1:(ceiling(length(unique(sp))/16))){
   print(
     ggplot(Inventory, aes(x=DBHcor)) +
+        theme_minimal() +
       geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
       
-      ggforce::facet_wrap_paginate(vars(ScientificName, N, Strategy),
+      ggforce::facet_wrap_paginate(vars(Species, N, Strategy),
                                    scales = "free",
                                    ncol = min(n,4), nrow = i, page = p) +
       
-      labs(x ="DBH (cm)", y = "Number of individuals")
+      labs(x ="Diameter at Breast Height (cm)", y = "Number of individuals")
     
   )
 }
