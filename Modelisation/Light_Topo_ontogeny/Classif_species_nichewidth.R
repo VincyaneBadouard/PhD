@@ -168,17 +168,27 @@ test_a <- datam_a %>%
                                   ((`1-2`>.005 | is.na(`1-2`)) | (`2-3`>.005 | is.na(`2-3`)) | (`3-4`>.005 | is.na(`3-4`))),
                                 "not all in the same direction", SameDirection))
 
-nrow(test_a %>% filter(NicheWidthDiff== "Invariant"))/70*100 # 7.1% no Niche width difference (5 sp)
-nrow(test_a %>% filter(NicheWidthDiff== "No significant pattern"))/70*100 # 54.3% no significant niche width difference (38 sp)
-nrow(test_a %>% filter(NicheWidthDiff== "yes"))/70*100 # 38.6% Niche width difference (27 sp)
-nrow(test_a %>% filter(Plateaus == "plateau"))/27*100 # 14.8% with plateaus (4 sp)
-nrow(test_a %>% filter(SameDirection == "Increasing order"))/27*100 # 0% Increasing order (0 sp)
-nrow(test_a %>% filter(SameDirection == "Decreasing order"))/27*100 # 44.4% Decreasing order (12 sp)
-nrow(test_a %>% filter(SameDirection == "not all in the same direction"))/27*100 # 51.9% not all in the same direction (14 sp)
+nrow(test_a %>% filter(NicheWidthDiff== "Invariant"))/70*100 
+nrow(test_a %>% filter(NicheWidthDiff== "No significant pattern"))/70*100 
+nrow(test_a %>% filter(NicheWidthDiff== "yes"))/70*100 
+nrow(test_a %>% filter(Plateaus == "plateau"))/23*100 
+nrow(test_a %>% filter(SameDirection == "Increasing order"))/23*100 
+nrow(test_a %>% filter(SameDirection == "Decreasing order"))/23*100 
+nrow(test_a %>% filter(SameDirection == "not all in the same direction"))/23*100 
+
+# 7.1% no Niche width difference (5 sp) -> (coord cor + 2019) 2.9% (2 sp)
+# 54.3% no significant niche width difference (38 sp) ->  64.3% (45 sp)
+# 38.6% Niche width difference (27 sp) ->  32.9% (23 sp)
+# 14.8% with plateaus (4 sp) ->  4.3% (1 sp)
+# 0% Increasing order (0 sp) ->  8.7% (2 sp)
+# 44.4% Decreasing order (12 sp) ->  26.1% (6 sp)
+# 51.9% not all in the same direction (14 sp) ->  60% (14 sp)
+
+
 
 # Histo growth importance -------------------------
 test_a %>% 
-  filter(SameDirection == "Increasing order") %>% 
+  filter(SameDirection == "Decreasing order") %>% 
   select(c(Species,`1-2`,`2-3`,`3-4`)) %>% 
   pivot_longer(cols = c(`1-2`,`2-3`,`3-4`),
                names_to = "Pairs",
@@ -189,11 +199,11 @@ test_a %>%
   ggplot(aes(x=Growth)) +
   theme_minimal() +
   geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  scale_x_continuous(trans="sqrt", n.breaks = 15) +
+  # scale_x_continuous(trans="sqrt", n.breaks = 15) +
   labs(x= 'a increase between increasing pairs of DBH classes (log(transmittance))', y= 'Species number')
 
-# >= 2 : strong increase
-# <= 1 : low increase
+# >=  : strong increase
+# <=  : low increase
 # et entre : intermediate increase
 # ------------------------------------------------------------------------------
 

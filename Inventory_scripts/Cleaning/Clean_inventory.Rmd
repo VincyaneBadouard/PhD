@@ -44,6 +44,9 @@ Nouragues Petit Plateau
 ```{r,include = F, message=F}
 UnderstoryP <- 
   read_csv("~/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129.csv") # last raw data
+# unique(UnderstoryP$Year) # 2020-2023
+# unique(UnderstoryP$CensusDate) # 2020-2023
+
 
 UnderstoryN <- read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_ALT_20240910.csv") 
 
