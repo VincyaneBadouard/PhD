@@ -19,6 +19,37 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 # length(unique(sp))
 ```
 
+```{r Sp number, eval=F}
+Inv %>%
+  filter(grepl("_sp", ScientificName) & grepl("\\.", ScientificName)) %>%
+  # filter(grepl("_cf_", ScientificName)) %>%
+  # filter(grepl("Indet", ScientificName)) %>%
+  # filter(grepl("_aff", ScientificName) & grepl("\\.", ScientificName)) %>%
+  # filter(grepl("subsp", ScientificName) & grepl("\\.", ScientificName)) %>%
+  # filter(grepl("var", ScientificName) & grepl("\\.", ScientificName)) %>%
+  select(ScientificName) %>% unique()
+
+allsp <- Inv %>%
+  filter(!is.na(ScientificName)) %>%
+  select(ScientificName) %>% 
+  filter(!is.na(ScientificName)) %>%
+  filter(ScientificName!="Tres haut") %>%
+  filter(ScientificName!="Rinorea_idem181298") %>%
+  filter(!grepl("indet", ScientificName)) %>%
+  filter(!grepl("Indet", ScientificName)) %>%
+  filter(!grepl("aceae", ScientificName)) %>%
+  filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # only genus
+  filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>% # identif not sure
+  filter(!grepl("_cf_", ScientificName)) %>% 	
+  unique()
+# 556 sans les sp et sp numéro
+
+Inv %>%
+  filter(Strategy == "Understory species") %>% 
+  select(ScientificName, Strategy) %>% 
+  unique() # 29 understory sp
+```
+
 ```{r check abundances, eval=F}
 newsp <- Inv %>% 
   group_by(ScientificName) %>% 
