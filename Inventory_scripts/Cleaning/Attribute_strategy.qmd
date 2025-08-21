@@ -70,7 +70,11 @@ data <- Guyafor %>%
   unite(col = "ScientificName", c("Genus", "Species"),
         sep = "_", na.rm = TRUE, remove = F) %>%
   filter(!grepl("indet", ScientificName)) %>%
-  filter(!grepl("Indet", ScientificName)) %>%
+  filter(!grepl("Indet", ScientificName))
+
+length(na.omit(unique(data$ScientificName))) # 1169
+
+data <- data %>%
   
   # Only ALT species
   filter(ScientificName %in% SpeciesALT) %>% 

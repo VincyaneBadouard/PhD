@@ -27,13 +27,14 @@ library(RColorBrewer)
 
 # Import environmental data
 ```{r}
-# Topography
+# 9ha
+# MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+# TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
+# elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
+
+# 25ha
 MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
-
-# TWI
 TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
-
-# Height Above the Nearest Drainage (HAND)
 elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
 
 # Zone
@@ -50,9 +51,14 @@ TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels
   st_set_crs(st_crs(MNT)) #%>% 
 # st_intersection(P16)
 
-# Light (à faire 25ha)
-Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") %>% 
-  st_as_sf(coords = c('Xutm','Yutm')) %>% 
+# Light
+Inventory <- read.csv(
+  "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") %>% # 47 850
+ filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 9ha
+
+Light <- Inventory %>% 
+  # dplyr::select(idTree, ScientificName, Strategy, DBHcor, Xutm, Yutm, TreeHeight) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 
 crs(MNT) == crs(TWI); crs(MNT) == crs(elev); crs(MNT) == crs(TopoLevels) ; crs(MNT) == crs(Light)
@@ -215,6 +221,7 @@ terra::global(MNT, fun="mean", na.rm=TRUE)[,1] # 12.54061
 sqrt(terra::global(MNT, fun="sd", na.rm=TRUE)[,1]) # 2.120244
 hist(MNT$Z) 
 ggplot() +
+  theme_minimal() +
   geom_histogram(data=MNT, aes(x=Z),binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   geom_histogram(data=MNTalt, aes(x=Z), binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(breaks = seq(3, 24, 1))
@@ -229,16 +236,17 @@ terra::global(TWI, fun="mean", na.rm=TRUE)[,1] # 6.501359
 sqrt(terra::global(TWI, fun="sd", na.rm=TRUE)[,1]) # 1.157368
 hist(TWI$Paracou_TWI_5m) 
 ggplot() +
-  geom_histogram(data= TWI, aes(x=Paracou_TWI_5m),
-                 binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  theme_minimal() +
+  # geom_histogram(data= TWI, aes(x=Paracou_TWI_5m),
+  #                binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   geom_histogram(data= TWIalt, aes(x=Paracou_TWI_5m),
                  binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
-  
-  scale_x_continuous(breaks = seq(4, 14, 1))
+  scale_x_continuous(breaks = seq(4, 14, 1)) +
+  labs(y='Abundance',x='TWI')
 
-ggsave("Paracou_P16_TWI_distrib_filtr6m.png",
+ggsave("Paracou_P16_ALT_TWI.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
-       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
 
 
 # Relative elevation
@@ -247,15 +255,17 @@ terra::global(elev, fun="mean", na.rm=TRUE)[,1] # 5.980169
 sqrt(terra::global(elev, fun="sd", na.rm=TRUE)[,1]) # 2.374534
 hist(elev$re) 
 ggplot() +
-  geom_histogram(data = elev, aes(x=re),
-                 binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  theme_minimal() +
+  # geom_histogram(data = elev, aes(x=re),
+  #                binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   geom_histogram(data = elevalt, aes(x=re),
                  binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
-  scale_x_continuous(breaks = seq(-0.5, 24, 1))
+  scale_x_continuous(breaks = seq(-0.4, 24, 2)) +
+  labs(y='Abundance',x='HAND')
 
-ggsave("Paracou_P16_HAND_distrib_filtr6m.png",
+ggsave("Paracou_P16_ALT_HAND.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
-       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
 
 
 
@@ -269,21 +279,25 @@ var(Light$Transmittance) # 0.03
 hist(Light$Transmittance) 
 
 ggplot(Light, aes(x=Transmittance)) +
+  theme_minimal() +
   xlim(0,0.001)+
   geom_histogram(binwidth=0.0001, fill="grey", color="#e9ecef", alpha=0.9) +
   labs(title="< 0.001 estimated transmittance")
 
 ggplot(toodark, aes(x=Z)) + # light height
+  theme_minimal() +
   geom_histogram(binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
   labs(title="Height (m) of the < 0.001 estimated transmittance")
 
 ggplot(Light, aes(x=Transmittance)) +
+  theme_minimal() +
   geom_histogram(binwidth=0.01, fill="grey", color="#e9ecef", alpha=0.9) +
-  scale_x_continuous(breaks = seq(0, 1, 0.1))
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  ylab('Abundance')
 
-ggsave("Paracou_P16_Light_distrib.png",
+ggsave("Paracou_P16_ALTLight_distrib.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
-       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 

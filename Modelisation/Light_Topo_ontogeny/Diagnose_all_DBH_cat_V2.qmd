@@ -184,7 +184,7 @@ for(S in names(fits)){
   for(D in c("1-3","3-10","10-25",">25")){
     if(D %in% names(fits[[S]])){
       
-      d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "tau")),
+      d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "tau")), 
                                          prob = 0.5, prob_outer = 0.80, point_est = "median") %>% 
         mutate(Species = S) %>% 
         mutate(DBH = D)

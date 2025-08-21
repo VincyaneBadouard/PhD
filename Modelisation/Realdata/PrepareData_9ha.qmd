@@ -14,6 +14,7 @@ library(tidyverse)
 ```{r, include = F, message=F}
 Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 40 928
+# 40928/9 # 4548
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 # length(unique(sp))

@@ -194,7 +194,7 @@ writeRaster(dem,
 ```{r}
 Paracou <- sf::st_read("D:/Mes Donnees/PhD/SIG_data/Plots Paracou/OverallPlots.shp")
 
-mnt <- terra::rast("D:/Mes Donnees/PhD/Lidar/ALS2022/Paracou/MNT/Paracou_MNT_cor.tif")
+mnt <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_HighAlt.tif")
 res(mnt) # 1
 
 terra::plot(mnt)
@@ -206,7 +206,7 @@ ggplot() +
                        colors = terrain.colors(45, rev=T)) + 
   geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
   theme_classic() +
-  ggtitle("Paracou MNT ALS 2022") + 
+  ggtitle("Paracou MNT ALS 2023") + 
   coord_sf()
 ```
 
@@ -440,6 +440,15 @@ Paracou_ALT_RE <- Clip_raster(file_to_clip = "test/re.tif",
 
 ## Plot the ALT rasters
 ```{r}
+# Paracou_ALT_mnt <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+# Paracou_ALT_TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
+# Paracou_ALT_RE <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_RelativeElev.tif")
+
+ext <- terra::ext(Paracou_ALT_mnt) # xmin, xmax, ymin, ymax
+bx  <- pretty(c(ext[1], ext[2]), n = 5)  # vecteurs numériques, pas de fonction
+by  <- pretty(c(ext[3], ext[4]), n = 5)
+crds(Paracou_ALT_mnt)[,1]
+ 
 # MNT
 ggplot() + 
   geom_spatraster(data = Paracou_ALT_mnt, aes(fill = Z)) +
@@ -447,9 +456,14 @@ ggplot() +
                        colors = terrain.colors(30, rev=T),
                        na.value="white") +
   geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-  ggtitle("Paracou ALT: MNT - ALS 2022") +
+  ggtitle("Paracou ALT: MNT") +
   theme_classic() +
+  theme(legend.title= element_text(size=16), legend.text= element_text(size=16)) +
   coord_sf()
+
+ggsave("P16_ALT_MNT_1m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Rasters",
+       width = 18, height = 14, units = "cm", dpi=800, bg="white")
 
 # TWI
 ggplot() + 
@@ -458,20 +472,30 @@ ggplot() +
                        colors =  hcl.colors(9, "Blues", rev = T),
                        na.value="white") + 
   geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-  ggtitle("Paracou ALT: TWI 5 m - ALS 2022") + 
+  ggtitle("Paracou ALT: TWI 5 m") + 
   theme_classic() +
+  theme(legend.title= element_text(size=16), legend.text= element_text(size=16)) +
   coord_sf()
+
+ggsave("P16_ALT_TWI_5m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Rasters",
+       width = 18, height = 14, units = "cm", dpi=800, bg="white")
 
 # Relative elevation
 ggplot() + 
   geom_spatraster(data = Paracou_ALT_RE, aes(fill = re)) +
-  scale_fill_gradientn(name = "Relative elevation to the creek (m)",
+  scale_fill_gradientn(name = "Relative elevation\nto the creek (m)",
                        colors = hcl.colors(25, "Blues"),
                        na.value="white") +
   geom_sf(data = sf::st_cast(ALT, "LINESTRING")) +
-  ggtitle("Paracou ALT: Relative elevation to the creek - ALS 2022") + 
+  ggtitle("Paracou ALT: HAND") + 
   theme_classic() +
+  theme(legend.title= element_text(size=16), legend.text= element_text(size=16)) +
   coord_sf()
+
+ggsave("P16_ALT_HAND_1m.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/Rasters",
+       width = 19, height = 14, units = "cm", dpi=800, bg="white")
 ```
 
 # For 25ha + 50m buffer

@@ -11,8 +11,8 @@ execute:
 
 # Objectives
 
--   Test the sensibility to absences number relative to presence number (\*1, 10, 100) on simulated data, then on the less and more abundant species and of different spatial structure (Barbet-Massin et al., 2012 method)
--   Check if our simulated pseudo-absences are similarly distributed than our community, with a heatmap (env var and DBH).
+- Test the sensibility to absences number relative to presence number (\*1, 10, 100) on simulated data, then on the less and more abundant species and of different spatial structure (Barbet-Massin et al., 2012 method)
+- Check if our simulated pseudo-absences are similarly distributed than our community, with a heatmap (env var and DBH).
 
 Pseudo-absences were always generated without considering the species potential distribution
 
@@ -69,6 +69,7 @@ ggsave("Light_draws_boxplot.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo",
        width = 15, height = 10)
 ```
+We can see that 100 observations are sufficient to represent the topographic and light environment of the community.
 
 ```{r, eval=F}
 # Histograms of elevation distribution à different draws nbr

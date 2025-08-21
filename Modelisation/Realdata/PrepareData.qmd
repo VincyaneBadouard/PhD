@@ -7,7 +7,7 @@ library(tidyverse)
 ```
 
 ```{r, include = F, message=F}
-Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv")
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") # 47 850
 
 sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
 # length(unique(sp))

@@ -43,6 +43,7 @@ We simulate presence-absence data for each niche form and for each species abund
 
 ```{r, include = F}
 library(tidyverse)
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Pseudo_absences"
 ```
 
 # Load data
@@ -61,7 +62,7 @@ datalistwithNA <- bind_rows(datalistwithNA, .id = "Scenario") %>%
   filter(is.na(Presence))
 
 # Estimations ------------------------------------------------------------------
-fits <- readRDS("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/PA/Pseudo_abs_tests_concaves.rds")
+fits <- readRDS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/PA/Pseudo_abs_tests_concaves.rds")
 gc()
 ```
 
@@ -92,9 +93,9 @@ data <- data %>%
                               prob = mu)) %>%
   ungroup()
 
-# save(data, file = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
+# save(data, file = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/PA/Medians/Pseudo_abs_tests_concaves_mediandata.Rdata")
 gc()
-# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Fits/Pseudo_abs_tests_concaves_mediandata.Rdata")
+load("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Fits/PA/Medians/Pseudo_abs_tests_concaves_mediandata.Rdata")
 ```
 
 ```{r}
@@ -141,12 +142,12 @@ for(p in 1:length(unique(data$Scenario))){
   })
 }
 
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 4)
 plots
 
-# ggsave("PA_presence_density_concaves.pdf",
-#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-#        plots, width = 15, height = 10)
+ggsave("PA_presence_density_concaves.png",
+       path = PATH,
+       plots, width = 13, height = 8)
 ```
 
 ```{r, echo = F, eval=F}
@@ -205,9 +206,9 @@ for(p in 1:length(unique(test$Scenario))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
 plots
 
-# ggsave("PA_proba_concaves.pdf",
-#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-#        plots, width = 15, height = 10)
+ggsave("PA_proba_concaves.pdf",
+       path = PATH,
+       plots, width = 15, height = 10)
 
 gc()
 ```
@@ -225,6 +226,7 @@ for(p in 1:length(unique(data$Scenario))){
       mutate(TotProbability_rescale = ifelse(TotProbabilitymax > mumax,
                                              TotProbability/(TotProbabilitymax/mumax), TotProbability)) %>%
       
+      # rescaled to match the initial maximum probability for the comparison of the curves
       mutate(mu_rescale = ifelse(!is.na(mu) & TotProbabilitymax < mumax,
                                  mu/(mumax/TotProbabilitymax), mu)) %>% 
       
@@ -250,12 +252,12 @@ for(p in 1:length(unique(data$Scenario))){
   })
 }
 
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 4)
 plots
 
-# ggsave("PA_proba_concaves_rescaled.pdf",
-#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-#        plots, width = 15, height = 10)
+ggsave("PA_proba_concaves_rescaled.png",
+       path = PATH,
+       plots, width = 14, height = 7)
 ```
 
 ```{r, echo = F, eval=F}
@@ -334,9 +336,9 @@ for(p in 1:length(unique(test$Species))){
 plots <- gridExtra::marrangeGrob(plist, nrow = 1, ncol = 2)
 plots
 
-# ggsave("PA_extremum_concaves.pdf",
-#        path = "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Plots",
-#        plots, width = 15, height = 10)
+ggsave("PA_extremum_concaves.png",
+       path = PATH,
+       plots, width = 9, height = 4)
 
 ```
 
@@ -359,3 +361,9 @@ Concave:
 -   The abundant species is less sensible to the different tested parameters, than the rare species.
 -   Scenarios with **most absences (max/2 and max) permit to estimate the niche closer to the simulated niche**
 -   **Include the species of interest in absences shift the niche optimum**
+
+# Limits
+→ mais  vérifier que prendre le max de tout mon inventaire ne biaisera pas les prédictions de l’sp rare
+→ faire une étude de sensibilité plus détaillée pour l’sp rare, pour laquelle max/2 semble être meilleur que max donc voir plus de cas intermédiaires
+
+

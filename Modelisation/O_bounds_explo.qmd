@@ -29,7 +29,7 @@ gamma = alpha-(beta1^2/4*beta2)
 
 https://www.alloprof.qc.ca/fr/eleves/bv/mathematiques/le-role-des-parametres-dans-une-fonction-polynom-m1127  
 
-```{r, packages, include = F}
+```{r setup, packages, include = F}
 library(tidyverse)
 ```
 
@@ -132,4 +132,38 @@ Bilan:
 - gamma dot etre > -3 pour pouvoir observer les courbes.  
 - Pour rester sur des ordres de grandeurs non-exorbitant des paramètres a et gamma, et pour voir les paraboles d'optimum (O) au bornes du x observé et intermediaires, il faut un **gamma entre -2 et 200**, et un **a entre -0.05 et -300**.  
 - Plus a sera proche de 0, plus il faudra un gamma faible pour voir toutes les paraboles.  
+
+# On the real values of a and gamma
+chap 2 :
+a [- 0.002 ; -0.3]
+gamma [-10 ; 2]
+
+chap 3 :
+a [- 0.01 ; -4]
+gamma [-23 ; 8]
+```{r}
+# Generates all combination of parameters
+
+tidyr::crossing(
+  a = c(-0.002, -0.01, -0.02, -0.05, -0.1, -1, -4), 
+  O = c(-6, -3, 0),
+  gamma = c(-23, -10, -5, -3, -2, -1, -0.5, 2, 4, 6, 8),
+  Environment = (seq(-6,0, length.out =50)) 
+) %>% 
+  mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
+  # unite(a, O, gamma, col = "Combinaison", sep = " ", remove = F) %>% 
+  # mutate(Combinaison = as.factor(Combinaison)) %>% 
+  
+  ggplot(aes(x=Environment, y=P, col = as.factor(O), group = paste(O, a, gamma))) +
+  geom_line(linewidth=1) +
+  facet_grid(a ~ gamma, labeller = label_both) +
+  scale_y_continuous(trans="sqrt") +
+  theme_bw()
+
+# ggsave("Explo_parameters_canonic_quadratic.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/", 
+#        width = 45, height = 25, units = "cm", dpi=800, bg="white")
+```
+Flat niche:
+when gamma < -3
+when a < -0.01
 
