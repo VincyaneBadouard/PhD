@@ -156,7 +156,7 @@ test_a <- datam_a %>%
          `3-4` = `>25`-`10-25`) %>% 
   # 2) Plateaus?
   mutate(Plateaus = ifelse(NicheWidthDiff== "yes" &
-                             ((abs(`1-2`)<.005 & !is.na(`1-2`)) | (abs(`2-3`)<.005 & !is.na(`2-3`)) | (abs(`3-4`)<.005 & !is.na(`3-4`))),
+                             ((abs(`1-2`)<.03 & !is.na(`1-2`)) | (abs(`2-3`)<.03 & !is.na(`2-3`)) | (abs(`3-4`)<.03 & !is.na(`3-4`))),
                            "plateau", "")) %>% 
   # 3) all in the same direction?
   mutate(SameDirection = case_when(
@@ -165,7 +165,7 @@ test_a <- datam_a %>%
     .default = "")) %>% 
   mutate(SameDirection = ifelse(NicheWidthDiff== "yes" &
                                   SameDirection=="" &
-                                  ((`1-2`>.005 | is.na(`1-2`)) | (`2-3`>.005 | is.na(`2-3`)) | (`3-4`>.005 | is.na(`3-4`))),
+                                  ((`1-2`>.03 | is.na(`1-2`)) | (`2-3`>.03 | is.na(`2-3`)) | (`3-4`>.03 | is.na(`3-4`))), # at least 1 increasing which is not a plateau 
                                 "not all in the same direction", SameDirection))
 
 nrow(test_a %>% filter(NicheWidthDiff== "Invariant"))/70*100 
@@ -188,7 +188,8 @@ nrow(test_a %>% filter(SameDirection == "not all in the same direction"))/23*100
 
 # Histo growth importance -------------------------
 test_a %>% 
-  filter(SameDirection == "Decreasing order") %>% 
+  filter(NicheWidthDiff== "yes") %>%
+  # filter(SameDirection == "Decreasing order") %>%
   select(c(Species,`1-2`,`2-3`,`3-4`)) %>% 
   pivot_longer(cols = c(`1-2`,`2-3`,`3-4`),
                names_to = "Pairs",
@@ -200,7 +201,7 @@ test_a %>%
   theme_minimal() +
   geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   # scale_x_continuous(trans="sqrt", n.breaks = 15) +
-  labs(x= 'a increase between increasing pairs of DBH classes (log(transmittance))', y= 'Species number')
+  labs(x= 'a decrease between increasing pairs of DBH classes', y= 'Species number')
 
 # >=  : strong increase
 # <=  : low increase

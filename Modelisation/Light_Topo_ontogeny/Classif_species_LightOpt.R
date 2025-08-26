@@ -126,7 +126,7 @@ test <- datam %>%
     .default = "")) %>%  
   mutate(SameDirection = ifelse(Ontoeffect== "yes" &
                                   SameDirection=="" &
-                                  ((`1-2`< -.06 | is.na(`1-2`)) | (`2-3`< -.06 | is.na(`2-3`)) | (`3-4`< -.06 | is.na(`3-4`))),
+                                  ((`1-2`< -.06 | is.na(`1-2`)) | (`2-3`< -.06 | is.na(`2-3`)) | (`3-4`< -.06 | is.na(`3-4`))), # at least 1 decreasing which is not a plateau 
                                 "not all in the same direction", SameDirection))
 
 nrow(test %>% filter(Ontoeffect== "Invariant"))/70*100 
@@ -172,7 +172,8 @@ nrow(see %>% filter(Flat_1st_stage & SameDirection == "not all in the same direc
 
 # Histo growth importance ------------------------------------------------------
 test %>% 
-  filter(SameDirection == "Increasing order") %>% 
+  # filter(Ontoeffect== "yes") %>%
+  filter(SameDirection == "Increasing order") %>%
   select(c(Species,`1-2`,`2-3`,`3-4`)) %>% 
   pivot_longer(cols = c(`1-2`,`2-3`,`3-4`),
                names_to = "Pairs",
@@ -183,7 +184,7 @@ test %>%
   ggplot(aes(x=Growth)) +
   theme_minimal() +
   geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  scale_x_continuous(trans="sqrt", n.breaks = 15) +
+  # scale_x_continuous(trans="sqrt", n.breaks = 15) +
   labs(x= 'O increase between increasing pairs of DBH classes (log(transmittance))')
 
 # >= 2 : strong increase
@@ -279,20 +280,33 @@ nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 # 2.9% Lig
 nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 # 4.3% Shade, light then shade (3 sp)
 
 # With intermediate class
-nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 # 4.3% Heliophile all life (3 sp)
-nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 # 30% Sciaphile all life (21 sp)
-nrow(truc %>% filter(Temperament== "Intermediate all life"))/70*100 # 0% Intermediate all life (0 sp)
+nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 
+nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 
+nrow(truc %>% filter(Temperament== "Intermediate all life"))/70*100 
+# 4.3% Heliophile all life (3 sp) -> 2.9% (2 sp)
+# 30% Sciaphile all life (21 sp) -> 32.9% (23 sp)
+# 0% Intermediate all life (0 sp) -> 0% (0 sp)
 
-nrow(truc %>% filter(Temperament== "Shade then intermediate"))/70*100 # 8.6% Shade then intermediate (6 sp)
-nrow(truc %>% filter(Temperament== "Light then intermediate"))/70*100 # 0% Light then intermediate (0 sp)
-nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 # 38.6% Shade then light (27 sp)
-nrow(truc %>% filter(Temperament== "Intermediate then light"))/70*100 # 11.4% Intermediate then light (8 sp) 
+nrow(truc %>% filter(Temperament== "Shade then intermediate"))/70*100 
+nrow(truc %>% filter(Temperament== "Light then intermediate"))/70*100 
+nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 
+nrow(truc %>% filter(Temperament== "Intermediate then light"))/70*100 
+# 8.6% Shade then intermediate (6 sp) -> 7.1% (5 sp)
+# 0% Light then intermediate (0 sp) -> 0% (0 sp)
+# 38.6% Shade then light (27 sp) -> 37.1% (26 sp)
+# 11.4% Intermediate then light (8 sp) -> 7.1% (5 sp)
+# 
 
-nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 # 1.4% Light then shade (1 sp)
-nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 # 1.4% Light, shade then light (1 sp)
-nrow(truc %>% filter(Temperament== "Shade, intermediate then shade"))/70*100 # 2.9% Shade, intermediate then shade (2 sp)
-nrow(truc %>% filter(Temperament== "Light, intermediate then light"))/70*100 # 1.4% Light, intermediate then light (1 sp)
-nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 # 0% Shade, light then shade (0 sp)
+nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 
+nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 
+nrow(truc %>% filter(Temperament== "Shade, intermediate then shade"))/70*100 
+nrow(truc %>% filter(Temperament== "Light, intermediate then light"))/70*100 
+nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 
+# 1.4% Light then shade (1 sp) -> 2.9% (2 sp)
+# 1.4% Light, shade then light (1 sp) -> 2.9% (2 sp)
+# 2.9% Shade, intermediate then shade (2 sp) -> 1.4% (1 sp)
+# 1.4% Light, intermediate then light (1 sp) -> 2.9% (2 sp)
+# 0% Shade, light then shade (0 sp) -> 0% (0 sp)
 
 # LogT : -6, -4, -2, 0
 # %T : 0, 1.83, 14, 100

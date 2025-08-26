@@ -381,7 +381,7 @@ for(P in c('a', 'O', 'tau')){
   print(
     datap %>% 
       filter(parameter==P) %>% 
-      mutate(m = ifelse(parameter=='a', -m, m)) %>% 
+      mutate(m = ifelse(parameter=='a', -m, m)) %>%
       
       ggplot(aes(x= DBH, y = m)) +
       theme_minimal() + 
@@ -390,8 +390,10 @@ for(P in c('a', 'O', 'tau')){
                                      n.breaks = 8, labels = ~round(.,2)) } +
       
       theme(legend.position="bottom") +
-      labs(y=P) + 
-      {if(P=='tau') ylab(expression(tau)) }
+      labs(y=P, x='DBH (cm)') + 
+      {if(P=='tau') ylab(expression(tau)) } +
+      {if(P=='a') ylab('-a') }
+    
     # title=S, 
   )
   ggsave(paste(P,"_boxplot_accross_onto.png", sep='_'), path = PATH,
@@ -422,12 +424,14 @@ for(P in c('a', 'O', 'tau')){
                          breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
       
       theme(legend.position="bottom") +
-      labs(y=P) + # title=S, 
-      {if(P=='tau') ylab(expression(tau)) }
+      labs(y=P, x='DBH (cm)') + # title=S, 
+      {if(P=='tau') ylab(expression(tau)) } +
+      {if(P=='a') ylab('-a') }
+    
     
   )
   ggsave(paste(P,"_boxplot_accross_onto_Guild.png", sep='_'), path = PATH,
-         width = 10, height = 10, units = "cm", dpi=800, bg="white")
+         width = 11, height = 10, units = "cm", dpi=800, bg="white")
 }
 # }
 ```
@@ -657,7 +661,7 @@ for(s in names(fits)){
                          n.breaks = 8, labels = ~round(.,2)) +
       theme(axis.title = ggtext::element_markdown(),
             legend.title = ggtext::element_markdown()) +
-      labs(x= "Niche width (log(-*a*))",
+      labs(x= "Niche width (-*a*)",
            y= "Light optimum (*O*) (% transmittance)",
            col="*O* 80% CI", shape='DBH (cm)') +
       ggtitle(str_replace(s, "_", " "))
