@@ -179,10 +179,10 @@ nrow(test_a %>% filter(SameDirection == "not all in the same direction"))/23*100
 # 7.1% no Niche width difference (5 sp) -> (coord cor + 2019) 2.9% (2 sp)
 # 54.3% no significant niche width difference (38 sp) ->  64.3% (45 sp)
 # 38.6% Niche width difference (27 sp) ->  32.9% (23 sp)
-# 14.8% with plateaus (4 sp) ->  4.3% (1 sp)
-# 0% Increasing order (0 sp) ->  8.7% (2 sp)
-# 44.4% Decreasing order (12 sp) ->  26.1% (6 sp)
-# 51.9% not all in the same direction (14 sp) ->  60% (14 sp)
+# 14.8% with plateaus (4 sp) ->  34.8% (8 sp)
+# 0% Increasing order (0 sp) ->  4.3% (1 sp)
+# 44.4% Decreasing order (12 sp) ->  17.4% (4 sp)
+# 51.9% not all in the same direction (14 sp) ->  56.5% (13 sp)
 
 
 
@@ -240,9 +240,9 @@ con2df <- as.data.frame(con1) %>% # real contingency table
   pivot_wider(names_from = a_pattern,
               values_from = Freq) %>% 
   mutate(O_pattern = factor(O_pattern,
-                            levels = c("Invariant", "Increasing order ", "Decreasing order ","not all in the same direction ","not all in the same direction plateau"," plateau","No signifiant pattern"))) %>% 
+                            levels = c("Invariant", "Increasing order ", "Decreasing order ","not all in the same direction ","not all in the same direction plateau"," plateau","No significant pattern"))) %>% 
   arrange(O_pattern) %>% 
-  select("O_pattern","Invariant","Decreasing order ","not all in the same direction ","not all in the same direction plateau"," plateau","No signifiant pattern")
+  select("O_pattern","Invariant","Decreasing order ","not all in the same direction ","not all in the same direction plateau"," plateau","No significant pattern")
 
 write_csv(con2df, paste(PATH, "/Contigency_table.csv", sep=""))
 

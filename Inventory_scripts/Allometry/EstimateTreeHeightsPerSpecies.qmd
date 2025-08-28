@@ -12,6 +12,8 @@ execute:
   cache: true
 ---
 
+**J'aurais du utiliser WFO, il ya des synonymies** 
+
 Objective:
 
 -   utiliser l’allométrie complète de Claudia avec posteriors par espèce plutôt que ces données tant que le paramètre existe pour l’espèce et avec allométrie générale de Claudia si on n’a pas l’espèce
@@ -69,11 +71,11 @@ Variables :
 *pour vérifier que c'est tout bon, tu peux peut-être te faire un jeu de données de vérif avec 1 indiv par espèce, tous avec un même DBH => pour les espèces de Claudia, tu peux vérifier si le ranking et cohérent avec tes param. Et pour les autres espèces, elles devraient avoir toutes sensiblement la même hauteur*
 
 ```{r, dvp dataset, eval=F}
-match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 398
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv") # 399
 
 same_sp <- match %>% 
   mutate(dbh.y = 30) %>% 
-  mutate(HC = 30)
+  mutate(HC = 30) # 399
 
 other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
                        dbh.y = 30,
@@ -83,9 +85,9 @@ other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
 # Cleaned inventory data
 ```{r, message=F}
 Understory <- read.csv(
-    "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv" # at final
+  "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv" # at final
   # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv" # for the moment
-  ) %>% 
+) %>% 
   rename(idTree = IdTree) %>% # 36 311
   rename(SubPlot = subplot)
 Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha 11 539
@@ -108,9 +110,21 @@ Inventory <- Inventory %>%
   rename(dbh.y = DBHcor)
 
 length(!is.na(unique(Inventory$species_noSing))) # 380 (=399-20-NA)
+length(is.na(unique(Inventory$species_noSing))) # 380 (=399-20-NA)
+length(unique((Inventory %>% filter(is.na(Inventory$species_noSing)))$ScientificName)) # 326
+
 
 all(sort(unique(Inventory$species_noSing)) == sort(unique(match$species_noSing))) # TRUE
 match$species_noSing[!match$species_noSing %in% unique(Inventory$species_noSing)] # 0
+```
+```{r}
+H_allometry_df <- Inventory %>% 
+  select(ScientificName, species_noSing) %>% 
+  unique() %>% 
+  mutate(H_allometry = ifelse(is.na(species_noSing),'Community','Specific')) %>%  # 725
+  select(-species_noSing) 
+
+write_csv(H_allometry_df,'D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/H_allometry_method.csv')
 ```
 
 # Predictions
@@ -162,10 +176,10 @@ max de vraissemblance ou mediane ? mediane de toutes les itérations
 # Predict tree height for Claudia's species
 ```{r}
 same_sp <- Inventory %>% 
-  filter(!is.na(species_noSing))
+  filter(!is.na(species_noSing)) # 36673
 
 other_sp <- Inventory %>% 
-  filter(is.na(species_noSing))
+  filter(is.na(species_noSing)) # 11177
 
 nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```
@@ -293,7 +307,7 @@ ggplot(pred, aes(x=TreeHeight, y=HC)) +
 ```{r}
 pred %>% 
   filter(ScientificName=="Lecythis_poiteaui") %>% 
-ggplot(aes(x=DBHcor, y=TreeHeight)) +
+  ggplot(aes(x=DBHcor, y=TreeHeight)) +
   geom_point()
 
 ```

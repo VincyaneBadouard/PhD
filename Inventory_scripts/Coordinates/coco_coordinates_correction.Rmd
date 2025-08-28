@@ -754,6 +754,8 @@ ggplot(quadrats, aes(x = x_utm, y = y_utm, color = as.factor(subplot))) +
   geom_point() + 
   coord_fixed() +
   labs(color = "Subplot", x = "UTM x", y = "UTM y")
+
+write_csv(quadrats, "D:/Mes Donnees/PhD/Inventories/Data/Piquets_ALT/Piquets_ALT_coordinates.csv")
 ```
 
 Les coordonnées locales des quadrats doivent être mises à jour:
