@@ -1,0 +1,119 @@
+---
+title: "DBH_distriv_Paracou_vs_ALT"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+```{r setup}
+library(tidyverse)
+library(stringr)
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor"
+```
+
+# Prepare data
+```{r Paracou}
+sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
+
+Paracou <- vroom::vroom("~/PhD/Inventories/Data/Adults/Paracou/All_Paracou.csv")
+
+Paracou %>% 
+  group_by(Plot) %>% 
+  summarise(maxYear = max(CensusYear, na.rm = T)) # not always 2023
+
+unique((Paracou %>% filter(CensusYear==2020))$Plot) # Only control & biodiversity plots
+
+
+Paracou <- Paracou %>% 
+  select(Forest, Plot, CensusYear, idTree, Genus, Species, CircCorr, Circ) %>% 
+  filter(CensusYear==2020) %>% 
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  
+  # Only ALT species
+  filter(ScientificName %in% sp) %>% 
+  
+  mutate(Diameter = ifelse(!is.na(CircCorr), CircCorr/pi, Circ/pi)) %>% 
+  
+  # DBH quantiles
+  group_by(ScientificName) %>% 
+  summarise(Q5 = quantile(Diameter, probs = 0.05, na.rm =T),
+            Median = quantile(Diameter, probs = 0.5, na.rm =T),
+            Q95 = quantile(Diameter, probs = 0.95, na.rm =T)) %>% 
+  ungroup() 
+```
+
+```{r ALT}
+ALT <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) # 40 928
+
+ALT <- ALT %>%
+  filter(DBHcor >=10) %>% 
+  
+  # Only ALT species
+  filter(ScientificName %in% sp) %>% 
+  
+  # DBH quantiles
+  group_by(ScientificName) %>% 
+  summarise(Q5 = quantile(DBHcor, probs = 0.05, na.rm =T),
+            Median = quantile(DBHcor, probs = 0.5, na.rm =T),
+            Q95 = quantile(DBHcor, probs = 0.95, na.rm =T)) %>% 
+  ungroup() 
+
+75-57 # 18 sp
+```
+
+```{r}
+abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_9ha.csv")
+
+data <- left_join(Paracou, ALT, by='ScientificName',suffix = c('_Paracou', '_ALT')) %>% 
+  na.omit() %>% 
+  mutate(Species = str_replace(ScientificName, "_", " ")) %>% 
+  left_join(abund %>% select(Species,Species_code), by = 'Species') %>% 
+  mutate(Diff = abs(Median_Paracou - Median_ALT)) %>% 
+  mutate(Bigdiff = ifelse(Diff>5, T,F))
+data
+
+sp[!sp %in% data$ScientificName] # 21/75 sp absent because there are al small sp
+```
+
+# Plot
+```{r}
+ggplot(data, aes(x= Median_Paracou, y= Median_ALT, col=Bigdiff)) +
+  theme_minimal() +
+  geom_segment(aes(x=Q5_Paracou, xend=Q95_Paracou, y=Median_ALT, yend=Median_ALT), col= "lightgrey", size = .4) +
+  geom_segment(aes(y=Q5_ALT, yend=Q95_ALT, x=Median_Paracou, xend=Median_Paracou), col= "lightgrey", size = .4) +
+  geom_abline(linetype = "dashed") +
+  geom_point(size=0.5) +
+  scale_color_manual(name= "DBH median difference (cm)",
+                     values = c("FALSE" = "black",
+                                "TRUE"= "red"),
+                     labels = c("< 5","> 5")) +
+  
+  ggrepel::geom_text_repel(data=data[data$Bigdiff==T,],
+                           aes(x= Median_Paracou, y= Median_ALT, label = Species_code),
+                           col = "black", size = 2.3,  direction ="x", label.padding=0.5) +
+  theme(legend.position="bottom") +
+  labs(x= 'Paracou DBH median (cm)', y= '9ha DBH median (cm)')
+
+ggsave("DBH_distriv_Paracou_vs_ALT.png", path = PATH,
+       width = 15, height = 11, units = "cm", dpi=800, bg="white")
+
+```
+Mediane du DBH plus haute sur ALT que sur Paracou sauf pour Qualea rosea.
+Diff >5 cm:
+- Pradosia cochlearia : dans le groupe des espèces haute stature 
+- Tachigali_melinonii : dans le groupe des espèces haute stature
+- Pouteria_guianensis : niche plate
+- Qualea_rosea mediane : niche plate
+
+- Anacardium_spruceanum : >30 cm tree height à 95%et >14%T
+- Chimarrhis_turbinata : >40 cm tree height à 95%et >14%T
+- Couratari_multiflora : niche plate
+- *Mouriri_huberi : stature intermédiaire à l'ombre (<4%T)*
+- Ocotea_argyrophylla : niche plate
+- Recordoxylon_speciosum : stature intermédiaire à lumière intermédiaire (>5%T & <14%T)
+
+

@@ -4,7 +4,7 @@
 #' Translate the relative coordinates (x and y columns) into UTM coordinates
 #' 
 #'
-#' @param data data.frame with x and y columns
+#' @param data data.frame with x, y and z columns
 #' @param VOP Translation matrix
 #'
 #' @return The input data.frame with Xutm and Yutm columns
