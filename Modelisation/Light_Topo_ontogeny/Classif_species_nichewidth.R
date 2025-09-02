@@ -10,6 +10,8 @@
 # pour considérer deux valeurs de a comme différentes, similaires ou on ne sait pas.
 # Je me suis aidée des biplot O-a par espèce pour visualiser ses recouvrements. 
 
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor"
+fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
 # ------------------------------------------------------------------------------
 library(bayestestR)
 # S = "Guarea_costata"

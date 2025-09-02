@@ -81,6 +81,8 @@ names(fits)[names(fits) == "-25"] <- ">25"
 
 sp[!sp %in% names(fits)] # "Ryania_speciosa""Palicourea_quadrifolia" "Ixora_ferrea" "Faramea_paniculata" "Eugenia_albicans" only 1 dbh class with more than 10 ind
 # 70 sp with more than 1 DBH class
+
+saveRDS(fits, file = paste(PATH, "/fits.rds", sep=''))
 ```
 
 # Divergence
@@ -241,6 +243,7 @@ datap$sp_code <- numeric_vector
 # h : iner end
 # hh : outer end
 
+write_csv(datap, paste(PATH, "/dataplot.csv",sep=''))
 ```
 
 ```{r, eval=F}

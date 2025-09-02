@@ -10,6 +10,9 @@
 # pour considérer deux valeurs de O comme différentes, similaires ou on ne sait pas.
 # Je me suis aidée des biplot O-a par espèce pour visualiser ses recouvrements. 
 
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor"
+fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
+
 # ------------------------------------------------------------------------------
 library(bayestestR)
 # S = "Eugenia_coffeifolia"
@@ -153,17 +156,17 @@ nrow(test %>% filter(SameDirection == "not all in the same direction"))/34*100
 #   pivot_wider(names_from = name,
 #               values_from = c(a,Flat))
 
-flattable <- datam_a[,1:2] %>% # Only first stage
-  mutate(Flat_1st_stage = ifelse(`1-3`> -0.02,T,F)) %>% 
-  select(Species, Flat_1st_stage)
+# flattable <- datam_a[,1:2] %>% # Only first stage
+#   mutate(Flat_1st_stage = ifelse(`1-3`> -0.02,T,F)) %>% 
+#   select(Species, Flat_1st_stage)
+# 
+# see <- test %>% 
+#   left_join(flattable, by="Species") 
 
-see <- test %>% 
-  left_join(flattable, by="Species") 
-
-nrow(see %>% filter(Flat_1st_stage))/70*100 
-nrow(see %>% filter(Flat_1st_stage & Ontoeffect== "yes"))/34*100 
-nrow(see %>% filter(Flat_1st_stage & SameDirection == "Increasing order")) 
-nrow(see %>% filter(Flat_1st_stage & SameDirection == "not all in the same direction")) 
+# nrow(see %>% filter(Flat_1st_stage))/70*100 
+# nrow(see %>% filter(Flat_1st_stage & Ontoeffect== "yes"))/34*100 
+# nrow(see %>% filter(Flat_1st_stage & SameDirection == "Increasing order")) 
+# nrow(see %>% filter(Flat_1st_stage & SameDirection == "not all in the same direction")) 
 
 # 11.4% with flat 1st stage among all sp (8 sp) ->  7.1% (5 sp)
 # 7.9% with flat 1st stage among sp with onto effect (3 sp) ->  2.9% (1 sp)
