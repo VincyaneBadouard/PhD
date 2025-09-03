@@ -106,6 +106,8 @@ Div <- list_rbind(list_flatten(d)) %>%
   group_by(Species) %>% 
   mutate(`%divergence` = sum(Divergences)/4000*100)
 
+badDiv <- Div %>% filter(`%divergence` > 19) %>% 
+  select(Species,`%divergence`) %>% unique()
 ```
 
 # Rhat
@@ -119,7 +121,7 @@ for(S in names(fits)){
     
     if(D %in% names(fits[[S]])){
       
-      d[[S]][[D]] <- fits[[S]][[D]]$summary(c("alpha", "beta1", "beta2_p", "tau")) %>% 
+      d[[S]][[D]] <- fits[[S]][[D]]$summary(c("O")) %>% # "alpha", "beta1", "beta2_p", "tau"
         mutate(Species = S) %>% 
         mutate(DBH = D) %>% 
         select(Species, DBH, variable, rhat) 
@@ -130,9 +132,9 @@ Rhat_table <- list_rbind(list_flatten(d))
 # bayesplot::rhat(fits[[1]],pars="beta2_p")
 # posterior::rhat(extract_variable_matrix(fits[[1]], "beta2_p"))
 
-all(Rhat_table$rhat < 1.02)
+all(Rhat_table$rhat < 1.01)
 
-badRhat <- Rhat_table %>% filter(rhat > 1.02) %>%
+badRhat <- Rhat_table %>% filter(rhat > 1.01) %>%
   left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
 
 length(unique(badRhat$Species))
@@ -149,33 +151,91 @@ write_csv(badRhat, paste(PATH, "/badRhat.csv", sep=''))
 # Chains
 ```{r}
 name <- 
-  # names(fits)[names(fits) %in% c("Anaxagorea_dolichocarpa", "Dicorynia_guianensis", "Iryanthera_hostmannii", "Protium_opacum", "Talisia_guianensis", "Talisia_sylvatica", "Eugenia_coffeifolia", "Ryania_speciosa", "Inga_loubryana", "Eschweilera_sagotiana", "Hirtella_bicornis", "Tabernaemontana_macrocalyx", "Talisia_mollis", "Eugenia_brownsbergii", "Duroia_longiflora", "Mouriri_sagotiana", "Ixora_ferrea")]
-  unique(badRhat$Species)
-# sort(names(fits))
+  # very bad mix
+  # names(fits)[names(fits) %in% c('Hymenopus_heteromorphus','Duroia_longiflora',
+  #                                'Eschweilera_congestiflora','Couma_guianensis',
+  #                                'Chaetocarpus_schomburgkianus')]
+  # bad mix
+  names(fits)[names(fits) %in% c('Bocoa_prouacensis','Eugenia_coffeifolia', 'Catostemma_fragrans','Pradosia_cochlearia','Paypayrola_hulkiana', 'Licaria_debilis')]
+  # good mix
+  # names(fits)[!names(fits) %in% c('Hymenopus_heteromorphus','Duroia_longiflora',
+  #                                 'Eschweilera_congestiflora','Couma_guianensis',
+  #                                 'Chaetocarpus_schomburgkianus',
+  #                                 'Bocoa_prouacensis','Eugenia_coffeifolia', 'Catostemma_fragrans','Pradosia_cochlearia','Paypayrola_hulkiana', "Licaria_debilis")]
+
+# unique(badRhat$Species)
+# unique(badDiv$Species)
+sort(names(fits))
+
+plist <- list()
 
 for(S in name){
-  for(D in c("1-3","3-10")){
+  # for(D in c("1-3","3-10")){
+  
+  plist[[S]] <- local({
     # for(D in c("1-5","5-10","10-20",">20")){
     # if(D %in% names(fits[[S]])){
-    if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
-      # S = "Talisia_sylvatica"
-      # D = "5-10"
-      print(
-        fits[[S]][[D]]$draws(
-          c("lp__", "alpha", "beta1", "beta2_p", "O", "tau")
-          # c("lp__", "a", "O", "gamma", "tau")
-        ) %>% 
-          mcmc_trace() +
-          # mcmc_dens() +
-          ggtitle(paste(S, D))
-      )
-    }
-  }}
+    # if(any(D %in% badRhat[badRhat$Species==S,]$DBH)){
+    # if(any(D %in% badDiv[badDiv$Species==S,]$DBH)){
+    # S = "Talisia_sylvatica"
+    # D = "5-10"
+    print(
+      fits[[S]][[D]]$draws( # [["3-10"]]
+        c("lp__", "alpha", "beta1", "beta2_p", "O", "tau")
+        # c("lp__", "a", "O", "gamma", "tau")
+      ) %>% 
+        mcmc_trace() +
+        # mcmc_dens() +
+        ggtitle(paste(S, D))
+    )
+  })
+}
+# }}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2) # 75
+# plots
+
+ggsave("Bad_chains_mix.pdf",
+       path = PATH,
+       plots, width = 15, height = 10)
+
+```
+```{r}
+Badmix <- Rhat_table %>% filter((Species %in% c('Hymenopus_heteromorphus','Duroia_longiflora',
+                                                'Eschweilera_congestiflora','Couma_guianensis',
+                                                'Chaetocarpus_schomburgkianus') & DBH == "1-3") | (
+                                                  Species %in% c('Bocoa_prouacensis','Eugenia_coffeifolia', 'Catostemma_fragrans','Pradosia_cochlearia','Paypayrola_hulkiana') & DBH == "3-10")) %>%  left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
+
+Goodmix <- Rhat_table %>% filter(!Species %in% c('Hymenopus_heteromorphus','Duroia_longiflora',
+                                                'Eschweilera_congestiflora','Couma_guianensis',
+                                                'Chaetocarpus_schomburgkianus','Bocoa_prouacensis',
+                                                'Eugenia_coffeifolia','Catostemma_fragrans','Pradosia_cochlearia',
+                                                'Paypayrola_hulkiana')) %>%  left_join(Div %>% select(Species, `%divergence`) %>% unique(), by="Species")
+
+# Both
+range(Badmix$rhat) # 1.0003 - 1.09
+range(Badmix$`%divergence`) # 11.6 - 63.8
+
+# Only very bad mix
+# 1.01 - 1.09
+# 19.8 - 63.8
+
+# Only bad mix
+# 1.0003 - 1.005
+# 11.6 - 35.8
+
+# Good mix
+# 0.9998686 - 1.03
+# 0.4 - 42.1
 ```
 
 # Filter species with bad Rhat
 ```{r, eval =F}
-fits <- fits[!names(fits) %in% name] # 44 sp
+fits <- fits[!names(fits) %in% c('Hymenopus_heteromorphus','Duroia_longiflora',
+                                                'Eschweilera_congestiflora','Couma_guianensis',
+                                                'Chaetocarpus_schomburgkianus','Bocoa_prouacensis',
+                                                'Eugenia_coffeifolia','Catostemma_fragrans','Pradosia_cochlearia',
+                                                'Paypayrola_hulkiana')] # 11 sp
 ```
 
 # Prepare data for plots

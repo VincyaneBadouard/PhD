@@ -1,7 +1,7 @@
 # 1) At least 2 significantly different value?
 
 # Posteriors overlap
-# j'ai récupéré l'entièreté de chaque posterior, et pour chaque paire de catégories ordonnées de DBH,
+# j'ai récupéré l'entièreté de chaque posterior, et **pour chaque paire de catégories de DBH**,
 # j'ai calculé les overlap de leur posterior avec la fonction bayestestR::overlap() de manière à prendre en compte
 # pas seulement le range du posterior mais aussi la forme de sa distribution.
 # J'ai fait ça pour chaque espèce. Ensuite pour chaque espèce
@@ -15,6 +15,10 @@ fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
 
 # ------------------------------------------------------------------------------
 library(bayestestR)
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+
 # S = "Eugenia_coffeifolia"
 # 
 # x <- fits[[S]][["1-3"]]$draws("O")
@@ -66,12 +70,12 @@ for(S in names(fits)){
 }
 data <- list_rbind(list_flatten(d))
 
-datah <- data %>% 
-  pivot_longer(cols = names(data)[-1],
-               names_to = "Pairs",
-               values_to = "Cover%") %>% 
-  group_by(Species) %>% 
-  summarise(`MinCover%` = min(`Cover%`, na.rm = TRUE))
+# datah <- data %>% 
+#   pivot_longer(cols = names(data)[-1],
+#                names_to = "Pairs",
+#                values_to = "Cover%") %>% 
+#   group_by(Species) %>% 
+#   summarise(`MinCover%` = min(`Cover%`, na.rm = TRUE))
 
 # Histo decision for the minimum posteriors coverage % -------------------------
 ggplot(datah, aes(x=`MinCover%`)) +
@@ -85,11 +89,11 @@ ggplot(datah, aes(x=`MinCover%`)) +
 # et entre on ne sait pas
 # ------------------------------------------------------------------------------
 
-datah <- datah %>% 
-  mutate(Ontoeffect = case_when(
-    `MinCover%` >= 80 ~ "Invariant",
-    `MinCover%` <= 20 ~ "yes")) %>% 
-  mutate(Ontoeffect = ifelse(is.na(Ontoeffect), "No significant pattern", Ontoeffect))
+# datah <- datah %>% 
+#   mutate(Ontoeffect = case_when(
+#     `MinCover%` >= 80 ~ "Invariant",
+#     `MinCover%` <= 20 ~ "yes")) %>% 
+#   mutate(Ontoeffect = ifelse(is.na(Ontoeffect), "No significant pattern", Ontoeffect))
 
 # O tree -----------------------------------------------------------------------
 d <- list()
@@ -97,20 +101,57 @@ for(S in names(fits)){
   for(D in c("1-3","3-10","10-25",">25")){
     if(D %in% names(fits[[S]])){
       
-      d[[S]][[D]] <- data.frame(
-        O = fits[[S]][[D]]$summary("O", median)$median, 
-        Species = S, 
-        DBH = D)
+      # d[[S]][[D]] <- data.frame(
+      #   O = fits[[S]][[D]]$summary("O", median)$median, 
+      #   Species = S, 
+      #   DBH = D)
       
+      d[[S]][[D]] <- fits[[S]][[D]]$summary(c("O","a"), median) %>% 
+        mutate(Species = S) %>% 
+        mutate(DBH = D)
     }}}
-datam <- list_rbind(list_flatten(d))
+# Detect flat niche -> don't consider O for a flat niche
+datam <- list_rbind(list_flatten(d)) %>% 
+  pivot_wider(names_from = variable,
+              values_from = median) %>% 
+  mutate(O = ifelse(a > -0.02, 'flat', O))
+
 
 datam <- datam %>% 
+  select(-a) %>% 
   pivot_wider(names_from = DBH,
               values_from = O) %>% 
-  left_join(datah, by= 'Species')
+  left_join(data, by= 'Species') # datah
+
+datam <- datam %>% 
+  mutate_at(vars(c("1-2", "1-3.y", "1-4")), ~ ifelse(`1-3.x`=='flat', NA, .)) %>% # 1
+  mutate_at(vars(c("1-2", "2-3", "2-4")), ~ ifelse(`3-10`=='flat', NA, .)) %>% # 2
+  mutate_at(vars(c("1-3.y","2-3", "3-4")), ~ ifelse(`10-25`=='flat', NA, .)) %>% # 3
+  mutate_at(vars(c("1-4", "2-4", "3-4")), ~ ifelse(`>25`=='flat', NA, .)) # 4
+
+datam <- datam %>% 
+  rowwise() %>% 
+  mutate(Ontoeffect = case_when(
+    min(`1-2`, `1-3.y`, `1-4`, `2-3`, `2-4`, `3-4`, na.rm=T) >= 80 ~ "Invariant",
+    min(`1-2`, `1-3.y`, `1-4`, `2-3`, `2-4`, `3-4`, na.rm=T) <= 20 ~ "yes")) %>% 
+  mutate(Ontoeffect = ifelse(is.na(Ontoeffect), "No significant pattern", Ontoeffect)) %>% 
+  rowwise() %>% 
+  # flat then spé -> onto effect ('yes')
+  mutate(Ontoeffect = ifelse(Ontoeffect=="Invariant" &
+                               any(na.omit(c(`1-3.x`=='flat',
+                                             `3-10`=='flat',
+                                             `10-25`=='flat',
+                                             `>25`=='flat'))) & any(na.omit(c(`1-3.x`!='flat',
+                                                                              `3-10`!='flat',
+                                                                              `10-25`!='flat',
+                                                                              `>25`!='flat'))), 'flatspe', Ontoeffect)) %>% 
+  ungroup()
 
 test <- datam %>% 
+  select(-c(`1-2`, `1-3.y`, `1-4`, `2-3`, `2-4`, `3-4`)) %>% 
+  rename(`1-3`=`1-3.x`) %>% 
+  mutate_at(c("1-3","3-10","10-25",">25"), ~ recode(., "flat" = NA_character_, .default =.)) %>% # flat -> NA
+  mutate_at(c("1-3","3-10","10-25",">25"), ~ as.numeric(.)) %>% 
   # Compute O modif between increasing DBH class
   mutate(`1-2` = `3-10`-`1-3`, 
          # `1-3` = `10-25`-`1-3`,
@@ -124,13 +165,15 @@ test <- datam %>%
                            "plateau", "")) %>% 
   # 3) all in the same direction?
   mutate(SameDirection = case_when(
-    Ontoeffect== "yes" & Plateaus=="" & ((`1-2`>0 | is.na(`1-2`)) & (`2-3`>0 | is.na(`2-3`)) & (`3-4`>0 | is.na(`3-4`))) ~ "Increasing order",
-    Ontoeffect== "yes" & Plateaus=="" & ((`1-2`<0 | is.na(`1-2`)) & (`2-3`<0 | is.na(`2-3`)) & (`3-4`<0 | is.na(`3-4`))) ~ "Decreasing order",
+    Ontoeffect== "yes" & ((`1-2`>0 | is.na(`1-2`)) & (`2-3`>0 | is.na(`2-3`)) & (`3-4`>0 | is.na(`3-4`))) ~ "Increasing order",
+    Ontoeffect== "yes" & ((`1-2`<0 | is.na(`1-2`)) & (`2-3`<0 | is.na(`2-3`)) & (`3-4`<0 | is.na(`3-4`))) ~ "Decreasing order",
     .default = "")) %>%  
   mutate(SameDirection = ifelse(Ontoeffect== "yes" &
                                   SameDirection=="" &
                                   ((`1-2`< -.06 | is.na(`1-2`)) | (`2-3`< -.06 | is.na(`2-3`)) | (`3-4`< -.06 | is.na(`3-4`))), # at least 1 decreasing which is not a plateau 
-                                "not all in the same direction", SameDirection))
+                                "not all in the same direction", SameDirection)) %>% 
+  mutate(SameDirection = ifelse(Ontoeffect=="flatspe", "Last stage specialisation", SameDirection)) %>% 
+  mutate(Ontoeffect = ifelse(Ontoeffect=="flatspe", "yes", Ontoeffect))
 
 nrow(test %>% filter(Ontoeffect== "Invariant"))/70*100 
 nrow(test %>% filter(Ontoeffect== "No significant pattern"))/70*100 
@@ -206,110 +249,79 @@ test %>%
 # exp(-3)*100 = 5
 
 truc <- test %>% 
-  mutate(Temperament = case_when(
-    (`1-3`>= -2 | is.na(`1-3`)) &
-      (`3-10`>= -2 | is.na(`3-10`)) &
-      (`10-25`>= -2 | is.na(`10-25`)) &
-      (`>25`>= -2 | is.na(`>25`)) ~ "Heliophile all life",
-    (`1-3`<= -3 | is.na(`1-3`)) &
-      (`3-10`<= -3 | is.na(`3-10`)) &
-      (`10-25`<= -3 | is.na(`10-25`)) &
-      (`>25`<= -3 | is.na(`>25`)) ~ "Sciaphile all life",
-    
-    (`1-3`> -3 & `1-3`< -2| is.na(`1-3`)) &
-      (`3-10`> -3 & `3-10`< -2 | is.na(`3-10`)) &
-      (`10-25`> -3 & `10-25`< -2 | is.na(`10-25`)) &
-      (`>25`> -3 & `>25`< -2 | is.na(`>25`)) ~ "Intermediate all life",
-    
-    (`1-3`<= -3 | is.na(`1-3`)) &
-      ((`3-10`>= -2 | is.na(`3-10`)) |
-         (`10-25`>= -2 | is.na(`10-25`)) |
-         (`>25`>= -2 | is.na(`>25`))) ~ "Shade then light",
-    
-    (`1-3`<= -3 | is.na(`1-3`)) &
-      ((`3-10`> -3 & `3-10`< -2 | is.na(`3-10`)) |
-         (`10-25`> -3 & `10-25`< -2 | is.na(`10-25`)) |
-         (`>25`> -3 & `>25`< -2 | is.na(`>25`))) ~ "Shade then intermediate",
-    
-    (`1-3`> -3 & `1-3`< -2 | is.na(`1-3`)) &
-      ((`3-10`>= -2 | is.na(`3-10`)) |
-         (`10-25`>= -2 | is.na(`10-25`)) |
-         (`>25`>= -2 | is.na(`>25`))) ~ "Intermediate then light",
-    
-    (`1-3`>= -2 | is.na(`1-3`)) &
-      ((`3-10`<= -3 | is.na(`3-10`)) |
-         (`10-25`<= -3 | is.na(`10-25`)) |
-         (`>25`<= -3 | is.na(`>25`))) ~ "Light then shade",
-    
-    (`1-3`>= -2 | is.na(`1-3`)) &
-      ((`3-10`> -3 & `3-10`< -2 | is.na(`3-10`)) |
-         (`10-25`> -3 & `10-25`< -2 | is.na(`10-25`)) |
-         (`>25`> -3 & `>25`< -2 | is.na(`>25`))) ~ "Light then intermediate"
-    
-  )) %>% 
-  rowwise() %>% 
-  mutate(Temperament = ifelse(`1-3`>= -2 & # light
-                                any(`3-10`<= -3 & !is.na(`3-10`), `10-25`<= -3 & !is.na(`10-25`)) & # shade
-                                any(`10-25`>= -2 & !is.na(`10-25`),`>25`>= -2 & !is.na(`>25`)), # light
-                              "Light, shade then light", Temperament)) %>%
-  rowwise() %>% 
-  mutate(Temperament = ifelse(`1-3` <= -3 & # shade
-                                any(`3-10`>= -2 & !is.na(`3-10`), `10-25`>= -2 & !is.na(`10-25`)) & # light
-                                any(`10-25`<= -3 & !is.na(`10-25`),`>25`<= -3 & !is.na(`>25`)), # shade
-                              "Shade, light then shade", Temperament)) %>%
-  rowwise() %>% 
-  mutate(Temperament = ifelse(`1-3` <= -3 & # shade
-                                any(`3-10`> -3 & `3-10`< -2 & !is.na(`3-10`), `10-25`> -3 & `10-25`< -2 & !is.na(`10-25`)) & # intermediate
-                                any(`10-25`<= -3 & !is.na(`10-25`),`>25`<= -3 & !is.na(`>25`)), # shade
-                              "Shade, intermediate then shade", Temperament)) %>%
-  rowwise() %>% 
-  mutate(Temperament = ifelse(`1-3`>= -2 & # light
-                                any(`3-10`> -3 & `3-10`< -2 & !is.na(`3-10`), `10-25`> -3 & `10-25`< -2 & !is.na(`10-25`)) & # intermediate
-                                any(`10-25`>= -2 & !is.na(`10-25`),`>25`>= -2 & !is.na(`>25`)), # light
-                              "Light, intermediate then light", Temperament)) %>%
-  rowwise() %>% 
-  mutate(Temperament = ifelse(`1-3`> -3 & `1-3`< -2 & # intermediate
-                                any(`3-10`>= -2 & !is.na(`3-10`), `10-25`>= -2 & !is.na(`10-25`)) & # light
-                                any(`10-25`> -3 & `10-25`< -2 & !is.na(`10-25`),`>25`> -3 & `>25`< -2 & !is.na(`>25`)), # intermediate
-                              "Intermediate, light then intermediate", Temperament)) %>%
-  ungroup()
+  filter(Ontoeffect != "No significant pattern") %>% 
+  pivot_longer(cols = c("1-3","3-10","10-25",">25"),
+               values_to = "O") %>% 
+  mutate(Temp = case_when(
+    O >= -2.3 ~ "light", #  -2.3 -> 10%T ; -2 -> 14%T
+    O <= -3.5 ~ "shade", # -3.5 -> 3%T ; -3 -> 5%T
+    O > -3.5 & O < -2.3 ~ "intermediate")) # 148 rows
 
-# Without intermediate class
-nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 # 3.3% Heliophile all life (3 sp)
-nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 # 47.1% Sciaphile all life (33 sp)
-nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 # 40% Shade then light (28 sp)
-nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 # 1.4% Light then shade (1 sp)
-nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 # 2.9% Light, shade then light (2 sp)
-nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 # 4.3% Shade, light then shade (3 sp)
+truc <- datam %>% # with the flat info
+  filter(Ontoeffect != "No significant pattern") %>% 
+  select(-c(`1-2`, `1-3.y`, `1-4`, `2-3`, `2-4`, `3-4`, Ontoeffect)) %>% 
+  rename(`1-3`=`1-3.x`) %>% 
+  pivot_longer(cols = c("1-3","3-10","10-25",">25"),
+               values_to = "O") %>% 
+  left_join(truc %>% select(-O), by = c("Species", "name")) %>% 
+  mutate(Temp = ifelse(Ontoeffect != "No significant pattern" & O=='flat', "generalist", Temp)) 
 
-# With intermediate class
-nrow(truc %>% filter(Temperament== "Heliophile all life"))/70*100 
-nrow(truc %>% filter(Temperament== "Sciaphile all life"))/70*100 
-nrow(truc %>% filter(Temperament== "Intermediate all life"))/70*100 
-# 4.3% Heliophile all life (3 sp) -> 2.9% (2 sp)
-# 30% Sciaphile all life (21 sp) -> 32.9% (23 sp)
-# 0% Intermediate all life (0 sp) -> 0% (0 sp)
+muche <- truc %>%
+  pivot_wider(names_from = name,
+              values_from = c(O, Temp)) %>% 
+  unite(starts_with("Temp_"), col = "raw", sep = " ", remove = F, na.rm = T) %>% 
+  rowwise() %>% 
+  # remove succesive duplicate pattern
+  mutate(Temperament = gsub("\\b(\\w+)(\\s+\\1)+\\b", "\\1", raw)) %>%
+  mutate(Temperament = str_replace(Temperament, " ", "-")) %>% 
+  mutate(Temperament = gsub("\\s+", "-", Temperament)) 
 
-nrow(truc %>% filter(Temperament== "Shade then intermediate"))/70*100 
-nrow(truc %>% filter(Temperament== "Light then intermediate"))/70*100 
-nrow(truc %>% filter(Temperament== "Shade then light"))/70*100 
-nrow(truc %>% filter(Temperament== "Intermediate then light"))/70*100 
-# 8.6% Shade then intermediate (6 sp) -> 7.1% (5 sp)
-# 0% Light then intermediate (0 sp) -> 0% (0 sp)
-# 38.6% Shade then light (27 sp) -> 37.1% (26 sp)
-# 11.4% Intermediate then light (8 sp) -> 7.1% (5 sp)
-# 
 
-nrow(truc %>% filter(Temperament== "Light then shade"))/70*100 
-nrow(truc %>% filter(Temperament== "Light, shade then light"))/70*100 
-nrow(truc %>% filter(Temperament== "Shade, intermediate then shade"))/70*100 
-nrow(truc %>% filter(Temperament== "Light, intermediate then light"))/70*100 
-nrow(truc %>% filter(Temperament== "Shade, light then shade"))/70*100 
-# 1.4% Light then shade (1 sp) -> 2.9% (2 sp)
-# 1.4% Light, shade then light (1 sp) -> 2.9% (2 sp)
-# 2.9% Shade, intermediate then shade (2 sp) -> 1.4% (1 sp)
-# 1.4% Light, intermediate then light (1 sp) -> 2.9% (2 sp)
-# 0% Shade, light then shade (0 sp) -> 0% (0 sp)
+unique(muche$Temperament) # 5%: 15 (3 quadriclasses) ; 3%: 17 (3 quadriclasses)
+
+# pour shade = <=5%
+# "shade intermediate shade light" (1)
+# exp(c(-5, -2.8, -3.3))*100 # 0.6 - 6 - 3.7 % -> 3.7 peut devenir intermédiaire
+# "intermediate shade light intermediate" (1)
+# exp(c(-2.3, -3, -2.6))*100 # 10 - 5 - 7 % -> 5 peut devenir intermédiaire
+# "light shade intermediate shade" (1)
+# exp(c(- 4.2, -2, -4.3))*100 # 1.5 - 13.5 - 1.3 %
+
+
+# Mono level
+nrow(muche %>% filter(Temperament== "shade"))/37*100 # 13.5% Sciaphile all life (5 sp)
+nrow(muche %>% filter(Temperament== "light"))/37*100 # 2.7% Heliophile all life (1 sp)
+nrow(muche %>% filter(Temperament== "generalist"))/37*100 # 2.7% generalist all life (1 sp)
+
+# Bi level
+nrow(muche %>% filter(Temperament== "shade-light"))/37*100 # 29.7% shade-light (11 sp)
+nrow(muche %>% filter(Temperament== "shade-intermediate"))/37*100 # 8.1% shade-intermediate (3 sp)
+nrow(muche %>% filter(Temperament== "generalist-light"))/37*100 # 2.7% generalist-light (1 sp)
+nrow(muche %>% filter(Temperament== "intermediate-light"))/37*100 # 2.7% intermediate-light (1 sp)
+nrow(muche %>% filter(Temperament== "generalist-intermediate"))/37*100 # 2.7% generalist-intermediate (1 sp)
+nrow(muche %>% filter(Temperament== "light-shade"))/37*100 # 2.7% light-shade (1 sp)
+
+# Tri-level
+nrow(muche %>% filter(Temperament== "shade-intermediate-light"))/37*100 # 16.2% shade-intermediate-light (6 sp)
+nrow(muche %>% filter(Temperament== "intermediate-light-intermediate"))/37*100 # 2.7% intermediate-light-intermediate (1 sp)
+nrow(muche %>% filter(Temperament== "light-shade-light"))/37*100 # 2.7% light-shade-light (1 sp)
+nrow(muche %>% filter(Temperament== "light-intermediate-light"))/37*100 # 2.7% light-intermediate-light (1 sp)
+nrow(muche %>% filter(Temperament== "intermediate-shade-light"))/37*100 # 2.7% intermediate-shade-light (1 sp)
+nrow(muche %>% filter(Temperament== "shade-generalist-light"))/37*100 # 2.7% shade-generalist-light  (1 sp)
+
+# Quadri level
+nrow(muche %>% filter(Temperament== "light-shade-intermediate-shade"))/37*100 # 2.7% light-shade-intermediate-shade (1 sp)
+
+badchains <- muche %>% 
+  filter(Species %in% c('Hymenopus_heteromorphus','Duroia_longiflora',
+                        'Eschweilera_congestiflora','Couma_guianensis',
+                        'Chaetocarpus_schomburgkianus','Bocoa_prouacensis',
+                        'Eugenia_coffeifolia','Catostemma_fragrans','Pradosia_cochlearia',
+                        'Paypayrola_hulkiana'))
+
+badchains$Species # "Bocoa_prouacensis" "Paypayrola_hulkiana" "Pradosia_cochlearia" "Chaetocarpus_schomburgkianus"
+unique(badchains$Temperament) # "shade-light" "shade"
+
 
 # LogT : -6, -4, -2, 0
 # %T : 0, 1.83, 14, 100
