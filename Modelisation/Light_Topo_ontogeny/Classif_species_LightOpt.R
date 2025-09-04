@@ -18,6 +18,7 @@ library(bayestestR)
 library(tidyverse)
 library(cmdstanr)
 library(bayesplot)
+library(posterior)
 
 # S = "Eugenia_coffeifolia"
 # 
@@ -78,11 +79,11 @@ data <- list_rbind(list_flatten(d))
 #   summarise(`MinCover%` = min(`Cover%`, na.rm = TRUE))
 
 # Histo decision for the minimum posteriors coverage % -------------------------
-ggplot(datah, aes(x=`MinCover%`)) +
-  theme_minimal() +
-  geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  scale_x_continuous(trans="sqrt") +
-  labs(x= 'Minimum posteriors coverage % per species', y= 'Species number')
+# ggplot(datah, aes(x=`MinCover%`)) +
+#   theme_minimal() +
+#   geom_histogram(fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+#   scale_x_continuous(trans="sqrt") +
+#   labs(x= 'Minimum posteriors coverage % per species', y= 'Species number')
 
 # >= 80% de recouvrement : pas d'effet onto
 # <= 20% de recouvrement : j'ai envie de dire qu'ils sont différents (20% c'est sûr)
@@ -106,18 +107,27 @@ for(S in names(fits)){
       #   Species = S, 
       #   DBH = D)
       
+      Q80 <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("O","a")), 
+                          prob = 0.5, prob_outer = 0.80, point_est = "median") %>% 
+        select(parameter, ll, l,h, hh)
+      
       d[[S]][[D]] <- fits[[S]][[D]]$summary(c("O","a"), median) %>% 
+        left_join(Q80, by = c('variable' = 'parameter')) %>% 
         mutate(Species = S) %>% 
         mutate(DBH = D)
     }}}
 # Detect flat niche -> don't consider O for a flat niche
-datam <- list_rbind(list_flatten(d)) %>% 
+
+posteriors <- list_rbind(list_flatten(d))
+
+datam <- posteriors %>% 
+  select(-c(ll,hh)) %>% 
   pivot_wider(names_from = variable,
               values_from = median) %>% 
   mutate(O = ifelse(a > -0.02, 'flat', O))
 
 
-datam <- datam %>% 
+datam <- datam %>%
   select(-a) %>% 
   pivot_wider(names_from = DBH,
               values_from = O) %>% 
@@ -253,9 +263,9 @@ truc <- test %>%
   pivot_longer(cols = c("1-3","3-10","10-25",">25"),
                values_to = "O") %>% 
   mutate(Temp = case_when(
-    O >= -2.3 ~ "light", #  -2.3 -> 10%T ; -2 -> 14%T
-    O <= -3.5 ~ "shade", # -3.5 -> 3%T ; -3 -> 5%T
-    O > -3.5 & O < -2.3 ~ "intermediate")) # 148 rows
+    O >= -2 ~ "light", #  -2.3 -> 10%T ; -2 -> 14%T
+    O <= -3 ~ "shade", # -3.5 -> 3%T ; -3 -> 5%T
+    O > -3 & O < -2 ~ "intermediate")) # 148 rows
 
 truc <- datam %>% # with the flat info
   filter(Ontoeffect != "No significant pattern") %>% 
@@ -277,7 +287,7 @@ muche <- truc %>%
   mutate(Temperament = gsub("\\s+", "-", Temperament)) 
 
 
-unique(muche$Temperament) # 5%: 15 (3 quadriclasses) ; 3%: 17 (3 quadriclasses)
+unique(muche$Temperament) # 5% -14%: 15 (3 quadriclasses) ; 3%: 17 (3 quadriclasses)
 
 # pour shade = <=5%
 # "shade intermediate shade light" (1)
@@ -287,6 +297,13 @@ unique(muche$Temperament) # 5%: 15 (3 quadriclasses) ; 3%: 17 (3 quadriclasses)
 # "light shade intermediate shade" (1)
 # exp(c(- 4.2, -2, -4.3))*100 # 1.5 - 13.5 - 1.3 %
 
+Summary <- muche %>% 
+  group_by(Temperament) %>% 
+  summarise(N = n(),
+            `%`= round(n()/nrow(muche)*100, 1)) %>% 
+  arrange(desc(`%`))
+
+write_csv(Summary, paste(PATH,'/Trajectories_summary_allsp_5-14.csv',sep=''))
 
 # Mono level
 nrow(muche %>% filter(Temperament== "shade"))/37*100 # 13.5% Sciaphile all life (5 sp)
