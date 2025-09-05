@@ -21,32 +21,10 @@ abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou
 PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor"
 
 datap <- read_csv(paste(PATH, "/dataplot.csv", sep='')) %>% 
-  mutate(bigdiff = ifelse(ScientificName %in% c("Qualea_rosea", "Pouteria_guianensis"), T, F))
+  mutate(bigdiff = ifelse(ScientificName %in% c("Qualea_rosea", "Pouteria_guianensis"), T, F)) %>% 
+  select(-Species_code)
 ```
 
-# Biplot a vs tau
-a in y, tau in x
-
-```{r}
-databp <- datap %>% 
-  select(-Q95) %>% 
-  select(-c(outer_width, inner_width, point_est, Sg_effect)) %>% 
-  rename(Q5 = ll, Q80 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
-  filter(parameter %in% c("tau", "a", "O")) %>% 
-  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q80),
-              names_glue = "{parameter}_{.value}") %>% 
-  # Light effect (not flat)
-  mutate(Sg_effect = ifelse(a_median > -0.02, F, T)) %>% # no light effect
-  # mutate(O_median = ifelse(!Sg_effect, NA,O_median)) %>% # no light effect
-  
-  mutate(Incertitude = a_Q80 - a_Q5) %>% # 50% CI : O_Q50_1-O_Q50_0 ; 80% CI : O_Q80-O_Q5
-  # tau significantly different of 0
-  mutate(Tau_effect = ifelse(tau_Q50_0<0 & 0<tau_Q50_1, F, T))
-
-
-# databp <- databp %>%
-#   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q80)), ~ (-.))
-```
 
 ```{r Species code}
 # databp %>% 
@@ -60,7 +38,7 @@ databp <- datap %>%
 #          )) %>% 
 #   mutate(code = paste0(g, "-", s))
 
-databp <- databp %>% 
+datap <- datap %>% 
   # select(Species) %>% 
   separate(Species, c("genus", "species"), remove=F) %>% 
   mutate(
@@ -99,6 +77,31 @@ write_csv(abund, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/
 
 ```
 
+# Biplot a vs tau
+a in y, tau in x
+
+```{r}
+databp <- datap %>% 
+  select(-Q95) %>% 
+  select(-c(outer_width, inner_width, point_est, Sg_effect)) %>% 
+  rename(Q5 = ll, Q80 = hh, median = m, Q50_0 = l, Q50_1 = h) %>% 
+  filter(parameter %in% c("tau", "a", "O")) %>% 
+  pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q80),
+              names_glue = "{parameter}_{.value}") %>% 
+  # Light effect (not flat)
+  mutate(Sg_effect = ifelse(a_median > -0.02, F, T)) %>% # no light effect
+  # mutate(O_median = ifelse(!Sg_effect, NA,O_median)) %>% # no light effect
+  
+  mutate(Incertitude = a_Q80 - a_Q5) %>% # 50% CI : O_Q50_1-O_Q50_0 ; 80% CI : O_Q80-O_Q5
+  # tau significantly different of 0
+  mutate(Tau_effect = ifelse(tau_Q50_0<0 & 0<tau_Q50_1, F, T))
+
+
+# databp <- databp %>%
+#   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q80)), ~ (-.))
+```
+
+
 
 ```{r}
 my_trans <- scales::trans_new(
@@ -110,9 +113,6 @@ my_trans <- scales::trans_new(
 ggplot(databp) +
   theme_minimal() + 
   
-  # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
-  # ggpubr::stat_cor(aes(x= tau_median, y = O_median), method = "pearson", label.x = -3, label.y = .1) +
-  
   geom_vline(xintercept = 0, col="#999999", linetype = "dashed") +
   geom_hline(yintercept=-0.02, linetype = "dashed", col = "#999999") +
   
@@ -123,18 +123,12 @@ ggplot(databp) +
                      breaks = c("TRUE","FALSE"),
                      labels = c("significant","n.s.")) +
   
-  # 80% credible interval
-  # geom_segment(aes(x=tau_Q5, xend=tau_Q80, y=log(-a_median), yend=log(-a_median)), size = .4) + # tau
-  # geom_segment(aes(y=log(-a_Q5), yend=log(-a_Q80), x=tau_median, xend=tau_median), size = .4) + # O
-  
   viridis::scale_color_viridis(begin =0.45, lim = c(-7,0), breaks = log(c(0.1, 1,5,15,100)/100), labels = ~round(exp(.)*100,2)) +
   scale_size_continuous(range = c(0.5,4), trans = 'reverse') +
   
   ggrepel::geom_text_repel(aes(x= tau_median, y = a_median, label = Species_code), col = "black", size = 3) +
   
   scale_y_continuous(trans = my_trans, breaks = c(0, -.1, -.2, -.3, - .02)) +
-  
-  # scale_y_continuous(n.breaks = 10, labels = ~round(log(.)*100,2)) + # delog
   
   # Annotations
   theme(plot.margin = unit(c(1,1,1,3), "lines")) +
@@ -202,14 +196,14 @@ ggsave("Methods_plot.png", path = PATH,
        width = 16, height = 6, units = "cm", dpi=800, bg="white") # 22
 ```
 
-# TreeHeightQ95
-```{r TreeHeightQ95}
+# TreeHeightQ95 vs O
+```{r TreeHeightQ95 vs O}
 test <- datap %>% 
   filter(parameter=='O'& Sg_effect) %>% 
   filter(TreeHeightQ95>15 & TreeHeightQ95<30)
 exp(range((datap %>% 
-  filter(parameter=='O'& Sg_effect) %>% 
-  filter(TreeHeightQ95>15 & TreeHeightQ95<35))$m))*100 #  0.1512948 75.5910346 %T
+             filter(parameter=='O'& Sg_effect) %>% 
+             filter(TreeHeightQ95>15 & TreeHeightQ95<35))$m))*100 #  0.1512948 75.5910346 %T
 
 datap %>% 
   filter(parameter=='O'& Sg_effect) %>% # & Sg_effect
@@ -218,7 +212,7 @@ datap %>%
   scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
                            xlim=c(4,42), ylim = c(-7,0.5)) +
-  geom_point(aes(col = H_allometry, shape= !Sg_effect)) +
+  geom_point(aes(col = H_allometry)) + # , shape= !Sg_effect
   # geom_point(aes(col = bigdiff, shape=Sg_effect)) +
   
   ggpubr::stat_cor(method = "pearson", label.x = +6, label.y = .1) +
@@ -231,9 +225,9 @@ datap %>%
                      values = c("Specific" = "black",
                                 "Community"= "#999999")) +
   
-  scale_shape_manual(name= 'Flat light niche',
-                     values=c("FALSE" = 19, "TRUE" = 1),
-                     breaks = c("FALSE","TRUE")) +
+  # scale_shape_manual(name= 'Flat light niche',
+  #                    values=c("FALSE" = 19, "TRUE" = 1),
+  #                    breaks = c("FALSE","TRUE")) +
   
   labs(x= "Species Q95% tree height (m)") +
   theme(legend.position="bottom")
@@ -253,6 +247,44 @@ ggsave("Light_topo_TreeHeightQ95_checkstrategies.png", path = PATH,
        width = 18, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
+# TreeHeightQ95 vs a
+```{r TreeHeightQ95 vs a}
+
+datap %>% 
+  filter(parameter=='a') %>% 
+  ggplot(aes(x=TreeHeightQ95, y=m)) + 
+  theme_minimal() + 
+    # lines
+  geom_hline(aes(yintercept=-0.02), col = "grey", linetype='dashed') +
+
+  ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
+                           xlim=c(4,42), ylim = c(-0.3,0.015)) + # , force=25
+  geom_point(aes(col = H_allometry, shape= m> -0.02)) + 
+  # geom_point(aes(col = bigdiff, shape=Sg_effect)) +
+  
+  ggpubr::stat_cor(method = "pearson", label.x = 6, label.y = 0.01) +
+
+  scale_color_manual(name= "Allometry source",
+                     values = c("Specific" = "black",
+                                "Community"= "#999999")) +
+  
+  # scale_y_continuous(trans = my_trans, breaks = c(0, -.1, -.2, -.3, - .02)) +
+  
+  scale_shape_manual(name= 'Flat light niche',
+                     values=c("FALSE" = 19, "TRUE" = 1),
+                     breaks = c("FALSE","TRUE")) +
+  
+  theme(axis.title = ggtext::element_markdown(),
+        legend.title = ggtext::element_markdown(),
+        legend.position="bottom") +
+  labs(y= "Niche width (*a*)", x= "Species Q95% tree height (m)") +
+  theme(legend.position="bottom")
+
+
+ggsave("Light_width_TreeHeightQ95.png", path = PATH,
+       width = 18, height = 10, units = "cm", dpi=800, bg="white")
+```
+
 # DBH Q95%
 ```{r DBH Q95%}
 datap %>% 
@@ -262,7 +294,7 @@ datap %>%
   theme_minimal() + 
   scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
-                            ylim = c(-7,0.5)) + # xlim=c(4,42),
+                           ylim = c(-7,0.5)) + # xlim=c(4,42),
   geom_point(aes(shape= !Sg_effect)) +
   # geom_point(aes(col = bigdiff, shape=Sg_effect)) +
   
