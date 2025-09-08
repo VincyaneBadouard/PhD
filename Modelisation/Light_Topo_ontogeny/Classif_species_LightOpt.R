@@ -120,8 +120,10 @@ for(S in names(fits)){
 
 posteriors <- list_rbind(list_flatten(d))
 
+write_csv(posteriors, paste(PATH, "/Posteriors.csv", sep =''))
+
 datam <- posteriors %>% 
-  select(-c(ll,hh)) %>% 
+  select(-c(ll,l,h,hh)) %>% 
   pivot_wider(names_from = variable,
               values_from = median) %>% 
   mutate(O = ifelse(a > -0.02, 'flat', O))
@@ -286,6 +288,20 @@ muche <- truc %>%
   mutate(Temperament = str_replace(Temperament, " ", "-")) %>% 
   mutate(Temperament = gsub("\\s+", "-", Temperament)) 
 
+# Mega categories
+
+muche <- muche %>% 
+  mutate(Mega_categories = Temperament) %>% 
+  mutate(Mega_categories = case_when(
+    Temperament == 'shade-generalist-light' ~ 'shade-light', # remove interclass generalist
+    Temperament == 'shade-intermediate-light' ~ 'shade-light', 
+    Temperament == 'light-shade-intermediate-shade' ~ 'light-shade', # remove intermediate, keep strongest level
+    Temperament == 'shade-intermediate-shade-light' ~ 'shade-light', # remove intermediate, keep strongest level
+    Temperament == 'intermediate-shade-light-intermediate' ~ 'intermediate-shade-light', # remove intermediate, keep strongest level
+    .default = Mega_categories) # le reste reste comme c'est
+  )
+
+write_csv(muche, paste(PATH, "/Light_ontogenic_trajectories.csv", sep =''))
 
 unique(muche$Temperament) # 5% -14%: 15 (3 quadriclasses) ; 3%: 17 (3 quadriclasses)
 
@@ -297,13 +313,21 @@ unique(muche$Temperament) # 5% -14%: 15 (3 quadriclasses) ; 3%: 17 (3 quadriclas
 # "light shade intermediate shade" (1)
 # exp(c(- 4.2, -2, -4.3))*100 # 1.5 - 13.5 - 1.3 %
 
-Summary <- muche %>% 
-  group_by(Temperament) %>% 
+Summary <- muche %>% # 10 categories
+  group_by(Mega_categories) %>% 
   summarise(N = n(),
-            `%`= round(n()/nrow(muche)*100, 1)) %>% 
+            `%`= round(n()/nrow(muche)*100, 1))
+
+Summary_details <- muche %>% # 15 categories
+  group_by(Temperament) %>% 
+  mutate(N_details = n(),
+            `%_details`= round(n()/nrow(muche)*100, 1)) %>% 
+  select(Temperament, N_details, `%_details`, Mega_categories) %>% 
+  unique() %>% 
+  left_join(Summary, by='Mega_categories') %>% 
   arrange(desc(`%`))
 
-write_csv(Summary, paste(PATH,'/Trajectories_summary_allsp_5-14.csv',sep=''))
+write_csv(Summary_details, paste(PATH,'/Trajectories_summary_allsp_5-14.csv',sep=''))
 
 # Mono level
 nrow(muche %>% filter(Temperament== "shade"))/37*100 # 13.5% Sciaphile all life (5 sp)
