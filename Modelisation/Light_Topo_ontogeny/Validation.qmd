@@ -1,0 +1,116 @@
+---
+title: "Validation"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+table chap 2-3 tempéraments, stature, dire d’experts
+```{r setup}
+library(readr)
+library(tidyverse)
+chap2 <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor/Model_validation_table.csv")
+
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor"
+
+muche <- read_csv(paste(PATH, "/Light_ontogenic_trajectories.csv", sep =''))
+
+```
+
+```{r Experts, echo=F}
+Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>% 
+  filter(OurSpecies) %>% 
+  select(-OurSpecies, -`...11`) %>%
+  select(Species, Temperament)
+# mutate(Species = str_replace(Species, " ", "_"))
+```
+
+```{r Estimate, echo=F}
+estimate <- muche %>% 
+  select(-raw) %>% 
+  # mutate(Estimate_light_optimum = round(exp(O_median)*100, 2)) %>% # transmittance%
+  rename(Subcategories = Temperament) %>% 
+  rename(Chap3_Light = Mega_categories) %>% 
+  mutate(Species = str_replace(Species, "_", " "))
+```
+
+# Experts validation
+```{r, echo=F}
+
+validation <- left_join(Experts, estimate, by= 'Species') %>% 
+  # Same temperament all life
+  mutate(Chap3_Validate_light = case_when(
+    Temperament == "Hard struggler" & Chap3_Light=="light" ~ F,
+    Temperament == "Hard gambler" & grepl("shade", Chap3_Light) ~ F,
+    grepl("Hard gambler", Temperament) & Chap3_Light=="light" ~ T,
+    grepl("Hard struggler", Temperament) & Chap3_Light=="shade" ~ T,
+    # grepl("Shade tolerant", Temperament) & grepl("Favrichon", Temperament) & Chap3_Light=="Sciaphile" ~ T
+    # Non-monotonic
+    grepl("Struggler", Temperament) & Chap3_Light=="shade-light" ~ T,
+    grepl("Gambler", Temperament) & Chap3_Light=="light-shade" ~ T,
+    grepl("Gambling struggler", Temperament) & Chap3_Light=="shade-light-shade" ~ T,
+    
+    grepl("Struggler", Temperament) & !is.na(Chap3_Light) & !all(str_starts(Chap3_Light, "shade") & str_ends(Chap3_Light, "light"))  ~ F,
+    grepl("Gambler", Temperament) & !is.na(Chap3_Light) & !all(str_starts(Chap3_Light, "light") & str_ends(Chap3_Light, "shade")) ~ F,
+
+
+    # <10 cm
+    grepl("Shade tolerant <10 cm DBH", Temperament) & str_starts(Chap3_Light, "shade") ~ T,
+    grepl("Heliophile <10 cm DBH", Temperament) & str_starts(Chap3_Light, "light") ~ T,
+
+    # Generalist
+    # Gambler	generalist
+    
+  )) #%>% 
+# select(Species, N, Topography, Temperament, Chap3_Light, Chap3_Validate_light, References)
+
+'light-intermediate-light'
+!all(str_starts(NA, "light") & str_ends(NA, "shade"))
+T & NA
+```
+
+# Check
+```{r}
+validation %>% filter(is.na(Chap3_Validate_light) & !is.na(Temperament) & !is.na(Chap3_Light)) %>% select(Temperament, Chap3_Light) # NA # 2
+
+validation %>% filter(is.na(Chap3_Validate_light) & !is.na(Temperament) & !is.na(Ontoeffect)) %>% select(Temperament, Ontoeffect, Chap3_Light) 
+
+
+validation %>% filter(Chap3_Validate_light) %>% select(Temperament, Chap3_Light) # Chap3_Validate_light: T # 6
+validation %>% filter(!Chap3_Validate_light) %>% select(Temperament, Chap3_Light) # Chap3_Validate_light: F # 4
+```
+
+# Table
+```{r}
+validation_table <- validation %>%
+  # only for significant effect or non effect of the ontogeny
+    filter(!is.na(Chap3_Light)) %>% # 37
+  left_join(chap2, by = c( 'Species', 'Temperament'='Literature light preference')) %>% 
+  select(-N) %>% 
+  rename(`Literature_light` = Temperament,
+         Significant_Onto_effect = Ontoeffect,
+         Light_opt_shift = SameDirection,
+         Chap2_Estimated_light = `Estimated light preference`,
+         Chap2_Light_validation = `Light effect validation`,
+         Chap3_Estimated_light = Chap3_Light,
+         Chap3_Light_validation = Chap3_Validate_light) %>% 
+  select(Species, Chap2_Estimated_light,
+         Significant_Onto_effect, Light_opt_shift, Chap3_Estimated_light, Subcategories,
+         Chap2_Light_validation, Chap3_Light_validation,
+         Literature_light, References) %>% 
+  arrange(desc(Chap3_Light_validation))
+
+names(validation_table)
+# "1-2"  "2-3"  "3-4"                          
+# "O_1-3" "O_3-10" "O_10-25"  "O_>25"                        
+# "Temp_1-3"  "Temp_3-10"  "Temp_10-25" "Temp_>25"
+# "Plateaus"
+```
+
+```{r}
+write_csv(validation_table, paste(PATH, "/Model_validation_table.csv", sep=''))
+```
+

@@ -51,6 +51,7 @@ H_allometry <- read_csv('D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/H_a
 
 
 Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
   # select(ScientificName, TreeHeight)
   group_by(ScientificName) %>% 
   summarise(TreeHeightQ95 = quantile(TreeHeight, 0.95, na.rm=T)) %>%
