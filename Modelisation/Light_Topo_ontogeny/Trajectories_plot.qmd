@@ -66,7 +66,7 @@ for(C in unique(datap$Mega_categories)){
           # geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH), size = 1, linetype = 'dashed') +
           # geom_point() +
           geom_line(aes(group=Species), linewidth=0.5, col= "grey") + 
-          geom_smooth(aes(x = as.numeric(DBH), y = O), col = 'red', alpha=0.2) +
+          geom_smooth(aes(x = as.numeric(DBH), y = O), col = 'red', se=F) +
           scale_y_continuous(name = "Light (% transmittance)",
                              limits = c(min(as.numeric(datap$O), na.rm = T),0),
                              n.breaks = 10, labels = ~round(exp(.)*100,2)) +
@@ -100,7 +100,7 @@ plist[['rare']] <- local({
   ggplot(rares, aes(x = DBH, y = O)) +
     theme_minimal() +
     geom_line(aes(group=Species), linewidth=0.5, col= "grey") + 
-    geom_smooth(aes(x = as.numeric(DBH), y = O), col = 'red', alpha=0.2) +
+    geom_smooth(aes(x = as.numeric(DBH), y = O), col = 'red', se=F) +
     scale_y_continuous(name = "Light (% transmittance)",
                        limits = c(min(as.numeric(datap$O), na.rm = T),0),
                        n.breaks = 10, labels = ~round(exp(.)*100,2)) +
