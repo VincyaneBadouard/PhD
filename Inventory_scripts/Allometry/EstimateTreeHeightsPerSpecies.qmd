@@ -23,7 +23,7 @@ Objective:
 -   prédire avec fct de brms (predict)
 -   https://www.andrewheiss.com/blog/2021/11/10/ame-bayes-re-guide/
 
-```{r, packages, include=F}
+```{r setup, include=F}
 library(readr)
 library(terra)
 library(sf)
@@ -237,6 +237,45 @@ ggplot(same_sp, aes(x=dbh.y, y=TreeHeight)) +
   labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
   guides(color = F)
 ```
+```{r}
+pred_test <- pred %>% 
+  filter(ScientificName %in% FTH$ScientificName) %>% # among FTH measured species
+  filter(!ScientificName %in% match$ScientificName) %>% # not species with specific allometries
+    mutate(DBH_d = round(DBH)) %>% 
+  select(DBH_d, TreeHeight) %>% 
+  group_by(DBH_d) %>% 
+  summarise(Treeheight_median = median(TreeHeight))
+
+
+
+FTH_test <- FTH %>% filter(!ScientificName %in% match$ScientificName) %>% # not species with specific allometries
+# par classe genre 1cm ou 5 -ou10
+  mutate(DBH_d = round(DBH)) %>% 
+  arrange(DBH_d) %>% 
+  select(DBH_d, TreeHeight) %>% 
+  group_by(DBH_d) %>% 
+  summarise(Treeheight_median = median(TreeHeight)) %>% 
+  left_join(pred_test, by = 'DBH_d', suffix = c('_m', '_e')) %>% 
+  mutate(diff = Treeheight_median_e - Treeheight_median_m)
+
+quantile(FTH_test$diff, na.rm =T)
+# Q0%       Q25%       Q50%       Q75%      Q100% 
+# 0.5       0.7        1.4        2.3       6.4 m
+mean(quantile(FTH_test$diff, na.rm =T)) # 2.3 m
+
+pred %>% 
+  filter(ScientificName %in% FTH$ScientificName) %>% 
+  filter(!ScientificName %in% match$ScientificName) %>% 
+  ggplot(aes(x=DBH, y=TreeHeight)) + 
+  # xlim(1,20) +
+  theme_minimal() +
+  geom_point(col= "grey", size=1, alpha=0.2) +
+  geom_point(data = FTH %>% filter(!ScientificName %in% match$ScientificName),
+             col= "darkgreen", size=1, alpha=0.2) +
+  # scale_x_continuous(breaks =seq(0, 20, by= 5)) +
+  # guides(color = F) +
+  labs(y = "Tree height (m)", x="DBH (cm)")
+```
 
 ```{r, eval=F}
 plist <- vector('list')
@@ -315,7 +354,7 @@ pred %>%
 # Write data
 ```{r}
 write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv")
-read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv") # 47,850
+# pred <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights.csv") # 47,850
 
 ```
 
