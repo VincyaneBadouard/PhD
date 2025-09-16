@@ -416,7 +416,7 @@ range(databp$tau_median) # -2.9 ; 2.3 -> -3.2  2.0 (9ha, coord cor, 2019 light)
 # min(databp$tau_Q5) # -6
 # max(databp$tau_Q95) # 3
 
-cor(databp$tau_median, databp$O_median, method = "pearson") #  -0.15 -> -0.09 (9ha, coord cor, 2019 light)
+cor(abs(databp$tau_median), databp$O_median, method = "pearson") #  -0.15 -> -0.09 (9ha, coord cor, 2019 light) ; abs(tau) : 0.08
 
 # hc <- hclust(dist(databp[c("tau_median", "O_median")])) # Hierarchical Clustering
 # plot(hc)
@@ -511,7 +511,7 @@ ggplot(databp) +
   # scale_alpha_manual(name = "Light preference", values=c(.2,.5)) +
   
   # geom_smooth(aes(x= tau_median, y = O_median), method='lm', formula= y~x, col = "#999999", alpha = 0.2) +
-  # ggpubr::stat_cor(aes(x= tau_median, y = O_median), method = "pearson", label.x = -3, label.y = .1) +
+  ggpubr::stat_cor(aes(x= abs(tau_median), y = O_median), method = "pearson", label.x = -3, label.y = .1) +
   
   geom_vline(xintercept = 0, col="red", linetype = "dashed") +
   

@@ -57,22 +57,24 @@ datap <- datap %>%
   ) %>% 
   mutate(Species_code = paste0(g, "_", s))
 
-spcode <- databp %>% select(ScientificName, Species, Species_code)
+spcode <- datap %>% select(ScientificName, Species, Species_code, H_allometry) %>% unique()
 # write_csv(spcode, 'D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_code.csv')
 
 ```
 
 ```{r, eval=F}
 # 25 ha
-abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_25ha.csv")
+abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_25ha.csv") %>% select(-Species_code)
 
-abund <- spcode %>% left_join(abund, by="ScientificName") %>% select(-ScientificName)
+abund <- spcode %>% left_join(abund, by="Species") %>% select(-ScientificName) %>% 
+  arrange(Species)
 write_csv(abund, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_25ha.csv")
 
 # 9 ha
-abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_9ha.csv")
+abund <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_9ha.csv") %>% select(-Species_code)
 
-abund <- spcode %>% left_join(abund, by="ScientificName") %>% select(-ScientificName)
+abund <- spcode %>% left_join(abund, by="Species") %>% select(-ScientificName) %>% 
+  arrange(Species)
 write_csv(abund, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/Species_abundance_DBHclass_9ha.csv")
 
 ```
@@ -212,18 +214,17 @@ datap %>%
   scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
   ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
                            xlim=c(4,42), ylim = c(-7,0.5)) +
-  geom_point(aes(col = H_allometry)) + # , shape= !Sg_effect
-  # geom_point(aes(col = bigdiff, shape=Sg_effect)) +
-  
+  geom_point() + # aes(col = H_allometry)
+
   ggpubr::stat_cor(method = "pearson", label.x = +6, label.y = .1) +
   # lines
   # geom_hline(aes(yintercept=log(5/100)), col = "red", linetype='dashed') +
   # geom_vline(aes(xintercept=25), col = "black", linetype='dashed') +
   # geom_vline(aes(xintercept=40), col = "black", linetype='dashed') +
   
-  scale_color_manual(name= "Allometry source",
-                     values = c("Specific" = "black",
-                                "Community"= "#999999")) +
+  # scale_color_manual(name= "Allometry source",
+  #                    values = c("Specific" = "black",
+  #                               "Community"= "#999999")) +
   
   # scale_shape_manual(name= 'Flat light niche',
   #                    values=c("FALSE" = 19, "TRUE" = 1),
@@ -231,17 +232,6 @@ datap %>%
   
   labs(x= "Species Q95% tree height (m)") +
   theme(legend.position="bottom")
-
-# Annotations
-# theme(plot.margin = unit(c(.5,.5,1,.5), "lines")) + # 3e
-# coord_cartesian(clip = "off") +
-# 
-# annotation_custom(textGrob("Understorey", gp = gpar(fontsize=10, col="#999999")),
-#                   xmin= 15,xmax=15,ymin=-7.2,ymax=-7.2) +
-# annotation_custom(textGrob("Mid-canopy", gp = gpar(fontsize=10, col="#999999")),
-#                   xmin= 33,xmax=33,ymin=-7.2,ymax=-7.2) +
-# annotation_custom(textGrob("Upper-canopy", gp = gpar(fontsize=10, col="#999999")),
-#                   xmin= 45,xmax=45,ymin=-7.2,ymax=-7.2)
 
 ggsave("Light_topo_TreeHeightQ95_checkstrategies.png", path = PATH,
        width = 18, height = 10, units = "cm", dpi=800, bg="white")
@@ -259,14 +249,14 @@ datap %>%
 
   ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
                            xlim=c(4,42), ylim = c(-0.3,0.015)) + # , force=25
-  geom_point(aes(col = H_allometry, shape= m> -0.02)) + 
+  geom_point(aes(shape= m> -0.02)) + # col = H_allometry, 
   # geom_point(aes(col = bigdiff, shape=Sg_effect)) +
   
   ggpubr::stat_cor(method = "pearson", label.x = 6, label.y = 0.01) +
 
-  scale_color_manual(name= "Allometry source",
-                     values = c("Specific" = "black",
-                                "Community"= "#999999")) +
+  # scale_color_manual(name= "Allometry source",
+  #                    values = c("Specific" = "black",
+  #                               "Community"= "#999999")) +
   
   # scale_y_continuous(trans = my_trans, breaks = c(0, -.1, -.2, -.3, - .02)) +
   

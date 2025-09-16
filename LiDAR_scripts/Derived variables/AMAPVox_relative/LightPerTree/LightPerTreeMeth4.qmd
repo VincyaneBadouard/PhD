@@ -37,8 +37,8 @@ library(sf)
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
 path <-
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16C19_2023_1ha_HighAlt_Light_intensity2m_all2m.txt"
-# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
 
 # P16_2023_1ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 10201 obs
 # P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 491 401 obs
@@ -141,7 +141,7 @@ datalocal <- datalocal %>% cbind(data[,.(SubPlot, idTree, ScientificName, Strate
 
 ## Coordinates 1m above each tree
 ```{r}
-datalocal[,Z := Z+TreeHeight+1]
+datalocal[,Z := Z+TreeHeight] # +1
 range(datalocal$Z) # 9.714853 63.537480 -> 9.728229 63.679834 after coord cor
 
 datalocal[Z>max(Light$Z),]
@@ -239,7 +239,7 @@ ggplot(compare, aes(x=Diff)) +
 
 compare %>% 
   # filter(Diff >log(0.01)) %>% 
-ggplot(aes(x=(abs(Diff)))) +
+  ggplot(aes(x=(abs(Diff)))) +
   geom_histogram(binwidth=.01) +
   # scale_x_continuous(trans="log") +
   # stat_ecdf(geom = "step") + # en cumulé et %
@@ -249,7 +249,7 @@ ggplot(aes(x=(abs(Diff)))) +
 # en x corrigé en y la diff en geom point
 compare %>% 
   filter(abs(Diff) >0.01) %>%
-ggplot(aes(x=Transmittance, y = abs(Diff))) +
+  ggplot(aes(x=Transmittance, y = abs(Diff))) +
   geom_point() +
   scale_x_continuous(trans="log") +
   scale_y_continuous(trans="log") +
@@ -267,8 +267,79 @@ Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittan
 ```{r}
 datalocal <- datalocal %>% select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, TreeHeight, Z, Transmittance)
 
-write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") # 47 875
+write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_-1m.csv") # 47 875
 ```
+
+# Compare with light 1m higher
+```{r}
+library(patchwork)
+# sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
+
+twoM <- read_csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_2m.csv") %>% 
+  select(idTree, Xutm, Yutm, Transmittance) %>% 
+  rename(Transmittance_2m = Transmittance)
+
+zeroM <- read_csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_-1m.csv") %>% 
+  select(idTree, Xutm, Yutm, Transmittance) %>% 
+  rename(Transmittance_0m = Transmittance)
+
+oneM <- read_csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") %>% 
+  # filter(ScientificName %in% sp) %>% 
+  select(idTree, Xutm, Yutm, ScientificName, TreeHeight, Transmittance) %>% 
+  rename(Transmittance_1m = Transmittance) %>% 
+  left_join(twoM, by=c('idTree', 'Xutm', 'Yutm')) %>% 
+  mutate(Diff_plus = Transmittance_2m*100 - Transmittance_1m*100) %>%
+  left_join(zeroM, by=c('idTree', 'Xutm', 'Yutm')) %>% 
+  mutate(Diff_moins = Transmittance_0m*100 - Transmittance_1m*100) %>%
+  # mutate(Diff = exp(log(Transmittance_2m) - log(Transmittance_1m))) %>% 
+  arrange(abs(Diff_moins)) # TreeHeight
+
+range(oneM$Diff_plus) # -19  71 %
+median(oneM$Diff_plus) # 0.2 %
+quantile(oneM$Diff_plus, c(.05,.95)) # -0.6  6.9 %
+
+nrow(oneM %>% filter(Diff_plus>10))/nrow(oneM)*100 # 3%
+
+range(oneM$Diff_moins) # -72  15 %
+median(oneM$Diff_moins) # 0.2 %
+quantile(oneM$Diff_moins, c(.05,.95)) # -6.6  0.5 %
+
+nrow(oneM %>% filter(abs(Diff_moins)>10))/nrow(oneM)*100 # 3%
+
+sp_bias <- oneM %>% 
+  group_by(ScientificName) %>% 
+  summarise(median = median(abs(Diff))) %>% 
+  arrange(desc(median))
+max(sp_bias$median) # 1.7 % when filtred for the 75 studied species
+
+P2 <- ggplot(oneM, aes(x=Diff_plus)) +
+  theme_minimal() +
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  theme(axis.title.y= element_blank(), axis.text.y= element_blank()) +
+  labs(x='Transmittance (%) difference\nbetween at 1 and 2m above the tree')
+
+P1 <- ggplot(oneM, aes(x=Diff_moins)) +
+  theme_minimal() +
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  labs(x='Transmittance (%) difference\nbetween at 1 and 0m above the tree', y = 'Number of observations')
+
+P1 + P2
+
+ggsave("Light_diff_1mvs2_and_0m_above_tree_hist.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor",
+       width = 15, height = 8, units = "cm", dpi=800, bg="white")
+
+ggplot(oneM, aes(x=Xutm, y=Yutm, col = abs(Diff_moins))) +
+  theme_minimal() +
+  geom_point() +
+  viridis::scale_color_viridis() +
+  labs(col ='Absolute transmittance (%)\ndifference between at 1\nand 2m above the tree')
+
+ggsave("Light_diff_1mvs0m_above_tree_spatial_distrib.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor",
+       width = 18, height = 15, units = "cm", dpi=800, bg="white")
+```
+
 
 # Check
 ```{r}

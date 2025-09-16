@@ -157,8 +157,7 @@ datap <- datap %>%
   left_join(strategy, by = c("Species" = "ScientificName")) %>% 
   left_join(Inv, by = c("Species" = "ScientificName")) %>% 
   mutate(ScientificName = Species) %>% 
-  mutate(Species = str_replace(Species, "_", " ")) %>% 
-  mutate(Species_code = sub("^(.{3}).*_(.{3}).*$", "\\1_\\2", ScientificName))
+  mutate(Species = str_replace(Species, "_", " "))
 # -a
 # datap <- datap %>%
 #   mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
