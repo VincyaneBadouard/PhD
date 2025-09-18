@@ -34,10 +34,7 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 # Import cleaned inventory data
 ```{r, include = F, message=F}
 Inventory <- read_csv(
-  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_Filtred.csv"
-  # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
-  # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light.csv"
-  "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv"
+  "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv"
 ) %>% 
   arrange(DBHcor)
 ```
@@ -202,7 +199,70 @@ ggsave("P16_Spatial_distribution_of_each_species_on_MNT_notlog.pdf",
        plots, width = 15, height = 10)
 ```
 
+# On TWI
+```{r, eval = F}
+data <- Inventory %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  filter(ScientificName=="Guarea_costata") %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
 
+ggplot() + 
+  geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T),
+                       na.value="white",
+                       transform = "log") +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  
+  geom_sf(data, mapping = aes(colour = DBHcor), size = 1) +
+  viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # trans = "log", 
+  # scale_colour_gradient(name = "DBH (cm)",
+  #                       low = "#56B1F7", high = "#132B43") +
+  labs(title = "Guarea costata distribution") +
+  theme_classic() +
+  theme(title= element_text(size=16),axis.text= element_text(size=16),
+        legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  coord_sf()
+
+# ggsave("Spatial_distribution_of_Guarea_costata_on_logTWI.png", width = 15, height = 10)
+```
+
+```{r, eval=F}
+plist <- vector('list', length(sp))
+
+for(p in 1:length(sp)){
+  plist[[p]] <- local({
+    dataS <- data %>% 
+      filter(ScientificName==sp[p]) 
+    
+    ggplot(dataS) + 
+      geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T),
+                       na.value="white",
+                       transform = "log") +
+      geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+      geom_sf(mapping = aes(colour = DBHcor), alpha = 0.7, size = 0.7) +
+      viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # , trans = "log"
+      theme_classic() +
+      guides(fill="none") +
+      # geom_text(label = max(dataS$DBHcor), position ="top")
+      annotate(geom = 'text', label = paste("DBH max: ",round(max(dataS$DBHcor),0),"cm"),
+               x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
+      coord_sf() +
+      labs(title = unique(dataS$ScientificName))
+  })
+}
+
+plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+# plots
+
+ggsave("P16_Spatial_distribution_of_each_species_on_TWI_log.pdf",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
+       plots, width = 15, height = 10)
+```
 
 # Niches
 relations env  
