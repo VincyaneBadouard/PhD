@@ -23,6 +23,8 @@ library(sf)
 library(raster)
 library(terra)
 library(tidyterra)
+library(cowplot)
+library(patchwork)
 
 Path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots"
 # "D:/Mes Donnees/PhD/R_codes/PhD/Inventory_scripts/Exploration/pdf"
@@ -36,6 +38,7 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 Inventory <- read_csv(
   "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv"
 ) %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>%# 40 928 
   arrange(DBHcor)
 ```
 
@@ -47,14 +50,19 @@ MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
 plot(MNT)
 
 # TWI
-TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
+# TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
+TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
+
 
 # Height Above the Nearest Drainage (HAND)
 elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
 
 # Zone
-P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+# P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+#   st_set_crs(st_crs(MNT))
+P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")) %>% 
   st_set_crs(st_crs(MNT))
+
 
 # Classes topo (4 classes)
 TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels.shp") %>% 
@@ -66,7 +74,7 @@ TopoLevels <- st_read("D:/Mes Donnees/PhD/SIG_data/Topo_P16_4classes/Topo4Levels
 # Light (à faire 25ha)
 # Light <- read_csv("~/PhD/Env_data_forModel/TreeLightMeth3_4ha.csv") #%>% 
 # st_as_sf(coords = c('Xutm','Yutm')) %>% 
-# st_set_crs(st_crs(MNT))
+# st_set_crs(st_crs(MNT)).
 
 crs(MNT) == crs(TWI); crs(MNT) == crs(elev); crs(MNT) == crs(TopoLevels) ; crs(MNT) == crs(P16)
 
@@ -201,32 +209,59 @@ ggsave("P16_Spatial_distribution_of_each_species_on_MNT_notlog.pdf",
 
 # On TWI
 ```{r, eval = F}
-data <- Inventory %>% 
-  filter(!is.na(Xutm)) %>% 
-  filter(!is.na(Yutm)) %>% 
-  filter(ScientificName=="Guarea_costata") %>% 
-  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
-  st_set_crs(st_crs(MNT))
 
-ggplot() + 
+inconsistantsp <- c('Cordia_nodosa', 'Pouteria_gonggrijpii', 'Dicorynia_guianensis')
+
+plist <- vector('list', length(inconsistantsp))
+
+for(p in 1:length(inconsistantsp)){
+  plist[[p]] <- local({
+    dataS <- data %>% 
+      filter(ScientificName==inconsistantsp[p]) 
+    
+    ggplot(dataS) + 
+      geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
+      scale_fill_gradientn(name = "TWI",
+                           colors =  hcl.colors(12, "Blues", rev = T),
+                           na.value="white",
+                           transform = "log") +
+      geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+      geom_sf(mapping = aes(colour = DBHcor), alpha = 0.7, size = 1) +
+      viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # , trans = "log"
+      theme_void() +
+      guides(fill="none") +
+      # geom_text(label = max(dataS$DBHcor), position ="top")
+      annotate(geom = 'text', label = paste("DBH max: ",round(max(dataS$DBHcor),0),"cm"),
+               x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
+      coord_sf() +
+      labs(title = unique(dataS$ScientificName))
+  })
+}
+
+map <- ggplot() + 
   geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
   scale_fill_gradientn(name = "TWI",
                        colors =  hcl.colors(12, "Blues", rev = T),
                        na.value="white",
                        transform = "log") +
-  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
-  
-  geom_sf(data, mapping = aes(colour = DBHcor), size = 1) +
-  viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # trans = "log", 
-  # scale_colour_gradient(name = "DBH (cm)",
-  #                       low = "#56B1F7", high = "#132B43") +
-  labs(title = "Guarea costata distribution") +
-  theme_classic() +
-  theme(title= element_text(size=16),axis.text= element_text(size=16),
-        legend.title= element_text(size=16), legend.text= element_text(size=16)) +
-  coord_sf()
+  theme(legend.position="bottom")
 
-# ggsave("Spatial_distribution_of_Guarea_costata_on_logTWI.png", width = 15, height = 10)
+legend <- cowplot::get_legend(map, legend = "bottom")
+ggdraw(legend)
+
+# (plist[[1]] + plist[[2]])/
+#   (plist[[3]] + plist[[4]]) + plot_spacer() + legend + plot_layout(heights = c(1, 1, 1, -1))
+
+plot_grid(plist[[1]], plist[[2]], plist[[3]], legend, 
+          ncol = 2, nrow=3, rel_heights = c(1, 1, .2))
+
+# plot_grid(plist[[1]], plist[[2]], plist[[3]], legend, 
+#           ncol = 3, nrow=2, rel_heights = c(2, .2))
+
+
+ggsave("P16_ALT_Spatial_distribution_of_4_inconsistent_species_on_TWI_log.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
+       width = 18, height = 15, units = "cm", dpi=800, bg="white") 
 ```
 
 ```{r, eval=F}
@@ -239,10 +274,10 @@ for(p in 1:length(sp)){
     
     ggplot(dataS) + 
       geom_spatraster(data = TWI, aes(fill = Paracou_TWI_5m)) +
-  scale_fill_gradientn(name = "TWI",
-                       colors =  hcl.colors(12, "Blues", rev = T),
-                       na.value="white",
-                       transform = "log") +
+      scale_fill_gradientn(name = "TWI",
+                           colors =  hcl.colors(12, "Blues", rev = T),
+                           na.value="white",
+                           transform = "log") +
       geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
       geom_sf(mapping = aes(colour = DBHcor), alpha = 0.7, size = 0.7) +
       viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # , trans = "log"
@@ -259,7 +294,7 @@ for(p in 1:length(sp)){
 plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
 # plots
 
-ggsave("P16_Spatial_distribution_of_each_species_on_TWI_log.pdf",
+ggsave("P16_ALT_Spatial_distribution_of_each_species_on_TWI_log.pdf",
        path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
        plots, width = 15, height = 10)
 ```

@@ -96,7 +96,7 @@ databp <- datap %>%
   
   mutate(Incertitude = a_Q80 - a_Q5) %>% # 50% CI : O_Q50_1-O_Q50_0 ; 80% CI : O_Q80-O_Q5
   # tau significantly different of 0
-  mutate(Tau_effect = ifelse(tau_Q50_0<0 & 0<tau_Q50_1, F, T))
+  mutate(Tau_effect = ifelse(tau_Q5<0 & 0<tau_Q80, F, T))
 
 
 # databp <- databp %>%
@@ -136,17 +136,29 @@ ggplot(databp) +
   theme(plot.margin = unit(c(1,1,1,3), "lines")) +
   coord_cartesian(clip = "off") + 
   
+  # annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
+  #                   xmin= -3,xmax=-3,ymin=-0.02,ymax=-0.02) +
+  # annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
+  #                   xmin= 2,xmax=2,ymin=-0.02,ymax=-0.02) + 
+  # 
+  # annotation_custom(textGrob("Flat", gp=gpar(col="#999999")),
+  #                   ymin= .07,ymax=.07,xmin=-4.1,xmax=-4.1) + 
+  # annotation_custom(textGrob("Wide", gp=gpar(col="#999999")),
+  #                   ymin= .18,ymax=.18,xmin=-4.1,xmax=-4.1) + 
+  # annotation_custom(textGrob("Narrow", gp=gpar(col="#999999")),
+  #                   ymin= .55,ymax=.55,xmin=-4.1,xmax=-4.1) +
+  
   annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
-                    xmin= -3,xmax=-3,ymin=-0.02,ymax=-0.02) +
+                    xmin= -3,xmax=-3,ymin=0,ymax=0) +
   annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
-                    xmin= 2,xmax=2,ymin=-0.02,ymax=-0.02) + 
+                    xmin= 2,xmax=2,ymin=0,ymax=0) + 
   
   annotation_custom(textGrob("Flat", gp=gpar(col="#999999")),
-                    ymin= .07,ymax=.07,xmin=-4.1,xmax=-4.1) + 
+                    ymin= -0.01,ymax=-0.01,xmin=-4.1,xmax=-4.1) + 
   annotation_custom(textGrob("Wide", gp=gpar(col="#999999")),
-                    ymin= .18,ymax=.18,xmin=-4.1,xmax=-4.1) + 
+                    ymin= -0.03,ymax=-0.03,xmin=-4.1,xmax=-4.1) + 
   annotation_custom(textGrob("Narrow", gp=gpar(col="#999999")),
-                    ymin= .55,ymax=.55,xmin=-4.1,xmax=-4.1) +
+                    ymin= -0.3,ymax=-0.3,xmin=-4.1,xmax=-4.1) +
   
   
   guides(size = guide_legend(nrow=2, title.position = 'top', order =2),
@@ -315,3 +327,8 @@ datap %>%
 ggsave("Light_topo_DBHQ95_checkstrategies.png", path = PATH,
        width = 18, height = 10, units = "cm", dpi=800, bg="white")
 ```
+
+```{r}
+
+```
+

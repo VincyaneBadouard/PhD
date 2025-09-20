@@ -89,8 +89,8 @@ ggsave("Light_topo_TreeHeightQ95_checkstrategies.png", path = PATH,
 ```{r, new guild classif}
 datap <- datap %>% 
   mutate(Guild = case_when(
-    TreeHeightQ95 <25 ~ "Understorey",
-    TreeHeightQ95 >40  ~ "Upper-canopy",
+    TreeHeightQ95 <20 ~ "Understorey",
+    TreeHeightQ95 >30  ~ "Upper-canopy",
     .default = "Mid-canopy")
   ) %>% 
   mutate(Guild = factor(Guild, levels=c("Upper-canopy", "Mid-canopy", "Understorey")))
@@ -116,6 +116,23 @@ for(P in c("O", "tau")){
 # Posteriors
 Plot central (quantile-based) posterior interval estimates from MCMC draws
 ```{r, eval=F}
+# 0 line
+x_lim <- range(c(datap$ll, datap$hh))
+x_range <- diff(x_lim)
+x_lim[1] <- x_lim[1] - 0.05 * x_range
+x_lim[2] <- x_lim[2] + 0.05 * x_range
+
+# 0 line
+layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
+  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
+}
+
+# min((datap %>% filter(Species %in% no_light_effect & parameter=='a'))$m) # min a median : -0.022
+# range((datap %>% filter(Species %in% no_light_effect & parameter=='gamma'))$m) # -9.041810 -0.528554
+# range((datap %>% filter(!Species %in% no_light_effect & parameter=='gamma'))$m) # -9.406300  1.133145
+
+# range((datap %>% filter(Species %in% no_light_effect & parameter=='O') %>% mutate(incertitude = hh-ll))$incertitude) # O incertitude : 4.5-6.5
+
 datap %>% 
   mutate(parameter = factor(parameter,
                             levels=c("tau", "O", "a")
@@ -340,7 +357,7 @@ for(P in c('O', 'tau', 'a')){
 ```{r}
 datap %>% 
   mutate(Incertitude = hh-ll) %>% 
-  left_join(abund %>% select(ScientificName,N), by = 'ScientificName') %>% 
+  # left_join(abund %>% select(Species,N), by = 'Species') %>% 
   select(Species, N, parameter,Incertitude) %>% unique() %>% 
   
   ggplot(aes(x=N, y= Incertitude)) +
@@ -716,18 +733,18 @@ validation <- left_join(Experts, estimate, by= 'Species') %>%
 
 
 # Check topo
-unique((validation %>% filter(Chap2_TWI=="negatif" & !is.na(Topography)))$Topography) # all experts opinion
-unique((validation %>% filter(Chap2_TWI=="positif" & !is.na(Topography)))$Topography) # all experts opinion
+unique((validation %>% filter(Chap2_TWI=="negative" & !is.na(Topography)))$Topography) # all experts opinion
+unique((validation %>% filter(Chap2_TWI=="positive" & !is.na(Topography)))$Topography) # all experts opinion
 
 unique((validation %>% filter(is.na(Validate_topo) & !is.na(Topography)))$Topography)
 validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: NA # 8 -> 4 (9ha)
 
 validation %>% filter(!is.na(Topography)) # 28 sp with experts opinion
-validation %>% filter(Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: T # 20/28
-validation %>% filter(!Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: F # 4/28
+validation %>% filter(Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: T # 17/28
+validation %>% filter(!Validate_topo) %>% select(Species, N,Topography, Chap2_TWI) # Validate_topo: F # 3/28
 validation %>% filter(is.na(Validate_topo) & !is.na(Topography)) %>%
   filter(Chap2_TWI=="no significant effect"|Topography=='no associated') %>%
-  select(Species, N, Topography, Chap2_TWI) # Validate_topo: no effect # 4/28
+  select(Species, N, Topography, Chap2_TWI) # Validate_topo: no effect # 8/28
 
 
 # Check light
@@ -891,7 +908,7 @@ ggplot(databp) +
   #                  col = "80 and 50% CI"), size = .6) + # O
   
   
-  geom_point(aes(x= log(a_median), y = O_median, col = Guild, shape = Sg_effect)) + # median
+  geom_point(aes(x= a_median, y = O_median, col = Guild, shape = Sg_effect)) + # median
   scale_shape_manual(name="Light effect",
                      values=c("FALSE" = 1, "TRUE" = 19),
                      breaks = c("TRUE","FALSE")) +
@@ -935,54 +952,7 @@ ggsave("O_a_biplot_Guild.png", path = PATH,
 
 ```
 
-# Predictions
-```{r predictions}
-Sys.time()
 
-plist <- list()
-
-for(s in names(fits)){
-  plist[[s]] <- local({
-    # s= "Lecythis_persistens"
-    
-    DATA <- fits[[s]]$summary("p") %>%  # p posterior
-      # prediction environment 
-      rowwise() %>% 
-      mutate(Light = as.numeric(unlist(str_extract_all(variable, "\\d+"))[1])) %>% 
-      mutate(Topo = as.numeric(unlist(str_extract_all(variable, "\\d+"))[2])) %>% 
-      mutate(logTransmittance = seq(-8.208173, 1.07194e-09, length.out = 50)[Light]) # %>% 
-    # mutate(logTWI = seq(1.358045, 2.400176, length.out = 50)[Topo]) # 1.358045 - 2.400176
-    
-    DATA %>% 
-      group_by(Light) %>% 
-      # At topo optimum (i.e. presence proba. max)
-      filter(median==max(median)) %>% 
-      ggplot(aes(x = logTransmittance)) +
-      theme_minimal() +
-      geom_point(aes(y = median), size=0.7) + # p posterior median
-      geom_ribbon(aes(ymin = q5, ymax = q95), color = 'red', alpha = 0.2) + # P quantiles
-      geom_vline(xintercept  = fits[[s]]$summary("O", median)$median, color = "#00AFBB", linewidth=1) + # Opt median
-      geom_vline(xintercept  = fits[[s]]$summary("O")$q5, linetype="dashed") + # Opt Q5%
-      geom_vline(xintercept  = fits[[s]]$summary("O")$q95, linetype="dashed") + # Opt Q95%
-      # scale_x_continuous(trans="log") +
-      scale_x_continuous(name = "Light (% transmittance)",
-                         n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
-      ggtitle(paste(s,"- at logTWI optimum")) +
-      ylab("Presence probabiblity median")
-    
-  })
-}
-
-
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3) # 75
-# plots
-
-ggsave("Allsp_Light_niche_atTWIoptimum.pdf",
-       path = PATH,
-       plots, width = 15, height = 10)
-
-Sys.time() # 32 min
-```
 
 # Strategies boxplot
 ```{r}
@@ -1004,3 +974,4 @@ ggplot(datap, aes(x= Guild, y= m, col= Guild)) +
 ggsave("Boxplots_parameters_Guild.png", path = PATH,
        width = 15, height = 8, units = "cm", dpi=800, bg="white")
 ```
+
