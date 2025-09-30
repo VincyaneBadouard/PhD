@@ -25,7 +25,7 @@ library(tidyverse)
 # Data
 
 ```{r, include = F, message=F}
-Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/P16_Paracou_InvandEnv.csv")
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv")
 ```
 
 # Check number of pseudo-absences necessary to represent the community environment
@@ -39,7 +39,7 @@ data <- list()
 for(N in c(10, 30, 100, 300, 700, 1000, 3000, 7000, 10000, nrow(Inv))){ # , nrow(Inv)
   data[[as.character(N)]] <- data.frame(
     N= N,
-    # Transmittance = sample(na.omit(Inv$Transmittance), N, replace=F),
+    Transmittance = sample(Inv$Transmittance, N, replace=F),
     Elevation = sample(Inv$Elevation, N, replace=F))
 }
 draws <- bind_rows(data, .id = "N") %>% 

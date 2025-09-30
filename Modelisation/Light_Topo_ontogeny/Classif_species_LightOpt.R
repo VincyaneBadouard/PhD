@@ -260,6 +260,9 @@ test %>%
 # exp(-2)*100 = 14
 # exp(-3)*100 = 5
 
+Cat <- c("shade", "light", "intermediate", "generalist")
+tidyr::crossing(Cat, Cat, Cat, Cat) # 4 size classes
+
 truc <- test %>% 
   filter(Ontoeffect != "No significant pattern") %>% 
   pivot_longer(cols = c("1-3","3-10","10-25",">25"),
@@ -293,7 +296,7 @@ muche <- truc %>%
 muche <- muche %>% 
   mutate(Mega_categories = Temperament) %>% 
   mutate(Mega_categories = case_when(
-    Temperament == 'shade-generalist-light' ~ 'shade-light', # remove interclass generalist
+    Temperament == 'shade-generalist-light' ~ 'shade-light', # remove generalist interclass
     Temperament == 'shade-intermediate-light' ~ 'shade-light', 
     Temperament == 'light-shade-intermediate-shade' ~ 'light-shade', # remove intermediate, keep strongest level
     Temperament == 'shade-intermediate-shade-light' ~ 'shade-light', # remove intermediate, keep strongest level

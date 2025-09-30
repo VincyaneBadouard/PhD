@@ -1,4 +1,4 @@
-// Bernoulli environment only - quadratic
+// Bernoulli environment only - quadratic (model used for presence-absence ratio tests)
 
 data {
   int<lower=1> N ; // obs

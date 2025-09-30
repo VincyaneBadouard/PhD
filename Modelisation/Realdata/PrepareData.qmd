@@ -16,6 +16,9 @@ sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestS
 ```
 
 ```{r Sp number, eval=F}
+(nrow(Inv %>% filter(ScientificName %in% sp))/nrow(Inv))*100 # the 75 sp corrsponds to 54% of the total stems number (pas les 70 sp et les catégories dbh d'au moins 10 ind)
+
+
 Inv %>%
   filter(grepl("_sp", ScientificName) & grepl("\\.", ScientificName)) %>%
   # filter(grepl("_cf_", ScientificName)) %>%
@@ -27,7 +30,6 @@ Inv %>%
 
 allsp <- Inv %>%
   filter(!is.na(ScientificName)) %>%
-  select(ScientificName) %>% 
   filter(!is.na(ScientificName)) %>%
   filter(ScientificName!="Tres haut") %>%
   filter(ScientificName!="Rinorea_idem181298") %>%
@@ -39,9 +41,15 @@ allsp <- Inv %>%
   filter(!grepl("_cf_", ScientificName)) %>% 	
   filter(!(grepl("subsp", ScientificName) & grepl("\\.", ScientificName))) %>%
   filter(!(grepl("var", ScientificName) & grepl("\\.", ScientificName))) %>%
-  arrange(ScientificName) %>% 
+  arrange(ScientificName) 
+
+(nrow(allsp)/nrow(Inv))*100 # 86% stems botanicaly identified
+
+allsp %>% 
+  select(ScientificName) %>%
   unique()
 # 576 sans les sp et sp numéro
+
 
 Inv %>%
   filter(Strategy == "Understory species") %>% 

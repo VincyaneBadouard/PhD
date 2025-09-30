@@ -14,6 +14,10 @@ PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Lig
 fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
 # ------------------------------------------------------------------------------
 library(bayestestR)
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+library(posterior)
 # S = "Guarea_costata"
 # 
 # x <- fits[[S]][["1-3"]]$draws("a")
@@ -102,6 +106,8 @@ for(S in names(fits)){
       
     }}}
 datam_a <- list_rbind(list_flatten(d_a))
+range(datam_a$a) # -3.46919000 -0.01220235
+(max(datam_a$a)-min(datam_a$a))/100 # 1% de a = 0.03
 
 datam_a <- datam_a %>% 
   pivot_wider(names_from = DBH,
@@ -151,10 +157,7 @@ datam_a <- datam_a %>%
 test_a <- datam_a %>% 
   # Compute a modif between increasing DBH class
   mutate(`1-2` = `3-10`-`1-3`, 
-         # `1-3` = `10-25`-`1-3`,
-         # `1-4` = `>25`-`1-3`,
          `2-3` = `10-25`-`3-10`,
-         # `2-4` = `>25`-`3-10`,
          `3-4` = `>25`-`10-25`) %>% 
   # 2) Plateaus?
   mutate(Plateaus = ifelse(NicheWidthDiff== "yes" &
@@ -162,13 +165,22 @@ test_a <- datam_a %>%
                            "plateau", "")) %>% 
   # 3) all in the same direction?
   mutate(SameDirection = case_when(
-    NicheWidthDiff== "yes" & Plateaus=="" & ((`1-2`>0 | is.na(`1-2`)) & (`2-3`>0 | is.na(`2-3`)) & (`3-4`>0 | is.na(`3-4`))) ~ "Increasing order",
-    NicheWidthDiff== "yes" & Plateaus=="" & ((`1-2`<0 | is.na(`1-2`)) & (`2-3`<0 | is.na(`2-3`)) & (`3-4`<0 | is.na(`3-4`))) ~ "Decreasing order",
+    NicheWidthDiff== "yes" & ((`1-2`>0 | abs(`1-2`)<.03 | is.na(`1-2`)) & (`2-3`>0 | abs(`2-3`)<.03 | is.na(`2-3`)) & (`3-4`>0 | abs(`3-4`)<.03 | is.na(`3-4`))) ~ "Increasing order",
+    NicheWidthDiff== "yes" & ((`1-2`<0 | abs(`1-2`)<.03 | is.na(`1-2`)) & (`2-3`<0 | abs(`2-3`)<.03 | is.na(`2-3`)) & (`3-4`<0 | abs(`3-4`)<.03 | is.na(`3-4`))) ~ "Decreasing order",
     .default = "")) %>% 
   mutate(SameDirection = ifelse(NicheWidthDiff== "yes" &
                                   SameDirection=="" &
                                   ((`1-2`>.03 | is.na(`1-2`)) | (`2-3`>.03 | is.na(`2-3`)) | (`3-4`>.03 | is.na(`3-4`))), # at least 1 increasing which is not a plateau 
                                 "not all in the same direction", SameDirection))
+
+Summary <- test_a %>% 
+  filter(NicheWidthDiff== "yes") %>% 
+  group_by(SameDirection) %>% 
+  summarise(N = n(),
+         `%`= round(n()/nrow(.)*100, 1)) %>% 
+  arrange(desc(`%`))
+
+write_csv(Summary, paste(PATH,'/Width_change_summary.csv',sep=''))
 
 nrow(test_a %>% filter(NicheWidthDiff== "Invariant"))/70*100 
 nrow(test_a %>% filter(NicheWidthDiff== "No significant pattern"))/70*100 

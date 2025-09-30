@@ -21,6 +21,8 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 ```
 
 ```{r Sp number, eval=F}
+(nrow(Inv %>% filter(ScientificName %in% sp))/nrow(Inv))*100 # the 75 sp corrsponds to 53% of the total stems number 
+
 Inv %>%
   filter(grepl("_sp", ScientificName) & grepl("\\.", ScientificName)) %>%
   # filter(grepl("_cf_", ScientificName)) %>%
@@ -32,7 +34,6 @@ Inv %>%
 
 allsp <- Inv %>%
   filter(!is.na(ScientificName)) %>%
-  select(ScientificName) %>% 
   filter(!is.na(ScientificName)) %>%
   filter(ScientificName!="Tres haut") %>%
   filter(ScientificName!="Rinorea_idem181298") %>%
@@ -41,7 +42,12 @@ allsp <- Inv %>%
   filter(!grepl("aceae", ScientificName)) %>%
   filter(!(grepl("_sp", ScientificName) & grepl("\\.", ScientificName))) %>% # only genus
   filter(!(grepl("_aff", ScientificName) & grepl("\\.", ScientificName))) %>% # identif not sure
-  filter(!grepl("_cf_", ScientificName)) %>% 	
+  filter(!grepl("_cf_", ScientificName))
+
+(nrow(allsp)/nrow(Inv))*100 # 87% stems botanicaly identified
+
+allsp %>% 
+  select(ScientificName) %>%
   unique()
 # 556 sans les sp et sp numéro
 

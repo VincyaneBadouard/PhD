@@ -764,9 +764,9 @@ validation_table <- validation %>%
   filter((!is.na(Validate_topo) | Chap2_TWI=="no significant effect" | Topography=='no associated') | ( !is.na(Validate_light) | grepl("Hard", Temperament) & Chap2_Light=="no significant effect")) %>%
   arrange(Validate_light, desc(Validate_topo)) %>% 
   rename(`Estimated light preference` = Chap2_Light,
-         `Estimated wetness preference` = Chap2_TWI,
+         `Estimated topographic preference` = Chap2_TWI,
          `Literature light preference` = Temperament,
-         `Literature wetness preference` = Topography,
+         `Literature topographic preference` = Topography,
          `Topographic effect validation` = Validate_topo,
          `Light effect validation` = Validate_light,
   )

@@ -47,7 +47,7 @@ Light <- ReadLightFile(path, skiplines=9)
 
 setnames(Light, "Period 1", "Transmittance")
 
-Light <- Light[Transmittance>0,]
+Light <- Light[Transmittance>0 & Z>2,] # remove Z=2m because all is equal to 100%T
 
 range(Light$Transmittance) # 0.000206811 - 1 -> 2019: 1.363128e-10 - 1
 any(is.na(Light$Transmittance)) # FALSE
@@ -55,6 +55,15 @@ nrow(Light[Transmittance<0.01, ])/nrow(Light)*100 # 7.8% -> 2019: 13%
 nrow(Light[Transmittance<0.001, ])/nrow(Light)*100 # 0.2% -> 2019: 1%
 hist(Light$Transmittance)
 hist(Light$Z)
+options(scipen=999)
+quantile(Light[Z<20, Transmittance*100],  probs = c(0, .05, .5, .95, 1))
+ # 0%            5%    50%    95%    100% 
+ # 0.00000001   0.09   0.9    18.2    92.8 
+
+hist(Light[Z<20, Transmittance*100])
+under <- Light[Z==2,]
+under <- Light[Z<20 & Transmittance<=1,]
+
 hist(Light[Transmittance<0.001, Z])
 hist(Light[Transmittance<0.002, Z])
 hist(Light[Transmittance<0.005, Z])
@@ -67,8 +76,31 @@ hist(Light[Transmittance>=1, Z])
 ```
 
 ```{r}
-# plotly::plot_ly(Light, x = ~X, y = ~Y, z = ~Z, color=~Transmittance)
+# plotly::plot_ly(Light[Z<=2,], x = ~X, y = ~Y, z = ~Z, color=~Transmittance)
 ```
+
+## Plot light
+```{r}
+  # Remove edges
+  # Light <- Light[X<90 & X> -90 & Y<90 & Y> -90]
+  
+  lattice::levelplot(Transmittance ~ X*Y, data = Light[Z<2,]) # Transmittance
+  lattice::levelplot(Z~X*Y, data = Light[Z<2,]) # Z = Altitude
+  
+  ggplot(data = Light[Z<=2,], aes(x=X, y=Y, col = Transmittance)) + 
+    geom_point() + 
+    scale_fill_gradientn(name = "Transmittance",
+                         colors = terrain.colors(30, rev=T),
+                         na.value="white") +
+    # ggtitle(paste("Paracou P16 4ha -", acq, "- Light map 1m", sep = " ")) +  
+    theme_classic() +
+    coord_sf()
+
+# ggsave(paste("Paracou_P16_4ha_buffer_UAV_Lightmap_1m_intensity_1m.png", sep = ""),
+#        path = "D:/Mes Donnees/PhD/Figures/Art",
+#        width = 18, height = 20, units = "cm", dpi=800, bg="white")
+```
+
 
 # Trees coordinates and height
 All the cirad trees on 25ha + ALT on 9 ha, with corrected coordinates and tree heights
@@ -141,7 +173,7 @@ datalocal <- datalocal %>% cbind(data[,.(SubPlot, idTree, ScientificName, Strate
 
 ## Coordinates 1m above each tree
 ```{r}
-datalocal[,Z := Z+TreeHeight] # +1
+datalocal[,Z := Z+TreeHeight+1] # zutm + tree height +1
 range(datalocal$Z) # 9.714853 63.537480 -> 9.728229 63.679834 after coord cor
 
 datalocal[Z>max(Light$Z),]

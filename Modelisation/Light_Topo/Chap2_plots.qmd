@@ -114,7 +114,6 @@ my_trans <- scales::trans_new(
 
 ggplot(databp) +
   theme_minimal() + 
-  
   geom_vline(xintercept = 0, col="#999999", linetype = "dashed") +
   geom_hline(yintercept=-0.02, linetype = "dashed", col = "#999999") +
   
@@ -130,7 +129,7 @@ ggplot(databp) +
   
   ggrepel::geom_text_repel(aes(x= tau_median, y = a_median, label = Species_code), col = "black", size = 3) +
   
-  scale_y_continuous(trans = my_trans, breaks = c(0, -.1, -.2, -.3, - .02)) +
+  scale_y_continuous(trans = my_trans, breaks = c(0, - .02, -.1, -.2, -.3)) +
   
   # Annotations
   theme(plot.margin = unit(c(1,1,1,3), "lines")) +
@@ -139,31 +138,31 @@ ggplot(databp) +
   # annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
   #                   xmin= -3,xmax=-3,ymin=-0.02,ymax=-0.02) +
   # annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
-  #                   xmin= 2,xmax=2,ymin=-0.02,ymax=-0.02) + 
+  #                   xmin= 2,xmax=2,ymin=-0.02,ymax=-0.02) +
   # 
   # annotation_custom(textGrob("Flat", gp=gpar(col="#999999")),
-  #                   ymin= .07,ymax=.07,xmin=-4.1,xmax=-4.1) + 
+  #                   ymin= .07,ymax=.07,xmin=-4.1,xmax=-4.1) +
   # annotation_custom(textGrob("Wide", gp=gpar(col="#999999")),
-  #                   ymin= .18,ymax=.18,xmin=-4.1,xmax=-4.1) + 
+  #                   ymin= .18,ymax=.18,xmin=-4.1,xmax=-4.1) +
   # annotation_custom(textGrob("Narrow", gp=gpar(col="#999999")),
   #                   ymin= .55,ymax=.55,xmin=-4.1,xmax=-4.1) +
   
-  annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
-                    xmin= -3,xmax=-3,ymin=0,ymax=0) +
-  annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
-                    xmin= 2,xmax=2,ymin=0,ymax=0) + 
+  # annotation_custom(textGrob("Drier", gp=gpar(col="#999999")),
+  #                   xmin= -3,xmax=-3,ymin=0,ymax=0) +
+  # annotation_custom(textGrob("Wetter", gp=gpar(col="#999999")),
+  #                   xmin= 2,xmax=2,ymin=0,ymax=0) +
   
   annotation_custom(textGrob("Flat", gp=gpar(col="#999999")),
-                    ymin= -0.01,ymax=-0.01,xmin=-4.1,xmax=-4.1) + 
+                    ymin= -0.01,ymax=-0.01,xmin=-4.1,xmax=-4.1) +
   annotation_custom(textGrob("Wide", gp=gpar(col="#999999")),
-                    ymin= -0.03,ymax=-0.03,xmin=-4.1,xmax=-4.1) + 
+                    ymin= -0.03,ymax=-0.03,xmin=-4.1,xmax=-4.1) +
   annotation_custom(textGrob("Narrow", gp=gpar(col="#999999")),
                     ymin= -0.3,ymax=-0.3,xmin=-4.1,xmax=-4.1) +
   
   
   guides(size = guide_legend(nrow=2, title.position = 'top', order =2),
          shape = guide_legend(nrow=2, title.position = 'top', order =1),
-         col = guide_colourbar(nrow=1, title.position = 'top', order =3)) +
+         col = guide_colourbar(title.position = 'top', order =3)) +
   
   theme(axis.title.y = ggtext::element_markdown(),
         legend.title = ggtext::element_markdown(),
@@ -227,7 +226,7 @@ datap %>%
   ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
                            xlim=c(4,42), ylim = c(-7,0.5)) +
   geom_point() + # aes(col = H_allometry)
-
+  
   ggpubr::stat_cor(method = "pearson", label.x = +6, label.y = .1) +
   # lines
   # geom_hline(aes(yintercept=log(5/100)), col = "red", linetype='dashed') +
@@ -256,16 +255,16 @@ datap %>%
   filter(parameter=='a') %>% 
   ggplot(aes(x=TreeHeightQ95, y=m)) + 
   theme_minimal() + 
-    # lines
+  # lines
   geom_hline(aes(yintercept=-0.02), col = "grey", linetype='dashed') +
-
+  
   ggrepel::geom_text_repel(aes(label = Species_code), col = "black", size = 2.3,
                            xlim=c(4,42), ylim = c(-0.3,0.015)) + # , force=25
   geom_point(aes(shape= m> -0.02)) + # col = H_allometry, 
   # geom_point(aes(col = bigdiff, shape=Sg_effect)) +
   
   ggpubr::stat_cor(method = "pearson", label.x = 6, label.y = 0.01) +
-
+  
   # scale_color_manual(name= "Allometry source",
   #                    values = c("Specific" = "black",
   #                               "Community"= "#999999")) +
@@ -328,7 +327,45 @@ ggsave("Light_topo_DBHQ95_checkstrategies.png", path = PATH,
        width = 18, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
+# Compare with growth rate
+Schmitt et al., 2023
 ```{r}
+growth <- read_delim("C:/Users/badouard/Downloads/growthfull.tsv", 
+                     delim = "\t", escape_double = FALSE, 
+                     trim_ws = TRUE)
 
+
+growth <- growth %>% 
+  # mutate(species = str_replace(species, " ", "_")) %>% 
+  group_by(species) %>% 
+  summarise(Gmax = exp(median(log(gmax))),
+            Sd = sd(gmax)) %>% 
+  separate(species, sep = ".subsp.", into = c("species", "Subspecies"), remove = F) %>% 
+  mutate(species = data.table::tstrsplit(species, split = ".var\\.")[[1]])
+
+# growth$species[!growth$species %in% datap$Species]
+
+
+test <- datap %>% 
+  filter(parameter=='O'& Sg_effect) %>% # & Sg_effect
+  left_join(growth, by = c("Species"="species"))
+
+ggplot(test, aes(x=TreeHeightQ95, y=Gmax)) +
+  theme_minimal() + 
+  geom_errorbar(aes(ymin=Gmax-Sd, ymax=Gmax+Sd), col = "grey", width=.2) +
+  geom_point() +
+  coord_flip() +
+  # scale_y_continuous(trans="log") +
+  ggpubr::stat_cor(method = "pearson", label.x = 40, label.y = 0) +
+  labs(x = "Species Q95% tree height (m)", y = "Species median growth potential")
+
+ggplot(test, aes(x=m, y=Gmax)) +
+  theme_minimal() + 
+  geom_errorbar(aes(ymin=Gmax-Sd, ymax=Gmax+Sd), col = "grey", width=.2) +
+  geom_point() +
+  coord_flip() +
+  # scale_y_continuous(trans="log") +
+  ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 2) +
+  labs(x = "Light optimum", y = "Species median growth potential")
 ```
 
