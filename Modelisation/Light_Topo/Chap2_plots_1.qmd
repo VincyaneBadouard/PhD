@@ -334,7 +334,7 @@ for(P in c('O', 'tau', 'a')){
                           xmin= -.45,xmax=-.45,ymin=-4,ymax=-4)
       ) } +
       {if(P=='O') list(
-        annotation_custom(textGrob("Heliophile", gp = gpar(fontsize=10)),
+        annotation_custom(textGrob("Heliophilous", gp = gpar(fontsize=10)),
                           xmin= 0,xmax=0,ymin=-3,ymax=-3), 
         annotation_custom(textGrob("Sciaphile", gp = gpar(fontsize=10)),
                           xmin= -7,xmax=-7,ymin=-3,ymax=-3)
@@ -383,12 +383,12 @@ Biplot O-tau :
 # rects <- data.frame(xstart = sort(rep(c(-7.5, .5, -0.5), times=2)), xend = sort(rep(c(-0.5, .5, 3), times=2)),
 #                     ystart = rep(c(-7,log(0.5)), times =3), yend = rep(c(log(0.5),0), times =3), 
 #                     col = rep(c("Hilltop", "No effect", "Bottomland"), each =2),
-#                     light = rep(c("Sciaphile", "Heliophile"), times =3))
+#                     light = rep(c("Sciaphile", "Heliophilous"), times =3))
 
 rects <- data.frame(xstart = c(-3, 0), xend = c(0, 3),
                     ystart = rep(-7, times =2), yend = rep(0, times =2),
                     col = c("Drier", "Wetter") #,
-                    # light = rep(c("Sciaphile", "Heliophile"), times =3)
+                    # light = rep(c("Sciaphile", "Heliophilous"), times =3)
 )
 
 ```
@@ -700,7 +700,7 @@ estimate <- databp %>%
   ) %>% 
   mutate(Chap2_Light = case_when(
     !Sg_light_effect ~ "no significant effect",
-    Estimate_light_optimum >= 14 & Sg_light_effect ~ "Heliophile", # >=14%
+    Estimate_light_optimum >= 14 & Sg_light_effect ~ "Heliophilous", # >=14%
     # Estimate_light_optimum > log(30/100) & Sg_light_effect ~ "intermediate",
     Estimate_light_optimum <= 5 & Sg_light_effect ~ "Sciaphile", # <=5%
     .default = "intermediate") # rest
@@ -721,11 +721,11 @@ validation <- left_join(Experts, estimate, by= 'Species') %>%
   )) %>% 
   # Validate light
   mutate(Validate_light = case_when(
-    Temperament == "Hard struggler" & Chap2_Light=="Heliophile" ~ F,
+    Temperament == "Hard struggler" & Chap2_Light=="Heliophilous" ~ F,
     Temperament == "Hard gambler" & Chap2_Light=="Sciaphile" ~ F,
     # Hard gambler	generalist
     
-    grepl("Hard gambler", Temperament) & Chap2_Light=="Heliophile" ~ T,
+    grepl("Hard gambler", Temperament) & Chap2_Light=="Heliophilous" ~ T,
     grepl("Hard struggler", Temperament) & Chap2_Light=="Sciaphile" ~ T,
     grepl("Shade tolerant", Temperament) & grepl("Favrichon", Temperament) & Chap2_Light=="Sciaphile" ~ T
   )) %>% 
@@ -759,9 +759,9 @@ validation %>% filter(is.na(Validate_light) & !is.na(Temperament)) %>% filter(gr
 
 validation_table <- validation %>% 
   # with experts opinion
-  filter(!is.na(Topography) | !is.na(Temperament)) %>% 
+  # filter(!is.na(Topography) | !is.na(Temperament)) %>% 
   # that can be comparable to our study
-  filter((!is.na(Validate_topo) | Chap2_TWI=="no significant effect" | Topography=='no associated') | ( !is.na(Validate_light) | grepl("Hard", Temperament) & Chap2_Light=="no significant effect")) %>%
+  # filter((!is.na(Validate_topo) | Chap2_TWI=="no significant effect" | Topography=='no associated') | ( !is.na(Validate_light) | grepl("Hard", Temperament) & Chap2_Light=="no significant effect")) %>%
   arrange(Validate_light, desc(Validate_topo)) %>% 
   rename(`Estimated light preference` = Chap2_Light,
          `Estimated topographic preference` = Chap2_TWI,
@@ -781,7 +781,7 @@ O in y, a in x
 # color and alpha background for light env
 # rects <- data.frame(xstart = rep(-0.75, times=2), xend = rep(0, times=2),
 #                     ystart = c(-7,log(0.5)), yend = c(log(0.5),0), 
-#                     light = c("Sciaphile", "Heliophile"))
+#                     light = c("Sciaphile", "Heliophilous"))
 ```
 
 ```{r}

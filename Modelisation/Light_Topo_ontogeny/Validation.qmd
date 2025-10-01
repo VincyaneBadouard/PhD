@@ -30,10 +30,9 @@ Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>
 
 ```{r Estimate, echo=F}
 estimate <- muche %>% 
-  select(-raw) %>% 
+  select(-Detail) %>% 
   # mutate(Estimate_light_optimum = round(exp(O_median)*100, 2)) %>% # transmittance%
-  rename(Subcategories = Temperament) %>% 
-  rename(Chap3_Light = Mega_categories) %>% 
+  rename(Chap3_Light = Categories) %>% 
   mutate(Species = str_replace(Species, "_", " "))
 ```
 
@@ -55,21 +54,21 @@ validation <- left_join(Experts, estimate, by= 'Species') %>%
     
     grepl("Struggler", Temperament) & !is.na(Chap3_Light) & !all(str_starts(Chap3_Light, "shade") & str_ends(Chap3_Light, "light"))  ~ F,
     grepl("Gambler", Temperament) & !is.na(Chap3_Light) & !all(str_starts(Chap3_Light, "light") & str_ends(Chap3_Light, "shade")) ~ F,
-
-
+    
+    
     # <10 cm
     grepl("Shade tolerant <10 cm DBH", Temperament) & str_starts(Chap3_Light, "shade") ~ T,
-    grepl("Heliophile <10 cm DBH", Temperament) & str_starts(Chap3_Light, "light") ~ T,
-
+    grepl("Heliophilous <10 cm DBH", Temperament) & str_starts(Chap3_Light, "light") ~ T,
+    
     # Generalist
     # Gambler	generalist
     
   )) #%>% 
 # select(Species, N, Topography, Temperament, Chap3_Light, Chap3_Validate_light, References)
 
-'light-intermediate-light'
-!all(str_starts(NA, "light") & str_ends(NA, "shade"))
-T & NA
+# 'light-intermediate-light'
+# !all(str_starts(NA, "light") & str_ends(NA, "shade"))
+# T & NA
 ```
 
 # Check
@@ -80,14 +79,14 @@ validation %>% filter(is.na(Chap3_Validate_light) & !is.na(Temperament) & !is.na
 
 
 validation %>% filter(Chap3_Validate_light) %>% select(Temperament, Chap3_Light) # Chap3_Validate_light: T # 6
-validation %>% filter(!Chap3_Validate_light) %>% select(Temperament, Chap3_Light) # Chap3_Validate_light: F # 4
+validation %>% filter(!Chap3_Validate_light) %>% select(Temperament, Chap3_Light) # Chap3_Validate_light: F # 4 (pour des generalist et des intermediaires)
 ```
 
 # Table
 ```{r}
 validation_table <- validation %>%
   # only for significant effect or non effect of the ontogeny
-    filter(!is.na(Chap3_Light)) %>% # 37
+  filter(!is.na(Chap3_Light)) %>% # 37
   left_join(chap2, by = c( 'Species', 'Temperament'='Literature light preference')) %>% 
   select(-N) %>% 
   rename(`Literature_light` = Temperament,
@@ -98,7 +97,7 @@ validation_table <- validation %>%
          Chap3_Estimated_light = Chap3_Light,
          Chap3_Light_validation = Chap3_Validate_light) %>% 
   select(Species, Chap2_Estimated_light,
-         Significant_Onto_effect, Light_opt_shift, Chap3_Estimated_light, Subcategories,
+         Significant_Onto_effect, Light_opt_shift, Chap3_Estimated_light, Trajectories,
          Chap2_Light_validation, Chap3_Light_validation,
          Literature_light, References) %>% 
   arrange(desc(Chap3_Light_validation))
@@ -114,3 +113,22 @@ names(validation_table)
 write_csv(validation_table, paste(PATH, "/Model_validation_table.csv", sep=''))
 ```
 
+# Compare chap 2 and 3
+```{r}
+check <- validation_table %>% 
+  filter(!is.na(Literature_light)) %>% 
+  select(Literature_light, Chap2_Estimated_light, Chap3_Estimated_light,
+         Chap2_Light_validation, Chap3_Light_validation) %>% 
+  unique() %>% 
+  arrange(Chap3_Light_validation)
+# not validated for generalist and intermediaites
+
+check <- validation_table %>% 
+  select(Chap2_Estimated_light, Chap3_Estimated_light) %>% 
+  unique() %>% 
+  arrange(Chap2_Estimated_light)
+```
+no significant effect -> shade-light, shade-intermediate
+intermediate -> shade-light
+Sciaphile -> shade, shade-light, light-shade, shade-intermediate, generalist
+Heliophilous -> shade-light, generalist-intermediate, intermediate-light, light-shade-light, intermediate-shade-light, light-shade, shade-intermediate

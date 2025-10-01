@@ -94,6 +94,14 @@ datah_a <- datah_a %>%
     `MinCover%` <= 20 ~ "yes")) %>% 
   mutate(NicheWidthDiff = ifelse(is.na(NicheWidthDiff), "No significant pattern", NicheWidthDiff))
 
+Summary <- datah_a %>% 
+  group_by(NicheWidthDiff) %>% 
+  summarise(N = n(),
+            `%`= round(n()/nrow(.)*100, 1)) %>% 
+  arrange(desc(`%`))
+
+write_csv(Summary, paste(PATH,'/Width_change_sg_summary.csv',sep=''))
+
 d_a <- list()
 for(S in names(fits)){
   for(D in c("1-3","3-10","10-25",">25")){

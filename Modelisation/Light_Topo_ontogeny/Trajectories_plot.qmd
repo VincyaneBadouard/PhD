@@ -21,12 +21,17 @@ PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Lig
 posteriors <- read_csv(paste(PATH, "/Posteriors.csv", sep =''))
 muche <- read_csv(paste(PATH, "/Light_ontogenic_trajectories.csv", sep =''))
 Summary <- read_csv(paste(PATH,'/Trajectories_summary_allsp_5-14.csv',sep='')) %>% 
-  select(Mega_categories, N, `%`) %>% 
+  select(Categories, N, `%`) %>% 
   unique()
 
 ```
 
 ```{r}
+# Summary$Categories
+lev <- c("shade-light", "shade", "shade-intermediate",
+  "intermediate-light", "intermediate-shade-light", "light-shade-light",
+  "light-shade","generalist", "generalist-intermediate")
+
 Q80 <- posteriors %>% 
   filter(variable =="O")
 
@@ -38,10 +43,10 @@ datap <- muche %>%
   select(-name) %>% 
   left_join(Q80, by = c("Species", "DBH")) %>% 
   mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25"))) %>% 
-  select(Species, Mega_categories, DBH, O) %>% 
-  left_join(Summary, by ='Mega_categories') %>% 
-  mutate(Mega_categories = factor(Mega_categories, levels = Summary$Mega_categories)) %>% 
-  arrange(Mega_categories) %>% 
+  select(Species, Categories, Trajectories, DBH, O) %>% 
+  left_join(Summary, by ='Categories') %>% 
+  mutate(Categories = factor(Categories, levels = lev)) %>% 
+  arrange(Categories) %>% 
   mutate(Species = str_replace(Species, "_", " "))
 
 ```
@@ -50,15 +55,15 @@ datap <- muche %>%
 ```{r}
 plist <- list()
 # C = 'shade-light'
-for(C in unique(datap$Mega_categories)){
+for(C in unique(datap$Categories)){
   if(!grepl("generalist", C)){
-    if(unique((datap %>% filter(Mega_categories==C))$N)>1){
+    if(unique((datap %>% filter(Categories==C))$N)>1){
       
       plist[[C]] <- local({
         
         # print(
         dataC <- datap %>% 
-          filter(Mega_categories==C) %>% 
+          filter(Categories==C) %>% 
           mutate(O = as.numeric(O))
         ggplot(dataC, aes(x = DBH, y = O)) +
           theme_minimal() +
@@ -66,7 +71,7 @@ for(C in unique(datap$Mega_categories)){
           # geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH), size = 1, linetype = 'dashed') +
           # geom_point() +
           geom_line(aes(group=Species), linewidth=0.5, col= "grey") + 
-          geom_smooth(aes(x = as.numeric(DBH), y = O), col = 'red', se=F) +
+          geom_smooth(aes(x = as.numeric(DBH), y = O), span= 1.5, col = 'red', se=F) +
           scale_y_continuous(name = "Light (% transmittance)",
                              limits = c(min(as.numeric(datap$O), na.rm = T),0),
                              n.breaks = 10, labels = ~round(exp(.)*100,2)) +
@@ -90,34 +95,34 @@ for(C in unique(datap$Mega_categories)){
 ```
 ## Rares
 ```{r}
-plist[['rare']] <- local({
-  
-  # print(
-  rares <- datap %>% 
-    filter(N==1) %>% 
-    filter(!grepl("generalist", Mega_categories)) %>% 
-    mutate(O = as.numeric(O))
-  ggplot(rares, aes(x = DBH, y = O)) +
-    theme_minimal() +
-    geom_line(aes(group=Species), linewidth=0.5, col= "grey") + 
-    geom_smooth(aes(x = as.numeric(DBH), y = O), col = 'red', se=F) +
-    scale_y_continuous(name = "Light (% transmittance)",
-                       limits = c(min(as.numeric(datap$O), na.rm = T),0),
-                       n.breaks = 10, labels = ~round(exp(.)*100,2)) +
-    labs(title=paste(paste(unique(rares$Mega_categories), collapse="/"),
-                     ' (',round(sum(rares$`%`[c(1,nrow(rares))])),'%)', sep=''), x= 'DBH (cm)') +
-    theme(axis.title=element_blank(), plot.title.position = "plot") +
-    coord_flip()
-})
+# plist[['rare']] <- local({
+#   
+#   # print(
+#   rares <- datap %>% 
+#     filter(N==1) %>% 
+#     filter(!grepl("generalist", Categories)) %>% 
+#     mutate(O = as.numeric(O))
+#   ggplot(rares, aes(x = DBH, y = O)) +
+#     theme_minimal() +
+#     geom_line(aes(group=Species), linewidth=0.5, col= "grey") + 
+#     geom_smooth(aes(x = as.numeric(DBH), y = O), span= 1.5, col = 'red', se=F) +
+#     scale_y_continuous(name = "Light (% transmittance)",
+#                        limits = c(min(as.numeric(datap$O), na.rm = T),0),
+#                        n.breaks = 10, labels = ~round(exp(.)*100,2)) +
+#     labs(title=paste(paste(unique(rares$Categories), collapse="/"),
+#                      ' (',round(sum(rares$`%`[c(1,nrow(rares))])),'%)', sep=''), x= 'DBH (cm)') +
+#     theme(axis.title=element_blank(), plot.title.position = "plot") +
+#     coord_flip()
+# })
 
 ```
 
 ```{r}
-plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
-
-ggsave("Trajectories_nonflat_smooth_bigcategories_flip.pdf",
-       path = PATH,
-       plots, width = 15, height = 10)
+# plots <- gridExtra::marrangeGrob(plist, nrow = 3, ncol = 3)
+# 
+# ggsave("Trajectories_nonflat_smooth_bigcategories_flip.pdf",
+#        path = PATH,
+# plots, width = 15, height = 10)
 
 
 multiplots <- ggpubr::ggarrange(plotlist = plist, nrow = 3, ncol = 3)
@@ -142,12 +147,12 @@ data_flat <- datap %>%
   filter(O!="NA") %>% 
   mutate(O = ifelse(O!="flat", as.character(round(exp(as.numeric(O))*100,2)), O))
 
-for(C in unique(datap$Mega_categories)){
+for(C in unique(datap$Categories)){
   if(grepl("generalist", C)){
     plist[[C]] <- local({
       
       data_C <- data_flat %>% 
-        filter(Mega_categories==C)
+        filter(Categories==C)
       
       # print(
       data_C %>% 
@@ -178,19 +183,55 @@ plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2) # 75
 ```
 
 # With species in colors
+## Divide shade-light (in 3)
 ```{r}
 marge <- -10
 plist <- list()
-# C = 'shade-light'
-for(C in unique(datap$Mega_categories)){
+
+for(C in unique((datap %>% filter(Categories=="shade-light"))$Trajectories)){
   if(!grepl("generalist", C)){
-    if(unique((datap %>% filter(Mega_categories==C))$N)>1){
+    if(unique((datap %>% filter(Trajectories==C))$N)>1){ 
       
       plist[[C]] <- local({
         
         # print(
         dataC <- datap %>% 
-          filter(Mega_categories==C) %>% 
+          filter(Trajectories==C) %>% 
+          mutate(O = as.numeric(O))
+        ggplot(dataC, aes(x = DBH, y = O, group=Species, col=Species)) +
+          theme_minimal() +
+          # geom_segment(aes(y=ll, yend=hh, x=DBH, xend=DBH), size = 0.2, linetype = 'dashed') +
+          # geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH), size = 1, linetype = 'dashed') +
+          # geom_point() +
+          geom_line() + 
+          scale_y_continuous(name = "Light (% transmittance)",
+                             limits = c(min(as.numeric(datap$O), na.rm = T),0),
+                             n.breaks = 10, labels = ~round(exp(.)*100,2)) +
+          labs(title=C, x= 'DBH (cm)') +
+          # {if(C == 'shade-light') guides(col= guide_legend(ncol = 2)) } +
+          theme(axis.title=element_blank(), plot.title.position = "plot",
+                legend.margin=margin(0,0,0,0),
+                legend.box.margin=margin(marge,marge,marge,marge)) +
+          coord_flip()
+        
+        # )
+      })
+    }
+  }
+}
+
+```
+
+```{r}
+for(C in unique(datap$Categories)[-1]){
+  if(!grepl("generalist", C)){
+    if(unique((datap %>% filter(Categories==C))$N)>1){ # mettre les raw cat pour diviser shade-light
+      
+      plist[[C]] <- local({
+        
+        # print(
+        dataC <- datap %>% 
+          filter(Categories==C) %>% 
           mutate(O = as.numeric(O))
         ggplot(dataC, aes(x = DBH, y = O, group=Species, col=Species)) +
           theme_minimal() +
@@ -215,51 +256,57 @@ for(C in unique(datap$Mega_categories)){
   
 }
 ```
+
+
 ## Rares
 ```{r}
-plist[['rare']] <- local({
-  
-  # print(
-  rares <- datap %>% 
-    filter(N==1) %>% 
-    filter(!grepl("generalist", Mega_categories)) %>% 
-    mutate(O = as.numeric(O))
-  ggplot(rares, aes(x = DBH, y = O, group=Species, col=Species)) +
-    theme_minimal() +
-    geom_line() + 
-    scale_y_continuous(name = "Light (% transmittance)",
-                       limits = c(min(as.numeric(datap$O), na.rm = T),0),
-                       n.breaks = 10, labels = ~round(exp(.)*100,2)) +
-    labs(title=paste(paste(unique(rares$Mega_categories), collapse="/"),
-                     ' (',round(sum(rares$`%`[c(1,nrow(rares))])),'%)', sep=''), x= 'DBH (cm)') +
-    theme(axis.title=element_blank(), plot.title.position = "plot",
-          legend.margin=margin(0,0,0,0),
-          legend.box.margin=margin(marge,marge,marge,marge)) +
-    coord_flip()
-})
+# plist[['rare']] <- local({
+#   
+#   # print(
+#   rares <- datap %>% 
+#     filter(N==1) %>% 
+#     filter(!grepl("generalist", Categories)) %>% 
+#     mutate(O = as.numeric(O))
+#   ggplot(rares, aes(x = DBH, y = O, group=Species, col=Species)) +
+#     theme_minimal() +
+#     geom_line() + 
+#     scale_y_continuous(name = "Light (% transmittance)",
+#                        limits = c(min(as.numeric(datap$O), na.rm = T),0),
+#                        n.breaks = 10, labels = ~round(exp(.)*100,2)) +
+#     labs(title=paste(paste(unique(rares$Categories), collapse="/"),
+#                      ' (',round(sum(rares$`%`[c(1,nrow(rares))])),'%)', sep=''), x= 'DBH (cm)') +
+#     theme(axis.title=element_blank(), plot.title.position = "plot",
+#           legend.margin=margin(0,0,0,0),
+#           legend.box.margin=margin(marge,marge,marge,marge)) +
+#     coord_flip()
+# })
 
 ```
 
 ```{r}
-plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
-
-ggsave("Trajectories_nonflat_species_bigcategories_flip.pdf",
-       path = PATH,
-       plots, width = 15, height = 10)
+# plots <- gridExtra::marrangeGrob(plist, nrow = 2, ncol = 2)
+# 
+# ggsave("Trajectories_nonflat_species_bigcategories_flip.pdf",
+#        path = PATH,
+#        plots, width = 15, height = 10)
 ```
 
 ```{r}
 
 plist[[1]] | (plist[[2]] / plist[[3]])
-ggsave("Trajectories_nonflat_species_bigcategories_flip_1.png",
+ggsave("Trajectories_nonflat_species_bigcategories_flip_shade-light.png",
        path = PATH,
        width = 23, height = 15, units = "cm", dpi=800, bg="white")
 
 (plist[[4]] | plist[[5]]) / (plist[[6]] | plist[[7]]) 
-ggsave("Trajectories_nonflat_species_bigcategories_flip_2.png",
+ggsave("Trajectories_nonflat_species_bigcategories_flip_01.png",
        path = PATH,
        width = 23, height = 15, units = "cm", dpi=800, bg="white")
 
+(plist[[8]] | plist[[9]])
+ggsave("Trajectories_nonflat_species_bigcategories_flip_02.png",
+       path = PATH,
+       width = 23, height = 15, units = "cm", dpi=800, bg="white")
 
 ```
 
@@ -277,9 +324,9 @@ Stature <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Parac
   mutate(Species = str_replace(ScientificName, "_", " "))
 
 datapp <- datap %>% left_join(Stature, by='Species') %>% 
-  select(Species, Mega_categories, TreeHeightQ95) %>% 
+  select(Species, Categories, TreeHeightQ95) %>% 
   unique() %>% 
-  mutate(Mega_categories = factor(Mega_categories,
+  mutate(Categories = factor(Categories,
                                   levels = c("generalist", 'shade',
                                              "shade-intermediate", "generalist-intermediate", "intermediate-light",
                                              "intermediate-shade-light", "shade-light",
@@ -288,14 +335,14 @@ datapp <- datap %>% left_join(Stature, by='Species') %>%
 
 ```{r}
 label <- datapp %>% 
-  group_by(Mega_categories) %>% 
+  group_by(Categories) %>% 
   summarise(N = paste("N: ", n()))
 
-ggplot(datapp, aes(x=Mega_categories, y=TreeHeightQ95)) + 
+ggplot(datapp, aes(x=Categories, y=TreeHeightQ95)) + 
   theme_minimal() + 
   geom_boxplot() +
   # stat_summary(fun = "length", hjust = 0.5, vjust = 0.9) +
-  geom_text(data = label, aes(label = N, x= Mega_categories),
+  geom_text(data = label, aes(label = N, x= Categories),
             y = Inf, vjust = 1.5, show.legend = F) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   labs(y= "Species Q95% tree height (m)", x= 'Species temperament trajectories accros ontogeny') +
