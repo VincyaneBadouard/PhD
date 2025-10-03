@@ -51,6 +51,13 @@ datap <- muche %>%
 
 ```
 
+```{r}
+muche %>% 
+  select(Species, Categories, Trajectories, SameDirection) %>% 
+  filter(Categories=="shade-light") %>% 
+  filter(SameDirection=="not all in the same direction")
+```
+
 # With smooth
 ```{r}
 plist <- list()
@@ -318,19 +325,24 @@ Stature <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Parac
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
   # select(ScientificName, TreeHeight)
   group_by(ScientificName) %>% 
-  summarise(TreeHeightQ95 = quantile(TreeHeight, 0.95, na.rm=T)) %>%
+  summarise(TreeHeightQ95 = quantile(TreeHeight, 0.95, na.rm=T),
+            DBHQ95 = quantile(DBHcor, 0.95, na.rm=T)) %>%
   ungroup() %>% 
   left_join(H_allometry, by='ScientificName') %>% 
   mutate(Species = str_replace(ScientificName, "_", " "))
 
 datapp <- datap %>% left_join(Stature, by='Species') %>% 
-  select(Species, Categories, TreeHeightQ95) %>% 
+  select(Species, Categories, TreeHeightQ95, DBHQ95) %>% 
   unique() %>% 
   mutate(Categories = factor(Categories,
-                                  levels = c("generalist", 'shade',
-                                             "shade-intermediate", "generalist-intermediate", "intermediate-light",
+                                  levels = c("generalist", 'shade', "light-shade",
+                                             "shade-intermediate", "generalist-intermediate", 
                                              "intermediate-shade-light", "shade-light",
-                                             "light-shade-light", "light-shade", "light-intermediate-light"))) 
+                                             "intermediate-light","light-shade-light"))) %>% 
+  group_by(Categories) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  filter(N>1)
 ```
 
 ```{r}
@@ -348,8 +360,30 @@ ggplot(datapp, aes(x=Categories, y=TreeHeightQ95)) +
   labs(y= "Species Q95% tree height (m)", x= 'Species temperament trajectories accros ontogeny') +
   theme(legend.position="bottom")
 
-
 ggsave("TreeHeightQ95_vs_trajectories.png", path = PATH,
        width = 14, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+# Trajectories vs DBH
+```{r}
+datapp %>% 
+  group_by(Categories) %>% 
+  summarise(DBHmax = max(DBHQ95))
+```
+
+```{r}
+ggplot(datapp, aes(x=Categories, y=DBHQ95)) + 
+  theme_minimal() + 
+  geom_boxplot() +
+  # stat_summary(fun = "length", hjust = 0.5, vjust = 0.9) +
+  geom_text(data = label, aes(label = N, x= Categories),
+            y = Inf, vjust = 1.5, show.legend = F) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(y= "Species DBH (cm)", x= 'Species temperament trajectories accros ontogeny') +
+  theme(legend.position="bottom")
+
+# 
+# ggsave("DBHQ95_vs_trajectories.png", path = PATH,
+#        width = 14, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
