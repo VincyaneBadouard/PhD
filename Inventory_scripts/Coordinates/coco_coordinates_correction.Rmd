@@ -756,6 +756,8 @@ ggplot(quadrats, aes(x = x_utm, y = y_utm, color = as.factor(subplot))) +
   labs(color = "Subplot", x = "UTM x", y = "UTM y")
 
 write_csv(quadrats, "D:/Mes Donnees/PhD/Inventories/Data/Piquets_ALT/Piquets_ALT_coordinates.csv")
+# quadrats <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Piquets_ALT/Piquets_ALT_coordinates.csv")
+
 ```
 
 Les coordonnées locales des quadrats doivent être mises à jour:
@@ -795,7 +797,10 @@ Les coordonnées de terrain des arbres sont mesurées dans chaque quadrat (valeu
 
 ```{r}
 # Columns : IdStem ; Subplot ; Quadra.nb.X ; Quadra.nb.Y ; Dist.X ; Dist.Y ; DBH
-trees <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv") %>% # 36 311
+trees <- read.csv(
+  # "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129.csv"
+  "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
+  ) %>% # 36 311
   # Homogenize the column names
   rename(
     subplot = "Subplot",
@@ -806,8 +811,6 @@ trees <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Pa
   ) %>% 
   drop_na(subplot, quadrat_x, quadrat_y, x_field, y_field) # 36 311
 ```
-
-
 ## Projection dans les quadrats réels
 
 La position des arbres a été estimée relativement aux bords de chaque quadrat, en supposant que ce sont des carrés de 10m de côté.
@@ -1026,14 +1029,18 @@ ggplot(
   viridis::scale_color_viridis() +
   labs(color = "Correction (m)", x = "UTM x", y = "UTM y")
 ```
+
 ```{r}
 trees <- trees %>% 
-  select(-c(Xutm, Yutm)) %>% 
+  select(-c(Xutm, Yutm)) %>%
   rename(Xutm = x_utm, Yutm = y_utm)
 
 nrow(trees) # 36311
 
-write.csv(trees, "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv")
+write.csv(trees, 
+          # "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129_cleancord.csv"
+          "D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv"
+          )
 ```
 
 

@@ -293,9 +293,9 @@ ord_sp <- unique(datap$Species)
 
 species_to_number <- setNames(seq_along(ord_sp), ord_sp)
 
-numeric_vector <- species_to_number[datap$Species]
-
-datap$sp_code <- numeric_vector
+# numeric_vector <- species_to_number[datap$Species]
+# 
+# datap$sp_code <- numeric_vector
 
 # ll : outer start
 # l : iner start
@@ -304,6 +304,7 @@ datap$sp_code <- numeric_vector
 # hh : outer end
 
 write_csv(datap, paste(PATH, "/dataplot.csv",sep=''))
+# datap <- read_csv(paste(PATH, "/dataplot.csv",sep=''))
 ```
 
 ```{r, eval=F}

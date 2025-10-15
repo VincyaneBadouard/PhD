@@ -29,8 +29,8 @@ Summary <- read_csv(paste(PATH,'/Trajectories_summary_allsp_5-14.csv',sep='')) %
 ```{r}
 # Summary$Categories
 lev <- c("shade-light", "shade", "shade-intermediate",
-  "intermediate-light", "intermediate-shade-light", "light-shade-light",
-  "light-shade","generalist", "generalist-intermediate")
+         "intermediate-light", "intermediate-shade-light", "light-shade-light",
+         "light-shade","generalist", "generalist-intermediate")
 
 Q80 <- posteriors %>% 
   filter(variable =="O")
@@ -78,13 +78,22 @@ for(C in unique(datap$Categories)){
           # geom_segment(aes(y=l, yend=h, x=DBH, xend=DBH), size = 1, linetype = 'dashed') +
           # geom_point() +
           geom_line(aes(group=Species), linewidth=0.5, col= "grey") + 
-          geom_smooth(aes(x = as.numeric(DBH), y = O), span= 1.5, col = 'red', se=F) +
-          scale_y_continuous(name = "Light (% transmittance)",
-                             limits = c(min(as.numeric(datap$O), na.rm = T),0),
-                             n.breaks = 10, labels = ~round(exp(.)*100,2)) +
+          geom_smooth(aes(x = as.numeric(DBH), y = O, col = Categories), span= 1.5, se=F) +
+          scale_color_manual(values = c("shade-light" = "#f1c232",
+                                        "shade" = "#5c40a6",
+                                        "shade-intermediate" = "#fc4e07",
+                                        "intermediate-light" = "#bf9000",
+                                        "intermediate-shade-light" = "#d00069",
+                                        "light-shade-light" = "#00afbb",
+                                        "light-shade" = "#009e73")) +
+        
+        scale_y_continuous(name = "Light (% transmittance)",
+                           limits = c(min(as.numeric(datap$O), na.rm = T),0),
+                           n.breaks = 10, labels = ~round(exp(.)*100,2)) +
           labs(title=paste(C, ' (',round(unique(dataC$`%`)),'%)', sep=""), x= 'DBH (cm)') +
           theme(axis.title=element_blank(), plot.title.position = "plot") +
-          coord_flip()
+          coord_flip() +
+          guides(color = F)
         
         # )
       })
@@ -132,14 +141,14 @@ for(C in unique(datap$Categories)){
 # plots, width = 15, height = 10)
 
 
-multiplots <- ggpubr::ggarrange(plotlist = plist, nrow = 3, ncol = 3)
+multiplots <- ggpubr::ggarrange(plotlist = plist, nrow = 4, ncol = 2)
 # ggpubr::annotate_figure(multiplots, left = textGrob("Light (% transmittance)", rot = 90, vjust = .5, gp = gpar(cex = 1.3)),
 #                         bottom = textGrob("DBH (cm)", gp = gpar(cex = 1.3)))
 ggpubr::annotate_figure(multiplots, left = textGrob("DBH (cm)", rot = 90, vjust = .5, gp = gpar(cex = 1.3)),
                         bottom = textGrob("Light (% transmittance)", gp = gpar(cex = 1.3)))
 
 
-ggsave("Trajectories_nonflat_smooth_bigcategories_flip.png",
+ggsave("Trajectories_nonflat_smooth_bigcategories_flip_col.png",
        path = PATH,
        width = 23, height = 15, units = "cm", dpi=800, bg="white")
 
@@ -335,10 +344,10 @@ datapp <- datap %>% left_join(Stature, by='Species') %>%
   select(Species, Categories, TreeHeightQ95, DBHQ95) %>% 
   unique() %>% 
   mutate(Categories = factor(Categories,
-                                  levels = c("generalist", 'shade', "light-shade",
-                                             "shade-intermediate", "generalist-intermediate", 
-                                             "intermediate-shade-light", "shade-light",
-                                             "intermediate-light","light-shade-light"))) %>% 
+                             levels = c("generalist", 'shade', "light-shade",
+                                        "shade-intermediate", "generalist-intermediate", 
+                                        "intermediate-shade-light", "shade-light",
+                                        "intermediate-light","light-shade-light"))) %>% 
   group_by(Categories) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% 

@@ -1,0 +1,101 @@
+---
+title: "Diagnose all DBH classes"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+```{r setup}
+library(tidyverse)
+library(cmdstanr)
+library(bayesplot)
+library(viridis)
+library(posterior)
+library(factoextra)
+library(grid)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3])#[1:10]
+
+# strategy <- read_delim("~/PhD/Inventories/Data/Understory/Paracou/Species_strategy.csv") %>% 
+#   select(ScientificName, Strategy_VB) %>%
+#   rename(Strategy = Strategy_VB) %>% 
+#   unique()
+
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  # select(ScientificName, TreeHeight)
+  group_by(ScientificName) %>% 
+  summarise(MaxTreeHeight = max(TreeHeight))
+
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor"
+
+fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
+
+```
+
+```{r}
+d <- list()
+# Plot data
+for(S in names(fits)){
+  for(D in c("1-3","3-10","10-25",">25")){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- mcmc_intervals_data(fits[[S]][[D]]$draws(c("a", "O", "gamma", "tau")), 
+                                         prob = 0.5, prob_outer = 0.80, point_est = "median") %>% 
+        mutate(Species = S) %>% 
+        mutate(DBH = D)
+      
+    }}}
+datap <- list_rbind(list_flatten(d))
+
+# Light effect (not flat)
+O_sg <- datap %>% 
+  # filter(parameter=="O"& incertitude > 4) %>%
+  filter(parameter=="a"& m > -0.02) %>% # no light effect
+  select(Species, DBH) %>% 
+  mutate(parameter="O") %>% 
+  mutate(Sg_effect = F)
+
+datap <- datap %>% 
+  left_join(O_sg, by=c("Species", "DBH", "parameter")) %>% 
+  # tau significantly different of 0
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse((parameter=="tau" | parameter=="O") & is.na(Sg_effect), T, Sg_effect))  %>%
+  mutate(DBH = factor(DBH, levels=c("1-3","3-10","10-25",">25"))) %>% 
+  left_join(Inv, by = c("Species" = "ScientificName")) %>% 
+  # mutate(Guild = case_when(
+  #   MaxTreeHeight <25 ~ "Understorey",
+  #   MaxTreeHeight >40  ~ "Upper-canopy",
+  #   .default = "Mid-canopy")
+  # ) %>% 
+  # mutate(Guild = factor(Guild, levels=c("Upper-canopy", "Mid-canopy", "Understorey"))) %>% 
+  arrange(Species) %>%
+  # arrange(Guild) %>% 
+  mutate(Species = factor(Species, levels=unique(Species))) %>% 
+  # mutate(Topo = case_when(
+  #   parameter=="tau" & m > 0 ~ "Wetter habitat preference",
+  #   parameter=="tau" & m < 0 ~ "Drier habitat preference")) %>% 
+  # mutate(Topo = ifelse(parameter=="tau" & ll<0 & 0<hh, "No significant effect", Topo)) %>% 
+  mutate(Incertitude = hh-ll) %>% 
+  mutate(Species = str_replace(Species, "_", " ")) %>% 
+  select("Species", "MaxTreeHeight", "DBH", "parameter",
+         "ll", "l","m","h","hh",
+         "Sg_effect", "Incertitude")
+
+# ll : outer start
+# l : iner start
+# m : point_est value
+# h : iner end
+# hh : outer end
+
+```
+
+```{r}
+write_csv(datap,
+          "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Posteriors/All_posteriors.csv")
+# datap <- read_csv(
+# "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Light_Topo_ontogeny/Posteriors/All_posteriors.csv"
+# )
+```
