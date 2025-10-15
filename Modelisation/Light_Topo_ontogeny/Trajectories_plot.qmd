@@ -141,7 +141,7 @@ for(C in unique(datap$Categories)){
 # plots, width = 15, height = 10)
 
 
-multiplots <- ggpubr::ggarrange(plotlist = plist, nrow = 4, ncol = 2)
+multiplots <- ggpubr::ggarrange(plotlist = plist, nrow = 3, ncol = 3)
 # ggpubr::annotate_figure(multiplots, left = textGrob("Light (% transmittance)", rot = 90, vjust = .5, gp = gpar(cex = 1.3)),
 #                         bottom = textGrob("DBH (cm)", gp = gpar(cex = 1.3)))
 ggpubr::annotate_figure(multiplots, left = textGrob("DBH (cm)", rot = 90, vjust = .5, gp = gpar(cex = 1.3)),

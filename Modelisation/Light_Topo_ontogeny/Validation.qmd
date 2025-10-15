@@ -109,6 +109,26 @@ names(validation_table)
 # "Plateaus"
 ```
 
+# Remove topo refs
+```{r}
+unique(validation_table$References)
+validation_table <- validation_table %>% 
+  mutate(References = str_replace(References, "  ", " ")) %>% 
+  mutate(References = str_remove(References, " ; Baraloto et al., 2021")) %>% 
+  mutate(References = str_remove(References, "Baraloto et al., 2021 ;")) %>% 
+  
+  mutate(References = str_remove(References, " ; Allie et al., 2016")) %>% 
+  mutate(References = str_remove(References, "Allie et al., 2016 ;")) %>% 
+  mutate(References = str_remove(References, " ; Allie et al., 2015")) %>% 
+  mutate(References = str_remove(References, "Allie et al., 2015 ;")) %>% 
+  mutate(References = str_remove(References, " Boisseaux, 2023 ;")) %>% 	
+  mutate(References = ifelse(is.na(Literature_light), NA, References)) %>% 
+  mutate(References = ifelse(!grepl("<10 cm DBH", Literature_light),
+                             str_remove(References, " ; Vincent et al., 2011"), References))
+
+
+```
+
 ```{r}
 write_csv(validation_table, paste(PATH, "/Model_validation_table.csv", sep=''))
 ```
