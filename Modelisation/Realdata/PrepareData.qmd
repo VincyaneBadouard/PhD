@@ -129,6 +129,7 @@ for(i in 1:nrow(Combin)){
     DBH_classes = Combin[i,]$DBH_classes,
     Lightp = seq(min(x$logTransmittance), max(x$logTransmittance), length.out = Np),
     Topographyp = seq(min(x$logTWI), max(x$logTWI), length.out = Np)
+    # Topographyp = median(x[x$Presence==1,]$logTWI)
   )
   
 }
