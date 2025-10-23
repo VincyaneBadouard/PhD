@@ -1,0 +1,40 @@
+---
+title: "Light_distrib_byDBH_class"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+code-fold: true
+---
+
+# Packages
+```{r Setup, include = F}
+library(readr)
+library(tidyverse)
+```
+
+```{r, include = F, message=F}
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% # 47 850
+  mutate(Size = factor(case_when(
+    DBHcor < 3 ~ "1-3",
+    DBHcor >= 3 & DBHcor < 10 ~ "3-10",
+    DBHcor >= 10 & DBHcor < 25 ~ "10-25",
+    DBHcor >= 25 ~ ">25"), levels = c("1-3","3-10","10-25",">25"))
+  ) 
+```
+
+# Distibution plots
+```{r}
+ggplot(Inv, aes(x=Transmittance)) +
+  theme_minimal() +
+  geom_histogram(binwidth=0.01, fill="grey", color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(breaks = seq(0, 1, 0.1)) +
+  ylab('Abundance') +
+  facet_wrap(~ Size, scales = "free_y") # fixed
+
+ggsave("Paracou_P16_chap3_Light_distrib_byDBH_class.png",
+       path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
+```
+

@@ -561,6 +561,28 @@ Lightgrid_Low_Dry <- compute_Transmitance_byAlt(Lightgrid_Low_Dry)
 Lightgrid_Low_Wet <- compute_Transmitance_byAlt(Lightgrid_Low_Wet)
 
 ```
+# Light boxplots by stratum
+```{r}
+databoxplot <- Lightgrid %>% 
+  mutate(Stratum = factor(case_when(
+    Z < 20 ~ "Understorey",
+    Z >= 20 & Z < 30 ~ "Mid-canopy",
+    Z >= 30 & Z < 40 ~ "Upper-canopy"),
+    levels = c("Understorey","Mid-canopy","Upper-canopy"))
+  )
+databoxplot %>% 
+  filter(!is.na(Stratum)) %>% 
+  filter(Transmittance>0.001) %>%
+ggplot(aes(x=Stratum, y=log(Transmittance))) +
+  theme_minimal() +
+  geom_boxplot(na.rm = T) + # , outliers =F
+  scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) +
+  labs(y="Transmittance (%)")
+
+ggsave("Light_boxplots_by_stratum_ALS_2019.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor",
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+```
 
 ## Light profiles plot
 ```{r}
@@ -596,7 +618,7 @@ plotLightProfiles <- function(data1, data2 = NULL, data3 = NULL, LegCol, Title){
     coord_flip() # coordonnées inversées au départ pour que la ligne suive la hauteur au sol et non le Transmittance
   
   ggsave(paste(Title,".png", sep=''),
-    # paste("ALS2023_P16_4ha_",Title,"_Light_profile_(Grid_10x10m_each_1m_in_Z)_intensity_2m.png"),
+         # paste("ALS2023_P16_4ha_",Title,"_Light_profile_(Grid_10x10m_each_1m_in_Z)_intensity_2m.png"),
          path = "D:/Mes Donnees/PhD/Figures/lidar/Light_maps/Light_profil/Intensity_2m",
          width = 18, height = 20, units = "cm", dpi=800, bg="white")
 }

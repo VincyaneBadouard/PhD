@@ -195,13 +195,13 @@ nrow(test %>% filter(SameDirection == "Increasing order"))/34*100
 nrow(test %>% filter(SameDirection == "Decreasing order"))/34*100 
 nrow(test %>% filter(SameDirection == "not all in the same direction"))/34*100 
 
-# 8.6% no ontogenetic effect (6 sp) -> (coord cor + 2019) 2.9% (2 sp)
-# 37.1% with no significant pattern (26 sp) -> 48.6% (34 sp)
+# 8.6% no ontogenetic effect (6 sp) -> (coord cor + 2019) 4.3% (3 sp)
+# 37.1% with no significant pattern (26 sp) -> 47.1% (33 sp)
 # 54.3% ontogenetic effect (38 sp) -> 48.6% (34 sp)
 # 10.5% with plateaus (4 sp) -> 5.9% (2 sp)
 # 39.5% Increasing order (15 sp) -> 50% (17 sp)
 # 2.6% Decreasing order (1 sp) -> 2.9% (1 sp)
-# 50% not all in the same direction (19 sp) -> 47% (16 sp)
+# 50% not all in the same direction (19 sp) -> 44% (15 sp)
 
 # Flat 1st stage ---------------------------------------------------------------
 # flattable <- datam_a[,1:5] %>% 
