@@ -73,6 +73,11 @@ Variables :
 ```{r, dvp dataset, eval=F}
 match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv") # 399
 
+length(unique(match$ScientificName)) # 399
+length(unique(Inventory$ScientificName)) # 725
+725-399 # 326
+(326/725)*100
+
 same_sp <- match %>% 
   mutate(dbh.y = 30) %>% 
   mutate(HC = 30) # 399
@@ -80,6 +85,11 @@ same_sp <- match %>%
 other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
                        dbh.y = 30,
                        HC = 30)
+```
+```{r}
+communityallom <- Inventory %>% 
+  filter(!ScientificName %in% unique(match$ScientificName))
+(nrow(communityallom)/nrow(Inventory))*100 # 23% of indiv have been estimated by a community allometry (11,177 trees)
 ```
 
 # Cleaned inventory data

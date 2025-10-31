@@ -168,6 +168,27 @@ data <- Inventory %>%
 
 ```
 
+```{r}
+dataS <- data %>% 
+  filter(ScientificName=="Vouacapoua_americana")
+
+ggplot(dataS) +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  geom_sf(mapping = aes(colour = DBHcor), alpha = 2, size = 1) +
+  viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # , trans = "log"
+  theme_void() +
+  guides(fill="none") +
+  # geom_text(label = max(dataS$DBHcor), position ="top")
+  annotate(geom = 'text', label = paste("DBH max: ",round(max(dataS$DBHcor),0),"cm"),
+           x = -Inf, y = Inf, hjust = -0.2, vjust = 1.5) +
+  coord_sf() +
+  labs(title = "Vouacapoua americana")
+
+ggsave("P16_Spatial_distribution_of_Vouacapoua_americana.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots",
+       width = 5, height = 5)
+```
+
 ```{r, eval=F}
 plist <- vector('list', length(sp))
 
