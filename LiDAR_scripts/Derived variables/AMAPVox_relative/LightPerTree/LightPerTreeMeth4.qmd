@@ -56,6 +56,7 @@ nrow(Light[Transmittance<0.001, ])/nrow(Light)*100 # 0.2% -> 2019: 1%
 hist(Light$Transmittance)
 hist(Light$Z)
 options(scipen=999)
+Zinf20 <- Light[Z<20,]
 quantile(Light[Z<20, Transmittance*100],  probs = c(0, .05, .5, .95, 1))
  # 0%            5%    50%    95%    100% 
  # 0.00000001   0.09   0.9    18.2    92.8 

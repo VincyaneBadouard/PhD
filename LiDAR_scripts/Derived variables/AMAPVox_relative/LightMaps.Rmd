@@ -564,6 +564,7 @@ Lightgrid_Low_Wet <- compute_Transmitance_byAlt(Lightgrid_Low_Wet)
 # Light boxplots by stratum
 ```{r}
 databoxplot <- Lightgrid %>% 
+  filter(Z>2) %>% 
   mutate(Stratum = factor(case_when(
     Z < 20 ~ "Understorey",
     Z >= 20 & Z < 30 ~ "Mid-canopy",
@@ -573,7 +574,7 @@ databoxplot <- Lightgrid %>%
 databoxplot %>% 
   filter(!is.na(Stratum)) %>% 
   filter(Transmittance>0.001) %>%
-ggplot(aes(x=Stratum, y=log(Transmittance))) +
+  ggplot(aes(x=Stratum, y=log(Transmittance))) +
   theme_minimal() +
   geom_boxplot(na.rm = T) + # , outliers =F
   scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) +

@@ -193,6 +193,8 @@ write_csv(datap, paste(PATH, "/dataplot.csv",sep=''))
 
 # Predictions
 ```{r predictions}
+names(fits) <- str_replace(names(fits), "_", " ")
+
 Sys.time()
 
 plist <- list()
@@ -239,3 +241,33 @@ ggsave("Allsp_Light_niche_atTWIoptimum.pdf",
 
 Sys.time() # 32 min
 ```
+
+# Predictions for some species
+```{r}
+library(cowplot)
+
+VA <- plist[["Vouacapoua americana"]] + ggtitle("Vouacapoua americana")
+BP <- plist[["Bocoa prouacensis"]] + ggtitle("Bocoa prouacensis") + ylab("")
+
+plot_grid(VA,BP)
+
+ggsave("Light_niche_Vouacapoua_Bocoa.png",
+       path = PATH,
+       width = 8, height = 4)
+```
+
+```{r}
+library(patchwork)
+P1 <- plist[["Paypayrola hulkiana"]] + ggtitle("Paypayrola hulkiana") + scale_x_continuous(name = "Light (% transmittance)", n.breaks = 5, labels = ~round(exp(.)*100,2)) 
+P2 <- plist[["Symphonia sp.1"]] + ggtitle("Symphonia sp.1") + theme(axis.title.y=element_blank()) + scale_x_continuous(name = "Light (% transmittance)", n.breaks = 5, labels = ~round(exp(.)*100,2)) 
+P3 <- plist[["Lecythis corrugata"]] + ggtitle("Lecythis corrugata") +  theme(axis.title.y=element_blank()) + scale_x_continuous(name = "Light (% transmittance)", n.breaks = 5, labels = ~round(exp(.)*100,2)) 
+
+
+P1+P2+P3 + plot_spacer() + plot_layout(widths = c(2, -1, 2, -1,2))
+
+ggsave("Light_niche_Pay_Symph_Lecyt.png",
+       path = PATH,
+       width = 8, height = 3)
+
+```
+

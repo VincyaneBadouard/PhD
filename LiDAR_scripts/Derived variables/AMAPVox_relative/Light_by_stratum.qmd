@@ -1,0 +1,134 @@
+---
+title: "Light_by_stratum"
+format: html
+editor: visual
+---
+
+# Packages
+```{r Setup, include = F}
+library(data.table)
+library(tidyverse)
+library(sf)
+library(terra)
+library(corrplot)
+library(RColorBrewer)
+library(patchwork)
+
+ReadLightFile <- function(path, skiplines=10){
+  # Light <- fread(path, skip=skiplines) # skip the 10 1st lines of header
+  
+  Light <- setDT(read_delim(path, 
+                            delim = "\t", escape_double = FALSE, 
+                            trim_ws = TRUE, skip = skiplines))
+  
+  Light <- Light[Y != "MEAN"] # enlever les 2 lignes mean
+  Light <- janitor::remove_empty(Light,"cols")
+  
+  Light[, `:=`(X = as.numeric(X) , Y = as.numeric(Y))] # all as numeric
+  Light <- Light[!is.na(X)] 
+  return(Light)
+}
+
+PATH = 
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor"
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo_onto/Autocor/"
+
+zone <- 
+  # "ALT"
+  "Plot16"
+```
+
+# Read light grid
+```{r}
+Pathgrid <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt" # 2019 intensity2m each2mxyz
+
+Lightgrid <- ReadLightFile(Pathgrid)
+```
+
+## Transformation des coordonnées relatives en UTM
+On peut retrouver les cooordonnées UTM avec la VOP
+```{r}
+# Lecture matrice de transformation
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_9ha.txt"))
+
+Relativ2UTM <- function(data, VOP){
+  # Apply inverse of VOP matrix to convert back to UTM
+  xyz <- tcrossprod(as.matrix(data[, .(X, Y, Z, c=1)]), solve(VOP))
+  data[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
+  
+  # data <- unique(data)
+  return(data)
+}
+
+Light_UTM <- Relativ2UTM(Lightgrid, VOP)
+```
+
+# Crop the light grid
+```{r}
+MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_mnt.tif")
+
+Mask <- st_as_sf(raster::shapefile(paste("D:/Mes Donnees/PhD/R_codes/PhD/test/",zone,".shp", sep="") 
+  )) %>% 
+  st_set_crs(st_crs(MNT))
+plot(Mask)
+
+Lightgrid_Mask <- Light_UTM %>% 
+  st_as_sf(coords = c('Xutm','Yutm')) %>% 
+  st_set_crs(st_crs(MNT)) %>% 
+  st_intersection(Mask)
+
+ggplot() +
+  geom_sf(data = Mask) +
+  geom_sf(data = Lightgrid_Mask)
+```
+
+# Light boxplots by stratum
+```{r}
+databoxplot <- Lightgrid_Mask %>% 
+  filter(Z>2) %>% 
+  mutate(Stratum = factor(case_when(
+    Z < 20 ~ "Understorey",
+    Z >= 20 & Z < 30 ~ "Mid-canopy",
+    Z >= 30 & Z < 40 ~ "Upper-canopy"),
+    levels = c("Understorey","Mid-canopy","Upper-canopy"))
+  ) %>%  
+  filter(!is.na(Stratum)) %>% 
+  rename(Transmittance = `Period.1`) %>% 
+  filter(Transmittance>0.001) 
+
+ggplot(databoxplot, aes(x=Stratum, y=log(Transmittance))) +
+  theme_minimal() +
+  geom_boxplot(na.rm = T) + # , outliers =F
+  scale_y_continuous(n.breaks = 10, labels = ~round(exp(.)*100,2)) +
+  labs(y="Transmittance (%)")
+
+ggsave(paste(zone,"_Light_boxplots_by_stratum_ALS_2019.png", sep=""),
+       path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+# Light density by stratum
+```{r}
+# mu <- plyr::ddply(databoxplot, "Stratum", summarise, grp.median=median(log(Transmittance)))
+
+ggplot(databoxplot, aes(x=log(Transmittance), col=Stratum, fill=Stratum)) +
+  theme_minimal() +
+  geom_density(alpha=0.4) +
+  # geom_vline(data=mu, aes(xintercept=grp.median, col=Stratum),
+  #            linetype="dashed") +
+  scale_color_manual(values = c("Upper-canopy" = "#E7B800",
+                                "Understorey"= "#009E73",
+                                "Mid-canopy" = "#D55E00"),
+                     breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
+  scale_fill_manual(values = c("Upper-canopy" = "#E7B800",
+                                "Understorey"= "#009E73",
+                                "Mid-canopy" = "#D55E00"),
+                     breaks=c("Upper-canopy", "Mid-canopy", "Understorey")) +
+  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) +
+  labs(x="Transmittance (%)")
+
+ggsave(paste(zone,"_Light_density_by_stratum_ALS_2019.png", sep=""),
+       path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+```
+

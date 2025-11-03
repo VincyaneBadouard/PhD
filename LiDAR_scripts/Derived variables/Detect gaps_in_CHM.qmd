@@ -1,0 +1,81 @@
+---
+title: "Detect gaps_in_CHM"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+  markdown: 
+    wrap: 72
+code-fold: true
+execute: 
+  cache: true
+---
+```{r}
+library(readr)
+library(raster)
+library(terra)
+library(lidaRtRee)
+library(ForestGapR)
+library(tidyterra)
+library(ggplot2)
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor"
+```
+
+```{r}
+CHM <- raster("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_ALT_CHM_2019.tif") # rasterlayer
+# CHM[is.na(CHM)] <- 0
+# # replace negative values by 0
+# CHM[CHM < 0] <- 0
+```
+
+```{r, ForestGapR}
+library(viridis)
+threshold <- 10 # Setting height thresholds (e.g. 10 meters)
+size <- c(10, 10^1000) # minimum and maximum gap size - area (m2)
+
+gaps_duc <- getForestGaps(chm_layer = CHM, threshold = threshold, size = size) # RsaterLayer
+
+plot(CHM, col=viridis(10))
+plot(gaps_duc, col="red", add=TRUE, main="Forest Canopy Gap", legend=FALSE)
+
+# Computing basic statistis of forest gap
+gaps_stats <- GapStats(gap_layer=gaps_duc, chm_layer=CHM)
+sum(gaps_stats$gap_area)/10000 # 837 m2 -> 0.08 ha
+
+# as Spatial Polygons
+gaps_spdf <- GapSPDF(gap_layer=gaps_duc)
+class(gaps_spdf) # SpatialPolygonsDataFrame
+
+# Plotting ALS-derived CHM and forest gaps
+plot(CHM,col=viridis(10))
+plot(gaps_spdf, add=TRUE, border="red")
+# ggsave("Gaps_P16_ALS_2019.png", path = PATH,
+#        width = 5, height = 5, units = "cm", dpi=800, bg="white")
+```
+
+```{r}
+gaps_sf <- st_as_sf(gaps_spdf)
+Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
+  st_as_sf(coords = c('Xutm','Yutm')) %>% 
+  st_set_crs(st_crs(gaps_sf))
+```
+
+```{r}
+Inv_in_Gaps <- st_intersection(Inv, gaps_sf)
+
+# stem density in gaps = X stem/ha
+nrow(Inv_in_Gaps)/as.numeric((sum(st_area(gaps_sf))/10000)) # 4384.707 stem/ha
+
+```
+
+```{r}
+ggplot() + 
+  theme_classic() +
+  geom_sf(data = gaps_sf, color = "black", fill = "red") + 
+  geom_sf(data = Inv_in_Gaps, size = 0.1, col = "green") + 
+  ggtitle("ALS 2019 - P16 ALT gaps") + 
+  coord_sf()
+```
+

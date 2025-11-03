@@ -184,7 +184,7 @@ ggsave("a_tau_biplot.png", path = PATH,
 #| fig-width: 10
 #| fig-height: 3
 tidyr::crossing(
-  a = c(-0.01, -0.05, -0.15, -0.3), 
+  a = c(-0.02, -0.05, -0.15, -0.3), 
   O = -3,
   gamma = 0,
   Environment = (seq(-6,0, length.out =50)) 
@@ -192,10 +192,11 @@ tidyr::crossing(
   mutate(P = 1 / (1 + exp(-(a * (Environment - O)^2 + gamma)))) %>% 
   
   mutate(a = factor(a,
-                    levels = c("-0.01", "-0.05", "-0.15", "-0.3"),
-                    labels = c("Flat (a = -0.01)", "Very wide (a = -0.05)", "Wide (a = -0.15)", "Narrow (a = -0.3)"))) %>% 
+                    levels = c("-0.02", "-0.05", "-0.15", "-0.3"),
+                    labels = c("Flat (a = -0.02)", "Very wide (a = -0.05)", "Wide (a = -0.15)", "Narrow (a = -0.3)"))) %>% 
   
   ggplot(aes(x=Environment, y=P, group = paste(O, a, gamma))) +
+  geom_vline(xintercept = -3, linetype = "dashed") +
   geom_line(linewidth=1) +
   facet_wrap(~a, nrow=1) +
   

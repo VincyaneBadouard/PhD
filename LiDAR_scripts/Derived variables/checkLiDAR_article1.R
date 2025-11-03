@@ -1,3 +1,5 @@
+# Check LiDAR ------------------------------------------------------------------
+
 library(lidR)
 library(data.table)
 library(terra)
@@ -9,12 +11,16 @@ path <-
   #C14C15
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_HighAlt_C14C15.laz"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_LowAlt_C14C15.laz"
-"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_intensitycor.laz"
+# "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_intensitycor.laz"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/LAZ/P16_2019_25ha_buffer50m_intensitycor.laz" # 2019 
  -------------------------------------------------------------------------------
 ST <- readLAS(path)
 -------------------------------------------------------------------------------
 # For UAV, same terrain model than ALS
-mnt <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_buffer.asc")
+mnt <- rast(
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/MNT/dtm2023_4ha_UAV_buffer.asc"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raster/DTM_2019_25ha_buffer_50cm.asc"
+  )
 # Normaliser la hauteur du sol
 ST <- lidR::normalize_height(ST, mnt) # applati le relief
 # Classifier les points sol
@@ -48,5 +54,5 @@ mean(ST@data[ReturnNumber==NumberOfReturns,Z]) # High: 31.2 ; Low: 26.1 ; UAV: 3
 
 # Footprint size ---------------------------------------------------------------
 divergence <- 0.25 # mRAD divergence du lazer
-h <- 500 # 1000 # 500 # fly heignt in m
+h <- 900 # 1000 # 500 # fly heignt in m
 tan(divergence*10^-3)*h # Footprint size in m
