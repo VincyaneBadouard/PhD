@@ -57,9 +57,9 @@ hist(Light$Transmittance)
 hist(Light$Z)
 options(scipen=999)
 Zinf20 <- Light[Z<20,]
-quantile(Light[Z<20, Transmittance*100],  probs = c(0, .05, .5, .95, 1))
- # 0%            5%    50%    95%    100% 
- # 0.00000001   0.09   0.9    18.2    92.8 
+quantile(Light[Z<20, Transmittance*100],  probs = c(0, .05, .5, .95, .99, 1))
+ # 0%            5%    50%    95%   99%    100% 
+ # 0.00000001   0.09   0.9    18.2  46.9   92.8 
 
 hist(Light[Z<20, Transmittance*100])
 under <- Light[Z==2,]

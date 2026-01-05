@@ -113,19 +113,19 @@ ggsave("Paracou_P16_TWI_topolevels.png",
        width = 20, height = 15, units = "cm", dpi=800, bg="white")
 
 ggplot() + 
-  geom_spatraster(data = elev, aes(fill = HAND)) +
-  scale_fill_gradientn(name = "HAND (m)",
+  geom_spatraster(data = elev, aes(fill = re)) +
+  scale_fill_gradientn(name = "Height Above \nNearest Drainage (m)",
                        colors = hcl.colors(45, "Blues"),
                        na.value="white") +
-  geom_sf(data = st_cast(st_cast(TopoLevels, "POLYGON"), "LINESTRING")) +
-  geom_sf(data = st_cast(st_cast(P16, "POLYGON"), "LINESTRING")) +
+  # geom_sf(data = st_cast(st_cast(TopoLevels, "POLYGON"), "LINESTRING")) +
+  geom_sf(data = st_cast(st_cast(ALT, "POLYGON"), "LINESTRING")) +
   theme_classic() +
-  theme(axis.text= element_text(size=10),
-        legend.title= element_text(size=16), legend.text= element_text(size=16))
+  theme(axis.text= element_text(size=7),
+        legend.title= element_text(size=14), legend.text= element_text(size=12))
 
-ggsave("Paracou_P16_HAND_topolevels.png",
+ggsave("Paracou_P16_ALT_HAND.png",
        path = "D:/Mes Donnees/PhD/Figures/EnvVar_explo/",
-       width = 20, height = 15, units = "cm", dpi=800, bg="white")
+       width = 18, height = 10, units = "cm", dpi=800, bg="white")
 
 Light %>% 
   arrange(Z) %>% 

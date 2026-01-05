@@ -561,6 +561,17 @@ Lightgrid_Low_Dry <- compute_Transmitance_byAlt(Lightgrid_Low_Dry)
 Lightgrid_Low_Wet <- compute_Transmitance_byAlt(Lightgrid_Low_Wet)
 
 ```
+
+```{r}
+season_diff <- Lightgrid_Low_Dry %>% 
+  left_join(Lightgrid_Low_Wet, by= "Z_disc", suffix = c("_Dry", "_Wet")) %>% 
+  mutate(Diff = MeanTransmittance_Dry - MeanTransmittance_Wet)
+
+mean(season_diff$Diff) # 0.003
+median(season_diff$Diff) # 0.002
+
+```
+
 # Light boxplots by stratum
 ```{r}
 databoxplot <- Lightgrid %>% 
@@ -645,9 +656,9 @@ plotLightProfiles(Lightgrid_HighAlt, Lightgrid_High_Dry, Lightgrid_High_Wet,
                   c("High altitude" = "blue", "Dry season" = "#D55E00","Wet season" = "#0072B2"),
                   "High alt Dry vs Wet")
 
-plotLightProfiles(Lightgrid_LowAlt, Lightgrid_Low_Dry, Lightgrid_Low_Wet,
-                  c("Low altitude" = "#56B4E9", "Dry season" = "#D55E00","Wet season" = "#0072B2"),
-                  "Low alt Dry vs Wet")
+plotLightProfiles(Lightgrid_Low_Dry, Lightgrid_Low_Wet,
+                  LegCol = c("Dry season" = "#D55E00","Wet season" = "#0072B2"),
+                  Title = "Low alt Dry vs Wet")
 ```
 
 ```{r}
