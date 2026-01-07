@@ -22,7 +22,7 @@ Inv <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P
 PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor"
 
 datap <- read_csv(paste(PATH, "/dataplot.csv", sep='')) %>% 
-    left_join(abund %>% select(Species,N), by = 'Species')
+  left_join(abund %>% select(Species,N), by = 'Species')
 ```
 
 
@@ -362,8 +362,10 @@ datap %>%
   
   ggplot(aes(x=N, y= Incertitude)) +
   theme_minimal() +
-  # geom_point() +
-  geom_line() +
+  geom_smooth(method='lm', col = 'darkgrey', alpha = 0.2) +
+  # geom_smooth(col = 'darkgrey', span = 0.25, se=F) +
+  geom_point() +
+  # geom_line() +
   scale_x_continuous(trans="log", labels = ~round(.,0), breaks = c(30, 50, 100, 200, 500, 1000, 2140)) +
   ggpubr::stat_cor(aes(x=log(N), y= Incertitude), method = "pearson",
                    label.x.npc = 0.36, label.y.npc = 1) +
@@ -371,7 +373,7 @@ datap %>%
   labs(y= "Parameter 80% incertitude", x= 'Species abundance')
 # N range : 30-2 140
 
-ggsave("Incertitude_vs_sp_abundance.png", path = PATH,
+ggsave("Incertitude_vs_sp_abundance_lm.png", path = PATH,
        width = 23, height = 13, units = "cm", dpi=800, bg="white")
 ```
 
@@ -793,8 +795,9 @@ databp <- datap %>%
   pivot_wider(names_from = parameter, values_from = c(Q5, Q50_0, median, Q50_1, Q80),
               names_glue = "{parameter}_{.value}") %>% 
   # Light effect (not flat)
-  mutate(Sg_effect = ifelse(a_median > -0.02, F, T)) %>% # no light effect
-  mutate(Incertitude =(exp(O_Q80)*100)-(exp(O_Q5)*100)) # 50% CI : O_Q50_1-O_Q50_0 ; 80% CI : O_Q80-O_Q5
+  mutate(Sg_effect = ifelse(a_median > -0.02, F, T))  %>% # no light effect
+  # mutate(Incertitude = O_Q80-O_Q5) # 50% CI : O_Q50_1-O_Q50_0 ; 80% CI : O_Q80-O_Q5
+  mutate(Incertitude =(exp(O_Q80)*100)-(exp(O_Q5)*100))
 
 # databp <- databp %>%
 #   mutate_at(vars(c(a_Q5, a_Q50_0, a_median, a_Q50_1, a_Q80)), ~ (-.))
@@ -865,18 +868,19 @@ ggsave("O_a_biplot.png", path = PATH,
 ```{r}
 ggplot(databp, aes(x=Incertitude, y= a_median)) +
   theme_minimal() + 
-  # geom_point() +
-  geom_line() +
-  scale_x_continuous(trans="log", labels = ~round(.,1)) +
+  geom_smooth(method='lm', col = 'darkgrey', alpha = 0.2) +
+  # geom_smooth(col = 'darkgrey', span = 0.25, se=F) +
+  geom_point() +
+  # geom_line() +
+  # scale_x_continuous(trans="log", labels = ~round(.,1)) +
   # scale_x_continuous(n.breaks = 10, labels = ~round(exp(.),2)) + # delog
   geom_hline(yintercept = -0.02, linetype = 'dashed') +
   ggpubr::stat_cor(method = "pearson",
                    label.x.npc = 0.7, label.y.npc = 0.05) +
-  labs(x='*O* 80% incertitude (transmittance %)', y= '*a* median') +
-  theme(axis.title = ggtext::element_markdown(),
-        legend.title = ggtext::element_markdown())
+  labs(x= expression(italic(O)~"80% incertitude (transmittance %)"), y= expression(italic(a)~median))
+# theme(axis.title = ggtext::element_markdown())
 
-ggsave("O_incertitude_a_xaxislogged.png", path = PATH,
+ggsave("O_incertitude_a_lm.png", path = PATH, # _xaxislogged
        width = 15, height = 10, units = "cm", dpi=800, bg="white")
 
 

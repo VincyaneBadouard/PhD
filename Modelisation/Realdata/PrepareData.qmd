@@ -61,6 +61,8 @@ Inv %>%
 Inv <- Inv %>% 
   mutate(logTransmittance =  log(Transmittance)) %>% 
   mutate(logTWI = log(TWI)) %>% 
+  mutate(logTWI = log(TWI)) %>% 
+  mutate(logHAND = log(HAND)) %>% 
   mutate(logDBH = log(DBHcor))
 
 ```

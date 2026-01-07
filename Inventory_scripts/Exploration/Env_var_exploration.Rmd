@@ -63,6 +63,7 @@ Light <- Inventory %>%
 
 crs(MNT) == crs(TWI); crs(MNT) == crs(elev); crs(MNT) == crs(TopoLevels) ; crs(MNT) == crs(Light)
 ```
+
 # Plot maps
 ```{r, eval = F}
 ggplot(TopoLevels) +
@@ -178,6 +179,10 @@ elev <- elev %>%
 ```{r, eval=F}
 MNT[MNT[] < 6] = NA 
 # plot(MNT)
+MNT_sf <- st_as_sf(as.polygons(MNT))
+plot(MNT_sf)
+MNT_sf <- st_union(MNT_sf)
+st_area(MNT_sf) # 230557 m2/10000 = 23.0557 ha
 
 TWI <- TWI %>% 
   resample(MNT) %>% 
@@ -240,7 +245,7 @@ ggplot() +
   # geom_histogram(data= TWI, aes(x=Paracou_TWI_5m),
   #                binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
   geom_histogram(data= TWIalt, aes(x=Paracou_TWI_5m),
-                 binwidth=1, fill="grey", color="#e9ecef", alpha=0.9) +
+                 binwidth=0.25, fill="grey", color="#e9ecef", alpha=0.9) +
   scale_x_continuous(breaks = seq(4, 14, 1)) +
   labs(y='Abundance',x='TWI')
 

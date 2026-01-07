@@ -21,7 +21,7 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 # sp <- c("Licania_membranacea", "Symphonia_sp.1", "Piparea_multiflora", "Iryanthera_hostmannii", "Tabernaemontana_macrocalyx") # 4 forms
 # sp <- "Symphonia_sp.1"
 
-Var <- c("TWI", "HAND")
+Var <- c("logTWI", "logHAND")
 ```
 
 ```{r fit}
@@ -69,21 +69,21 @@ BIC_df <- BIC_df %>%
               names_glue = "{.value}_{Variable}") %>% 
   # Compare BIC between variables for each species
   rowwise() %>% 
-  mutate(Diff = BIC_HAND - BIC_TWI) %>% 
-  mutate(test = ifelse(BIC_TWI <= BIC_HAND,T,F)) %>% 
-  mutate(HAND = ifelse(BIC_HAND < BIC_TWI & abs(Diff)>2,T,F)) %>% 
-  mutate(TWI = ifelse(BIC_TWI < BIC_HAND & abs(Diff)>2,T,F))
+  mutate(Diff = BIC_logHAND - BIC_logTWI) %>% # BIC difference
+  mutate(test = ifelse(BIC_logTWI <= BIC_logHAND,T,F)) %>% # without abs(Diff)>2
+  mutate(HAND = ifelse(BIC_logHAND < BIC_logTWI & abs(Diff)>2,T,F)) %>% 
+  mutate(TWI = ifelse(BIC_logTWI < BIC_logHAND & abs(Diff)>2,T,F))
 
-nrow(BIC_df %>% filter(test==T)) # 43
-nrow(BIC_df %>% filter(HAND==T)) # 17
-nrow(BIC_df %>% filter(TWI==T)) # 33 -> best BIC is for TWI
-nrow(BIC_df %>% filter(HAND==F,TWI==F)) # 25
+nrow(BIC_df %>% filter(test==T)) # 43 (-> 45 with logHAND)
+nrow(BIC_df %>% filter(HAND==T)) # 17 (-> 21 with logHAND)
+nrow(BIC_df %>% filter(TWI==T)) # 33 (-> 28 with logHAND) -> best BIC is for TWI
+nrow(BIC_df %>% filter(HAND==F,TWI==F)) # 25 (-> 26 with logHAND)
 
 ```
 
 ```{r}
-write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_logTWI.csv")
-# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_HAND_vs_logTWI.csv")
+write.csv(BIC_df, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_logHAND_vs_logTWI.csv")
+# BIC_df <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/GoodnessOfFit/BIC/BIC_affine_logHAND_vs_logTWI.csv")
 ```
 
 ```{r}
@@ -105,14 +105,15 @@ g1 <- ggplot(BIC_df, aes(Diff)) +
   geom_vline(xintercept = c(-2, 2), linetype = "dashed") +
   scale_x_continuous(trans = "S_sqrt", 
                      breaks = c(-10, -2, 0, 2, 10, 100),
-                     name = "BIC difference (HAND - log(TWI))") +
+                     name = "BIC difference (log(HAND) - log(TWI))") +
   # n species with bic diff < -2 (HAND pref)
   annotate("text", x = -13, y = 0.01, col="#D55E00",
            label = paste0(sum(BIC_df$Diff < -2), "/", nrow(BIC_df))) +
   # n species with bic diff >2 (TWI pref)
   annotate("text", x = 13, y = 0.01, col="#0072B2",
            label = paste0(sum(BIC_df$Diff > 2), "/", nrow(BIC_df))) +
-  ylab("Density")
+  ylab("Density") +
+  theme(axis.title.y = element_text(vjust = -1))
 
 g2 <- ggplot(shape, aes(Diff)) +
   # xlim(NA, 5) +
@@ -132,7 +133,7 @@ g2 <- ggplot(shape, aes(Diff)) +
   # ylab("Density") +
     theme(axis.title.y = element_blank())
 
-# ggsave("BIC_HAND_vs_logTWI.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+# ggsave("BIC_logHAND_vs_logTWI.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
 #        width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
@@ -140,7 +141,7 @@ g2 <- ggplot(shape, aes(Diff)) +
 library(patchwork)
 library(ggpubr)
 var <- BIC_df %>% 
-  select(Species, BIC_HAND, BIC_TWI) %>% 
+  select(Species, BIC_logHAND, BIC_logTWI) %>% 
   gather(Variable, BIC, -Species) # = pivot_longer
 
 shape <- shape %>%
@@ -156,8 +157,8 @@ g3 <- ggpaired(var, x = "Variable", y = "BIC", # boxplots liés par des lignes
   scale_y_log10() +
   guides(color = FALSE) +
   ylab("BIC") +
-  theme(axis.title.x = element_blank()) +
-  scale_x_discrete(labels = c("HAND", "log(TWI)"))
+  theme(axis.title.x = element_blank(), axis.title.y = element_text(vjust = -1)) +
+  scale_x_discrete(labels = c("log(HAND)", "log(TWI)"))
 
 
 g4 <- ggpaired(shape, x = "Variable", y = "BIC",
@@ -169,14 +170,14 @@ g4 <- ggpaired(shape, x = "Variable", y = "BIC",
   scale_y_log10() +
   guides(color = FALSE) +
   ylab("BIC") +
-  theme(axis.title.x = element_blank()) +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
   scale_x_discrete(labels = c("Monotonous", "Quadratic"))
 
 (g1 + g2)/
 (g3 + g4) + plot_layout(heights  = c(1, 2))
 
-ggsave("BIC_topo_form_variable_logTWI_4plots.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
-       width = 18, height = 20, units = "cm", dpi=800, bg="white")
+ggsave("BIC_topo_form_variable_log_4plots.png", path = "D:/Mes Donnees/PhD/Figures/Modelisation/",
+       width = 20, height = 20, units = "cm", dpi=800, bg="white")
 
 ```
 

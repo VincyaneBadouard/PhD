@@ -18,7 +18,7 @@ library(cmdstanr)
 library(foreach) # parallisation
 library(parallel)
 
-sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,2]) # 75
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
 # sp <- "Symphonia_sp.1"
 
@@ -40,7 +40,7 @@ datalist <- datalist[names(datalist) %in% sp] # only species in sp
 ```{r}
 # na.omit pour stan
 datalist <- lapply(names(datalist), function(name) {
-  datalist[[name]] <- datalist[[name]] %>% filter(!is.na(HAND))
+  datalist[[name]] <- datalist[[name]] %>% filter(!is.na(logHAND))
   datalist[[name]]  # Return modified data frame
 })
 names(datalist) <- sp
@@ -62,15 +62,15 @@ dataM_TWI <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
 
 dataM_HAND <- lapply(datalist, function(x) list(N = nrow(x), # 47 850
                                                 Presence = x$Presence,
-                                                Environment = x$HAND,
+                                                Environment = x$logHAND,
                                                 # number of predictions
                                                 Np = Np,
                                                 # environment of predictions
-                                                Environmentp = seq(min(x$HAND), max(x$HAND), length.out = Np))
+                                                Environmentp = seq(min(x$logHAND), max(x$logHAND), length.out = Np))
 )
 
 # seq(min(datalist[[1]]$logTWI), max(datalist[[1]]$logTWI), length.out = 50) # 1.358045 - 2.400176
-# seq(min(datalist[[1]]$HAND), max(datalist[[1]]$HAND), length.out = Np) # -0.37 - 23.34
+# seq(min(datalist[[1]]$logHAND), max(datalist[[1]]$logHAND), length.out = Np) # -0.37 - 23.34
 
 names(dataM_TWI) <- names(dataM_HAND) <- names(datalist)
 ```
@@ -115,7 +115,7 @@ foreach::foreach(
   .options.snow = opts # ProgressBar
 ) %dopar% {
   
-  chain_path <- file.path("Chains", model_name, "TWI", sp[i])
+  chain_path <- file.path("Chains", model_name, "logTWI", sp[i])
   if(!file.exists(chain_path)){
     # unlink(chain_path, recursive = TRUE)
     dir.create(chain_path)
@@ -161,7 +161,7 @@ foreach::foreach(
   .options.snow = opts # ProgressBar
 ) %dopar% {
   
-  chain_path <- file.path("Chains", model_name, "HAND", sp[i])
+  chain_path <- file.path("Chains", model_name, "logHAND", sp[i])
   if(!file.exists(chain_path)){
     # unlink(chain_path, recursive = TRUE)
     dir.create(chain_path)
