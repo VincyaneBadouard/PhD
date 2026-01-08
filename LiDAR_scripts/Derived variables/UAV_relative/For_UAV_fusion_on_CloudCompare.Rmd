@@ -1,0 +1,505 @@
+---
+title: "For UAV fusion on CloudCompare"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+
+```{r Setup}
+library(lidR)
+library(sf)
+library(terra)
+library(tidyverse)
+library(data.table)
+library(raster)
+```
+
+```{r}
+# //amap-data.cirad.fr/work -> Y:/
+```
+
+
+# Load LiDAR data
+## ALS
+```{r}
+ALS <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_4ha_HighAlt_buffer_intensitycor.laz")
+# ALS <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_4ha_LowAlt_buffer_intensitycor.laz")
+#  <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz")
+```
+
+## UAV
+```{r}
+# readLAS(filter = "-help")
+# readLAS(select = "-help")
+UAV_C14C15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/Output-(2)_subsampled_laz1_4.laz",
+                      select = "xyztr")
+UAV_C19C20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_subsampled_laz1_4.laz",
+                      select = "xyztr")
+# Message d'avis :
+# Invalid data: 28460622 points with a return number equal to 0 found
+```
+
+
+```{r}
+table(UAV_C14C15$Classification) # pas de classif
+range(UAV_C14C15$Z) # -29.57759  91.38171
+range(UAV_C14C15$Intensity) # 1 255
+```
+
+
+# Crop the ALS in 2 parts as the UAV data
+```{r}
+ROI <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) 
+
+ROI_C14C15 <- ROI %>% filter(SubPlot==14 | SubPlot==15)
+ROI_C19C20 <- ROI %>% filter(SubPlot==19 | SubPlot==20)
+
+ALS_C14C15 <- lidR::clip_roi(las = ALS, geometry = ROI_C14C15)
+ALS_C19C20 <- lidR::clip_roi(las = ALS, geometry = ROI_C19C20)
+rm(ALS, ROI, ROI_C14C15, ROI_C19C20)
+gc()
+
+ALS_C14C15 ; ALS_C19C20
+
+ALS_C14C15 <- rbind(ALS_C14C15[[1]], ALS_C14C15[[2]])
+ALS_C19C20 <- rbind(ALS_C19C20[[1]], ALS_C19C20[[2]])
+ALS_C14C15 ; ALS_C19C20
+```
+
+```{r}
+writeLAS(ALS_C14C15, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_HighAlt_C14C15.laz")
+# writeLAS(ALS_C14C15, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/LowAltitudeFlight/LAZ/P16_2023_LowAlt_C14C15.laz")
+# writeLAS(ALS_C14C15, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_intensitycor.laz")
+
+writeLAS(ALS_C19C20, "Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_HighAlt_C19C20.laz")
+```
+
+# Crop UAV with the trajectory
+
+```{r}
+traj_C14C15 <- fread("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/C14C15_Output_traj.xyz")
+traj_C19C20 <- fread("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_traj.xyz")
+rgl::plot3d(traj_C14C15[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+# options(digits=22)
+# range(traj$gpstime) # 1697736241.571922063828 1697737554.552948951721
+# range(UAV_C14C15@data$gpstime) # 1697736245.296575307846 1697737554.548056840897
+traj_crop <- traj_C14C15[y>=770 & x>(-250) & x<50,]
+traj_crop <- traj_C19C20[y>=750 & x>(-500) & x<(-150),] 
+
+rgl::plot3d(traj_crop[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+UAV_C14C15_crop <- UAV_C14C15
+UAV_C14C15_crop@data <- UAV_C14C15_crop@data[Y>=770 & Y<1075 & X>(-250) & X<50,]
+
+UAV_C19C20_crop <- UAV_C19C20
+UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-200),]
+```
+
+```{r}
+writeLAS(UAV_C14C15_crop, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/UAV_C14C15_subsampled_croptraj.laz")
+writeLAS(UAV_C19C20_crop, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/UAV_C19C20_subsampled_croptraj.laz")
+```
+
+```{r}
+rm(UAV_C14C15, traj_C14C15, traj_crop)
+rm(UAV_C19C20, traj_C19C20, traj_crop)
+```
+
+
+# DSM (Digital Surface Model) of ALS and UAV
+```{r}
+ALS_C14C15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C14C15.laz")
+ALS_C19C20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/P16_2023_HighAlt_C19C20.laz")
+```
+
+```{r}
+DSM_ALS_C14C15 <- rasterize_canopy(ALS_C14C15, res = 0.5, algorithm = dsmtin())
+DSM_ALS_C19C20 <- rasterize_canopy(ALS_C19C20, res = 0.5, algorithm = dsmtin())
+```
+
+```{r}
+DSM_UAV_C14C15 <- rasterize_canopy(UAV_C14C15_crop, res = 0.5, algorithm = dsmtin())
+rm(UAV_C14C15_crop); gc()
+DSM_UAV_C19C20 <- rasterize_canopy(UAV_C19C20_crop, res = 0.5, algorithm = dsmtin())
+rm(UAV_C19C20_crop); gc()
+```
+
+
+# Write DSM
+```{r}
+terra::writeRaster(raster(DSM_ALS_C14C15),"Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc",
+                   format="ascii",  varname= "Z", overwrite=T)
+writeRaster(raster(DSM_ALS_C19C20),"Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc",
+            format="ascii", overwrite=T)
+
+writeRaster(raster(DSM_UAV_C14C15),"Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C14C15.asc",
+            format="ascii", overwrite=T)
+writeRaster(raster(DSM_UAV_C19C20),"Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C19C20.asc",
+            format="ascii", overwrite=T)
+```
+
+
+# Plot
+```{r}
+DSM_ALS_C14C15 <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C14C15.asc")
+DSM_ALS_C19C20 <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/DSM_P16_2023_HighAlt_C19C20.asc")
+DSM_UAV_C14C15 <- rast("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C14C15.asc")
+DSM_UAV_C19C20 <- rast("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/DSM_P16_2023_UAV_C19C20.asc")
+
+raster::plot()
+terra::plot()
+
+library(tidyterra)
+
+for(D in c("DSM_ALS_C14C15", "DSM_ALS_C19C20")){ 
+  print(
+    ggplot() + 
+      geom_spatraster(data = get(D), aes(fill = Z)) + 
+      scale_fill_gradientn(name = "Canopy height (m)",
+                           colors = height.colors(25), na.value="white") + 
+      geom_sf(data = sf::st_cast(ROI, "LINESTRING")) +
+      ggtitle(paste("Paracou P16 - ", D," - 0.5m res")) + 
+      theme_classic() +
+      coord_sf()
+  )
+}
+
+for(D in c("DSM_UAV_C14C15", "DSM_UAV_C19C20")){
+  print(
+    ggplot() +
+      geom_spatraster(data = get(D), aes(fill = Z)) +
+      scale_fill_gradientn(name = "Canopy height (m)",
+                           colors = height.colors(25), na.value="white") +
+      ggtitle(paste("Paracou P16 - ", D," - 0.5m res")) +
+      theme_classic()
+  )
+}
+```
+
+```{r}
+DSM_ALS_C14C15$Z
+DSM_UAV_C14C15$Z
+DSM_UAV_C19C20$DSM_P16_2023_UAV_C19C20
+```
+
+# Compute translation matrix on CloudCompare
+# Trajectory translation on R
+```{r}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateTraj.R")
+
+# inputs
+traj_C19C20 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C19C20/Output_traj.xyz", select = seq(1:5))
+matrix_C19C20 <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Translation_matrix/Matrix_C19C20_cor.mat.txt", header=F))
+
+traj_C14C15 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/P16_C14C15/C14C15_Output_traj.xyz", select = seq(1:5))
+matrix_C14C15 <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Translation_matrix/Matrix_C14C15_cor.mat.txt", header=F))
+
+# Translate
+Trans_C19C20 <- TranslateTraj(traj_C19C20, matrix_C19C20)
+Trans_C14C15 <- TranslateTraj(traj_C14C15, matrix_C14C15)
+
+# Write
+fwrite(Trans_C19C20,
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz")
+fwrite(Trans_C14C15,
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz")
+
+# Greg translation :
+# inputs
+traj_C19C20 <- fread( "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_translated.xyz")
+matrix_C19C20 <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/recalageGreg/Matrix_C19C20_Greg.txt", header=F))
+
+traj_C14C15 <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_translated.xyz")
+matrix_C14C15 <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/recalageGreg/Matrix_C14C15_Greg.txt", header=F))
+
+# Translate
+traj_C19C20[, `:=`(x = x-285000.00 , y = y-581000.00)]
+range(traj_C19C20$x) ; range(traj_C19C20$y) 
+
+Trans_C19C20 <- TranslateTraj(traj_C19C20, matrix_C19C20)
+Trans_C19C20[, `:=`(x = x+285000.00 , y = y+581000.00)]
+range(Trans_C19C20$x) ; range(Trans_C19C20$y) 
+
+
+traj_C14C15[, `:=`(x = x-285000.00 , y = y-581000.00)]
+range(traj_C14C15$x) ; range(traj_C14C15$y) 
+
+Trans_C14C15 <- TranslateTraj(traj_C14C15, matrix_C14C15)
+Trans_C14C15[, `:=`(x = x+285000.00 , y = y+581000.00)]
+range(Trans_C14C15$x) ; range(Trans_C14C15$y) 
+
+# Write
+fwrite(Trans_C19C20,
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_retranslated.xyz")
+fwrite(Trans_C14C15,
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_retranslated.xyz")
+
+```
+
+# After translation on CloudCompare
+## Check the trajectory translation
+
+```{r}
+zone <- st_as_sf(vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/Parcelles_Understory.shp")) # 4 carrés
+
+Trans_C14C15 <- st_set_crs(st_as_sf(unique(
+  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C14C15_traj_retranslated.xyz"
+  )[,list(x,y,z)]), coords = c('x','y')), crs(zone))
+Trans_C19C20 <- st_set_crs(st_as_sf(unique(
+  fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/Traj/UAV_C19C20_traj_retranslated.xyz"
+  )[,list(x,y,z)]), coords = c('x','y')), crs(zone))
+```
+
+### Plot P16 with traj
+```{r}
+ggplot() + 
+  geom_sf(data = Trans_C14C15, col = "#009E73", size = 0.4) + 
+  geom_sf(data = Trans_C19C20, col = "#D55E00", size = 0.4) +
+  geom_sf(data = sf::st_cast(zone, "LINESTRING")) + # zone of interest
+  ggtitle("Paracou P16 4ha - UAV trajectories 2023") +  
+  coord_sf()
+ggsave("Paracou_P16_4ha_UAV_trajectories_2023_retranslated.png",
+       path = "D:/Mes Donnees/PhD/Figures/lidar/UAV",
+       width = 20, height = 20, units = "cm", dpi=800, bg="white")
+```
+
+
+
+## Check the laz translation (cloudcompare)
+```{r}
+laz_14_15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las")
+laz_19_20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las")
+ST <- laz_14_15
+ST <- laz_19_20
+
+ST <- st_set_crs(ST, 2972) # attribuer le dernier crs
+```
+
+# Recouper selon le ROI (9ha)
+```{r}
+# Region of Interest (ROI)
+ROI <- vect("Y:/users/VincyaneBadouard/Lidar/ALS2022/Plot16_4ha_buffer100m.shp") # interest zone + 100m buffer
+plot(ROI)
+class(ROI) # SpatVector (terra)
+
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+
+PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
+ST;PC 
+plot(PC)
+
+## For 1 file
+str(PC) # List of 4 las
+
+# Join the 4 las if there are different of each others
+rm(buffer, ST)
+gc()
+# usethis::edit_r_environ()
+PCall <- rbind(PC[[1]], PC[[2]], PC[[3]], PC[[4]])
+
+# or if only the first is not empty
+PC <- PC[[1]]
+# lidR::plot(PC) 
+
+writeLAS(PC, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_croped.laz")
+writeLAS(PC, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_croped.laz")
+
+```
+
+# Crop UAV with the trajectory
+
+```{r}
+rgl::plot3d(traj_C14C15[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+# options(digits=22)
+# range(traj$gpstime) # 1697736241.571922063828 1697737554.552948951721
+# range(UAV_C14C15@data$gpstime) # 1697736245.296575307846 1697737554.548056840897
+traj_crop <- traj_C14C15[y>=770 & x>(-250) & x<50,]
+traj_crop <- traj_C19C20[y>=750 & x>(-500) & x<(-150),] 
+
+rgl::plot3d(traj_crop[,3:5], aspect=F) # plot the trajectory (x,y,z)
+```
+
+```{r}
+UAV_C14C15_crop <- UAV_C14C15
+UAV_C14C15_crop@data <- UAV_C14C15_crop@data[Y>=770 & Y<1075 & X>(-250) & X<50,]
+
+UAV_C19C20_crop <- UAV_C19C20
+UAV_C19C20_crop@data <- UAV_C19C20_crop@data[Y>=750 & Y<1050 & X>(-450) & X<(-200),]
+```
+
+# Create a subset of the laz to developpe the code with smaller data
+```{r}
+range(PC$gpstime) #  1697733332 1697734174
+readLAS(filter = "-help")
+UAV_sampletowork <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
+                     filter = "-keep_gps_time 1697733332 1697733333")
+UAV_sampletowork <- decimate_points(UAV_sampletowork, random(1)) # reduce point density
+
+plot(UAV_sampletowork)
+writeLAS(UAV_sampletowork, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_sampletowork.laz")
+```
+
+# Compute the scan angles
+```{r}
+# source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
+source("D:/UAV_Vincyane/ComputeScanAngle.R")
+laz_14_15 <- ComputeScanAngle(laz_14_15, Trans_C14C15)
+laz_19_20 <- ComputeScanAngle(laz_14_15, Trans_C19C20)
+
+writeLAS(laz_14_15, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_scanAngles.laz")
+writeLAS(laz_19_20, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_scanAngles.laz")
+
+```
+
+# Filter < 2m range and angles < 45°
+UAV altitude filght: 85m
+```{r}
+laz_14_15 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C14C15_translated.las",
+                     filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+laz_19_20 <- readLAS("Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Translation/LAZ/UAV_C19C20_translated.las",
+                     filter = "-drop_abs_scan_angle_above 45 -drop_z_above 83 (max_z)")
+```
+
+# Remove outliers
+Pour enlever le bruit (**à faire avant la recherche de points sol**) utiliser un algo dédié (c'est à peu près les mêmes dans lastools et LidR)
+
+Procéder comme suit :
+* normaliser par rapport à un dtm existant et enlever tous les points nettement sous le sol (e.g. z<-0.5)
+* filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
+**checher une fct lidR ou lastools pour ça**
+https://gis.stackexchange.com/questions/371774/way-to-filter-outliers-from-point-cloud-in-lidr
+
+* dénormaliser
+
+```{r}
+mnt <- rast("Y:/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_4ha_HighAlt_buffer.asc") # de lALS ? croppé ?
+plot(mnt)
+```
+
+```{r}
+plot(las)
+RemoveOutliers <- function(laz, mnt){
+  laz_norm <- lidR::normalize_height(laz, mnt) # Normaliser la hauteur du sol # applati le relief
+  # laz_norm@data[(Z>(-0.2) & Z< 0.5), Classification := 2] # Classifier les points sol
+  laz_norm@data[Z<(-1), Classification := 7] # Classifier les points bruits en dessous du sol
+  laz_norm@data[Z>60, Classification := 7] # Classifier les points bruits au dessous de la canopée
+  # laz_norm@data[is.na(Classification), Classification := 1] # Classifier les points non-bruit
+  
+  # table(laz_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
+  # plot(laz_norm, color = "Classification") # trop long
+  
+  classify_noise(laz_norm, algorithm = ivf(res = 5, n = 6)) # -> 18
+  # sor: Statistical Outliers Removal (SOR) (also implemented in CloudCompare). It computes the mean distance to all its k-nearest neighbours. sor(k,m)
+  # ivf: isolated voxels filter (IVF) (similar to lasnoise from lastools). The algorithm finds points that have only a few other points in their surrounding 3 x 3 x 3 = 27 voxels. ivf(res = 5, n = 6)
+  
+  # * filtrer les point bruits en restreignant l'analyse au haut de canopée (pour éviter d'effacer des points bas localement rares au niveau du sol)
+  laz_norm <- laz_norm@data[Classification!=7,]
+  
+  # * dénormaliser
+  laz <- lidR::unnormalize_height(laz_norm) # Dénormaliser la hauteur du sol
+}
+
+laz_14_15 <- RemoveOutliers(laz_14_15, mnt)
+laz_19_20 <- RemoveOutliers(laz_19_20, mnt)
+```
+
+```{r}
+writeLAS(laz_14_15, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C14C15_OutliersRemoved.laz")
+writeLAS(laz_19_20, "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed/UAV_C19C20_OutliersRemoved.laz")
+```
+
+
+# Classification des points sols avec lastools
+https://www.sigterritoires.fr/index.php/qgis-pour-lidarmodele-numerique-de-terrain-mnt-avec-lastools/
+
+- LASGround est un outil qui identifie et classe les points du sol dans un nuage de points LiDAR en se basant sur la densité des points voisins. 
+
+- **LASGround_New** est une version améliorée de LASGround, introduite pour fournir de meilleures performances et une extraction plus précise des points du sol.LASGround_New utilise une approche basée sur l’apprentissage automatique (machine learning), en se basant sur des caractéristiques telles que la hauteur, la densité, etc. 
+- option **« -nature »** (pas de 5 mètres) ou « -wilderness » (pas de 3 mètres)
+
+## Define the path and the function for lastools executables
+```{r}
+LAStoolsDir =  "D:/Program/LAStools/bin/"
+
+## Define the R function that calls lastools executables
+LAStool <- function(tool, inputFile, ...){
+  cmd = paste(paste(LAStoolsDir, tool, sep=''), '-i', inputFile , ...) # -i in.laz
+  cat(cmd)
+  system(cmd)
+  return(cmd)
+}
+```
+
+## In and output
+```{r}
+# Define the directory
+Path <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed" 
+
+# Define las/laz files to be processed
+inFiles_C14C15 = paste(Path,"/UAV_C14C15_OutliersRemoved.laz", sep ='')
+outFile_C14C15 = "UAV_C14C15_GroundClassif.laz"
+
+inFiles_C14C15 = paste(Path,"/UAV_C19C20_OutliersRemoved.laz", sep ='')
+outFile_C14C15 = "UAV_C19C20_GroundClassif.laz"
+```
+
+## Call the lastools lasground_new function to classify the ground points
+```{r}
+cores <- detectCores()
+
+LASrun <- LAStool('lasground_new', inFiles,
+                  '-cores', cores,
+                  '-nature',
+                  '-odir', Path, # output folder
+                  '-o', outFile # -o out.laz
+)
+
+# ou avec lidR
+classify_ground(las, algorithm, last_returns = TRUE) # pmf: , csf: , mcc:  
+```
+
+## Check
+```{r}
+range(laz_norm@data[, Classification := 2]$Z) # Points sol (attendu : (Z>(-0.2) & Z< 0.5))
+```
+
+# Générer le MNT sur lastools
+Calcul du MNT avec LAS2dem :
+
+Cet outil lit les points LIDAR, les triangule temporairement en un TIN, puis calque le TIN sur un raster MNT.
+- Le filtre keep_class 2 fait qu’on ne traitera que les points classés « sol » (code 2).
+résolution par défaut : 1 m ('-step 1')
+
+## In and output
+```{r}
+# Define the directory
+Path <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/Processed" 
+
+# Define las/laz files to be processed
+inFiles_C14C15 = paste(Path,"/UAV_C14C15_GroundClassif.laz", sep ='')
+outFile_C14C15 = "UAV_C14C15_DEM.asc"
+
+inFiles_C14C15 = paste(Path,"/UAV_C19C20_GroundClassif.laz", sep ='')
+outFile_C14C15 = "UAV_C19C20_DEM.asc"
+```
+
+```{r}
+LASrun <- LAStool('LAS2dem', inFiles,
+                  '-cores', cores,
+                  '-keep_class 2', # que les points sol
+                  '-elevation',
+                  '-o', outFile # -o out.laz
+)
+```

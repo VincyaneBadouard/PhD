@@ -47,7 +47,7 @@ Light <- ReadLightFile(path, skiplines=9)
 
 setnames(Light, "Period 1", "Transmittance")
 
-Light <- Light[Transmittance>0 & Z>2,] # remove Z=2m because all is equal to 100%T
+Light <- Light[Transmittance>0 & Z>2,] # remove Z=2m because all is equal to 100%T (trees zutm >= 5.7)
 
 range(Light$Transmittance) # 0.000206811 - 1 -> 2019: 1.363128e-10 - 1
 any(is.na(Light$Transmittance)) # FALSE
@@ -179,7 +179,7 @@ range(datalocal$Z) # 9.714853 63.537480 -> 9.728229 63.679834 after coord cor
 
 datalocal[Z>max(Light$Z),]
 
-datalocal <- datalocal[Z<max(Light$Z),] # remove trees too tall
+# datalocal <- datalocal[Z<max(Light$Z),] # remove trees too tall
 
 
 # datalocal

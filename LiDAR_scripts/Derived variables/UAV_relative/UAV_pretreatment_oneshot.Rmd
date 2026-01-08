@@ -42,6 +42,7 @@ library(data.table)
 # source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/TranslateTraj.R")
 # source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ComputeScanAngle.R")
 ```
+
 ## Full
 ```{r}
 # local <- "Y:/users/VincyaneBadouard/Lidar/HovermapUAV2023/"

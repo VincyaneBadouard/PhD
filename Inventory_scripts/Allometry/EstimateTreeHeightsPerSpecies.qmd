@@ -74,7 +74,7 @@ Variables :
 match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv") # 399
 
 length(unique(match$ScientificName)) # 399
-length(unique(Inventory$ScientificName)) # 725
+# length(unique(Inventory$ScientificName)) # 725
 725-399 # 326
 (326/725)*100
 
@@ -85,11 +85,6 @@ same_sp <- match %>%
 other_sp <- data.frame(species_noSing = c("A", "B", "C", "D"),
                        dbh.y = 30,
                        HC = 30)
-```
-```{r}
-communityallom <- Inventory %>% 
-  filter(!ScientificName %in% unique(match$ScientificName))
-(nrow(communityallom)/nrow(Inventory))*100 # 23% of indiv have been estimated by a community allometry (11,177 trees)
 ```
 
 # Cleaned inventory data
@@ -106,6 +101,11 @@ Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv"
 Inventory <- bind_rows(Understory, Adults)
 
 nrow(Inventory) == nrow(Understory) + nrow(Adults) # 47850
+```
+```{r, eval=F}
+communityallom <- Inventory %>% 
+  filter(!ScientificName %in% unique(match$ScientificName))
+(nrow(communityallom)/nrow(Inventory))*100 # 23% of indiv have been estimated by a community allometry (11,177 trees)
 ```
 
 # Modify inventory for predictions
@@ -127,7 +127,7 @@ length(unique((Inventory %>% filter(is.na(Inventory$species_noSing)))$Scientific
 all(sort(unique(Inventory$species_noSing)) == sort(unique(match$species_noSing))) # TRUE
 match$species_noSing[!match$species_noSing %in% unique(Inventory$species_noSing)] # 0
 ```
-```{r}
+```{r, eval=F}
 H_allometry_df <- Inventory %>% 
   select(ScientificName, species_noSing) %>% 
   unique() %>% 
@@ -161,7 +161,7 @@ plot(CHM) ; plot(CHMPP_median30cir)
 ```
 
 ```{r}
-Inventory_sf <- Inventory %>% 
+Inventory_sf <- Inventory %>% # as sf
   filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(CHM))
@@ -169,7 +169,7 @@ Inventory_sf <- Inventory %>%
 LCH <- raster::extract(CHMPP_median30cir, Inventory_sf) %>% 
   rename(HC = focal_median) %>% dplyr::select(-ID)
 
-Inventory <- Inventory %>% 
+Inventory <- Inventory %>% # add LCH to inventory
   cbind(LCH)
 
 ```
@@ -194,8 +194,8 @@ other_sp <- Inventory %>%
 nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```
 
-```{r}
-same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
+```{r prediction}
+same_sp_pred <- brms::predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
 same_sp$TreeHeight <- same_sp_pred[,1]
 range(same_sp$TreeHeight) #  2.003142 49.087198 -> 2.034959 49.109834 apres coord cor
 ```
