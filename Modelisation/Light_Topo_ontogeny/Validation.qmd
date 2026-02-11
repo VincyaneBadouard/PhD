@@ -24,7 +24,7 @@ muche <- read_csv(paste(PATH, "/Light_ontogenic_trajectories.csv", sep =''))
 Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>% 
   filter(OurSpecies) %>% 
   select(-OurSpecies, -`...11`) %>%
-  select(Species, Temperament)
+  select(Species, Temperament, SuccessionalStatus)
 # mutate(Species = str_replace(Species, " ", "_"))
 ```
 
@@ -152,3 +152,275 @@ no significant effect -> shade-light, shade-intermediate
 intermediate -> shade-light
 Sciaphile -> shade, shade-light, light-shade, shade-intermediate, generalist
 Heliophilous -> shade-light, generalist-intermediate, intermediate-light, light-shade-light, intermediate-shade-light, light-shade, shade-intermediate
+
+# Light pref vs growth
+```{r}
+sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
+datap <- read_csv(paste(PATH, "/dataplot.csv",sep=''))
+```
+
+# Compare with growth rate
+Schmitt et al., 2023
+O vs Gmax, H vs Gmax
+```{r}
+growth <- read_delim("D:/Mes Donnees/PhD/growthfull_S_Schmitt.tsv", 
+                     delim = "\t", escape_double = FALSE, 
+                     trim_ws = TRUE)  %>% 
+  # select(idTree, species, gmax) %>% 
+  # mutate(species = str_replace(species, " ", "_")) %>%
+  mutate(ScientificName_c = sub("\\..*", "", species)) %>%
+  mutate(SubSpecies = str_extract(species,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = species,
+         species = ScientificName_c) %>%
+  mutate(species = str_remove(species," subsp")) %>%
+  mutate(species = str_remove(species," var")) %>%
+  mutate(species = str_replace(species, "Symphonia sp", "Symphonia sp.1"))
+
+growth <- growth %>% # several measurement per species
+  group_by(species) %>% 
+  summarise(Gmax = exp(median(log(gmax))),
+            Sd = sd(gmax)) %>% 
+  separate(species, sep = ".subsp.", into = c("species", "Subspecies"), remove = F) %>% 
+  mutate(species = data.table::tstrsplit(species, split = ".var\\.")[[1]])
+
+# growth$species[!growth$species %in% datap$Species]
+
+sum(growth$species %in% datap$Species)
+```
+
+```{r}
+test <- datap %>% 
+  filter(parameter=='O'& Sg_effect) %>% # & Sg_effect (59 sp)
+  left_join(growth, by = c("Species"="species")) %>% # 42 match attendu
+  mutate(DBH = factor(DBH, levels = c("1-3","3-10","10-25",">25")))
+
+ggplot(test, aes(x=m, y=Gmax)) +
+  theme_minimal() + 
+  geom_errorbar(aes(ymin=Gmax-Sd, ymax=Gmax+Sd), col = "grey", width=.2) +
+  geom_point() +
+  coord_flip() +
+  # scale_y_continuous(trans="log") +
+  facet_grid(~ DBH) +
+  ggpubr::stat_cor(method = "pearson", label.x = 0.2, label.y = 0, size= 3) +
+  labs(x = "Light optimum", y = "Species median growth potential")
+
+ggsave("Gmax_O.png", path = PATH,
+       width = 18, height = 10, units = "cm", dpi=800, bg="white")
+
+```
+# Gmax, Dopt, ks
+```{r}
+Dopt <- read_delim("~/PhD/dopt_S_Schmitt.tsv", 
+                   delim = "\t", escape_double = FALSE, 
+                   trim_ws = TRUE) %>% 
+  unite(Genus, Species, col = "Species", sep = " ", remove = T) %>% 
+  mutate(ScientificName_c = sub("\\..*", "", Species)) %>%
+  mutate(SubSpecies = str_extract(Species,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = Species,
+         Species = ScientificName_c) %>%
+  mutate(Species = str_remove(Species," subsp")) %>%
+  mutate(Species = str_remove(Species," var")) %>%
+  mutate(Species = str_replace(Species, "Symphonia sp", "Symphonia sp.1")) %>% 
+  select(Species, dopt)
+
+Ks <- read_delim("~/PhD/ks_S_Schmitt.tsv", 
+                   delim = "\t", escape_double = FALSE, 
+                   trim_ws = TRUE) %>% 
+  unite(Genus, Species, col = "Species", sep = " ", remove = T) %>% 
+  mutate(ScientificName_c = sub("\\..*", "", Species)) %>%
+  mutate(SubSpecies = str_extract(Species,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = Species,
+         Species = ScientificName_c) %>%
+  mutate(Species = str_remove(Species," subsp")) %>%
+  mutate(Species = str_remove(Species," var")) %>%
+  mutate(Species = str_replace(Species, "Symphonia sp", "Symphonia sp.1")) %>% 
+  rename(Ks = mean) %>% 
+  select(Species, Ks) %>% 
+  group_by(Species) %>% 
+  summarise(Ks = exp(median(log(Ks))),
+            Sd = sd(Ks)) 
+
+unique(GD$Categories)
+
+GD <- muche %>% 
+  mutate(Species = str_replace(Species, "_", " ")) %>%
+  left_join(growth, by = c("Species"="species")) %>% 
+  left_join(Dopt, by = "Species") %>% 
+  left_join(Ks, by = "Species") %>% 
+  # arrange(dopt, Gmax) %>%
+  # mutate(Categories = factor(Categories))
+  mutate(Categories = factor(Categories,
+                             levels = c("light-shade-light",
+                                        "intermediate-light",
+                                        "intermediate-shade-light",
+                                        "light-shade",
+                                        "shade-light",
+                                        "shade-intermediate",
+                                        "shade",
+                                        "generalist-intermediate",
+                                        "generalist")))
+
+ggplot(GD, aes(y=Gmax, x=dopt, col=Categories)) +
+  theme_minimal() + 
+  geom_point() +
+  scale_color_manual(values = c("shade-light" = "#f1c232",
+                                "shade" = "#5c40a6",
+                                "shade-intermediate" = "#fc4e07",
+                                "intermediate-light" = "#bf9000",
+                                "intermediate-shade-light" = "#d00069",
+                                "light-shade-light" = "#00afbb",
+                                "light-shade" = "#009e73",
+                                "generalist-intermediate" = "grey",
+                                "generalist" = "black")) +
+  labs(x = "Species size at maximum growth rate (Dopt)",
+       y = "Species median growth potential (Gmax)", col= "Light temperament")
+
+ggsave("Gmax_Dopt_temperament.png", path = PATH,
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
+
+ggplot(GD, aes(y=Gmax, x=Ks, col=Categories)) +
+  theme_minimal() + 
+  geom_point() +
+  scale_color_manual(values = c("shade-light" = "#f1c232",
+                                "shade" = "#5c40a6",
+                                "shade-intermediate" = "#fc4e07",
+                                "intermediate-light" = "#bf9000",
+                                "intermediate-shade-light" = "#d00069",
+                                "light-shade-light" = "#00afbb",
+                                "light-shade" = "#009e73",
+                                "generalist-intermediate" = "grey",
+                                "generalist" = "black")) +
+  labs(x = "Ontogenetic variation in growth rate (Ks)",
+       y = "Species median growth potential (Gmax)", col= "Light temperament")
+
+ggsave("Gmax_Ks_temperament.png", path = PATH,
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+```{r}
+
+GD_13 <- test %>% 
+  filter(DBH == "1-3") %>%
+  left_join(Dopt, by = "Species") 
+
+ggplot(GD_13, aes(y=Gmax, x=dopt, col=m)) +
+  theme_minimal() + 
+  geom_point() +
+  scale_colour_viridis_c(begin =0.45, lim = c(-7,0), breaks = log(c(0.1, 1,5,15,100)/100), labels = ~round(exp(.)*100,2)) +
+    # facet_grid(~ DBH) +
+  labs(x = "Species size at maximum growth rate (Dopt)",
+       y = "Species median growth potential (Gmax)", col= "Light optimum at 1-3 cm DBH") #  at 1-3 cm DBH
+
+ggsave("Gmax_Dopt_temperament_DBH13.png", path = PATH,
+       width = 15, height = 10, units = "cm", dpi=800, bg="white") # width = 20, height = 10
+```
+
+
+# Compare with succesionnal status
+```{r}
+unique(new$SuccessionalStatus)
+# "Pioneer"
+# "Primary forest understorey species"   
+# "Fast growing\nearly successional"
+# "Primary forest species that form mature forest canopy"
+
+# "Late successional" : "Non-pioneer", "Fast growing late successional", "Slow growing late successional"  
+```
+
+```{r}
+new <- test %>%
+  left_join(Experts, by = "Species") %>% # 23 sp
+  mutate(SuccessionalStatus =
+           recode(SuccessionalStatus,
+                  "Primary forest understorey species" = "Primary forest\nunderstorey species",
+                  "Primary forest species that form mature forest canopy" = "Primary forest species\nthat form mature forest canopy", 
+                  "Fast growing late successional" = "Fast growing\nlate successional",
+                  "Slow growing late successional" = "Slow growing\nlate successional"
+                  # "Non-pioneer" = "Late successional",
+                  # "Fast growing late successional" = "Late successional",
+                  # "Slow growing late successional" = "Late successional"
+           )) %>% 
+  mutate(SuccessionalStatus = ifelse(Species %in% c("Pogonophora schomburgkiana", "Talisia mollis"), NA, SuccessionalStatus)) %>% 
+  # mutate(SuccessionalStatus =
+  #          factor(SuccessionalStatus,
+  #                 levels = c("Late successional",
+  #                            "Primary forest\nunderstorey species",
+  #                            "Primary forest species\nthat form mature forest canopy",
+  #                            "Fast growing\nearly successional",
+  #                            "Pioneer")))
+  mutate(SuccessionalStatus =
+           factor(SuccessionalStatus,
+                  levels = c("Non-pioneer",
+                             "Slow growing\nlate successional",
+                             "Fast growing\nlate successional",
+                             "Primary forest\nunderstorey species",
+                             "Primary forest species\nthat form mature forest canopy",
+                             "Fast growing\nearly successional",
+                             "Pioneer")))
+label <- new %>% 
+  group_by(SuccessionalStatus, DBH) %>% 
+  summarise(N = paste("N: ", n()))
+
+ggplot(new, aes(x=SuccessionalStatus, y= m)) +
+  theme_minimal() + 
+  geom_boxplot() +
+  geom_text(data = label, aes(label = N, x= SuccessionalStatus),
+            y = Inf, vjust = 1.5, show.legend = F) +
+  scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  facet_wrap(~ DBH, ncol = 1, nrow=4) +
+  labs(y = "Light optimum", x = "Species successional status")
+
+ggsave("Succession_O.png", path = PATH,
+       width = 30, height = 25, units = "cm", dpi=800, bg="white")
+
+new %>% 
+  filter(DBH == "1-3") %>% 
+  ggplot(aes(x=SuccessionalStatus, y= m)) +
+  theme_minimal() + 
+  geom_boxplot() +
+  geom_text(data = label[label$DBH == "1-3",], aes(label = N, x= SuccessionalStatus),
+            y = Inf, vjust = 1.5, show.legend = F) +
+  scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  facet_wrap(~ DBH, ncol = 1, nrow=4) +
+  labs(y = "Light optimum", x = "Species successional status")
+
+ggsave("Succession_O_1-3.png", path = PATH,
+       width = 32, height = 8, units = "cm", dpi=800, bg="white")
+```
+
+# Compare with Vcmax
+Amax : Maximum net photosynthesis rate
+Vcmax25 : the maximum rate of carboxylation à 25°C for estimating CO2 assimilation (A) (fixation du carbone)
+```{r}
+Vcmax_Ver <- read_csv("~/PhD/Vcmax_Verryckt_et_al_reanalysees.csv") %>% 
+  rename(Species=species) %>% 
+  select(Species, Vcmax25)
+Vcmax_Lamour <- read_csv("~/PhD/Vcmax25_Lamour.csv") %>% 
+  select(Species, Vcmax25)
+
+Vcmax <- Vcmax_Ver %>%
+  bind_rows(Vcmax_Lamour) %>% 
+  group_by(Species) %>% 
+  summarise(Vcmax = median(Vcmax25),
+            Sd = sd(Vcmax25)) 
+
+test <- datap %>% 
+  filter(parameter=='O'& Sg_effect) %>% # & Sg_effect ( sp)
+  left_join(Vcmax, by = "Species") %>%
+  mutate(DBH = factor(DBH, levels = c("1-3","3-10","10-25",">25")))
+
+ggplot(test, aes(x=m, y=Vcmax)) +
+  theme_minimal() + 
+  geom_errorbar(aes(ymin=Vcmax-Sd, ymax=Vcmax+Sd), col = "grey", width=.2) +
+  geom_point() +
+  coord_flip() +
+  # scale_y_continuous(trans="log") +
+  ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 2) +
+    facet_grid(~ DBH) +
+  labs(x = "Light optimum", y = "Species maximum rate of carboxylation at 25°C (Vcmax)")
+
+ggsave("Vcmax_O.png", path = PATH,
+       width = 18, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+

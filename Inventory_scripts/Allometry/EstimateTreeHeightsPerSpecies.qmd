@@ -194,17 +194,32 @@ other_sp <- Inventory %>%
 nrow(Inventory) == nrow(same_sp) + nrow(other_sp)
 ```
 
-```{r prediction}
-same_sp_pred <- brms::predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median
+```{r prediction with posterior median}
+same_sp_pred <- brms::predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median, mean if F
 same_sp$TreeHeight <- same_sp_pred[,1]
 range(same_sp$TreeHeight) #  2.003142 49.087198 -> 2.034959 49.109834 apres coord cor
 ```
+
+```{r prediction with 100 posterior values}
+y_rep <- posterior_predict(fit, newdata = same_sp, ndraws = 100) # Génère des valeurs simulées de la variable réponse, 1 prédiction par draw du posterior
+```
+
 ## Plot
 ```{r}
 ggplot(same_sp, aes(x=dbh.y, y=TreeHeight, col = species_noSing)) + 
   geom_point()+
   labs(y = "H model 4 Michaelis Menten", x="DBH (cm)") +
   guides(color = F)
+```
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
 ```
 
 # Predict tree height for species absent of the Claudia's selection (works)

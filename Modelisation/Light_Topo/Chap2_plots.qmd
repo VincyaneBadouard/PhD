@@ -178,7 +178,6 @@ ggsave("a_tau_biplot.png", path = PATH,
        width = 18, height = 18, units = "cm", dpi=800, bg="white")
 
 ```
-
 # Method plot
 ```{r}
 #| fig-width: 10
@@ -330,14 +329,22 @@ ggsave("Light_topo_DBHQ95_checkstrategies.png", path = PATH,
 
 # Compare with growth rate
 Schmitt et al., 2023
+O vs Gmax, H vs Gmax
 ```{r}
-growth <- read_delim("C:/Users/badouard/Downloads/growthfull.tsv", 
+growth <- read_delim("D:/Mes Donnees/PhD/growthfull_S_Schmitt.tsv", 
                      delim = "\t", escape_double = FALSE, 
-                     trim_ws = TRUE)
+                     trim_ws = TRUE)  %>% 
+  # select(idTree, species, gmax) %>% 
+  mutate(species = str_replace(species, " ", "_")) %>%
+  mutate(ScientificName_c = sub("\\..*", "", species)) %>%
+  mutate(SubSpecies = str_extract(species,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = species,
+         species = ScientificName_c) %>%
+  mutate(species = str_remove(species," subsp")) %>%
+  mutate(species = str_remove(species," var")) %>%
+  mutate(species = str_replace(species, "Symphonia_sp", "Symphonia_sp.1"))
 
-
-growth <- growth %>% 
-  # mutate(species = str_replace(species, " ", "_")) %>% 
+growth <- growth %>% # several measurement per species
   group_by(species) %>% 
   summarise(Gmax = exp(median(log(gmax))),
             Sd = sd(gmax)) %>% 
@@ -346,10 +353,9 @@ growth <- growth %>%
 
 # growth$species[!growth$species %in% datap$Species]
 
-
 test <- datap %>% 
-  filter(parameter=='O'& Sg_effect) %>% # & Sg_effect
-  left_join(growth, by = c("Species"="species"))
+  filter(parameter=='O'& Sg_effect) %>% # & Sg_effect (59 sp)
+  left_join(growth, by = c("ScientificName"="species")) # 42 match attendu
 
 ggplot(test, aes(x=TreeHeightQ95, y=Gmax)) +
   theme_minimal() + 
@@ -360,6 +366,9 @@ ggplot(test, aes(x=TreeHeightQ95, y=Gmax)) +
   ggpubr::stat_cor(method = "pearson", label.x = 40, label.y = 0) +
   labs(x = "Species Q95% tree height (m)", y = "Species median growth potential")
 
+ggsave("Gmax_Height.png", path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+
 ggplot(test, aes(x=m, y=Gmax)) +
   theme_minimal() + 
   geom_errorbar(aes(ymin=Gmax-Sd, ymax=Gmax+Sd), col = "grey", width=.2) +
@@ -368,5 +377,167 @@ ggplot(test, aes(x=m, y=Gmax)) +
   # scale_y_continuous(trans="log") +
   ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 2) +
   labs(x = "Light optimum", y = "Species median growth potential")
+
+ggsave("Gmax_O.png", path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+
 ```
 
+# Gmax, Dopt, Ks
+```{r}
+Dopt <- read_delim("~/PhD/dopt_S_Schmitt.tsv", 
+                   delim = "\t", escape_double = FALSE, 
+                   trim_ws = TRUE) %>% 
+  unite(Genus, Species, col = "Species", sep = " ", remove = T) %>% 
+  mutate(ScientificName_c = sub("\\..*", "", Species)) %>%
+  mutate(SubSpecies = str_extract(Species,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = Species,
+         Species = ScientificName_c) %>%
+  mutate(Species = str_remove(Species," subsp")) %>%
+  mutate(Species = str_remove(Species," var")) %>%
+  mutate(Species = str_replace(Species, "Symphonia sp", "Symphonia sp.1")) %>% 
+  select(Species, dopt)
+
+Ks <- read_delim("~/PhD/ks_S_Schmitt.tsv", 
+                 delim = "\t", escape_double = FALSE, 
+                 trim_ws = TRUE) %>% 
+  unite(Genus, Species, col = "Species", sep = " ", remove = T) %>% 
+  mutate(ScientificName_c = sub("\\..*", "", Species)) %>%
+  mutate(SubSpecies = str_extract(Species,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = Species,
+         Species = ScientificName_c) %>%
+  mutate(Species = str_remove(Species," subsp")) %>%
+  mutate(Species = str_remove(Species," var")) %>%
+  mutate(Species = str_replace(Species, "Symphonia sp", "Symphonia sp.1")) %>% 
+  rename(Ks = mean) %>% 
+  select(Species, Ks) %>% 
+  group_by(Species) %>% 
+  summarise(Ks = exp(median(log(Ks))),
+            Sd = sd(Ks)) 
+
+unique(GD$Categories)
+
+GD <- test %>% 
+  left_join(Dopt, by = "Species") %>% 
+  left_join(Ks, by = "Species") 
+
+ggplot(GD, aes(y=Gmax, x=dopt, col=m)) +
+  theme_minimal() + 
+  geom_point() +
+  scale_colour_viridis_c(begin =0.45, lim = c(-7,0), breaks = log(c(0.1, 1,5,15,100)/100), labels = ~round(exp(.)*100,2)) +
+  labs(x = "Species size at maximum growth rate (Dopt)",
+       y = "Species median growth potential (Gmax)", col= "Light optimum")
+
+ggsave("Gmax_Dopt_temperament.png", path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+
+ggplot(GD, aes(y=Gmax, x=Ks, col=m)) +
+  theme_minimal() + 
+  geom_point() +
+  scale_colour_viridis_c(begin =0.45, lim = c(-7,0), breaks = log(c(0.1, 1,5,15,100)/100), labels = ~round(exp(.)*100,2)) +
+  labs(x = "Ontogenetic variation in growth rate (Ks)",
+       y = "Species median growth potential (Gmax)", col= "Light optimum")
+
+ggsave("Gmax_Ks_temperament.png", path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+```
+
+# Compare with succesionnal status
+```{r}
+Experts <- read_csv("~/PhD/Inventories/Data/Database_niche_littérature.csv") %>% 
+  filter(OurSpecies) %>% 
+  select(-OurSpecies, -`...11`) %>%
+  select(Species, Temperament, SuccessionalStatus)
+
+Experts %>% 
+  filter(!is.na(SuccessionalStatus)) %>% # 23 sp
+  filter(!Species %in% test$Species)
+
+# unique(Experts$SuccessionalStatus)
+# "Pioneer"
+# "Primary forest understorey species"   
+# "Fast growing\nearly successional"
+# "Primary forest species that form mature forest canopy"
+
+# "Late successional" : "Non-pioneer", "Fast growing late successional", "Slow growing late successional"  
+```
+
+```{r}
+new <- test %>%
+  left_join(Experts, by = "Species") %>% # 23 sp
+  mutate(SuccessionalStatus =
+           recode(SuccessionalStatus,
+                  "Primary forest understorey species" = "Primary forest\nunderstorey species",
+                  "Primary forest species that form mature forest canopy" = "Primary forest species\nthat form mature forest canopy", 
+                  "Fast growing late successional" = "Fast growing\nlate successional",
+                  "Slow growing late successional" = "Slow growing\nlate successional"
+                  # "Non-pioneer" = "Late successional",
+                  # "Fast growing late successional" = "Late successional",
+                  # "Slow growing late successional" = "Late successional"
+           )) %>% 
+  # mutate(SuccessionalStatus =
+  #          factor(SuccessionalStatus,
+  #                 levels = c("Late successional",
+  #                            "Primary forest\nunderstorey species",
+  #                            "Primary forest species\nthat form mature forest canopy",
+  #                            "Fast growing\nearly successional",
+  #                            "Pioneer")))
+  mutate(SuccessionalStatus = ifelse(Species %in% c("Pogonophora schomburgkiana", "Talisia mollis"), NA, SuccessionalStatus)) %>%
+  mutate(SuccessionalStatus =
+           factor(SuccessionalStatus,
+                  levels = c("Non-pioneer",
+                             "Slow growing\nlate successional",
+                             "Fast growing\nlate successional",
+                             "Primary forest\nunderstorey species",
+                             "Primary forest species\nthat form mature forest canopy",
+                             "Fast growing\nearly successional",
+                             "Pioneer")))
+
+label <- new %>% 
+  group_by(SuccessionalStatus) %>% 
+  summarise(N = paste("N: ", n()))
+
+ggplot(new, aes(x=SuccessionalStatus, y= m)) +
+  theme_minimal() + 
+  geom_boxplot() +
+  geom_text(data = label, aes(label = N, x= SuccessionalStatus),
+            y = Inf, vjust = 1.5, show.legend = F) +
+  scale_y_continuous("O median (transmittance %)", n.breaks = 10, labels = ~round(exp(.)*100,2)) + # delog
+  labs(y = "Light optimum", x = "Species successional status")
+
+ggsave("Succession_O.png", path = PATH,
+       width = 32, height = 8, units = "cm", dpi=800, bg="white")
+```
+
+# Compare with Vcmax
+Amax : Maximum net photosynthesis rate
+Vcmax25 : the maximum rate of carboxylation à 25°C for estimating CO2 assimilation (A) (fixation du carbone)
+```{r}
+Vcmax_Ver <- read_csv("~/PhD/Vcmax_Verryckt_et_al_reanalysees.csv") %>% 
+  rename(Species=species) %>% 
+  select(Species, Vcmax25)
+Vcmax_Lamour <- read_csv("~/PhD/Vcmax25_Lamour.csv") %>% 
+  select(Species, Vcmax25)
+
+Vcmax <- Vcmax_Ver %>%
+  bind_rows(Vcmax_Lamour) %>% 
+  group_by(Species) %>% 
+  summarise(Vcmax = median(Vcmax25),
+            Sd = sd(Vcmax25)) 
+
+test <- datap %>% 
+  filter(parameter=='O'& Sg_effect) %>% # & Sg_effect ( sp)
+  left_join(Vcmax, by = "Species") #  match attendu
+
+ggplot(test, aes(x=m, y=Vcmax)) +
+  theme_minimal() + 
+  geom_errorbar(aes(ymin=Vcmax-Sd, ymax=Vcmax+Sd), col = "grey", width=.2) +
+  geom_point() +
+  coord_flip() +
+  # scale_y_continuous(trans="log") +
+  ggpubr::stat_cor(method = "pearson", label.x = 0, label.y = 2) +
+  labs(x = "Light optimum", y = "Maximum rate of carboxylation at 25°C (Vcmax)")
+
+ggsave("Vcmax_O.png", path = PATH,
+       width = 10, height = 10, units = "cm", dpi=800, bg="white")
+```

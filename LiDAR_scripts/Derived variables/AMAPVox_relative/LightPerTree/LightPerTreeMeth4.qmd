@@ -197,8 +197,8 @@ result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
                     query = datalocal[, .(X, Y, Z)], # [1,], # point of interest
                     # The maximum number of nearest neighbours to compute
                     k = 8, # including target # 5, 8, 9, 15, 27, 30, 35, 35
-                    # !!!mettre 8 et augmenter potentiellment le radius pour éviter les NA en bord de scene 
-                    searchtype = "radius", radius = 4)
+                    # !!!mettre 8 (pas plus pour ne pas "tartiner"
+                    searchtype = "radius", radius = 4) # pour éviter les NA en bord de scene 
 # k = 30, radius = 3
 # k = 7, radius = 5
 
