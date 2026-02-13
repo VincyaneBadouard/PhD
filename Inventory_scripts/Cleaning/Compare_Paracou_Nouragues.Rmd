@@ -1,0 +1,76 @@
+---
+title: "Compare_Paracou_Nouragues"
+author: "Vincyane Badouard"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+Paracou - P16:
+4 ha : 19,20,14,15 
+9 ha : 13,14,15,18,19,20,23,24,25
+
+Pour les  4 1ers ha les arbres CIRAD n'ont pas été mesurés par l'équipe ALT, ce sont les DBH du dataset CIRAD 2020.
+
+Pour les autres subplots, les DBH des arbres CIRAD ont été mesuré par l'équipe ALT.
+
+Nouragues - Petit Plateau:
+202,203,204,212,213,214
+
+# Packages
+```{r Setup, include = F}
+library(tidyverse)
+library(readr)
+
+# remotes::install_github("EcoFoG/EcoFoG", build_vignettes = F)
+# library(EcoFoG)
+```
+
+# Import inventory data
+```{r}
+Paracou <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
+  select(idTree, ScientificName)
+
+Paracou <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129.csv") %>% 
+  select(IdTree, ScientificName)
+  
+Nouragues <-  read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_ALT_20251115.csv") %>% 
+  select(IdTree, ScientificName)
+
+sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+```
+
+```{r}
+Nouragues <- Nouragues %>% 
+  mutate(ScientificName_c = sub("\\..*", "", ScientificName)) %>%
+  mutate(SubSpecies = str_extract(ScientificName,"(?<=\\.).*")) %>%
+  rename(ScientificName_old = ScientificName,
+         ScientificName = ScientificName_c) %>%
+  mutate(ScientificName = str_remove(ScientificName,"_subsp")) %>%
+  mutate(ScientificName = str_remove(ScientificName," var")) %>%
+  mutate(ScientificName = str_replace(ScientificName, "Symphonia_sp", "Symphonia_sp.1")) %>% 
+  mutate(ScientificName = recode(ScientificName,
+                                 "Endilcheria_multiflora" = "Endlicheria_melinonii",
+                                 "Maytenus_oblongata" = "Monteverdia_oblongata",
+                                 "Garcinia_benthaminia" = "Garcinia_benthamiana",
+                                 "Eugenia_sp.FG9" = "Eugenia_sp.FG9-Holst",
+                                 "Sloanea_sp.8" = "Sloanea_sp.8-CAY",
+                                 "Sloanea_sp.14" = "Sloanea_sp.14-CAY",
+                                 "Inga_sp.18" = "Inga_sp.18-CAY")) %>% 
+  mutate(ScientificName = ifelse(ScientificName=="Annona_amboty", "Annona_ambotay", ScientificName)) %>%
+  mutate(ScientificName = str_replace(ScientificName, "Lecithidaceae", "Lecythidaceae"))
+```
+
+```{r}
+sp[!sp %in% Nouragues$ScientificName] # 7 sp absentes aux Nouragues parmi les 75 sp d'intéret 
+```
+
+```{r}
+length(unique(na.omit(Paracou$ScientificName))) # 674
+length(unique(na.omit(Nouragues$ScientificName))) # 801
+
+sum(unique(na.omit(Paracou$ScientificName)) %in% Nouragues$ScientificName) # 413 sp de Paracou communes aux Nouragues
+(413/674)*100 # 61% des sp de Paracou sont communes aux Nouragues (413 sp)
+(413/801)*100 # 52% des sp des Nouragues sont communes à Paracou
+
+```

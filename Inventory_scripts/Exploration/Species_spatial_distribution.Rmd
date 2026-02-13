@@ -38,13 +38,16 @@ sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Interest
 Inventory <- read_csv(
   "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv"
 ) %>% 
-  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>%# 40 928 
+  # filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>%# 40 928 
   arrange(DBHcor)
 ```
 
 # Import environmental data
 HAND : Height Above the Nearest Drainage
 ```{r}
+
+Hillshade <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_hs.tif")
+
 # Topography
 MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
 plot(MNT)
@@ -58,7 +61,7 @@ TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_ALT_TWI_5m.tif")
 elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
 
 # Zone
-# P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
+# P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>%
 #   st_set_crs(st_crs(MNT))
 P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/ALT.shp")) %>% 
   st_set_crs(st_crs(MNT))
@@ -116,13 +119,41 @@ ggplot() +
   theme_classic()
 
 ```
+# On the Hillshade
+```{r}
+data <- Inventory %>% 
+  filter(DBHcor >=10) %>% 
+  filter(!is.na(Xutm)) %>% 
+  filter(!is.na(Yutm)) %>% 
+  filter(ScientificName=="Oxandra_asbeckii") %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(MNT))
+
+ggplot() + 
+  geom_spatraster(data = Hillshade, aes(fill = hs)) +
+  scale_fill_gradientn(name = "Hillshade",
+                       colors = hcl.colors(5, "Grays", rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  geom_sf(data = data, size = 2) + # mapping = aes(colour = DBHcor)
+  labs(title = "Oxandra asbeckii distribution") +
+  theme_classic() +
+  theme(title= element_text(size=16),axis.text= element_text(size=16),
+        legend.title= element_text(size=16), legend.text= element_text(size=16)) +
+  coord_sf()
+
+ggsave("Spatial_distribution_of_Oxandra_asbeckii_on_hillshade.png",
+       path = Path,
+       width = 15, height = 10)
+```
 
 # On the MNT 
 ```{r, eval = F}
 data <- Inventory %>% 
+  filter(DBHcor >=10) %>% 
   filter(!is.na(Xutm)) %>% 
   filter(!is.na(Yutm)) %>% 
-  filter(ScientificName=="Symphonia_globulifera") %>% 
+  filter(ScientificName=="Oxandra_asbeckii") %>% 
   st_as_sf(coords = c("Xutm", "Yutm")) %>% 
   st_set_crs(st_crs(MNT))
 
@@ -132,20 +163,25 @@ ggplot() +
   #                      colors = terrain.colors(30, rev=T, alpha = 0.9),
   #                      na.value="white") +
   scale_fill_gradientn(name = "Elevation (m)",
-                       colors = gray.colors(4, start = 0.9, end = 0),
+                       colors = gray.colors(2, start = 0.9, end = 0, alpha=1),
                        na.value="white") +
+  # scale_fill_gradientn(name = "Elevation (m)",
+  #                      colors = gray.colors(4, start = 0.9, end = 0),
+  #                      na.value="white") +
   geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
-  geom_sf(data, mapping = aes(colour = DBHcor), size = 3) +
-  viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # trans = "log", 
+  geom_sf(data = data, size = 2) + # , mapping = aes(colour = DBHcor),
+  # viridis::scale_colour_viridis(name = "DBH (cm)", direction=-1, labels=round) + # trans = "log", 
   # scale_colour_gradient(name = "DBH (cm)",
   #                       low = "#56B1F7", high = "#132B43") +
-  labs(title = "Symphonia globulifera distribution") +
+  labs(title = "Oxandra asbeckii distribution") +
   theme_classic() +
   theme(title= element_text(size=16),axis.text= element_text(size=16),
         legend.title= element_text(size=16), legend.text= element_text(size=16)) +
   coord_sf()
 
-# ggsave("Spatial_distribution_of_Symphonia_globulifera_on_MNT.png", width = 15, height = 10)
+ggsave("Spatial_distribution_of_Oxandra_asbeckii_on_MNT.png",
+       path = Path,
+       width = 10, height = 8)
 ```
 
 ## For each species

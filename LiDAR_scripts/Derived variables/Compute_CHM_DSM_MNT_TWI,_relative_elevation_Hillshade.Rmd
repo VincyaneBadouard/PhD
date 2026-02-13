@@ -362,6 +362,10 @@ P16_TWI <- Clip_raster(file_to_clip = "test/Paracou_TWI_5m.tif",
 P16_RE <- Clip_raster(file_to_clip = "test/re.tif",
                       mask = Plot16, 
                       outpout = "test/Paracou_P16_RelativeElev.tif")
+
+P16_hs <- Rslt <- Clip_raster(file_to_clip = "test/hs.tif",
+                               mask = Plot16, 
+                               outpout = "test/Paracou_P16_hs.tif")
 ```
 
 ## Plot the P16 rasters

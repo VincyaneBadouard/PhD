@@ -36,6 +36,8 @@ library(RColorBrewer)
 MNT <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_MNT.tif")
 TWI <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_TWI_5m.tif")
 elev <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_RelativeElev.tif")
+Hillshade <- terra::rast("D:/Mes Donnees/PhD/R_codes/PhD/test/Paracou_P16_hs.tif")
+
 
 # Zone
 P16 <- st_as_sf(raster::shapefile("D:/Mes Donnees/PhD/R_codes/PhD/test/Plot16.shp")) %>% 
@@ -66,6 +68,16 @@ crs(MNT) == crs(TWI); crs(MNT) == crs(elev); crs(MNT) == crs(TopoLevels) ; crs(M
 
 # Plot maps
 ```{r, eval = F}
+ggplot() + 
+  geom_spatraster(data = Hillshade, aes(fill = hs)) +
+  scale_fill_gradientn(name = "Hillshade",
+                       colors = hcl.colors(2, "Grays", rev=T),
+                       na.value="white") +
+  geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
+  theme_classic() +
+  ggtitle("Paracou P16 Hillshade - ALS 2022") + 
+  coord_sf()
+
 ggplot(TopoLevels) +
   geom_sf(data = TopoLevels, aes(fill = TopoTypeEn)) +
   geom_sf(data = sf::st_cast(P16, "LINESTRING")) +
