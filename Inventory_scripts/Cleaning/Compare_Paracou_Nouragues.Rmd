@@ -31,13 +31,30 @@ Paracou <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Parac
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
   select(idTree, ScientificName)
 
-Paracou <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129.csv") %>% 
-  select(IdTree, ScientificName)
+# Paracou <- read_csv("~/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129.csv") %>% 
+#   select(IdTree, ScientificName)
   
 Nouragues <-  read_csv("~/PhD/Inventories/Data/Understory/Nouragues/Nouragues_ALT_20251115.csv") %>% 
   select(IdTree, ScientificName)
 
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
+```
+
+```{r}
+nrow(Paracou[Paracou$Strategy=="Canopy species",])
+
+nrow(unique(Paracou[Paracou$Strategy=="Understory species","ScientificName"]))
+29/674*100
+
+Understory <- Paracou %>% 
+  filter(DBHcor<10) 
+  # filter(TreeHeight<=20)
+
+unique(Understory[is.na(Understory$Strategy),]$ScientificName)
+
+nrow(unique(Understory[Understory$Strategy=="Understory species"|is.na(Understory$Strategy),
+                       "ScientificName"]))/length(unique(Understory$ScientificName))
+
 ```
 
 ```{r}

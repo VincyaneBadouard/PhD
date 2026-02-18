@@ -1,0 +1,302 @@
+---
+title: "Light uncertainty tests"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+editor: source
+  markdown: 
+    wrap: 72
+code-fold: true
+execute: 
+  cache: true
+---
+Selected species with contrasted temperament and sufficiently abundant, with expert opinion:
+- Tachigali melinonii (186, **helio**, canopy species)
+- Anaxagorea dolichocarpa (938, **scia**, understory species)
+
+```{r setup, include=F}
+library(readr)
+library(terra)
+library(sf)
+library(tidyverse)
+library(tidybayes)
+library(brms)
+library(data.table)
+
+library(lidR)
+library(AMAPVox)
+```
+
+# Tree height uncertainty
+**//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia**
+```{r Claudia fit}
+load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model4_MM_dataCCmean.Rdata")
+fit <- fit2_MM4_5s_2023
+rm(fit2_MM4_5s_2023)
+# Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
+#          alpha ~ HC + 1 | species_noSing
+#          beta ~ 1 | species_noSing
+```
+
+```{r plot posteriors}
+"r_species_noSing__alpha[Tachigali.melinonii,Intercept]"  
+"r_species_noSing__beta[Tachigali.melinonii,Intercept]"
+
+# plot_data <- fit %>%
+#   spread_draws(r_species_noSing__alpha[Tachigali.melinonii,Intercept], r_species_noSing__beta[Tachigali.melinonii,Intercept]) %>%
+#   filter(Tachigali.melinonii == "Tachigali.melinonii")
+#   mutate(height = r_species_noSing__alpha /r_species_noSing__beta) # 
+# 
+# ggplot(plot_data, aes(y = `Tachigali.melinonii`, x = height)) +
+#   ggdist::stat_halfeye()
+
+plot(fit)
+plot(fit, variable = c("r_species_noSing__alpha[Tachigali.melinonii,Intercept]", "r_species_noSing__beta[Tachigali.melinonii,Intercept]"))
+```
+
+```{r Import data, message=F}
+Understory <- read.csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN_corcord.csv") %>% 
+  rename(idTree = IdTree) %>% # 36 311
+  rename(SubPlot = subplot)
+Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv") %>%  # 25 ha 11 539
+  mutate(idTree = as.character(idTree))
+
+Inventory <- bind_rows(Understory, Adults)
+```
+
+```{r Modify inventory for predictions}
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 399
+# Generated with Modify_data_for_predictions.Rmd
+
+Inventory <- Inventory %>% 
+  left_join(match, by= "ScientificName") %>% # add species_noSing
+  rename(dbh.y = DBHcor)
+```
+
+```{r Local canopy height (LCH)}
+# P16 25ha CHM 1m res (SpatRaster)
+CHM <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif")
+
+#  focal ("moving window") weight matrix   
+disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61, ncol=61)), 30, type = "circle") # 30m radius of the circle
+# with target tree
+disk_weights[disk_weights[]>0] <- 1
+
+# Calculate focal ("moving window") values for each cell
+CHMPP_median30cir <- focal(CHM, w=disk_weights, fun="median", na.policy="all",
+                           fillvalue=NA, expand=FALSE, silent=TRUE)
+# values in the focal window will be multiplied by the corresponding weight prior to 'fun' being applied.
+
+Inventory_sf <- Inventory %>% # as sf
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(CHM))
+
+LCH <- raster::extract(CHMPP_median30cir, Inventory_sf) %>% 
+  rename(HC = focal_median) %>% dplyr::select(-ID)
+
+Inventory <- Inventory %>% # add LCH to inventory
+  cbind(LCH)
+```
+
+```{r same vs other sp}
+same_sp <- Inventory %>% 
+  filter(!is.na(species_noSing)) # 36673
+
+other_sp <- Inventory %>% 
+  filter(is.na(species_noSing)) # 11177
+```
+
+```{r prediction with posterior median}
+same_sp_pred_1 <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median, mean if F
+same_sp$TreeHeight <- same_sp_pred_1[,1]
+range(same_sp$TreeHeight) #  2.003142 49.087198 -> 2.034959 49.109834 apres coord cor
+```
+
+```{r H prediction with 100 posterior values - same sp}
+same_sp_pred <- posterior_predict(fit, newdata = same_sp, ndraws = 10) # Génère des valeurs simulées de la variable réponse, 1 prédiction par draw du posterior
+# rows : 1:10 predictions
+# cols : 1:36673 trees
+
+same_sp_pred <- same_sp_pred %>% 
+  t() # inverse cols and rows
+
+colnames(same_sp_pred)[1:10] <- paste0("TreeHeight_", 1:10)
+
+same_sp <- bind_cols(same_sp, same_sp_pred)
+```
+
+```{r  H prediction with 100 posterior values - other sp}
+other_sp_pred <- posterior_predict(fit, newdata = other_sp, re_formula = NA, ndraws = 10)
+
+other_sp_pred <- other_sp_pred %>% 
+  t() # inverse cols and rows
+
+colnames(other_sp_pred)[1:10] <- paste0("TreeHeight_", 1:10)
+
+other_sp <- bind_cols(other_sp, other_sp_pred)
+```
+
+```{r Bind preds}
+pred <- same_sp %>%
+  bind_rows(other_sp) %>% 
+  rename(DBHcor = dbh.y)
+
+nrow(pred) == nrow(Inventory)
+length(unique(pred$ScientificName)) == length(unique(Inventory$ScientificName)) 
+```
+
+```{r Write data}
+write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv")
+# pred <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv") # 47,850
+
+```
+
+# Compute light for each tree height
+```{r Read light file}
+source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
+path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
+
+Light <- ReadLightFile(path, skiplines=9)
+
+setnames(Light, "Period 1", "Transmittance")
+
+Light <- Light[Transmittance>0 & Z>2,] # remove Z=2m because all is equal to 100%T (trees zutm >= 5.7)
+```
+
+```{r Extract Zutm for each tree}
+data <- pred %>% 
+  select(idTree, ScientificName, Strategy, Xutm, Yutm, SubPlot, DBHcor, contains("TreeHeight"))
+
+MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc") 
+crs(MNT) <- crs("EPSG:2972")
+
+datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
+datasf <- st_set_crs(datasf, st_crs(MNT)) 
+
+alt <- terra::extract(MNT, datasf) %>% # extract z
+  rename(Zutm = `MNT_0.5m_IRD_500m_Paracou_284000_579500`)
+
+data <- data %>% cbind(alt) %>% setDT()
+# data
+```
+
+```{r Coordinates in local positions (use VOP) as light file}
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_25ha.txt"))
+
+data <- setDT(data)
+
+matrix <- as.matrix(data[, `:=`(c = 0 , d = 1)][,.(Xutm, Yutm, c, d)]) # as matrix of the same dimensions, without Z
+
+datalocal <- matrix %*% t(VOP) # same dimensions
+
+datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
+names(datalocal) <- c("X","Y","Z")
+datalocal <- datalocal %>%
+  # cbind(data[,.-()]) %>%
+  cbind(data[,c("SubPlot", "idTree", "ScientificName", "Strategy", "Xutm", "Yutm", "Zutm", "DBHcor",
+                names(data)[grepl("TreeHeight", names(data))] ), with = FALSE])
+# datalocal
+```
+
+```{r Pivot}
+datalocal <- datalocal %>% 
+pivot_longer(cols = starts_with("TreeHeight"),
+  names_to = "Sample",
+  values_to = "TreeHeight") %>%
+  setDT()
+```
+
+```{r Coordinates 1m above each tree}
+datalocal[,Z := Z+TreeHeight+1] # zutm + tree height +1
+range(datalocal$Z) # 3.906876 68.748097
+
+datalocal[Z>max(Light$Z),] #> 66m, 9 tree height estimations too tall
+
+# datalocal <- datalocal[Z<max(Light$Z),] # remove trees too tall
+
+
+# datalocal
+```
+
+```{r}
+summary(Light[, .(X, Y, Z)]) # max z=66
+summary(datalocal[, .(X, Y, Z)]) # max tree height too big 68.7m
+```
+**changement : j'ai augmenté le radius de 4 à 5 pour avoir 8 voisins pour toutes les hauteurs d'arbres**
+```{r Light per tree height}
+# Get neighbors in immediate neighborhood (k  nearest voxels including target)
+result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
+                    query = datalocal[, .(X, Y, Z)], # [1,], # point of interest
+                    # The maximum number of nearest neighbours to compute
+                    k = 8, # including target # 5, 8, 9, 15, 27, 30, 35, 35
+                    # !!!mettre 8 (pas plus pour ne pas "tartiner"
+                    searchtype = "radius", radius = 5) # (4) pour éviter les NA en bord de scene 
+# k = 30, radius = 3
+# k = 7, radius = 5
+
+# une matrice où chaque ligne correspond à un point et contient les indices de ses voisins les plus proches
+index <- result$nn.idx # the near neighbour indices
+any(index==0)
+
+# Light <- tibble::rownames_to_column(Light, "Rowname")
+# Light[Rowname %in% c(8586286, 9077687, 8586285, 8585585, 8586987, 8586287, 9077686, 9076986, 9078388, 8094885, 9077688, 8585584, 8586986, 8585586, 8586988, 9076985, 9078387, 8094884, 8094184, 9076987, 8095586, 9078389, 8094886, 9569088, 8094183, 8095585, 8094185, 8095587, 8586284, 9569087),]
+
+# Compute light from local neighborhood :
+# each row of index is a point of interest
+
+fill.value <- apply(index, 1, function(i) Light[as.vector(i), mean(Transmittance)] # for a matrix 1 indicates rows
+)
+any(fill.value==0 | is.na(fill.value))
+
+datalocal$Transmittance <- fill.value  
+```
+
+Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittance
+```{r Write data}
+datalocal <- datalocal %>%
+  select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, Sample, TreeHeight, Z, Transmittance)
+
+write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_1m_incertitude.csv") 
+```
+
+# Add TWI
+```{r}
+Inv_env <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
+  select(idTree,SubPlot,ScientificName,TWI)
+  
+
+datalocal <- datalocal %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
+  left_join(Inv_env, by= c('idTree','SubPlot','ScientificName'))
+
+any(is.na(datalocal$TWI))
+
+write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv_incertitude.csv")
+```
+
+# Presence-absence data and eigenvectors
+```{r Presence-absence}
+# Create a list of the inventory replicated, 1 per ScientificName
+datalist <- replicate(length(sp), Inv, simplify = F) 
+names(datalist) <- sp # 1 per ScientificName
+
+# Presence=1 if it's the interest species, 0 if not
+datalist <- lapply(names(datalist), function(name) {
+  datalist[[name]]$Presence <- ifelse(
+    !is.na(datalist[[name]]$ScientificName) & datalist[[name]]$ScientificName == name, 1, 0)
+  
+  datalist[[name]]  # Return modified data frame
+})
+names(datalist) <- sp # 75
+
+# view(datalist[["Anaxagorea_dolichocarpa"]])
+```
+
+```{r}
+save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha.Rdata")
+```
