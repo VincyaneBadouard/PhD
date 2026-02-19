@@ -39,9 +39,9 @@ rm(fit2_MM4_5s_2023)
 #          beta ~ 1 | species_noSing
 ```
 
-```{r plot posteriors}
-"r_species_noSing__alpha[Tachigali.melinonii,Intercept]"  
-"r_species_noSing__beta[Tachigali.melinonii,Intercept]"
+```{r plot posteriors, eval = F}
+# "r_species_noSing__alpha[Tachigali.melinonii,Intercept]"  
+# "r_species_noSing__beta[Tachigali.melinonii,Intercept]"
 
 # plot_data <- fit %>%
 #   spread_draws(r_species_noSing__alpha[Tachigali.melinonii,Intercept], r_species_noSing__beta[Tachigali.melinonii,Intercept]) %>%
@@ -102,16 +102,12 @@ Inventory <- Inventory %>% # add LCH to inventory
 
 ```{r same vs other sp}
 same_sp <- Inventory %>% 
-  filter(!is.na(species_noSing)) # 36673
+  filter(!is.na(species_noSing)) %>% # 36673
+  mutate(Method_TreeHeight = "Species")
 
 other_sp <- Inventory %>% 
-  filter(is.na(species_noSing)) # 11177
-```
-
-```{r prediction with posterior median}
-same_sp_pred_1 <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median, mean if F
-same_sp$TreeHeight <- same_sp_pred_1[,1]
-range(same_sp$TreeHeight) #  2.003142 49.087198 -> 2.034959 49.109834 apres coord cor
+  filter(is.na(species_noSing)) %>% # 11177
+  mutate(Method_TreeHeight = "Community")
 ```
 
 ```{r H prediction with 100 posterior values - same sp}
@@ -170,7 +166,7 @@ data <- pred %>%
   select(idTree, ScientificName, Strategy, Xutm, Yutm, SubPlot, DBHcor, contains("TreeHeight"))
 
 MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc") 
-crs(MNT) <- crs("EPSG:2972")
+terra::crs(MNT) <- terra::crs("EPSG:2972")
 
 datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
 datasf <- st_set_crs(datasf, st_crs(MNT)) 
@@ -202,17 +198,32 @@ datalocal <- datalocal %>%
 
 ```{r Pivot}
 datalocal <- datalocal %>% 
-pivot_longer(cols = starts_with("TreeHeight"),
-  names_to = "Sample",
-  values_to = "TreeHeight") %>%
+  pivot_longer(cols = starts_with("TreeHeight"),
+               names_to = "Sample",
+               values_to = "TreeHeight") %>%
   setDT()
+```
+
+Modification : obliger la hauteur de l'arbre a un minimum d'1m30 (hauteur de mesure du diamètre)
+```{r negative heights}
+neg_H <- datalocal %>% 
+  filter(TreeHeight<0)
+range(neg_H$DBHcor) # 1 3.5
+length(unique(neg_H$idTree)) # 6151
+length(unique(neg_H$idTree))/length(unique(datalocal$idTree))*100
+dupli <- neg_H %>% 
+  group_by(idTree) %>% mutate(N = n()) # max 7/10 hauteurs estimées négatives
+
+# TreeHeight is 1.3 minimum
+datalocal <- datalocal %>%
+  mutate(TreeHeight = ifelse(TreeHeight<1.3, 1.3, TreeHeight))
 ```
 
 ```{r Coordinates 1m above each tree}
 datalocal[,Z := Z+TreeHeight+1] # zutm + tree height +1
 range(datalocal$Z) # 3.906876 68.748097
 
-datalocal[Z>max(Light$Z),] #> 66m, 9 tree height estimations too tall
+datalocal[Z>max(Light$Z),] #> 66m, 11 tree height estimations too tall
 
 # datalocal <- datalocal[Z<max(Light$Z),] # remove trees too tall
 
@@ -222,9 +233,9 @@ datalocal[Z>max(Light$Z),] #> 66m, 9 tree height estimations too tall
 
 ```{r}
 summary(Light[, .(X, Y, Z)]) # max z=66
-summary(datalocal[, .(X, Y, Z)]) # max tree height too big 68.7m
+summary(datalocal[, .(X, Y, Z)]) # max tree height too big 68.9m
 ```
-**changement : j'ai augmenté le radius de 4 à 5 pour avoir 8 voisins pour toutes les hauteurs d'arbres**
+**changement : j'ai augmenté le radius de 4 à 6 pour avoir 8 voisins pour toutes les hauteurs d'arbres**
 ```{r Light per tree height}
 # Get neighbors in immediate neighborhood (k  nearest voxels including target)
 result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
@@ -232,7 +243,7 @@ result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
                     # The maximum number of nearest neighbours to compute
                     k = 8, # including target # 5, 8, 9, 15, 27, 30, 35, 35
                     # !!!mettre 8 (pas plus pour ne pas "tartiner"
-                    searchtype = "radius", radius = 5) # (4) pour éviter les NA en bord de scene 
+                    searchtype = "radius", radius = 6) # (4) pour éviter les NA en bord de scene 
 # k = 30, radius = 3
 # k = 7, radius = 5
 
@@ -256,9 +267,10 @@ datalocal$Transmittance <- fill.value
 Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittance
 ```{r Write data}
 datalocal <- datalocal %>%
-  select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, Sample, TreeHeight, Z, Transmittance)
+  select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, Sample, TreeHeight, Method_TreeHeight, Z, Transmittance)
 
 write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_1m_incertitude.csv") 
+# datalocal <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_1m_incertitude.csv")
 ```
 
 # Add TWI
@@ -266,7 +278,7 @@ write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Li
 Inv_env <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
   select(idTree,SubPlot,ScientificName,TWI)
-  
+
 
 datalocal <- datalocal %>% 
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
@@ -274,11 +286,18 @@ datalocal <- datalocal %>%
 
 any(is.na(datalocal$TWI))
 
-write.csv(Inventory, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv_incertitude.csv")
+datalocal <- datalocal %>% 
+  mutate(logTransmittance =  log(Transmittance)) %>% 
+  mutate(logTWI = log(TWI))
+
+write.csv(datalocal, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv_incertitude.csv")
 ```
 
-# Presence-absence data and eigenvectors
+# Presence-absence data
 ```{r Presence-absence}
+sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
+Inv <- datalocal
+
 # Create a list of the inventory replicated, 1 per ScientificName
 datalist <- replicate(length(sp), Inv, simplify = F) 
 names(datalist) <- sp # 1 per ScientificName
@@ -290,13 +309,53 @@ datalist <- lapply(names(datalist), function(name) {
   
   datalist[[name]]  # Return modified data frame
 })
-names(datalist) <- sp # 75
-
-# view(datalist[["Anaxagorea_dolichocarpa"]])
+names(datalist) <- sp 
 ```
 
 ```{r}
 save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
 
-# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha.Rdata")
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
+```
+
+# Join eigenvectors
+```{r}
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", full.names=T)
+eigenval <- lapply(filelist, read_csv)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", "", filelist)
+filelist <- gsub(".csv", "", filelist)
+
+names(eigenval) <- filelist
+eigenval <- eigenval[names(eigenval) %in% sp] # eigen val per tree position
+sp <- names(eigenval)
+```
+
+```{r}
+eigenval <- lapply(names(datalist), function(name) {
+  eigenval[[name]] <- eigenval[[name]] %>%
+    slice(rep(row_number(), each = 10))
+})
+names(eigenval) <- sp
+
+datalist_eig <- datalist
+# str(datalist_eig[[1]])
+
+datalist_eig <- lapply(names(datalist), function(name) {
+  # name = "Sextonia_rubra"
+  if(name %in% names(eigenval) & ncol(eigenval[[name]])>0){
+    datalist_eig[[name]] <- datalist_eig[[name]] %>%
+      # left_join(unique(eigenval[[name]]), by=c("Xutm", "Yutm"), copy = T)
+      bind_cols(eigenval[[name]])
+    
+  }
+  datalist_eig[[name]]  # Return modified data frame
+})
+
+names(datalist_eig) <- sp 
+```
+
+```{r}
+save(datalist_eig, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
+
+# load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
 ```
