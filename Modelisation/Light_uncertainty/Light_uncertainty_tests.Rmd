@@ -25,7 +25,13 @@ library(brms)
 library(data.table)
 
 library(lidR)
-library(AMAPVox)
+library(cmdstanr)
+library(posterior)
+library(factoextra)
+library(grid)
+
+sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
+N= 10
 ```
 
 # Tree height uncertainty
@@ -295,7 +301,6 @@ write.csv(datalocal, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Para
 
 # Presence-absence data
 ```{r Presence-absence}
-sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
 Inv <- datalocal
 
 # Create a list of the inventory replicated, 1 per ScientificName
@@ -359,3 +364,79 @@ save(datalist_eig, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/R
 
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
 ```
+
+# Fits
+```{r fit}
+Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_Sample.csv")
+
+PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_uncertainty"
+
+fits <- list()
+for(S in sp){
+  # # Filter species with only one DBH class
+  # if(length(list.files(file.path("Chains", "Hybrid_eigenvectors", S)))>1){
+  
+  for(D in paste0("TreeHeight_", 1:N)){
+    tryCatch({
+      chain_path <- file.path("Chains", "Hybrid_eigenvectors", S, D) 
+      
+      fits[[S]][[D]] <- as_cmdstan_fit(list.files(chain_path,
+                                                  full.names = TRUE))},
+      error=function(e){cat("ERROR :",S, D, conditionMessage(e), "\n")}
+    )
+  }
+  # }
+}
+# names(fits[["Tachigali_melinonii"]])
+
+
+sp[!sp %in% names(fits)] # 
+
+saveRDS(fits, file = paste(PATH, "/fits.rds", sep=''))
+```
+
+# Display uncertainty
+combiner la dernière valeur du posterior de chaque chaîne (car autocorrélation intrachaine, convergence sur une valeur) des SDM de chaque estimation de hauteur d’une espèce pour avoir la variance de toute l’incertitude pour l’espèce (100 x 4 chaines = 400 valeurs → distribution de l’incertitude)
+```{r}
+d <- list()
+for(S in names(fits)){
+  for(D in paste0("TreeHeight_", 1:N)){
+    if(D %in% names(fits[[S]])){
+      
+      d[[S]][[D]] <- fits[[S]][[D]]$draws(c("a", "O"), format = "df") %>% 
+        filter(.iteration == 2000) %>% 
+        mutate(Species = S) %>% 
+        mutate(Sample = D) %>% 
+        select(-.draw)
+      
+    }}}
+draws <- list_rbind(list_flatten(d))
+```
+
+```{r}
+initialfits <- readRDS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor/fits.rds")
+
+initialfits <- initialfits[names(initialfits) %in% sp]
+
+d <- list()
+for(S in names(initialfits)){
+  
+  d[[S]] <- initialfits[[S]]$draws(c("a", "O"), format = "df") %>% 
+    filter(.iteration == 2000) %>% 
+    mutate(Species = S) %>% 
+    select(-.draw)
+  
+}
+initialdraws <- list_rbind(list_flatten(d))
+```
+
+```{r}
+ggplot(draws, aes(x= O)) +
+  theme_minimal() +
+  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  geom_histogram(data = initialdraws, binwidth=1, fill="#0072B2", color="#e9ecef", alpha=0.9) +
+  facet_wrap(~ Species)
+# bizarre....
+```
+
+

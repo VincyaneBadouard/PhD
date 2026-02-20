@@ -75,6 +75,8 @@ for(S in sp){
   )
 }
 # names(fits[["Symphonia_sp.1"]])
+
+saveRDS(fits, file = paste(PATH, "/fits.rds", sep=''))
 ```
 
 # Divergence
