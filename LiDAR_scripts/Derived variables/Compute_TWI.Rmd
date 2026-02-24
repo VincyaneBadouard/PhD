@@ -1,0 +1,75 @@
+---
+title: "Compute TWI"
+author: "Sylvain"
+date: "2023-08-07"
+output: html_document
+---
+
+Le rééchantillonnage du MNT à une maille plus grossière (5m, 10m, 20m, 50m) permet de lisser les micro-variations du relief dues au bruit dans les coordonnées en z (altitude).
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(terra)
+library(raster)
+library(lidR)
+library(foreach)
+library(tidyterra)
+library(sf)
+knitr::opts_knit$set(root.dir = "D:/Mes Donnees/PhD/R_codes/PhD")
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+[code example](https://github.com/sylvainschmitt/PhD/blob/master/documents/preliminary/environment/TopoDerivate.sh)
+
+# MNT
+```{r}
+mnt <- terra::rast("MNT/dtm2023_HighAlt.tif") # mets le chemin vers ton mnt
+
+# 5m for TWI
+mnt5m <- aggregate(mnt, fact=5)
+
+writeRaster(mnt5m, "test/MNT_5m.tif") # enregistrre le mnt à 5m où tu veux
+```
+
+# TWI
+in bash commands
+
+`cd`: change directory command
+`var=`: define a variable
+`$var`: call the value of the variable
+
+```{bash, eval=FALSE}
+cd "/d/Mes Donnees/PhD/R_codes/PhD" # chemin du working directory
+saga="/d/Program/SAGA/saga_cmd.exe" # chemin executable
+dem="test/MNT_5m.tif" # chemin vers le MNT à 5m  (dans le meme dossier que cd)
+twi="test/TWI_5m.srgd" # chemin pour écrire le TWI (dans le meme dossier que cd)
+$saga ta_hydrology 15 -DEM $dem -TWI $twi # la commande SAGA
+
+# " ta_hydrology 15" :  module
+# " -DEM " : dem filled
+# dem : chemin
+# " -TWI " : sortie
+# twi : chemin
+```
+Translate in .tif
+```{r, eval=FALSE}
+TWI <- terra::rast("test/TWI_5m.sdat")  # sdat données du fichier TWI au format SAGA 
+
+terra::writeRaster(TWI, "test/TWI_5m.tif", overwrite=TRUE)
+```
+Plot
+```{r}
+terra::rast("test/TWI_5m.tif") %>% 
+  terra::plot()
+```
+
+```{r}
+ggplot() + 
+  geom_spatraster(data = TWI, aes(fill = TWI_5m)) +
+  scale_fill_gradientn(name = "TWI",
+                       colors =  hcl.colors(12, "Blues", rev = T)) + 
+  geom_sf(data = sf::st_cast(Paracou, "LINESTRING")) +
+  theme_classic() +
+  ggtitle("TWI 5 m") + 
+  coord_sf()
+```

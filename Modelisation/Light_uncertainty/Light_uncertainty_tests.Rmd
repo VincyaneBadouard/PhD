@@ -30,6 +30,10 @@ library(posterior)
 library(factoextra)
 library(grid)
 
+library(bayesplot)
+library(patchwork)
+library(stringr)
+
 sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
 N= 10
 ```
@@ -356,7 +360,7 @@ datalist_eig <- lapply(names(datalist), function(name) {
   datalist_eig[[name]]  # Return modified data frame
 })
 
-names(datalist_eig) <- sp 
+names(datalist_eig) <- names(datalist) 
 ```
 
 ```{r}
@@ -393,6 +397,7 @@ for(S in sp){
 sp[!sp %in% names(fits)] # 
 
 saveRDS(fits, file = paste(PATH, "/fits.rds", sep=''))
+fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
 ```
 
 # Display uncertainty
@@ -411,6 +416,11 @@ for(S in names(fits)){
       
     }}}
 draws <- list_rbind(list_flatten(d))
+
+# draws <- draws %>% 
+#   mutate(Species = recode(Species, 
+#                           "Anaxagorea_dolichocarpa" = "Tachigali_melinonii" ,
+#                           "Tachigali_melinonii" = "Anaxagorea_dolichocarpa"))
 ```
 
 ```{r}
@@ -433,10 +443,191 @@ initialdraws <- list_rbind(list_flatten(d))
 ```{r}
 ggplot(draws, aes(x= O)) +
   theme_minimal() +
-  geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  geom_histogram(data = initialdraws, binwidth=1, fill="#0072B2", color="#e9ecef", alpha=0.9) +
-  facet_wrap(~ Species)
-# bizarre....
+  geom_histogram(binwidth=1, aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
+  geom_histogram(data = initialdraws, aes(fill="Posterior median"),
+                 binwidth=1, color="#e9ecef", alpha=0.9) +
+  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
+  facet_wrap(~ Species) +
+  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
+                               "Uncertainty propagation" = "#D55E00"),
+                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
+  theme(legend.position="bottom") +
+  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+```
+```{r}
+range(initialdraws[initialdraws$Species == "Anaxagorea_dolichocarpa",]$O) # -4.18563 -4.04452
+range(draws[draws$Species == "Anaxagorea_dolichocarpa",]$O) # -4.28972 -3.81780
+
+range(initialdraws[initialdraws$Species == "Tachigali_melinonii",]$O) # -1.400090 -0.643009
+range(draws[draws$Species == "Tachigali_melinonii",]$O) # -2.5436500 -0.0224763
+
+draws %>% 
+  group_by(Species) %>% 
+  summarise(Uncertainty = max(O) - min(O))
+
+initialdraws %>% 
+  group_by(Species) %>% 
+  summarise(Uncertainty_initial = max(O) - min(O))
+
+# delog
+draws %>% 
+  group_by(Species) %>% 
+  summarise(Uncertainty = (exp(max(O))*100) - (exp(min(O))*100))
+
+initialdraws %>% 
+  group_by(Species) %>% 
+  summarise(Uncertainty_initial = (exp(max(O))*100) - (exp(min(O))*100))
+
+
+# exp(-4.04452)
+# exp(-1.400090) # 0.2465748
+# exp(-0.643009) # 0.5257082
+# 
+# exp(-2.5436500) # 0.07857906
+# exp(-0.0224763) # 0.9777744
 ```
 
+
+```{r}
+ggplot(draws, aes(x= a)) +
+  theme_minimal() +
+  geom_histogram(binwidth=.2, aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
+  geom_histogram(data = initialdraws, aes(fill="Posterior median"),
+                 binwidth=.2, color="#e9ecef", alpha=0.9) +
+  facet_wrap(~ Species) +
+  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
+                               "Uncertainty propagation" = "#D55E00"),
+                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
+  theme(legend.position="bottom") +
+  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+```
+## Posteriors with O deloged and -a logged
+```{r}
+datap_initial <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor/dataplot.csv") 
+```
+
+# Prepare plots data
+```{r}
+# Plot data
+datap <- lapply(names(fits), function(x)
+  mcmc_intervals_data(fits[[x]]$draws(), # c("a", "O", "tau")
+                      prob = 0.50, prob_outer = 0.80, point_est = "median") %>% 
+    mutate(Species = x)
+)  %>% 
+  bind_rows() %>% 
+  filter(parameter %in% c("a", "O", "tau"))
+
+# Light effect (not flat)
+O_sg <- datap %>% 
+  # mutate(incertitude = hh-ll) %>% 
+  # filter(parameter=="O"& incertitude > 4) %>%
+  filter(parameter=="a"& m > -0.02) %>% # no light effect
+  select(Species) %>% 
+  mutate(parameter="O") %>% 
+  mutate(Sg_effect = F)
+
+datap <- datap %>%
+  left_join(O_sg, by=c("Species", "parameter")) %>% 
+  # tau significantly different of 0 if 0 in the Q50%
+  mutate(Sg_effect = ifelse(parameter=="tau" & ll<0 & 0<hh, F, Sg_effect))  %>% 
+  mutate(Sg_effect = ifelse(is.na(Sg_effect), T, Sg_effect))  %>%
+  left_join(strategy, by = c("Species" = "ScientificName")) %>% 
+  left_join(Inv, by = c("Species" = "ScientificName")) %>% 
+  mutate(ScientificName = Species) %>% 
+  mutate(Species = str_replace(Species, "_", " "))
+# -a
+# datap <- datap %>%
+#   mutate_at(vars(c("ll", "l", "m", "h","hh")), ~ ifelse(parameter=="a", (-.), .))
+# ll : outer start
+# l : iner start
+# m : point_est value
+# h : iner end
+# hh : outer end
+
+# mcmc_intervals() code 
+# trace(bayesplot::mcmc_intervals, edit=T)
+
+# 0 line
+x_lim <- range(c(datap$ll, datap$hh))
+x_range <- diff(x_lim)
+x_lim[1] <- x_lim[1] - 0.05 * x_range
+x_lim[2] <- x_lim[2] + 0.05 * x_range
+
+# 0 line
+layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
+  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
+}
+
+# min((datap %>% filter(Species %in% no_light_effect & parameter=='a'))$m) # min a median : -0.022
+# range((datap %>% filter(Species %in% no_light_effect & parameter=='gamma'))$m) # -9.041810 -0.528554
+# range((datap %>% filter(!Species %in% no_light_effect & parameter=='gamma'))$m) # -9.406300  1.133145
+
+# range((datap %>% filter(Species %in% no_light_effect & parameter=='O') %>% mutate(incertitude = hh-ll))$incertitude) # O incertitude : 4.5-6.5
+
+write_csv(datap, paste(PATH, "/dataplot.csv",sep=''))
+```
+
+Ajouter les posterieurs de la propagation d'incertitude 
+```{r}
+# 0 line
+x_lim <- range(c(datap_initial$ll, datap_initial$hh))
+x_range <- diff(x_lim)
+x_lim[1] <- x_lim[1] - 0.05 * x_range
+x_lim[2] <- x_lim[2] + 0.05 * x_range
+
+# 0 line
+layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
+  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
+}
+
+datap_ord <- datap_initial %>% 
+  mutate(parameter = factor(parameter,
+                            levels=c("O","a", "tau")
+  )) %>% 
+  group_by(parameter) %>%
+  group_modify(~.x %>% 
+                 # arrange(if(.y == 'tau') m else desc(m))
+                 arrange(if(.y == 'O') m else desc(m))
+  ) %>%
+  ungroup() %>%
+  mutate(Species=factor(Species, levels=unique(Species))) 
+
+xs <- split(datap_ord, f = datap_ord$parameter)
+
+# Residuals_covar %>% 
+p1 <- xs$O %>% 
+  ggplot(aes(y = Species, alpha = Sg_effect)) +
+  theme_minimal() + 
+  # xlim(range(c(datap$ll, datap$hh))) +
+  layer_vertical_line +
+  geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
+                   color = "80%"), size = 0.5) +
+  geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
+                   color = "50%"), size = 1) +
+  geom_point(aes(x= m)) + # median
+  scale_color_manual(name = "Credible interval", 
+                     values = c("80%" = "#E7B800",
+                                "50%"= "#FC4E07")) + 
+  scale_alpha_manual(name = "Significant", values=c(1,.2),
+                     breaks=c("TRUE","FALSE"))+
+  theme(axis.title.x =element_blank())
+
+p2 <- p1 %+% xs$a +
+  ggtitle("a") +
+  # scale_x_continuous(trans="log") +
+  theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  guides(color = FALSE, alpha = FALSE)
+
+p1 <- p1 + ggtitle("O (% transmittance)") +
+  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
+  guides(color = FALSE, alpha = FALSE)
+
+
+p1+p2
+
+# ggsave("Light_uncertainty_posteriors_delog.pdf", path = PATH,
+#        width = 25, height = 26, units = "cm", dpi=800, bg="white")
+
+```
 
