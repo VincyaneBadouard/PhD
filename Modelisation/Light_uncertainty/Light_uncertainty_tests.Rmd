@@ -310,9 +310,11 @@ write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Li
 ```
 
 ```{r}
+datalocal_initial <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") %>%
+    filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) 
+
 for(s in sp){
-  datalocal_init <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") %>% 
-    filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>%
+  datalocal_init <- datalocal_initial %>%
     filter(ScientificName==s)  
   
   print(
@@ -321,8 +323,8 @@ for(s in sp){
       filter(ScientificName==s) %>% 
       ggplot(aes(x=TreeHeight)) +
       theme_minimal() +
-      geom_histogram(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-      geom_histogram(data = datalocal_init, aes(fill="Posterior median"),
+      geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.8) +
+      geom_density(data = datalocal_init, aes(fill="Posterior median"),
                      color="#e9ecef", alpha=0.5) +
       scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
                                    "Uncertainty propagation" = "#D55E00"),
