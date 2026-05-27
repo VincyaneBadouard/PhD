@@ -1,12 +1,12 @@
 #' DetectMultistem
 #'
 #' @param Data Dataset (data.frame or data.table) with these columns:
-#' - Xutm and Yutm
-#' - Genus and Species
-#' - CensusYear
+#' - `Xutm` and `Yutm`
+#' - `Genus` and `Species` (character)
+#' - `CensusYear` (numeric)
 #' 
 #' @details Detect multistem in trees inventory data from common coordinates
-#' and botanical name
+#' and botanical name.
 #' 
 #' @return The input dataset (data.table) with a new *Comment* column with
 #' information on the detection of potential multistem.
