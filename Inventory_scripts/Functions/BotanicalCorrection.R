@@ -38,9 +38,10 @@
 #'       `IdTree` level.
 #'
 #'@details
-#' - No special characters (typography)
-#' - No family name in the Genus and Species columns (the suffix "aceae" is
+#' - Check for special characters (typography)
+#' - Check for family name in the Genus and Species columns (the suffix "aceae" is
 #'     specific to the family name.
+#' - Check if the family name does not end in 'aceae'.
 #' - Correct spelling of botanical names (*Taxonstand or WorldFlora*)
 #' - Family & Scientific names match (*BIOMASS::getTaxonomy or WorldFlora*)
 #' - Update the scientific botanical names with the current phylogenetic
@@ -473,7 +474,7 @@ BotanicalCorrection <- function(
     
     if(!identical(CorresIDs, unique(CorresIDs))){ # check if it's the same length, same ids -> 1 asso/ID
       
-      duplicated_ID <- unique(CorresIDs[duplicated(CorresIDs)]) # identify the Idtree(s) having several P-SubP-TreeFieldNum combinations
+      duplicated_ID <- unique(CorresIDs[duplicated(CorresIDs)]) # identify the Idtree(s) having several bota combinations
       
       Data <- GenerateComment(Data,
                               condition =

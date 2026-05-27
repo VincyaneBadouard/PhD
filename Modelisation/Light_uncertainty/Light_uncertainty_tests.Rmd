@@ -35,18 +35,20 @@ library(patchwork)
 library(stringr)
 
 sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
-N= 10
+N = 10
+PATH = "F:/VincyaneBadouard/" # "//amap-data.cirad.fr/work/users/VincyaneBadouard/"
 ```
 
 # Tree height uncertainty
 **//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia**
 ```{r Claudia fit}
-load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model4_MM_dataCCmean.Rdata")
+load(paste(PATH, "modèlesAlloClaudia/model4_MM_dataCCmean.Rdata",sep=""))
 fit <- fit2_MM4_5s_2023
 rm(fit2_MM4_5s_2023)
 # Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
 #          alpha ~ HC + 1 | species_noSing
 #          beta ~ 1 | species_noSing
+class(fit) # brmsfit
 ```
 
 ```{r plot posteriors, eval = F}
@@ -86,7 +88,7 @@ Inventory <- Inventory %>%
 
 ```{r Local canopy height (LCH)}
 # P16 25ha CHM 1m res (SpatRaster)
-CHM <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif")
+CHM <- rast(paste(PATH, "Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif",sep=""))
 
 #  focal ("moving window") weight matrix   
 disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61, ncol=61)), 30, type = "circle") # 30m radius of the circle
@@ -120,28 +122,142 @@ other_sp <- Inventory %>%
   mutate(Method_TreeHeight = "Community")
 ```
 
+## Meth 1: H prediction from posterior values
 ```{r H prediction with 100 posterior values - same sp}
-same_sp_pred <- posterior_predict(fit, newdata = same_sp, ndraws = 10) # Génère des valeurs simulées de la variable réponse, 1 prédiction par draw du posterior
+same_sp_pred <- posterior_predict(fit, newdata = same_sp, ndraws = N) # Génère des valeurs simulées de la variable réponse, 1 prédiction par draw du posterior
 # rows : 1:10 predictions
 # cols : 1:36673 trees
 
 same_sp_pred <- same_sp_pred %>% 
   t() # inverse cols and rows
 
-colnames(same_sp_pred)[1:10] <- paste0("TreeHeight_", 1:10)
+colnames(same_sp_pred)[1:N] <- paste0("TreeHeight_", 1:N)
 
 same_sp <- bind_cols(same_sp, same_sp_pred)
 ```
 
 ```{r  H prediction with 100 posterior values - other sp}
-other_sp_pred <- posterior_predict(fit, newdata = other_sp, re_formula = NA, ndraws = 10)
+other_sp_pred <- posterior_predict(fit, newdata = other_sp, re_formula = NA, ndraws = N)
 
 other_sp_pred <- other_sp_pred %>% 
   t() # inverse cols and rows
 
-colnames(other_sp_pred)[1:10] <- paste0("TreeHeight_", 1:10)
+colnames(other_sp_pred)[1:N] <- paste0("TreeHeight_", 1:N)
 
 other_sp <- bind_cols(other_sp, other_sp_pred)
+```
+
+## Meth 2: H prediction from
+Use stats R package
+Claudia data ≥ 10 cm DBH
+fix parameters to their median
+estimate 𝞼 
+check 𝞼 distribution 
+log 𝞼
+estimate H with these logsigma with rlnorm(𝞼) (generates random deviates)
+```{r Claudia's data}
+# Claudia data ≥ 10 cm DBH (dbh.y, height, species_noSing) (tt Paracou)
+
+ClaudiaSup10 <-
+```
+```{r}
+# CC estimation (its only P16!)
+pathCC <- "D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Output_P16_sim_Hby2/"
+
+# D:\Mes Donnees\PhD\Inventories\Data\Height-Diameter\CanopyConstructor\Claudia\P1to16.(1-10) # DBH <10
+
+ # "/Data/P1to16_00006_0010/P1to16.MM",pattern = "final.txt" 
+ 
+Invfiles <- list.files(pathCC, pattern = ".*_final\\.txt$", full.names = TRUE, recursive = TRUE)
+
+all_trees <- rbindlist(lapply(Invfiles, fread), idcol = "file_id")
+all_trees$simulation <- gsub(".*/(CC_\\d+)/.*", "\\1", Invfiles[all_trees$file_id])
+
+Coord <- fread("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Input/P16coord0_plotmask.txt") %>% 
+  select(-plot_code)
+# plot(Coord$xoriginal, Coord$yoriginal)
+
+# names(all_trees)
+CCoutputs <- all_trees %>% 
+  select(x,y,dbh,height,species) %>% 
+  left_join(Coord, by=c('x','y')) %>% 
+  mutate(dbh.y = dbh*100) %>% # in cm
+  mutate(species = str_replace(species, "_", "."))
+view(CCoutputs)
+```
+
+```{r Posteriors median}
+# posterior draws
+draws <- as_draws_df(fit)
+
+# keep only relevant parameters
+pars <- draws %>%
+  select(starts_with("r_species_noSing_"))
+
+# posterior medians
+post_median <- pars %>%
+  pivot_longer(
+    everything(),
+    names_to = "posterior_name",
+    values_to = "value"
+  ) %>%
+  group_by(posterior_name) %>%
+  summarise(median = median(value), .groups = "drop") %>%
+  
+  # mutate(posterior_name = str_remove(posterior_name, "r_species_noSing__")) %>% 
+  # mutate(parameter = str_extract(posterior_name, "(?<=\\[)keyword[^\\]\\[]*(?=])")),
+  
+  # extract content inside brackets
+  mutate(
+    inside = str_extract(posterior_name, "(?<=\\[).*(?=\\])"),
+    species = str_split_fixed(inside, ",", 2)[,1],
+    par2 = str_split_fixed(inside, ",", 2)[,2],
+    parameter = str_extract(posterior_name, "^.*(?=\\[)"),
+    parameter = str_remove(parameter, "^r_species_noSing__")  ) %>%
+  
+  filter(par2 == 'Intercept') %>% 
+  select(parameter, species, median) %>%
+  pivot_wider(names_from = parameter,
+  values_from = median)
+
+# if species not estimated (c'est bien ça ?)
+alpha_g <- median(draws$b_alpha_Intercept)
+beta_g <- median(draws$b_beta_Intercept)
+
+ClaudiaSup10 <- CCoutputs %>% 
+  left_join(post_median, by="species") %>% 
+  mutate(alpha = ifelse(is.na(alpha), alpha_g, alpha)) %>% 
+  mutate(beta = ifelse(is.na(beta), beta_g, beta))
+
+view(ClaudiaSup10)
+```
+
+```{r}
+# fix parameters to their median for each sp of the dataset
+# and estimate 𝞼 for each sp of the claudia's dataset
+  
+# Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
+
+ClaudiaSup10 %>%
+  filter(species=="Tachigali.melinonii") %>%
+group_by(species) %>%
+
+  
+lmfit <- lm(height ~ (alpha * dbh.y)/(beta + dbh.y),
+                data = (ClaudiaSup10 %>% 
+  filter(species=="Tachigali.melinonii")))$residuals # , na.action ?
+
+# check 𝞼 distribution 
+plot(lmfit$residuals) # pas logNormaux mais Uniformes (pq ?)
+# log 𝞼
+logsigma = log(lmfit$residuals)
+
+# Estimate H for my dataset with these logsigma with rlnorm(𝞼) (generates random deviates)
+𝞼 = rlnorm(N, meanlog = mean(logsigma), sdlog = sd(logsigma)) # c'est ça qu'il faut faire ?
+# 1 𝞼 par sp, ind ou sample?
+
+Inventory %>%
+# mutate(height = (alpha * DBH)/(beta + DBH) + 𝞼)
 ```
 
 ```{r Bind preds}
@@ -162,7 +278,7 @@ write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/A
 # Compute light for each tree height
 ```{r Read light file}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
-path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
+path <- paste(PATH, "Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt",sep="")
 
 Light <- ReadLightFile(path, skiplines=9)
 
@@ -175,7 +291,7 @@ Light <- Light[Transmittance>0 & Z>2,] # remove Z=2m because all is equal to 100
 data <- pred %>% 
   select(idTree, ScientificName, Strategy, Xutm, Yutm, SubPlot, DBHcor, contains("TreeHeight"))
 
-MNT <- terra::rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc") 
+MNT <- terra::rast(paste(PATH, "/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc",sep="")) 
 terra::crs(MNT) <- terra::crs("EPSG:2972")
 
 datasf <- st_as_sf(data, coords = c('Xutm','Yutm'))
@@ -189,7 +305,7 @@ data <- data %>% cbind(alt) %>% setDT()
 ```
 
 ```{r Coordinates in local positions (use VOP) as light file}
-VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_25ha.txt"))
+VOP <- as.matrix(read.table(paste(PATH, "/Lidar/ALS2023/VOP/VOP_P16_25ha.txt", "")))
 
 data <- setDT(data)
 
@@ -311,7 +427,7 @@ write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Li
 
 ```{r}
 datalocal_initial <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") %>%
-    filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) 
 
 for(s in sp){
   datalocal_init <- datalocal_initial %>%
@@ -325,7 +441,7 @@ for(s in sp){
       theme_minimal() +
       geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.8) +
       geom_density(data = datalocal_init, aes(fill="Posterior median"),
-                     color="#e9ecef", alpha=0.5) +
+                   color="#e9ecef", alpha=0.5) +
       scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
                                    "Uncertainty propagation" = "#D55E00"),
                         breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
@@ -426,7 +542,7 @@ save(datalist_eig, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/R
 ```{r fit}
 Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_Sample.csv")
 
-PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_uncertainty"
+path <- paste(PATH, "Modelisation/Plots/Light_uncertainty", "")
 
 fits <- list()
 for(S in sp){
@@ -449,8 +565,8 @@ for(S in sp){
 
 sp[!sp %in% names(fits)] # 
 
-saveRDS(fits, file = paste(PATH, "/fits.rds", sep=''))
-# fits <- readRDS(paste(PATH, "/fits.rds", sep=''))
+saveRDS(fits, file = paste(path, "/fits.rds", sep=''))
+# fits <- readRDS(paste(path, "/fits.rds", sep=''))
 ```
 
 # Display uncertainty
@@ -477,7 +593,7 @@ draws <- draws %>%
 ```
 
 ```{r}
-initialfits <- readRDS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor/fits.rds")
+initialfits <- readRDS(paste(PATH, "Modelisation/Plots/Light_topo/Autocor/fits.rds",sep=""))
 
 initialfits <- initialfits[names(initialfits) %in% sp]
 
@@ -497,7 +613,7 @@ ggplot(draws, aes(x= O)) +
   theme_minimal() +
   geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
   geom_density(data = initialdraws, aes(fill="Posterior median"),
-                 color="#e9ecef", alpha=0.9) +
+               color="#e9ecef", alpha=0.9) +
   scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
   facet_wrap(~ Species, scales = "free_y") +
   scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
@@ -574,7 +690,7 @@ ggplot(draws, aes(x= a)) +
   theme_minimal() +
   geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
   geom_density(data = initialdraws, aes(fill="Posterior median"),
-                 color="#e9ecef", alpha=0.9) +
+               color="#e9ecef", alpha=0.9) +
   facet_wrap(~ Species) +
   scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
                                "Uncertainty propagation" = "#D55E00"),
@@ -584,7 +700,7 @@ ggplot(draws, aes(x= a)) +
 ```
 ## Posteriors with O deloged and -a logged
 ```{r}
-datap_initial <- read_csv("//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_topo/Autocor/dataplot.csv") %>% 
+datap_initial <- read_csv(paste(PATH, "Modelisation/Plots/Light_topo/Autocor/dataplot.csv",sep="")) %>% 
   filter(ScientificName %in% sp)
 ```
 
