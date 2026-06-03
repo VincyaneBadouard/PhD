@@ -38,7 +38,7 @@ library(tidybayes)
 load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model4_MM_dataCCmean.Rdata")
 fit <- fit2_MM4_5s_2023
 rm(fit2_MM4_5s_2023)
-fit
+# fit$data # input data
 # get_variables(fit)
 # str(fit, maxlevels = 1)
 # summary(fit)
@@ -49,6 +49,9 @@ fit
 # str(fit$data$species_noSing) # character
 # levels(as.factor(fit$data$species_noSing)) # à mettre en colonne et mettre dans la matrice
 # et verifier en fesant la moyenne avec la moyenne du fit$fit
+
+model4_MM_nsing_CCmean <- readRDS("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/Claudia/model4_MM_nsing_CCmean.rds")
+View(model4_MM_nsing_CCmean$data)
 ```
 
 Data : data_cc_cirad

@@ -77,13 +77,25 @@ Adults <- read.csv("~/PhD/Inventories/Data/Adults/Paracou/AdultsP16_filtred.csv"
 Inventory <- bind_rows(Understory, Adults)
 ```
 
+```{r}
+# names(Inventory)
+Inventory <- Inventory %>% 
+  select(idTree,Plot,SubPlot,Year,Yutm,Xutm,ScientificName,Subspecies,Strategy,DBHcor, Elevation) # pour alléger       
+
+```
+
 ```{r Modify inventory for predictions}
-match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv")  # 399
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv") %>%  # 399
+  mutate(species = str_replace(species_noSing, " ", "."))
 # Generated with Modify_data_for_predictions.Rmd
 
 Inventory <- Inventory %>% 
   left_join(match, by= "ScientificName") %>% # add species_noSing
+  # mutate(species = ifelse(is.na(species), str_replace(ScientificName, "_", "."), species)) %>% # if not in match create "species" to join later with claudias inventory >10
+  # mutate(species = ifelse(is.na(species_noSing) & !is.na(Subspecies), paste(ScientificName, Subspecies, sep = "_subsp."), species)) %>% 
+  mutate(species = ifelse(is.na(species), 'other', species)) %>% # create an "other" sp for the non matched species
   rename(dbh.y = DBHcor)
+
 ```
 
 ```{r Local canopy height (LCH)}
@@ -157,36 +169,44 @@ log 𝞼
 estimate H with these logsigma with rlnorm(𝞼) (generates random deviates)
 ```{r Claudia's data}
 # Claudia data ≥ 10 cm DBH (dbh.y, height, species_noSing) (tt Paracou)
+# faire la moyenne de la hauteur des 5 runs !
+filenames <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/Claudia/5runsCCdata",
+                        pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
 
-ClaudiaSup10 <-
+df_list <- lapply(filenames, read_table) # read all the folder files
+
+ClaudiaSup10 <- df_list[[1]] # Prendre le premier dataframe comme base
+
+ClaudiaSup10 <- ClaudiaSup10 %>% 
+  # Calculer la moyenne de la colonne height
+  mutate(height = rowMeans(sapply(df_list, function(df) df$height))) %>% 
+  rename(dbh.y = dbh)
+
+# view(ClaudiaSup10) # 73325
 ```
 ```{r}
-# CC estimation (its only P16!)
-pathCC <- "D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Output_P16_sim_Hby2/"
+# get botanical id of the species
+All_Paracou <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/All_Paracou.csv")
 
-# D:\Mes Donnees\PhD\Inventories\Data\Height-Diameter\CanopyConstructor\Claudia\P1to16.(1-10) # DBH <10
+ClaudiaSup10 <- ClaudiaSup10 %>% 
+  rename(idTree = id) %>% 
+  left_join(All_Paracou, by="idTree") %>% 
+  select(Plot, idTree, dbh.y, height, Xutm,Yutm, Genus, Species) %>% unique() %>%
+  unite(Genus, Species, col = "species", sep = ".", remove = T) %>% 
+  mutate(species_c = data.table::tstrsplit(species, split = "_subsp.")[[1]]) %>% # manage subsp
+  mutate(SubSpecies = data.table::tstrsplit(species, split = "_subsp.")[[2]]) %>% 
+  rename(species_old = species, species = species_c) %>% 
+  mutate(species = recode(species, "Pouteria.gonggrijpii" = "Pouteria.gongrijpii" , "Aniba.rosodora" = "Aniba.rosaeodora", 'Inga.melinonii'= "Inga.melinonis", "Eschweilera.grandiflora" = "Eschweilera.grandiflora_form2","Tovomita.sp.9" = "Tovomita.sp.9-CAY","Sloanea.sp.14" = "Sloanea sp.14-CAY","Sloanea.sp.20" = "Sloanea.sp.20-CAY","Aspidosperma.cruentum" = "Aspidosperma.desmanthum", "Homalolepis.morettii" = "Simaba.morettii", "Myrcia.fallax" = "Myrcia.magnoliifolia"))
 
- # "/Data/P1to16_00006_0010/P1to16.MM",pattern = "final.txt" 
- 
-Invfiles <- list.files(pathCC, pattern = ".*_final\\.txt$", full.names = TRUE, recursive = TRUE)
+	
+rm(All_Paracou)
 
-all_trees <- rbindlist(lapply(Invfiles, fread), idcol = "file_id")
-all_trees$simulation <- gsub(".*/(CC_\\d+)/.*", "\\1", Invfiles[all_trees$file_id])
-
-Coord <- fread("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/FinalVersion/Input/P16coord0_plotmask.txt") %>% 
-  select(-plot_code)
-# plot(Coord$xoriginal, Coord$yoriginal)
-
-# names(all_trees)
-CCoutputs <- all_trees %>% 
-  select(x,y,dbh,height,species) %>% 
-  left_join(Coord, by=c('x','y')) %>% 
-  mutate(dbh.y = dbh*100) %>% # in cm
-  mutate(species = str_replace(species, "_", "."))
-view(CCoutputs)
+sort(unique(ClaudiaSup10$Plot))
 ```
 
 ```{r Posteriors median}
+# fix parameters to their median for each sp of the dataset
+
 # posterior draws
 draws <- as_draws_df(fit)
 
@@ -195,7 +215,7 @@ pars <- draws %>%
   select(starts_with("r_species_noSing_"))
 
 # posterior medians
-post_median <- pars %>%
+post_median <- pars %>% # 470
   pivot_longer(
     everything(),
     names_to = "posterior_name",
@@ -218,46 +238,71 @@ post_median <- pars %>%
   filter(par2 == 'Intercept') %>% 
   select(parameter, species, median) %>%
   pivot_wider(names_from = parameter,
-  values_from = median)
+              values_from = median)
+
+# post_median <- post_median %>% 
+#   left_join(match, by = 'species')
+
+# all(match$species_noSing %in% test$species_noSing)
 
 # if species not estimated (c'est bien ça ?)
 alpha_g <- median(draws$b_alpha_Intercept)
 beta_g <- median(draws$b_beta_Intercept)
 
-ClaudiaSup10 <- CCoutputs %>% 
+ClaudiaSup10 <- ClaudiaSup10 %>% 
   left_join(post_median, by="species") %>% 
+  mutate(species = ifelse(is.na(alpha)& is.na(beta), 'other', species)) %>% # create an "other" sp for the non matched species
   mutate(alpha = ifelse(is.na(alpha), alpha_g, alpha)) %>% 
   mutate(beta = ifelse(is.na(beta), beta_g, beta))
 
-view(ClaudiaSup10)
+ClaudiaSup10 %>% filter(species != 'other') %>% select(species) %>% unique() # 436
 ```
 
 ```{r}
-# fix parameters to their median for each sp of the dataset
 # and estimate 𝞼 for each sp of the claudia's dataset
-  
-# Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
-
-ClaudiaSup10 %>%
-  filter(species=="Tachigali.melinonii") %>%
-group_by(species) %>%
-
-  
-lmfit <- lm(height ~ (alpha * dbh.y)/(beta + dbh.y),
-                data = (ClaudiaSup10 %>% 
-  filter(species=="Tachigali.melinonii")))$residuals # , na.action ?
+ClaudiaSup10 <- ClaudiaSup10 %>% 
+  mutate(sigma = lm(height ~ (alpha * dbh.y)/(beta + dbh.y), # Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
+                    data = .)$residuals) # autant que d'observations
 
 # check 𝞼 distribution 
-plot(lmfit$residuals) # pas logNormaux mais Uniformes (pq ?)
+hist(ClaudiaSup10[ClaudiaSup10$species=="Tachigali.melinonii",]$sigma) # pas logNormaux mais Uniformes (pq ?)
 # log 𝞼
-logsigma = log(lmfit$residuals)
+logsigma = log(sigma)
+
+# Generate random sigma with rlnorm(𝞼) 
+rsigmasp <- list()
+for(sp in unique(ClaudiaSup10$species)){
+  rsigmasp[[sp]] <- data.frame(
+    species = sp,
+    N = 1:N,
+    rsigma = rnorm(N, mean = mean(ClaudiaSup10[ClaudiaSup10$species==sp,]$sigma),
+                   sd = sd(ClaudiaSup10[ClaudiaSup10$species==sp,]$sigma)) # c'est ça qu'il faut faire ?
+    # 1 𝞼 par sp, ind ou sample?
+  )
+} # produit des NaN pour les espèces non-estimée dans le modèle de claudia
+
+rsigmasp <- do.call("rbind", rsigmasp) #%>% 
+# tibble::rownames_to_column("Sample")
+
 
 # Estimate H for my dataset with these logsigma with rlnorm(𝞼) (generates random deviates)
-𝞼 = rlnorm(N, meanlog = mean(logsigma), sdlog = sd(logsigma)) # c'est ça qu'il faut faire ?
-# 1 𝞼 par sp, ind ou sample?
+test <- Inventory %>%
+  left_join((ClaudiaSup10 %>% select(species, alpha, beta) %>% unique()), by='species') %>% 
+  left_join(rsigmasp, by='species') %>% # *10
+  mutate(TreeHeight = (alpha * (dbh.y/100))/(beta + (dbh.y/100)) + rsigma) # height in m
 
-Inventory %>%
-# mutate(height = (alpha * DBH)/(beta + DBH) + 𝞼)
+test %>% filter(is.na(TreeHeight)) %>%
+  select(ScientificName, species, Strategy, species_noSing, TreeHeight) %>% unique() # 5 not recognised sp, 1 canopy sp 
+# pas d'alpha, beta, sigma pour eux pcq pas dans ClaudiaSup10 alors que dans le modèle oui...
+
+test %>% filter(is.nan(TreeHeight)) %>%
+  select(ScientificName, species, Strategy, species_noSing, alpha, beta, rsigma) %>% unique() 
+# 2 sp ac rsigma = NaN
+
+any(test$TreeHeight<0) 
+
+negH <- test %>% filter(TreeHeight<0) %>% 
+  select(idTree, ScientificName, species, dbh.y, alpha, beta, rsigma) %>% unique() # 43834 ind, 338 sp
 ```
 
 ```{r Bind preds}
@@ -278,7 +323,7 @@ write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/A
 # Compute light for each tree height
 ```{r Read light file}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
-path <- paste(PATH, "Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt",sep="")
+path <- paste(PATH, "Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt", sep="")
 
 Light <- ReadLightFile(path, skiplines=9)
 
