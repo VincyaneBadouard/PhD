@@ -259,15 +259,31 @@ ClaudiaSup10 %>% filter(species != 'other') %>% select(species) %>% unique() # 4
 ```
 
 ```{r}
+fit
+```
+
+
+```{r}
+ClaudiaSup10 %>% 
+  mutate(mu = ((42.79 + alpha) * dbh.y)/((14.57 + beta) + dbh.y)) %>% 
+  mutate(epsilon = height - mu) %>% 
+  filter(epsilon > -50, epsilon < 50) %>% 
+  ggplot(aes(epsilon)) +
+  geom_histogram() +
+  theme_bw()
+```
+
+
+```{r}
 # and estimate 𝞼 for each sp of the claudia's dataset
 ClaudiaSup10 <- ClaudiaSup10 %>% 
-  mutate(sigma = lm(height ~ (alpha * dbh.y)/(beta + dbh.y), # Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
+  mutate(epsilon = lm(height ~ (alpha * dbh.y)/(beta + dbh.y), # Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
                     data = .)$residuals) # autant que d'observations
 
 # check 𝞼 distribution 
-hist(ClaudiaSup10[ClaudiaSup10$species=="Tachigali.melinonii",]$sigma) # pas logNormaux mais Uniformes (pq ?)
+hist(ClaudiaSup10[ClaudiaSup10$species=="Tachigali.melinonii",]$epsilon) # pas logNormaux mais Uniformes (pq ?)
 # log 𝞼
-logsigma = log(sigma)
+log(ClaudiaSup10[ClaudiaSup10$species=="Tachigali.melinonii",]$epsilon)
 
 # Generate random sigma with rlnorm(𝞼) 
 rsigmasp <- list()

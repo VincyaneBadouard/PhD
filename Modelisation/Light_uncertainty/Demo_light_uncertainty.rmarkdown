@@ -1,0 +1,124 @@
+---
+title: "Demo light uncertainty"
+date: "`r Sys.Date()`"
+format: html
+self-contained: true
+theme: cosmo
+code-fold: true
+execute: 
+  cache: true
+---
+
+
+
+## Generate data
+
+
+
+```{r}
+library(tidyverse)
+n <- 1000
+alpha <- 35
+beta <- 50
+sigma2 <- 1.1
+d <- runif(n, 10, 100)
+data <- tibble(d) %>% 
+  rowwise() %>% 
+  mutate(h = rlnorm(1, log((alpha*d)/(beta+d)), log(sigma2)))
+data %>% 
+  ggplot(aes(d,h)) +
+  geom_point() +
+  stat_function(fun = function(x) (alpha*x)/(beta+x)) +
+  theme_bw() +
+  geom_vline(xintercept = 20, linetype ="dashed")
+```
+
+
+
+## Model 0 - normal
+
+$$
+\begin{align}
+y \sim \mathcal N ( \mu, \sigma^2) \\
+\mu = \frac{\alpha \times d }{\beta+d}
+\end{align}
+$$
+
+
+
+```{r}
+library(cmdstanr)
+subdata <- filter(data, d > 20)
+model <- cmdstan_model("test.stan")
+fit <- model$sample(data = list(N = nrow(data),
+                                d = data$d,
+                                h = data$h), cores = 4)
+fit
+```
+
+
+
+Estimation de 100 hauteurs pour un diamètre de 1 cm. ⚠️Des valeurs négatives apparaissent.
+
+
+
+```{r}
+d_pred <- 1
+rnorm(100, (35.31*d_pred)/(50.06+d_pred), 1.74) %>% 
+  hist()
+```
+
+
+
+## Back to the maths
+
+$$
+\begin{align}
+y \sim \mathcal {logN} ( \mu, \sigma^2) \equiv log(y) \sim \mathcal N ( log(\mu), \sigma^2)
+\end{align}
+$$
+
+On a $y$ et $mu$ on peut simplement faire une régression linéaire des log ou calculer la variance de l'erreur:
+
+$$
+\begin{align}
+\epsilon_{log} = log(y)-log(\mu) \sim \mathcal N (0, \sigma^2)
+\end{align}
+$$
+
+## Calcul de la variance
+
+
+
+```{r}
+data %>% 
+  mutate(mu = (35.31*d)/(50.06+d)) %>% 
+  ggplot(aes(d, h)) +
+  geom_point() +
+  geom_line(aes(y = mu), col = "red") +
+  theme_bw()
+```
+
+```{r}
+data %>% 
+  mutate(mu = (35.31*d)/(50.06+d)) %>% 
+  mutate(epsilon_log = log(h) - log(mu)) %>% 
+  ggplot(aes(epsilon_log)) +
+  geom_histogram() +
+  theme_bw()
+```
+
+```{r}
+data %>% 
+  mutate(mu = (35.31*d)/(50.06+d)) %>% 
+  mutate(epsilon_log = log(h) - log(mu)) %>% 
+  ungroup() %>% 
+  summarise(sigma = exp(sd(epsilon_log)))
+```
+
+```{r}
+d_pred <- 1
+rlnorm(100, log((35.31*d_pred)/(50.06+d_pred)), log(1.09)) %>% 
+  hist()
+```
+
