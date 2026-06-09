@@ -122,6 +122,8 @@ LCH <- raster::extract(CHMPP_median30cir, Inventory_sf) %>%
 
 Inventory <- Inventory %>% # add LCH to inventory
   cbind(LCH)
+
+hist(Inventory$HC)
 ```
 
 ```{r same vs other sp}
@@ -198,10 +200,41 @@ ClaudiaSup10 <- ClaudiaSup10 %>%
   rename(species_old = species, species = species_c) %>% 
   mutate(species = recode(species, "Pouteria.gonggrijpii" = "Pouteria.gongrijpii" , "Aniba.rosodora" = "Aniba.rosaeodora", 'Inga.melinonii'= "Inga.melinonis", "Eschweilera.grandiflora" = "Eschweilera.grandiflora_form2","Tovomita.sp.9" = "Tovomita.sp.9-CAY","Sloanea.sp.14" = "Sloanea sp.14-CAY","Sloanea.sp.20" = "Sloanea.sp.20-CAY","Aspidosperma.cruentum" = "Aspidosperma.desmanthum", "Homalolepis.morettii" = "Simaba.morettii", "Myrcia.fallax" = "Myrcia.magnoliifolia"))
 
-	
+
 rm(All_Paracou)
 
 sort(unique(ClaudiaSup10$Plot))
+```
+
+```{r Local canopy height (LCH)for Claudias trees}
+
+ClaudiaSup10 <- ClaudiaSup10 %>% # EN ATTENDANT LE CHM DE PARACOU !!!!!!!!!!!!!!!!!!!!
+  mutate(HC = height)
+
+# all Paracou CHM 2016 1m res (SpatRaster)
+CHM <- rast(paste(PATH, "Lidar/ALS2023/HighAltitudeFlight/Paracou_2016_CHM_1mres.tif",sep=""))
+# "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2016/rasters/PARACOU2016_CHM_1m_filt.tif"
+
+#  focal ("moving window") weight matrix   
+disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61, ncol=61)), 30, type = "circle") # 30m radius of the circle
+# with target tree
+disk_weights[disk_weights[]>0] <- 1
+
+# Calculate focal ("moving window") values for each cell
+CHMPP_median30cir <- focal(CHM, w=disk_weights, fun="median", na.policy="all",
+                           fillvalue=NA, expand=FALSE, silent=TRUE)
+# values in the focal window will be multiplied by the corresponding weight prior to 'fun' being applied.
+
+ClaudiaSup10_sf <- ClaudiaSup10 %>% # as sf
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(CHM))
+
+LCH <- raster::extract(CHMPP_median30cir, ClaudiaSup10_sf) %>% 
+  rename(HC = focal_median) %>% dplyr::select(-ID)
+
+ClaudiaSup10 <- ClaudiaSup10 %>% # add LCH to ClaudiaSup10
+  cbind(LCH)
 ```
 
 ```{r Posteriors median}
@@ -209,6 +242,7 @@ sort(unique(ClaudiaSup10$Plot))
 
 # posterior draws
 draws <- as_draws_df(fit)
+names(draws)
 
 # keep only relevant parameters
 pars <- draws %>%
@@ -233,93 +267,148 @@ post_median <- pars %>% # 470
     species = str_split_fixed(inside, ",", 2)[,1],
     par2 = str_split_fixed(inside, ",", 2)[,2],
     parameter = str_extract(posterior_name, "^.*(?=\\[)"),
-    parameter = str_remove(parameter, "^r_species_noSing__")  ) %>%
+    parameter = str_remove(parameter, "^r_species_noSing__")) %>%
+  unite(parameter, par2, col = "parameter", sep = "_", remove=T) %>% 
   
-  filter(par2 == 'Intercept') %>% 
+  # filter(par2 == 'Intercept') %>% 
   select(parameter, species, median) %>%
   pivot_wider(names_from = parameter,
-              values_from = median)
+              values_from = median) %>% 
+  mutate(alpha0_Intercept = median(draws$b_alpha_Intercept),
+         beta0_Intercept = median(draws$b_beta_Intercept))
 
 # post_median <- post_median %>% 
 #   left_join(match, by = 'species')
 
 # all(match$species_noSing %in% test$species_noSing)
 
-# if species not estimated (c'est bien ça ?)
-alpha_g <- median(draws$b_alpha_Intercept)
-beta_g <- median(draws$b_beta_Intercept)
+# if species not estimated
+# alpha_g <- median(draws$b_alpha_Intercept)
+# beta_g <- median(draws$b_beta_Intercept)
 
+# ClaudiaSup10 <- ClaudiaSup10 %>% 
+#   left_join(post_median, by="species") %>% 
+#   mutate(species = ifelse(is.na(alpha)& is.na(beta), 'other', species)) %>% # create an "other" sp for the non matched species
+#   mutate(alpha = ifelse(is.na(alpha), alpha_g, alpha)) %>% 
+#   mutate(beta = ifelse(is.na(beta), beta_g, beta))
+# 
+# ClaudiaSup10 %>% filter(species != 'other') %>% select(species) %>% unique() # 436
+```
+
+```{r}
 ClaudiaSup10 <- ClaudiaSup10 %>% 
-  left_join(post_median, by="species") %>% 
-  mutate(species = ifelse(is.na(alpha)& is.na(beta), 'other', species)) %>% # create an "other" sp for the non matched species
-  mutate(alpha = ifelse(is.na(alpha), alpha_g, alpha)) %>% 
-  mutate(beta = ifelse(is.na(beta), beta_g, beta))
+  left_join((match %>% select(species, species_noSing)), by= "species") %>%
+  mutate(dbh.y = dbh.y*100)
 
-ClaudiaSup10 %>% filter(species != 'other') %>% select(species) %>% unique() # 436
+# Predict tree height for Claudia's species
+same_sp <- ClaudiaSup10 %>% 
+  filter(!is.na(species_noSing)) # 36673
+
+other_sp <- ClaudiaSup10 %>% 
+  filter(is.na(species_noSing)) # 11177
+
+nrow(ClaudiaSup10) == nrow(same_sp) + nrow(other_sp)
+```
+
+```{r prediction with posterior median}
+gc()
+same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # long, robust=T: the median and the median absolute deviation (MAD) are applied (du coup)
+same_sp$mu <- same_sp_pred[,1]
+range(same_sp$mu) # 5.968273 72.589019
+
+gc()
+other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, robust=T, na.action = na.omit) # 1 min; , robust=T to take the posterior median
+gc()
+other_sp$mu <- other_sp_pred[,1]
+range(other_sp$mu) # 17.31307 37.77360
+
+pred <- same_sp %>% # rebind datasets
+  bind_rows(other_sp)
+
+
+nrow(pred) == nrow(ClaudiaSup10)
+length(unique(pred$species)) == length(unique(ClaudiaSup10$species)) 
 ```
 
 ```{r}
-fit
+ClaudiaSup10 <- pred %>% 
+  # mutate(mu = ((alpha_intercept + alpha) * dbh.y)/((beta_intercept + beta) + dbh.y)) %>% 
+  mutate(epsilon_log = log(height) - log(mu)) %>% # epsilon = l'erreur du modèle
+  group_by(species_noSing) %>% # par espèce
+  mutate(sigma = exp(sd(epsilon_log))) %>%  # sigma = l'écart type de l'erreur du modèle
+  ungroup() %>% 
+  mutate(species = ifelse(is.na(species_noSing), 'other', species)) %>% # create an "other" sp for the non matched species
+  
+  
+  hist(ClaudiaSup10$sigma)
+
+newline <- data.frame(species= 'other',
+                      alpha0_Intercept = median(draws$b_alpha_Intercept),
+                      beta0_Intercept = median(draws$b_beta_Intercept))
+
+post_median <- post_median %>% 
+  bind_rows(newline) %>% 
+  left_join((ClaudiaSup10 %>% select(species, sigma) %>% unique()), by="species")
 ```
 
 
 ```{r}
-ClaudiaSup10 %>% 
-  mutate(mu = ((42.79 + alpha) * dbh.y)/((14.57 + beta) + dbh.y)) %>% 
-  mutate(epsilon = height - mu) %>% 
-  filter(epsilon > -50, epsilon < 50) %>% 
-  ggplot(aes(epsilon)) +
-  geom_histogram() +
-  theme_bw()
-```
+# Generate random sigma with rlnorm() 
+# rlnorm(N, log(mu), log(sigma)) 
 
-
-```{r}
-# and estimate 𝞼 for each sp of the claudia's dataset
-ClaudiaSup10 <- ClaudiaSup10 %>% 
-  mutate(epsilon = lm(height ~ (alpha * dbh.y)/(beta + dbh.y), # Formula: height ~ (alpha * dbh.y)/(beta + dbh.y) 
-                    data = .)$residuals) # autant que d'observations
-
-# check 𝞼 distribution 
-hist(ClaudiaSup10[ClaudiaSup10$species=="Tachigali.melinonii",]$epsilon) # pas logNormaux mais Uniformes (pq ?)
-# log 𝞼
-log(ClaudiaSup10[ClaudiaSup10$species=="Tachigali.melinonii",]$epsilon)
-
-# Generate random sigma with rlnorm(𝞼) 
-rsigmasp <- list()
-for(sp in unique(ClaudiaSup10$species)){
-  rsigmasp[[sp]] <- data.frame(
-    species = sp,
-    N = 1:N,
-    rsigma = rnorm(N, mean = mean(ClaudiaSup10[ClaudiaSup10$species==sp,]$sigma),
-                   sd = sd(ClaudiaSup10[ClaudiaSup10$species==sp,]$sigma)) # c'est ça qu'il faut faire ?
-    # 1 𝞼 par sp, ind ou sample?
-  )
-} # produit des NaN pour les espèces non-estimée dans le modèle de claudia
-
-rsigmasp <- do.call("rbind", rsigmasp) #%>% 
-# tibble::rownames_to_column("Sample")
-
-
-# Estimate H for my dataset with these logsigma with rlnorm(𝞼) (generates random deviates)
 test <- Inventory %>%
-  left_join((ClaudiaSup10 %>% select(species, alpha, beta) %>% unique()), by='species') %>% 
-  left_join(rsigmasp, by='species') %>% # *10
-  mutate(TreeHeight = (alpha * (dbh.y/100))/(beta + (dbh.y/100)) + rsigma) # height in m
+  left_join(post_median, by= "species") %>% # catch up the posteriors
+  mutate(alpha0_Intercept = median(draws$b_alpha_Intercept),
+         beta0_Intercept = median(draws$b_beta_Intercept)) %>% 
+  # Compute median height for the species of the model
+  mutate(height_mean = ((alpha0_Intercept + alpha_Intercept + alpha_HC*HC) * dbh.y)/
+           ((beta0_Intercept + beta_Intercept) + dbh.y)) %>% # Hauteur médiane estimée
+  # Compute median height for the other species
+  mutate(height_mean = ifelse(species=='other', 
+                              (alpha0_Intercept * dbh.y)/(beta0_Intercept + dbh.y),
+                              height_mean ))
 
-test %>% filter(is.na(TreeHeight)) %>%
-  select(ScientificName, species, Strategy, species_noSing, TreeHeight) %>% unique() # 5 not recognised sp, 1 canopy sp 
-# pas d'alpha, beta, sigma pour eux pcq pas dans ClaudiaSup10 alors que dans le modèle oui...
 
-test %>% filter(is.nan(TreeHeight)) %>%
-  select(ScientificName, species, Strategy, species_noSing, alpha, beta, rsigma) %>% unique() 
-# 2 sp ac rsigma = NaN
+# Add the random 𝞼
+test <- do.call("rbind", replicate(N, test, simplify = FALSE)) %>% # replicate each row N times
+  # arrange(idTree) %>% 
+  group_by(idTree) %>% # per ind
+  mutate(Sample = paste0("TreeHeight_", 1:N)) %>% 
+  mutate(TreeHeight = rlnorm(N, log(height_mean), log(sigma))) %>% # Generate random TreeHeight from the logN distrib with as mean the logged the average height estimated and as standard deviation the logged specific sigma # c'est ça qu'il faut faire ?
+  ungroup()
 
-any(test$TreeHeight<0) 
+# ------------------------------------------------------------------------------
+# Old
+# rsigmasp <- list()
+# for(sp in unique(ClaudiaSup10$species)){
+#   rsigmasp[[sp]] <- data.frame(
+#     species = sp,
+#     N = 1:N,
+#     rsigma = rnorm(N, mean = mean(ClaudiaSup10[ClaudiaSup10$species==sp,]$sigma),
+#                    sd = sd(ClaudiaSup10[ClaudiaSup10$species==sp,]$sigma)) # c'est ça qu'il faut faire ?
+#     # 1 𝞼 par sp, ind ou sample?
+#   )
+# } 
+# # rsigmasp <- do.call("rbind", rsigmasp)
+# 
+# # Estimate H for my dataset with these logsigma with rlnorm(𝞼) (generates random deviates)
+# test <- Inventory %>%
+#   left_join((ClaudiaSup10 %>% select(species, alpha, beta) %>% unique()), by='species') %>% 
+#   left_join(rsigmasp, by='species') %>% # *10
+#   mutate(TreeHeight = (alpha * (dbh.y/100))/(beta + (dbh.y/100)) + rsigma) # height in m
+
+test %>% filter(is.na(sigma)) %>%
+  select(ScientificName, species, species_noSing) %>% unique() # 5 sp du modèle ne figurent pas, et 2 sont des singletons
+
+test %>% filter(is.na(TreeHeight) & !is.na(sigma)) %>%
+  select(ScientificName, species, Strategy, species_noSing, TreeHeight) %>% unique() .
+
+any(na.omit(test$TreeHeight<0)) 
 
 negH <- test %>% filter(TreeHeight<0) %>% 
-  select(idTree, ScientificName, species, dbh.y, alpha, beta, rsigma) %>% unique() # 43834 ind, 338 sp
+  select(idTree, ScientificName, species, dbh.y, sigma) %>% unique() 
 ```
+
 
 ```{r Bind preds}
 pred <- same_sp %>%

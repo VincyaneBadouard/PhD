@@ -100,11 +100,18 @@ data %>%
 ```
 
 ```{r}
-data %>% 
+data <- data %>% 
   mutate(mu = (35.31*d)/(50.06+d)) %>% 
-  mutate(epsilon_log = log(h) - log(mu)) %>% 
+  mutate(epsilon_log = log(h) - log(mu))
+
+hist(data$epsilon_log)
+```
+
+```{r}
+data %>% 
   ungroup() %>% 
   summarise(sigma = exp(sd(epsilon_log)))
+
 ```
 
 > 💡: $\mu = \hat{h}$ , en utilisant la fonction `brms::predict()` tu peux récupérer les hauteurs prédites qui correspondent à $\mu$
