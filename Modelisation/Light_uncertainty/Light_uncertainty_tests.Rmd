@@ -80,8 +80,7 @@ Inventory <- bind_rows(Understory, Adults)
 ```{r}
 # names(Inventory)
 Inventory <- Inventory %>% 
-  select(idTree,Plot,SubPlot,Year,Yutm,Xutm,ScientificName,Subspecies,Strategy,DBHcor, Elevation) # pour alléger       
-
+  select(idTree,Plot,SubPlot,Year,Yutm,Xutm,ScientificName,Subspecies,Strategy,DBHcor, Elevation) # pour alléger
 ```
 
 ```{r Modify inventory for predictions}
@@ -126,6 +125,8 @@ Inventory <- Inventory %>% # add LCH to inventory
 hist(Inventory$HC)
 ```
 
+
+## Meth 1: H prediction from posterior values
 ```{r same vs other sp}
 same_sp <- Inventory %>% 
   filter(!is.na(species_noSing)) %>% # 36673
@@ -136,7 +137,6 @@ other_sp <- Inventory %>%
   mutate(Method_TreeHeight = "Community")
 ```
 
-## Meth 1: H prediction from posterior values
 ```{r H prediction with 100 posterior values - same sp}
 same_sp_pred <- posterior_predict(fit, newdata = same_sp, ndraws = N) # Génère des valeurs simulées de la variable réponse, 1 prédiction par draw du posterior
 # rows : 1:10 predictions
@@ -161,6 +161,15 @@ colnames(other_sp_pred)[1:N] <- paste0("TreeHeight_", 1:N)
 other_sp <- bind_cols(other_sp, other_sp_pred)
 ```
 
+```{r Bind preds}
+pred <- same_sp %>%
+  bind_rows(other_sp) %>% 
+  rename(DBHcor = dbh.y)
+
+nrow(pred) == nrow(Inventory)
+length(unique(pred$ScientificName)) == length(unique(Inventory$ScientificName)) 
+``` 
+
 ## Meth 2: H prediction from
 Use stats R package
 Claudia data ≥ 10 cm DBH
@@ -179,62 +188,53 @@ df_list <- lapply(filenames, read_table) # read all the folder files
 
 ClaudiaSup10 <- df_list[[1]] # Prendre le premier dataframe comme base
 
-ClaudiaSup10 <- ClaudiaSup10 %>% 
+ClaudiaSup10 <- ClaudiaSup10 %>% # 73325
   # Calculer la moyenne de la colonne height
   mutate(height = rowMeans(sapply(df_list, function(df) df$height))) %>% 
   rename(dbh.y = dbh)
+# ------------------------------------------------------------------------------
+
+bd_paracou_HC <- read_csv(paste(PATH, "/modèlesAlloClaudia/HC_BDParacou_CIRAD_codeGreg.csv", sep='')) %>% # 72644 
+  unite(genus, species, col = "species", sep = ".", remove = T) %>% 
+  rename(HC = CHM2015_25ppm_fo_comp) %>% 
+  select(idtree, plot, species, xutm, yutm, dbh, HC) 
+
+ClaudiaSup10 <- ClaudiaSup10 %>% # 73331
+  left_join(bd_paracou_HC, by = c('id' = 'idtree')) %>% 
+  filter(!is.na(HC)) %>% 
+  select(plot, id, xutm,yutm, species, dbh.y, height, HC)
+
 
 # view(ClaudiaSup10) # 73325
 ```
+
 ```{r}
 # get botanical id of the species
-All_Paracou <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/All_Paracou.csv")
+# All_Paracou <- read_csv("~/PhD/Inventories/Data/Adults/Paracou/All_Paracou.csv")
+# 
+# ClaudiaSup10 <- ClaudiaSup10 %>% 
+#   rename(idTree = id) %>% 
+#   left_join(All_Paracou, by="idTree") %>% 
+# select(Plot, idTree, dbh.y, height, Xutm,Yutm, Genus, Species) %>% unique() %>%
+#   unite(Genus, Species, col = "species", sep = ".", remove = T) %>% 
+#   mutate(species_c = data.table::tstrsplit(species, split = "_subsp.")[[1]]) %>% # manage subsp
+#   mutate(SubSpecies = data.table::tstrsplit(species, split = "_subsp.")[[2]]) %>% 
+#   rename(species_old = species, species = species_c) %>% 
+#   mutate(species = recode(species, "Pouteria.gonggrijpii" = "Pouteria.gongrijpii" , "Aniba.rosodora" = "Aniba.rosaeodora", 'Inga.melinonii'= "Inga.melinonis", "Eschweilera.grandiflora" = "Eschweilera.grandiflora_form2","Tovomita.sp.9" = "Tovomita.sp.9-CAY","Sloanea.sp.14" = "Sloanea sp.14-CAY","Sloanea.sp.20" = "Sloanea.sp.20-CAY","Aspidosperma.cruentum" = "Aspidosperma.desmanthum", "Homalolepis.morettii" = "Simaba.morettii", "Myrcia.fallax" = "Myrcia.magnoliifolia"))
+# 
+# 
+# rm(All_Paracou)
+# 
+# sort(unique(ClaudiaSup10$Plot))
 
-ClaudiaSup10 <- ClaudiaSup10 %>% 
-  rename(idTree = id) %>% 
-  left_join(All_Paracou, by="idTree") %>% 
-  select(Plot, idTree, dbh.y, height, Xutm,Yutm, Genus, Species) %>% unique() %>%
-  unite(Genus, Species, col = "species", sep = ".", remove = T) %>% 
-  mutate(species_c = data.table::tstrsplit(species, split = "_subsp.")[[1]]) %>% # manage subsp
-  mutate(SubSpecies = data.table::tstrsplit(species, split = "_subsp.")[[2]]) %>% 
-  rename(species_old = species, species = species_c) %>% 
-  mutate(species = recode(species, "Pouteria.gonggrijpii" = "Pouteria.gongrijpii" , "Aniba.rosodora" = "Aniba.rosaeodora", 'Inga.melinonii'= "Inga.melinonis", "Eschweilera.grandiflora" = "Eschweilera.grandiflora_form2","Tovomita.sp.9" = "Tovomita.sp.9-CAY","Sloanea.sp.14" = "Sloanea sp.14-CAY","Sloanea.sp.20" = "Sloanea.sp.20-CAY","Aspidosperma.cruentum" = "Aspidosperma.desmanthum", "Homalolepis.morettii" = "Simaba.morettii", "Myrcia.fallax" = "Myrcia.magnoliifolia"))
-
-
-rm(All_Paracou)
-
-sort(unique(ClaudiaSup10$Plot))
-```
-
-```{r Local canopy height (LCH)for Claudias trees}
-
-ClaudiaSup10 <- ClaudiaSup10 %>% # EN ATTENDANT LE CHM DE PARACOU !!!!!!!!!!!!!!!!!!!!
-  mutate(HC = height)
-
-# all Paracou CHM 2016 1m res (SpatRaster)
-CHM <- rast(paste(PATH, "Lidar/ALS2023/HighAltitudeFlight/Paracou_2016_CHM_1mres.tif",sep=""))
-# "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2016/rasters/PARACOU2016_CHM_1m_filt.tif"
-
-#  focal ("moving window") weight matrix   
-disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61, ncol=61)), 30, type = "circle") # 30m radius of the circle
-# with target tree
-disk_weights[disk_weights[]>0] <- 1
-
-# Calculate focal ("moving window") values for each cell
-CHMPP_median30cir <- focal(CHM, w=disk_weights, fun="median", na.policy="all",
-                           fillvalue=NA, expand=FALSE, silent=TRUE)
-# values in the focal window will be multiplied by the corresponding weight prior to 'fun' being applied.
-
-ClaudiaSup10_sf <- ClaudiaSup10 %>% # as sf
-  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
-  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
-  st_set_crs(st_crs(CHM))
-
-LCH <- raster::extract(CHMPP_median30cir, ClaudiaSup10_sf) %>% 
-  rename(HC = focal_median) %>% dplyr::select(-ID)
-
-ClaudiaSup10 <- ClaudiaSup10 %>% # add LCH to ClaudiaSup10
-  cbind(LCH)
+# Correspondance Guyafor vs bd_paracou_HC:
+# Theobroma.guianense -> Theobroma subincanum
+# Tovomita.fanshawei -> Tovomita sp.9-CAY
+# Sloanea.brachytepala -> Sloanea sp.14-CAY
+# Sloanea.erythrocarpa -> Sloanea sp.8-CAY
+# Sloanea.synandra -> Sloanea sp.20-CAY
+# Sloanea tuerckheimii -> Sloanea.eichleri
+# Glycydendron.Indet. ou Indet.Euphorbiaceae.Indet. -> Glycydendron Indet.
 ```
 
 ```{r Posteriors median}
@@ -242,7 +242,7 @@ ClaudiaSup10 <- ClaudiaSup10 %>% # add LCH to ClaudiaSup10
 
 # posterior draws
 draws <- as_draws_df(fit)
-names(draws)
+# names(draws)
 
 # keep only relevant parameters
 pars <- draws %>%
@@ -337,10 +337,9 @@ ClaudiaSup10 <- pred %>%
   group_by(species_noSing) %>% # par espèce
   mutate(sigma = exp(sd(epsilon_log))) %>%  # sigma = l'écart type de l'erreur du modèle
   ungroup() %>% 
-  mutate(species = ifelse(is.na(species_noSing), 'other', species)) %>% # create an "other" sp for the non matched species
-  
-  
-  hist(ClaudiaSup10$sigma)
+  mutate(species = ifelse(is.na(species_noSing), 'other', species)) # create an "other" sp for the non matched species
+
+hist(ClaudiaSup10$sigma)
 
 newline <- data.frame(species= 'other',
                       alpha0_Intercept = median(draws$b_alpha_Intercept),
@@ -356,7 +355,7 @@ post_median <- post_median %>%
 # Generate random sigma with rlnorm() 
 # rlnorm(N, log(mu), log(sigma)) 
 
-test <- Inventory %>%
+pred <- Inventory %>%
   left_join(post_median, by= "species") %>% # catch up the posteriors
   mutate(alpha0_Intercept = median(draws$b_alpha_Intercept),
          beta0_Intercept = median(draws$b_beta_Intercept)) %>% 
@@ -370,12 +369,13 @@ test <- Inventory %>%
 
 
 # Add the random 𝞼
-test <- do.call("rbind", replicate(N, test, simplify = FALSE)) %>% # replicate each row N times
+pred <- do.call("rbind", replicate(N, pred, simplify = FALSE)) %>% # replicate each row N times
   # arrange(idTree) %>% 
   group_by(idTree) %>% # per ind
   mutate(Sample = paste0("TreeHeight_", 1:N)) %>% 
   mutate(TreeHeight = rlnorm(N, log(height_mean), log(sigma))) %>% # Generate random TreeHeight from the logN distrib with as mean the logged the average height estimated and as standard deviation the logged specific sigma # c'est ça qu'il faut faire ?
-  ungroup()
+  ungroup() %>% 
+  rename(DBHcor = dbh.y)
 
 # ------------------------------------------------------------------------------
 # Old
@@ -397,28 +397,9 @@ test <- do.call("rbind", replicate(N, test, simplify = FALSE)) %>% # replicate e
 #   left_join(rsigmasp, by='species') %>% # *10
 #   mutate(TreeHeight = (alpha * (dbh.y/100))/(beta + (dbh.y/100)) + rsigma) # height in m
 
-test %>% filter(is.na(sigma)) %>%
-  select(ScientificName, species, species_noSing) %>% unique() # 5 sp du modèle ne figurent pas, et 2 sont des singletons
-
-test %>% filter(is.na(TreeHeight) & !is.na(sigma)) %>%
-  select(ScientificName, species, Strategy, species_noSing, TreeHeight) %>% unique() .
-
-any(na.omit(test$TreeHeight<0)) 
-
-negH <- test %>% filter(TreeHeight<0) %>% 
-  select(idTree, ScientificName, species, dbh.y, sigma) %>% unique() 
+any(is.na(Inventory$TreeHeight)) 
+any(na.omit(Inventory$TreeHeight<0)) 
 ```
-
-
-```{r Bind preds}
-pred <- same_sp %>%
-  bind_rows(other_sp) %>% 
-  rename(DBHcor = dbh.y)
-
-nrow(pred) == nrow(Inventory)
-length(unique(pred$ScientificName)) == length(unique(Inventory$ScientificName)) 
-```
-
 ```{r Write data}
 write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv")
 # pred <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv") # 47,850
@@ -439,7 +420,7 @@ Light <- Light[Transmittance>0 & Z>2,] # remove Z=2m because all is equal to 100
 
 ```{r Extract Zutm for each tree}
 data <- pred %>% 
-  select(idTree, ScientificName, Strategy, Xutm, Yutm, SubPlot, DBHcor, contains("TreeHeight"))
+  select(idTree, ScientificName, Strategy, Xutm, Yutm, SubPlot, DBHcor, Sample, TreeHeight)
 
 MNT <- terra::rast(paste(PATH, "/Lidar/ALS2023/HighAltitudeFlight/MNT/dtm2023_25ha_HighAlt_buffer.asc",sep="")) 
 terra::crs(MNT) <- terra::crs("EPSG:2972")
@@ -455,7 +436,7 @@ data <- data %>% cbind(alt) %>% setDT()
 ```
 
 ```{r Coordinates in local positions (use VOP) as light file}
-VOP <- as.matrix(read.table(paste(PATH, "/Lidar/ALS2023/VOP/VOP_P16_25ha.txt", "")))
+VOP <- as.matrix(read.table(paste(PATH, "/Lidar/ALS2023/VOP/VOP_P16_25ha.txt", sep="")))
 
 data <- setDT(data)
 
@@ -467,65 +448,65 @@ datalocal <- as.data.frame(cbind(datalocal, data[,Zutm]))[, -c(3,4)]  # add Zutm
 names(datalocal) <- c("X","Y","Z")
 datalocal <- datalocal %>%
   # cbind(data[,.-()]) %>%
-  cbind(data[,c("SubPlot", "idTree", "ScientificName", "Strategy", "Xutm", "Yutm", "Zutm", "DBHcor",
-                names(data)[grepl("TreeHeight", names(data))] ), with = FALSE])
+  cbind(data[,c("SubPlot", "idTree", "ScientificName", "Strategy", "Xutm", "Yutm", "Zutm", "DBHcor", "Sample", "TreeHeight"), with = FALSE]) %>%
+  setDT()
 # datalocal
 ```
 
 ```{r Pivot}
-datalocal <- datalocal %>% 
-  pivot_longer(cols = starts_with("TreeHeight"),
-               names_to = "Sample",
-               values_to = "TreeHeight") %>%
-  setDT()
+# datalocal <- datalocal %>% 
+#   pivot_longer(cols = starts_with("TreeHeight"),
+#                names_to = "Sample",
+#                values_to = "TreeHeight") %>%
+#   setDT()
 ```
 
 Modification : obliger la hauteur de l'arbre a un minimum d'1m30 (hauteur de mesure du diamètre)
 ```{r negative heights}
-neg_H <- datalocal %>% 
-  filter(TreeHeight<0)
-range(neg_H$DBHcor) # 1 4.3
-length(unique(neg_H$idTree)) # 6117
-length(unique(neg_H$idTree))/length(unique(datalocal$idTree))*100 # 13%
-length(unique(neg_H$ScientificName)) # 398 species concerned
-dupli <- neg_H %>% 
-  group_by(idTree) %>% mutate(N = n()) # max 7/10 hauteurs estimées négatives
-
-neg_H_Ana <- neg_H %>% 
-  filter(ScientificName=="Tachigali_melinonii") # 152/938 ind
-
-sp
-
-ggplot(neg_H, aes(x=Strategy)) +
-  geom_bar() +
-  labs(title="Nombre de hauteur estimées négatives par stratégie")
+# neg_H <- datalocal %>% 
+#   filter(TreeHeight<0)
+# range(neg_H$DBHcor) # 1 4.3
+# length(unique(neg_H$idTree)) # 6117
+# length(unique(neg_H$idTree))/length(unique(datalocal$idTree))*100 # 13%
+# length(unique(neg_H$ScientificName)) # 398 species concerned
+# dupli <- neg_H %>% 
+#   group_by(idTree) %>% mutate(N = n()) # max 7/10 hauteurs estimées négatives
+# 
+# neg_H_Ana <- neg_H %>% 
+#   filter(ScientificName=="Tachigali_melinonii") # 152/938 ind
+# 
+# sp
+# 
+# ggplot(neg_H, aes(x=Strategy)) +
+#   geom_bar() +
+#   labs(title="Nombre de hauteur estimées négatives par stratégie")
 ```
 
 ```{r}
 # un graph ou une table qui donne le nombre d'indiv avec 0, 1, ... 10 valeurs < 1.30
-toosmall <- datalocal %>%
-  group_by(idTree) %>% 
-  summarise(sum(TreeHeight<1.30))
-
-ggplot(toosmall)
-
-ggplot(toosmall, aes(x= `sum(TreeHeight < 1.3)`)) +
-  theme_minimal() +
-  geom_bar(color="#e9ecef", alpha=0.9) +
-  labs(title="Nombre d'individus ayant entre 0 et 10 hauteurs < 1.30 m")
+# toosmall <- datalocal %>%
+#   group_by(idTree) %>% 
+#   summarise(sum(TreeHeight<1.30))
+# 
+# ggplot(toosmall)
+# 
+# ggplot(toosmall, aes(x= `sum(TreeHeight < 1.3)`)) +
+#   theme_minimal() +
+#   geom_bar(color="#e9ecef", alpha=0.9) +
+#   labs(title="Nombre d'individus ayant entre 0 et 10 hauteurs < 1.30 m")
 ```
 
 ```{r force minimum TreeHeight to 1.3}
 # TreeHeight is 1.3 minimum
-datalocal <- datalocal %>%
-  mutate(TreeHeight = ifelse(TreeHeight<1.3, 1.3, TreeHeight))
+# datalocal <- datalocal %>%
+#   mutate(TreeHeight = ifelse(TreeHeight<1.3, 1.3, TreeHeight))
 ```
 
 ```{r Coordinates 1m above each tree}
 datalocal[,Z := Z+TreeHeight+1] # zutm + tree height +1
-range(datalocal$Z) # 3.906876 68.748097
+range(datalocal$Z) # V0: 3.906876 68.748097, V1: 9.513182 76.848791
 
-datalocal[Z>max(Light$Z),] #> 66m, 11 tree height estimations too tall
+datalocal[Z>max(Light$Z),] #> 66m, V0: 11, V1 : 64 tree height estimations too tall
 
 # datalocal <- datalocal[Z<max(Light$Z),] # remove trees too tall
 
@@ -535,7 +516,7 @@ datalocal[Z>max(Light$Z),] #> 66m, 11 tree height estimations too tall
 
 ```{r}
 summary(Light[, .(X, Y, Z)]) # max z=66
-summary(datalocal[, .(X, Y, Z)]) # max tree height too big 68.9m
+summary(datalocal[, .(X, Y, Z)]) # max tree height too big V0: 68.9m, V1: 76.8m
 ```
 **changement : j'ai augmenté le radius de 4 à 6 pour avoir 8 voisins pour toutes les hauteurs d'arbres**
 ```{r Light per tree height}
@@ -545,7 +526,7 @@ result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
                     # The maximum number of nearest neighbours to compute
                     k = 8, # including target # 5, 8, 9, 15, 27, 30, 35, 35
                     # !!!mettre 8 (pas plus pour ne pas "tartiner"
-                    searchtype = "radius", radius = 6) # (4) pour éviter les NA en bord de scene 
+                    searchtype = "radius", radius = 12) # (4) pour éviter les NA en bord de scene 
 # k = 30, radius = 3
 # k = 7, radius = 5
 
@@ -569,7 +550,7 @@ datalocal$Transmittance <- fill.value
 Inv (idTree, ScientificName, Xutm, Yutm, Zutm, DBHcor, TreeHeight) + Transmittance
 ```{r Write data}
 datalocal <- datalocal %>%
-  select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, Sample, TreeHeight, Method_TreeHeight, Z, Transmittance)
+  select(idTree, SubPlot, ScientificName, Strategy, Xutm, Yutm, Zutm, DBHcor, Sample, TreeHeight, Z, Transmittance) # Method_TreeHeight, 
 
 write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_1m_incertitude.csv") 
 # datalocal <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019_1m_incertitude.csv")
@@ -646,7 +627,7 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
 ```
 
-# Join eigenvectors
+# Join eigenvectors - ARRETEE LA
 ```{r}
 filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", full.names=T)
 eigenval <- lapply(filelist, read_csv)
