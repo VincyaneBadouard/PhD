@@ -49,6 +49,8 @@ rm(fit2_MM4_5s_2023)
 #          alpha ~ HC + 1 | species_noSing
 #          beta ~ 1 | species_noSing
 class(fit) # brmsfit
+posterior::variables(as_draws_df(fit))
+ranef(fit)
 ```
 
 ```{r plot posteriors, eval = F}
@@ -627,44 +629,40 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
 ```
 
-# Join eigenvectors - ARRETEE LA
+# Join eigenvectors
 ```{r}
-filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", full.names=T)
-eigenval <- lapply(filelist, read_csv)
-filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", "", filelist)
-filelist <- gsub(".csv", "", filelist)
-
-names(eigenval) <- filelist
-eigenval <- eigenval[names(eigenval) %in% sp] # eigen val per tree position
-sp <- names(eigenval)
+for(s in sp){
+  # s="Tachigali_melinonii"
+  filelist <- list.files(paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/TreeHeight_uncertainty/",s,"/"), full.names=T)
+  eigenval_s <- lapply(filelist, read_csv)
+  filelist <- gsub(paste0("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/TreeHeight_uncertainty/",s,"/"), "", filelist)
+  filelist <- gsub(".csv", "", filelist)
+  
+  names(eigenval_s) <- filelist
+  
+  # Arrange sample as in datalist
+  eigenval_s <- eigenval_s[paste0(s,"_TreeHeight_", 1:N)]
+  
+  # Recode V1 to V5 columns name
+  eigenval_s <- lapply(eigenval_s, setNames, paste0("V", 1:5))
+  
+  # rbind each element of eigenval_s
+  eigenval_s <- bind_rows(eigenval_s, .id = "Sample_e") %>% # create a col Sample_e in each element of eigenval_s with its name
+    mutate(Sample_e = str_remove(Sample_e, paste0(s,"_")))  # keep on the sample info
+  # data.table::tstrsplit(Sample_e, split = "-")[[2]]
+  
+  # unique(eigenval_s$Sample_e)
+  
+  # cbind eigenval_s to datalist
+  datalist[[s]] <- datalist[[s]] %>% bind_cols(eigenval_s)
+  
+  # all(datalist$Sample == datalist$Sample_e)
+}
 ```
 
 ```{r}
-eigenval <- lapply(names(datalist), function(name) {
-  eigenval[[name]] <- eigenval[[name]] %>%
-    slice(rep(row_number(), each = 10))
-})
-names(eigenval) <- sp
-
-datalist_eig <- datalist
-# str(datalist_eig[[1]])
-
-datalist_eig <- lapply(names(datalist), function(name) {
-  # name = "Sextonia_rubra"
-  if(name %in% names(eigenval) & ncol(eigenval[[name]])>0){
-    datalist_eig[[name]] <- datalist_eig[[name]] %>%
-      # left_join(unique(eigenval[[name]]), by=c("Xutm", "Yutm"), copy = T)
-      bind_cols(eigenval[[name]])
-    
-  }
-  datalist_eig[[name]]  # Return modified data frame
-})
-
-names(datalist_eig) <- names(datalist) 
-```
-
-```{r}
-save(datalist_eig, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
+save(datalist,
+     file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
 
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
 ```

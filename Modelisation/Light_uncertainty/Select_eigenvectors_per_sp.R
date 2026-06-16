@@ -7,13 +7,13 @@
 # 
 # lambda.min = λ that gives minimum mean cross-validated error.  
 
-
 library(readr)
 library(tidyverse)
 library(glmnet)
 library(foreach)
 library(parallel)
 
+N = 10
 sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
 
 # Load eigenvectors
@@ -23,7 +23,7 @@ eigenval <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvector
 path <- "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/"
 load(paste(path, "Realdata/Realsp_9ha_incertitude.Rdata", sep=''))
 
-s <- paste0("TreeHeight_", 1:10)
+s <- paste0("TreeHeight_", 1:N)
 
 # Function ---------------------------------------------------------------------
 Select_eigenvectors_per_sp <- function(sp, datalist = datalist, eigenval = eigenval, sample){
