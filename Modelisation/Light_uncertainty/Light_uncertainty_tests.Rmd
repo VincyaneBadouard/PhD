@@ -49,6 +49,8 @@ rm(fit2_MM4_5s_2023)
 #          alpha ~ HC + 1 | species_noSing
 #          beta ~ 1 | species_noSing
 class(fit) # brmsfit
+posterior::variables(as_draws_df(fit))
+ranef(fit)
 ```
 
 ```{r plot posteriors, eval = F}
@@ -628,7 +630,8 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 ```
 
 # Join eigenvectors - ARRETEE LA
-```{r}
+ici ce ne sont pas des eignenvectors par sample
+```{r per sp only}
 filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", full.names=T)
 eigenval <- lapply(filelist, read_csv)
 filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/Per_species_9ha/", "", filelist)
@@ -639,7 +642,26 @@ eigenval <- eigenval[names(eigenval) %in% sp] # eigen val per tree position
 sp <- names(eigenval)
 ```
 
-```{r}
+```{r per sp and sample}
+filelist <- list.files("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/TreeHeight_uncertainty/Tachigali_melinonii/", full.names=T)
+eigenval_s <- lapply(filelist, read_csv)
+filelist <- gsub("D:/Mes Donnees/PhD/Inventories/Data/Agregation/Eigenvectors/TreeHeight_uncertainty/Tachigali_melinonii/", "", filelist)
+filelist <- gsub(".csv", "", filelist)
+
+names(eigenval_s) <- filelist
+```
+
+```{r Join eigenvectors (per sp and sample)}
+# recode V1 to V5 columns name
+names(eigenval_s[[1]]) <- paste0("V", 1:5)
+# create a col sample in each element of eigenval_s with its name
+# rbind each element of eigenval_s
+# arrange sample col as datalist
+# cbind eigenval_s to datalist
+
+```
+
+```{r Join eigenvectors (per sp only)}
 eigenval <- lapply(names(datalist), function(name) {
   eigenval[[name]] <- eigenval[[name]] %>%
     slice(rep(row_number(), each = 10))
