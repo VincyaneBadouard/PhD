@@ -629,6 +629,7 @@ save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Reals
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
 ```
 
+<<<<<<< HEAD
 # Join eigenvectors
 ```{r}
 for(s in sp){
