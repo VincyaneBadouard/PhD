@@ -36,7 +36,7 @@ library(stringr)
 
 sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
 N = 10
-PATH = "F:/VincyaneBadouard/" # "//amap-data.cirad.fr/work/users/VincyaneBadouard/"
+PATH = "//amap-data.cirad.fr/work/users/VincyaneBadouard/" # "F:/VincyaneBadouard/" 
 ```
 
 # Tree height uncertainty
@@ -671,7 +671,7 @@ save(datalist,
 ```{r fit}
 Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_Sample.csv")
 
-path <- paste(PATH, "Modelisation/Plots/Light_uncertainty", "")
+path <- paste0(PATH, "Modelisation/Plots/Light_uncertainty", "")
 
 fits <- list()
 for(S in sp){
@@ -694,7 +694,7 @@ for(S in sp){
 
 sp[!sp %in% names(fits)] # 
 
-saveRDS(fits, file = paste(path, "/fits.rds", sep=''))
+saveRDS(fits, file = paste0(path, "/fits.rds", sep=''))
 # fits <- readRDS(paste(path, "/fits.rds", sep=''))
 ```
 
@@ -715,10 +715,10 @@ for(S in names(fits)){
     }}}
 draws <- list_rbind(list_flatten(d))
 
-draws <- draws %>%
-  mutate(Species = recode(Species,
-                          "Anaxagorea_dolichocarpa" = "Tachigali_melinonii" ,
-                          "Tachigali_melinonii" = "Anaxagorea_dolichocarpa"))
+# draws <- draws %>%
+#   mutate(Species = recode(Species,
+#                           "Anaxagorea_dolichocarpa" = "Tachigali_melinonii" ,
+#                           "Tachigali_melinonii" = "Anaxagorea_dolichocarpa"))
 ```
 
 ```{r}
@@ -742,7 +742,7 @@ ggplot(draws, aes(x= O)) +
   theme_minimal() +
   geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
   geom_density(data = initialdraws, aes(fill="Posterior median"),
-               color="#e9ecef", alpha=0.9) +
+               color="#e9ecef", alpha=0.8) +
   scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
   facet_wrap(~ Species, scales = "free_y") +
   scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
