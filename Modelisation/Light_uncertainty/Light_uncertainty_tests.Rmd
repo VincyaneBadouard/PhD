@@ -35,7 +35,7 @@ library(patchwork)
 library(stringr)
 
 sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
-N = 10
+N = 100
 PATH = "//amap-data.cirad.fr/work/users/VincyaneBadouard/" # "F:/VincyaneBadouard/" 
 ```
 
@@ -360,7 +360,7 @@ pred <- do.call("rbind", replicate(N, pred, simplify = FALSE)) %>% # replicate e
   # arrange(idTree) %>% 
   group_by(idTree) %>% # per ind
   mutate(Sample = paste0("TreeHeight_", 1:N)) %>% 
-  mutate(TreeHeight = rlnorm(N, log(height_mean), log(sigma))) %>% # Generate random TreeHeight from the logN distrib with as mean the logged the average height estimated and as standard deviation the logged specific sigma # c'est ça qu'il faut faire ?
+  mutate(TreeHeight = rlnorm(N, log(height_mean), log(sigma))) %>% # Generate random TreeHeight from the logN distrib with as mean the logged the average height estimated and as standard deviation the logged specific sigma
   ungroup() %>% 
   rename(DBHcor = dbh.y)
 
@@ -386,13 +386,16 @@ pred <- do.call("rbind", replicate(N, pred, simplify = FALSE)) %>% # replicate e
 
 any(is.na(pred$TreeHeight)) 
 any(na.omit(pred$TreeHeight<0)) 
+unique(datalocal$Sample)
 
 hist(pred$TreeHeight)
 ```
 
 ```{r Write data}
+rm(bd_paracou_HC,Adults,Understory, same_sp, other_sp,newline,match,Inventory, Inventory_sf, df_list,CHMPP_median30cir, CHM,disk_weights,LCH,filenames)
+gc()
 write.csv(pred, "D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv")
-# pred <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv") # 47,850
+# pred <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_TreeHeights_incertitude.csv") # 4785000
 
 ```
 
@@ -494,9 +497,9 @@ Modification : obliger la hauteur de l'arbre a un minimum d'1m30 (hauteur de mes
 
 ```{r Coordinates 1m above each tree}
 datalocal[,Z := Z+TreeHeight+1] # zutm + tree height +1
-range(datalocal$Z) # V0: 3.906876 68.748097, V1: 9.513182 76.848791
+range(datalocal$Z) # V0: 3.906876 68.748097, V1: 9.513182 76.848791, V2: 9.477281 87.670985
 
-datalocal[Z>max(Light$Z),] #> 66m, V0: 11, V1 : 64/478500 tree height estimations too tall
+datalocal[Z>max(Light$Z),] #> 66m, V0: 11, V1 : 64/478500, V2: 440/4785000 tree height estimations too tall
 
 hist(datalocal$Z)
 # datalocal
@@ -504,10 +507,12 @@ hist(datalocal$Z)
 
 ```{r}
 summary(Light[, .(X, Y, Z)]) # max z=66
-summary(datalocal[, .(X, Y, Z)]) # max tree height too big V0: 68.9m, V1: 79,2m
+summary(datalocal[, .(X, Y, Z)]) # max tree height too big V0: 68.9m, V1: 79,2m, V2: 87.7m
 ```
-**changement : j'ai augmenté le radius de 4 à 6 pour avoir 8 voisins pour toutes les hauteurs d'arbres**
 ```{r Light per tree height}
+rm(alt, VOP, ReadLightFile, ClaudiaSup10,data,datasf,MNT,matrix,post_median,pred)
+gc()
+
 # Get neighbors in immediate neighborhood (k  nearest voxels including target)
 result <- RANN::nn2(data = Light[, .(X, Y, Z)], # Pool to search
                     query = datalocal[, .(X, Y, Z)], # [1,], # point of interest
@@ -529,13 +534,18 @@ any(index==0)
 # each row of index is a point of interest
 
 fill.value <- apply(index, 1, function(i) Light[as.vector(i), mean(Transmittance)] # for a matrix 1 indicates rows
-)
+) # très long
 any(fill.value==0 | is.na(fill.value))
+range(na.omit(fill.value))
+
 
 datalocal$Transmittance <- fill.value  
 
 # If trees is above the light scene, their transmittance is 1 
+# datalocal[, Transmittance := ifelse(is.nan(Transmittance), 1,Transmittance)]
 datalocal[, Transmittance := ifelse(Z>max(Light$Z), 1,Transmittance)]
+
+range(datalocal$Transmittance)
 
 hist(datalocal$Transmittance)
 ```
@@ -550,6 +560,9 @@ write.csv(datalocal, "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Li
 ```
 
 ```{r}
+rm(index, Light, result, fill.value)
+gc()
+
 datalocal_initial <- read.csv("~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_Light_2019.csv") %>%
   filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) 
 
@@ -564,22 +577,22 @@ for(s in sp){
       ggplot(aes(x=TreeHeight)) +
       theme_minimal() +
       geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.8) +
-      geom_density(data = datalocal_init, aes(fill="Posterior median"),
+      geom_density(data = datalocal_init, aes(fill="Initial"),
                    color="#e9ecef", alpha=0.5) +
-      scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
+      scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
                                    "Uncertainty propagation" = "#D55E00"),
-                        breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
+                        breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
       facet_wrap(~Sample) +
       theme(legend.position="bottom") +
       labs(title=paste(s, "Tree height uncertainty propagation"), fill = "Tree height")
   )
-}
+} # A mettre si besoin en pdf sur plsrs pages
 ```
 
 # Add TWI
 ```{r}
 Inv_env <- read_csv("D:/Mes Donnees/PhD/Inventories/Data/Adults_Understory/Paracou/P16_2019_Paracou_InvandEnv.csv") %>% 
-  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% 
+  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # 9ha
   select(idTree,SubPlot,ScientificName,TWI)
 
 
@@ -615,12 +628,13 @@ names(datalist) <- sp
 ```
 
 ```{r}
+rm(datalocal, datalocal_initial, Inv, Inv_env); gc()
 save(datalist, file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
 
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_incertitude.Rdata")
 ```
 
-# Join eigenvectors
+# Join eigenvectors after selection on cluster
 ```{r}
 for(s in sp){
   # s="Tachigali_melinonii"
@@ -652,13 +666,15 @@ for(s in sp){
 ```
 
 ```{r}
+rm(eigenval_s); gc()
+
 save(datalist,
      file= "D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
 
 # load("D:/Mes Donnees/PhD/R_codes/PhD/Modelisation/Realdata/Realsp_9ha_eigenvectors_incertitude.Rdata")
 ```
 
-# Fits
+# Fits after fitting on cluster
 ```{r fit}
 Comb <- read.csv("D:/Mes Donnees/PhD/R_codes/PhD_cluster/Data/Combin_Sp_Sample.csv")
 
@@ -693,16 +709,20 @@ saveRDS(fits, file = paste0(path, "/fits.rds", sep=''))
 V1: combiner la dernière valeur du posterior de chaque chaîne (car autocorrélation intrachaine, convergence sur une valeur) des SDM de chaque estimation de hauteur d’une espèce pour avoir la variance de toute l’incertitude pour l’espèce (100 x 4 chaines = 400 valeurs → distribution de l’incertitude)
 
 V2 : pour le posterior combiné de la propagation d’incertitude, je dois prendre autant de valeurs que pour l’initial (8 000/sp (2000*4): (4 chaînes * 100 itérations) et je tire aléatoirement autant de valeurs que dans le cas initial 
-→ 8 000/sp = 80/itération = 20/chaîne aléatoirement
+→ 8 000/sp = 80/itération = 20/chaîne aléatoirement (8 000/N/4)
 
 ```{r}
 d <- list()
 for(S in names(fits)){
   for(D in paste0("TreeHeight_", 1:N)){
     if(D %in% names(fits[[S]])){
+      # S = sp[1]
+      # D = 'TreeHeight_1'
       
       d[[S]][[D]] <- fits[[S]][[D]]$draws(c("a", "O", "tau"), format = "df") %>% 
-        filter(.iteration == 2000) %>% 
+        # filter(.iteration == 2000) %>% # only the last value of each chain
+        group_by(.chain) %>% 
+        sample_n((8000/N/4), replace = F) %>% # 8 000/sp = 80/itération = 20/chain randomly
         mutate(Species = S) %>% 
         mutate(Sample = D) %>% 
         select(-.draw)
@@ -710,10 +730,8 @@ for(S in names(fits)){
     }}}
 draws <- list_rbind(list_flatten(d))
 
-# draws <- draws %>%
-#   mutate(Species = recode(Species,
-#                           "Anaxagorea_dolichocarpa" = "Tachigali_melinonii" ,
-#                           "Tachigali_melinonii" = "Anaxagorea_dolichocarpa"))
+# sample(nrow(data), 0.1 * nrow(data))
+# sample_n(20, replace = F)
 ```
 
 ```{r}
@@ -731,43 +749,48 @@ for(S in names(initialfits)){
   
 }
 initialdraws <- list_rbind(list_flatten(d)) # 16 000 values per species
+
+nrow(draws)==nrow(initialdraws)
 ```
 
 ```{r}
 ggplot(draws, aes(x= O)) +
   theme_minimal() +
   geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_density(data = initialdraws, aes(fill="Posterior median"),
+  geom_density(data = initialdraws, aes(fill="Initial"),
                color="#e9ecef", alpha=0.8) +
-  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
+  scale_x_continuous(n.breaks = 5, limits = c(-6,0), labels = ~round(exp(.)*100,2)) + # delog
   facet_wrap(~ Species, scales = "free_y") +
-  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
+  scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
                                "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
+                    breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
   theme(legend.position="bottom") +
-  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+  labs(fill = "Tree height", y = 'Density')
+
+ggsave("Comparison_O_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
-ggplot(draws, aes(x= O)) +
-  theme_minimal() +
-  geom_histogram(binwidth=1, aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_histogram(data = initialdraws, aes(fill="Posterior median"),
-                 binwidth=1, color="#e9ecef", alpha=0.9) +
-  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
-  facet_wrap(~ Species) +
-  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
-                               "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
-  theme(legend.position="bottom") +
-  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+# ggplot(draws, aes(x= O)) +
+#   theme_minimal() +
+#   geom_histogram(binwidth=1, aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
+#   geom_histogram(data = initialdraws, aes(fill="Initial"),
+#                  binwidth=1, color="#e9ecef", alpha=0.9) +
+#   scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
+#   facet_wrap(~ Species) +
+#   scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
+#                                "Uncertainty propagation" = "#D55E00"),
+#                     breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
+#   theme(legend.position="bottom") +
+#   labs(title="Tree height uncertainty propagation", fill = "Tree height")
 ```
-```{r}
-range(initialdraws[initialdraws$Species == "Anaxagorea_dolichocarpa",]$O) # -4.18563 -4.04452
-range(draws[draws$Species == "Anaxagorea_dolichocarpa",]$O) # -4.28972 -3.81780
 
-range(initialdraws[initialdraws$Species == "Tachigali_melinonii",]$O) # -1.400090 -0.643009
-range(draws[draws$Species == "Tachigali_melinonii",]$O) # -2.5436500 -0.0224763
+```{r}
+range(initialdraws[initialdraws$Species == "Anaxagorea_dolichocarpa",]$O) # -4.54157 -3.70551
+range(draws[draws$Species == "Anaxagorea_dolichocarpa",]$O) # -4.80637 -3.71085
+
+range(initialdraws[initialdraws$Species == "Tachigali_melinonii",]$O) # -2.72987000 -0.00184223
+range(draws[draws$Species == "Tachigali_melinonii",]$O) # -2.37075000 -0.00018565
 
 draws %>% 
   group_by(Species) %>% 
@@ -797,44 +820,53 @@ initialdraws %>%
 
 
 ```{r}
-ggplot(draws, aes(x= a)) +
-  theme_minimal() +
-  geom_histogram(binwidth=.2, aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_histogram(data = initialdraws, aes(fill="Posterior median"),
-                 binwidth=.2, color="#e9ecef", alpha=0.9) +
-  facet_wrap(~ Species) +
-  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
-                               "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
-  theme(legend.position="bottom") +
-  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+# ggplot(draws, aes(x= a)) +
+#   theme_minimal() +
+#   geom_histogram(binwidth=.2, aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
+#   geom_histogram(data = initialdraws, aes(fill="Initial"),
+#                  binwidth=.2, color="#e9ecef", alpha=0.9) +
+#   facet_wrap(~ Species) +
+#   scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
+#                                "Uncertainty propagation" = "#D55E00"),
+#                     breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
+#   theme(legend.position="bottom") +
+#   labs(title="Tree height uncertainty propagation", fill = "Tree height")
 ```
 
 ```{r}
 ggplot(draws, aes(x= a)) +
   theme_minimal() +
   geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_density(data = initialdraws, aes(fill="Posterior median"),
+  geom_density(data = initialdraws, aes(fill="Initial"),
                color="#e9ecef", alpha=0.9) +
   facet_wrap(~ Species) +
-  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
+  scale_x_continuous(limits = c(-0.5, 0), breaks = c(-0.5, -0.4,-0.3,-0.2,-0.1, 0)) +
+  scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
                                "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
+                    breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
   theme(legend.position="bottom") +
-  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+  labs(fill = "Tree height", y = 'Density')
+
+ggsave("Comparison_a_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
+
 ```{r}
 ggplot(draws, aes(x= tau)) +
   theme_minimal() +
   geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_density(data = initialdraws, aes(fill="Posterior median"),
+  geom_density(data = initialdraws, aes(fill="Initial"),
                color="#e9ecef", alpha=0.8) +
   facet_wrap(~ Species, scales = "free_y") +
-  scale_fill_manual(values = c("Posterior median" = "#009E73", # pour donner un nom à chaque intitulé
+  scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
                                "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Posterior median", "Uncertainty propagation")) + # pour ordonner
+                    breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
   theme(legend.position="bottom") +
-  labs(title="Tree height uncertainty propagation", fill = "Tree height")
+  scale_x_continuous(limits = c(-5, 3.8), breaks = c(-5, -2.5, 0, 2.5, 3.8)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = 'grey') +
+  labs(fill = "Tree height", y = 'Density', x=expression(tau))
+
+ggsave("Comparison_tau_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
+
 ```
 
 ## Posteriors with O deloged and -a logged
@@ -857,18 +889,26 @@ datap <- draws %>%
                         hh = ~ quantile(., probs[4]))))
 
 a <- datap %>% 
-  select(-starts_with("O_"))
+  select(Species, starts_with("a_"))
 a <- a %>% 
   rename_with(.fn = ~gsub("a_", "", names(a)), .cols = names(.)) %>% 
   mutate(parameter = 'a') 
 
 O <- datap %>% 
-  select(-starts_with("a_"))
+  select(Species, starts_with("O_"))
 O <- O %>% 
   rename_with(.fn = ~gsub("O_", "", names(O)), .cols = names(.)) %>% 
   mutate(parameter = 'O')
+
+tau <- datap %>% 
+  select(Species, starts_with("tau_"))
+tau <- tau %>% 
+  rename_with(.fn = ~gsub("tau_", "", names(tau)), .cols = names(.)) %>% 
+  mutate(parameter = 'tau') 
+
 datap <- O %>% 
-  bind_rows(a) %>% 
+  bind_rows(a) %>%
+  bind_rows(tau) %>%
   mutate(Source = 'Propagation')%>% 
   mutate(Species = paste0(gsub("_", " ", Species), "\npropagation"))
 ```
@@ -921,23 +961,30 @@ p1 <- xs$O %>%
                                 "50%"= "#FC4E07")) + 
   scale_alpha_manual(name = "Source", values=c(1,.2),
                      breaks=c("initial","Propagation"))+
-  theme(axis.title.x =element_blank())
+  theme(axis.title.x =element_blank(), legend.position="bottom", plot.title = element_text(hjust = 0.5))
 
 p2 <- p1 %+% xs$a +
   ggtitle("a") +
-  # scale_x_continuous(trans="log") +
+  scale_x_continuous(limits = c(-0.5, 0), breaks = c(-0.5, -0.3,-0.1, 0)) +
   theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
-        axis.ticks.y=element_blank())
+        axis.ticks.y=element_blank()) 
+
+p3 <- p1 %+% xs$tau  +
+  ggtitle(expression(tau)) +
+  scale_x_continuous(limits = c(-5, 3.8), breaks = c(-5, -2.5, 0, 3)) +
+  theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) + 
+  guides(color = FALSE, alpha = FALSE)
 
 p1 <- p1 + ggtitle("O (% transmittance)") +
-  scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
+  scale_x_continuous(n.breaks = 4, limits = c(-6, 0), labels = ~round(exp(.)*100,2)) + # delog
   guides(color = FALSE, alpha = FALSE)
 
 
-p1+p2
+p1+p2+p3
 
-# ggsave("Light_uncertainty_posteriors_delog.pdf", path = PATH,
-#        width = 25, height = 26, units = "cm", dpi=800, bg="white")
+ggsave("Light_uncertainty_posteriors_delog.png", path = path,
+       width = 16, height = 10, units = "cm", dpi=800, bg="white")
 
 ```
 
