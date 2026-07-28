@@ -20,7 +20,7 @@ Relativ2UTM <- function(
   
   # Apply inverse of VOP matrix to convert back to UTM
   data <- setDT(data)
-  xyz <- tcrossprod(as.matrix(data[, .(x, y, z, c=1)]), solve(VOP))
+  xyz <- tcrossprod(as.matrix(data[, .(X, Y, Z, c=1)]), solve(VOP)) # x,y,z
   # xyz <- tcrossprod(as.matrix(data[, .(X, Y, Z, c=1)]), solve(VOP))
   data[, `:=`(Xutm = xyz[, 1], Yutm = xyz[, 2], Zutm = xyz[, 3])]
   
