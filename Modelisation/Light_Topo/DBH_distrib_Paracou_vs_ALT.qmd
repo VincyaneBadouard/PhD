@@ -1,5 +1,5 @@
 ---
-title: "DBH_distriv_Paracou_vs_ALT"
+title: "DBH_distrib_Paracou_vs_ALT"
 date: "`r Sys.Date()`"
 format: html
 self-contained: true
@@ -14,6 +14,7 @@ PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Lig
 ```
 
 # Prepare data
+plots 1, 6, 11, 13, 14, 15, 16 (not human impacted plots)) in 2020
 ```{r Paracou}
 sp <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3] # 75
 
@@ -23,12 +24,13 @@ Paracou %>%
   group_by(Plot) %>% 
   summarise(maxYear = max(CensusYear, na.rm = T)) # not always 2023
 
-unique((Paracou %>% filter(CensusYear==2020))$Plot) # Only control & biodiversity plots
+unique((Paracou %>% filter(CensusYear==2020))$Plot) # Only control & biodiversity plots (1, 6, 11, 13, 14, 15, 16)
 
 
 Paracou <- Paracou %>% 
-  select(Forest, Plot, CensusYear, idTree, Genus, Species, CircCorr, Circ) %>% 
+  select(Forest, SubPlot, Plot, CensusYear, idTree, Genus, Species, CircCorr, Circ) %>% 
   filter(CensusYear==2020) %>% 
+  filter(!SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # not in ALT
   unite(col = "ScientificName", c("Genus", "Species"),
         sep = "_", na.rm = TRUE, remove = F) %>%
   
@@ -77,6 +79,7 @@ data <- left_join(Paracou, ALT, by='ScientificName',suffix = c('_Paracou', '_ALT
 data
 
 sp[!sp %in% data$ScientificName] # 21/75 sp absent because there are al small sp
+(nrow(data[data$Bigdiff,])/nrow(data))*100 # 12/24 (22%) species with more than 5 cm dbh diff
 ```
 
 # Plot
