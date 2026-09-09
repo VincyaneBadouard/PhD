@@ -702,7 +702,6 @@ for(S in sp){
 sp[!sp %in% names(fits)] # 
 
 saveRDS(fits, file = paste0(path, "/fits.rds", sep=''))
-# fits <- readRDS(paste(path, "/fits.rds", sep=''))
 ```
 
 # Display uncertainty
@@ -712,6 +711,8 @@ V2 : pour le posterior combiné de la propagation d’incertitude, je dois prend
 → 8 000/sp = 80/itération = 20/chaîne aléatoirement (8 000/N/4)
 
 ```{r}
+# fits <- readRDS(paste(path, "/fits.rds", sep=''))
+
 d <- list()
 for(S in names(fits)){
   for(D in paste0("TreeHeight_", 1:N)){
@@ -985,6 +986,49 @@ p1+p2+p3
 
 ggsave("Light_uncertainty_posteriors_delog.png", path = path,
        width = 16, height = 10, units = "cm", dpi=800, bg="white")
+
+```
+# Posteriors overlap
+```{r}
+d <- list()
+for(S in names(fits)){
+  # S = "Tachigali_melinonii"
+  # print(S)
+  
+  d[[S]] <- data.frame(Species = S) %>% 
+    mutate(
+      O = round(as.numeric(bayestestR::overlap(draws[draws$Species==S,]$O, initialfits[[S]]$draws("O")))*100,0),
+      
+      a = round(as.numeric(bayestestR::overlap(draws[draws$Species==S,]$a, initialfits[[S]]$draws("a")))*100,0),
+      
+      tau = round(as.numeric(bayestestR::overlap(draws[draws$Species==S,]$tau, initialfits[[S]]$draws("tau")))*100,0)
+    )
+  
+}
+data <- list_rbind(list_flatten(d))
+data
+```
+# Bias
+```{r}
+# bias(actual, predicted)
+
+d <- list()
+for(S in names(fits)){
+  # S = "Tachigali_melinonii"
+  # print(S)
+  
+  d[[S]] <- data.frame(Species = S) %>% 
+    mutate(
+      O = round(Metrics::bias(initialfits[[S]]$draws("O"), draws[draws$Species==S,]$O),3),
+      
+      a = round(Metrics::bias(initialfits[[S]]$draws("a"), draws[draws$Species==S,]$a),3),
+      
+      tau = round(Metrics::bias(initialfits[[S]]$draws("tau"), draws[draws$Species==S,]$tau),3)
+    )
+  
+}
+data <- list_rbind(list_flatten(d))
+data
 
 ```
 
