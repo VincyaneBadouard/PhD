@@ -215,7 +215,7 @@ local2utm(13, surveyor, subplots) %>%
 
 ## Local coordinates
 
-The local coordinates of the corners of the sub-plots are calculated as follows:
+The local coordinates of the corners of the subplots are calculated as follows:
 
 ```{r}
 # Next column number, i.e. UMT coordinates
@@ -383,20 +383,20 @@ d_down <- 10
 next_point(x_left, y_left, x_down, y_down, d_left, d_down) 
 ```
 
-## Placement of the quadrats ---arétée là
+## Placement of the quadrats
 
-Le tableau des mesures contient trois colonnes pour décrire la position des angles des quadrats: `plot` pour l'hectare, `quadrat_x` et `quadrat_y` pour le numéro du point, de (0, 0) pour le coin inférieur gauche à (10, 10) pour le coin supérieur droit.
+The table of measurements contains three columns describing the position of the quadrant corners: `plot` for the hectare, `quadrat_x` and `quadrat_y` for the point number, ranging from (0, 0) for the bottom-left corner to (10, 10) for the top-right corner.
 
-Les points situés sur les bordures basse et gauche de chaque sous-parcelle sont les plus fiables. 
-Ils seront utilisés pour corriger les bordures haute et droite des sous-parcelles voisines, sont la position calculée accumulera les erreurs.
-Ces données peuvent être mesurées sur le terrain indépendamment des arbres: dans ce cas, seules les distances entre les points des bordures sont dans le tableau de données.
-Les sous-parcelles correspondantes sont sans intérêt pour elles-mêmes ("dummy subplots"): elles ne contiennent pas tous les points délimitant les quadrats et aucun arbre mesuré.
+The points located on the bottom and left-hand edges of each subplot are the most reliable.
+They will be used to correct the top and right-hand edges of neighbouring subplots, where the calculated position will accumulate errors.
+These data can be measured in the field independently of the trees: in this case, only the distances between the boundary points are included in the data set.
+The corresponding subplots are of no interest in their own right (‘dummy subplots’): they do not contain all the points defining the quadrats, nor do they contain any measured trees.
 
-Pour chaque point, la distance à son voisin de gauche (`y` identique) et du bas (`x` identique), mesurées sur le terrain, sont dans les colonnes `d_left` et `d_down`.
+For each point, the distance to its neighbour on the left (with the same `y` value) and below (with the same `x` value), as measured in the field, are shown in the columns `d_left` and `d_down`.
 
-Le code suivant:
+The following code:
 
-- lit le tableau des mesures et prépare deux colonnes supplémentaires, `x` et `y`, pour y placer les coordonnées à calculer et transforme le tibble en dataframe pour que les extractions futures, comme `quadrats[i, "x"]`, soient des scalaires et non des tibbles
+- reads the measurement table and prepares two additional columns, `x` and `y`, to store the coordinates to calculate, and converts the tibble into a dataframe so that future extractions, such as `quadrats[i, ‘x’]`, are scalars rather than tibbles,
 
 ```{r}
 # data
@@ -426,7 +426,7 @@ quadrats %>%
 subplots_dummy <- setdiff(unique(quadrats$subplot), subplots_field)
 ```
 
-- ajoute les piquets des bordures droites et supérieures, s'ils sont absents du tableau Excel,
+- add the stakes for the right and top edges, if they are missing from the Excel spreadsheet,
 
 ```{r}
 # Prepare a new table to add rows
@@ -489,7 +489,7 @@ quadrats %>%
   arrange(subplot, quadrat_x, quadrat_y) -> quadrats  
 ```
 
-- calcule les coordonnées de tous les points par triangulation.
+- calculates the coordinates of all points using triangulation.
 
 ```{r}
 # Compute the positions of the points
@@ -525,9 +525,9 @@ for (i in seq_len(nrow(quadrats))) {
 }
 ```
 
-Le dataframe `quadrats` contient maintenant la position des quadrats, en coordonnées locales (`x` et `y`, comprises entre 0 et 100) et UTM (`x_utm` et `y_utm`).
+The `quadrats` dataframe now contains the positions of the quadrats, in local coordinates (`x` and `y`, ranging from 0 to 100) and UTM (`x_utm` and `y_utm`).
 
-Carte des quadrats, en coordonnées locales:
+Map of the quadrats, in local coordinates:
 
 ```{r}
 quadrats %>% 
@@ -544,32 +544,31 @@ quadrats %>%
 
 ## Interpolation
 
-Les piquets des quadrats doivent être repositionnés pour que la forme de chaque sous-parcelle issue du terrain (en rouge sur la figure suivante) corresponde à sa forme réelle (en bleu), issue des mesures du géomètre, qui n'est pas exactement un carré. 
-Cette opération ne sert qu'à réconcilier les limites de la sous-parcelle sur le terrain (considérée comme un carré) et les données du géomètre.
+The stakes marking the quadrats must be repositioned so that the shape of each subplot derived from the field (shown in red in the following figure) corresponds to its actual shape (shown in blue), as determined by the surveyor’s measurements, which is not exactly a square.
+This operation serves only to reconcile the boundaries of the subplot on the field (treated as a square) with the surveyor’s data.
 
-Les coordonnées des points doivent être interpolées pour que la valeur maximale de l'abscisse, pour une ordonnée donnée, corresponde aux mesures du géomètre.
-Le raisonnement est le même pour les ordonnées.
+The coordinates of the points must be interpolated so that the maximum value of the x-coordinate, for a given y-coordinate, corresponds to the surveyor’s measurements.
+The same reasoning applies to the y-coordinates.
 
 ```{r, echo=FALSE}
 knitr::include_graphics("images/trigonometry_2.png")
 ```
-A condition que les limites du bas et de gauche de la sous-parcelle soient orthogonales, la valeur maximale de l'abscisse x, qui dépend de y, est donnée par
+Conditioned on the bottom and left boundaries of the subplot being orthogonal, the maximum value of the x-coordinate, which depends on y, is given by
 $$x_{max} = x_{down,right} + y \times
   \frac{x_{up,right} - x_{down,right}}{y_{up,right} - y_{down,right}}.$$
 
-De même,
+Also,
 $$y_{max} = y_{up,left} + x \times
   \frac{y_{up,right} - y_{up,left}}{x_{up,right} - x_{up,left}}.$$
 
-Les coordonnées interpolées sont
+The interpolated coordinates are
 $$x = x_0 \times \frac{x_{max}}{x_M}$$
-et
+and
 $$y = y_0 \times \frac{y_{max}}{y_M}$$
-où $(x_0, y_0)$ sont les coordonnées du point avant interpolation et $x_M$ et $y_M$ les valeurs maximales des mesures de terrain, théoriquement 100 mètres, mais connues plus précisément.
-Pour chaque piquet, $x_M$ est l'abscisse du piquet le plus à droite de la rangée de même ordonnée, et de même pour $y_M$.
+where $(x_0, y_0)$ are the coordinates of the point before interpolation and $x_M$ and $y_M$ are the maximum values of the field measurements, theoretically 100 metres, but known more precisely.
+For each stake, $x_M$ is the $x$-coordinate of the stake furthest to the right in the row with the same $y$-coordinate, and the same applies to $y_M$.
 
-
-Application aux quadrats:
+Application to transects:
 
 ```{r}
 quadrats %>% 
@@ -612,7 +611,7 @@ quadrats %>%
   ) -> quadrats
 ```
 
-Les coordonnées UTM des quadrats sont recalculées:
+The UTM coordinates of the quadrats are recalculated:
 
 ```{r}
 # Prepare the columns
@@ -637,18 +636,18 @@ ggplot(quadrats, aes(x = x_utm, y = y_utm, color = as.factor(subplot))) +
 
 ```
 
-## Réconciliation des sous-parcelles
+## Reconciliation of subplots
 
-Quand la position des piquets de la sous-parcelle à droite ou en haut de chaque sous-parcelle et connue, elle est plus fiable que celle des piquets en bordures droite et haute.
-La position des piquets est réconciliée par interpolation:
+When the position of the stakes in the subplot to the right or above each subplot is known, it is more reliable than that of the stakes at the right and top edges.
+The position of the stakes is reconciled by interpolation:
 
-- les piquets de la bordure droite sont déplacés à la position des piquets de la sous-parcelle suivante à droite, si l'information est disponible (ex.: les piquets de la sous-parcelle 23 sont replacés à la position de ceux de la sous-parcelle 24).
-- les piquets de la bordure gauche ne sont pas modifiés,
-- les piquets intermédiaires subissent une fraction du déplacement du piquet de droite: 1/10 pour le deuxième piquet, ..., 9/10 pour le dixième.
+- the boundary stakes on the right-hand side are moved to the positions of the stakes in the next subplot to the right, if this information is available (e.g. the stakes for subplot 23 are moved to the positions of those for subplot 24).
+- the stakes on the left-hand boundary remain unchanged,
+- the intermediate stakes are moved by a fraction of the distance the right-hand stake is moved: 1/10 for the second stake, …, 9/10 for the tenth.
 
-Les mêmes ajustements sont appliqués aux piquets en limite haute.
+The same adjustments are applied to the boundary stakes at the top.
 
-Ces corrections ont lieu en coordonnées UTM.
+These corrections are made in UTM coordinates.
 
 ```{r}
 # Which subplots can be corrected
@@ -753,7 +752,7 @@ ggplot(quadrats, aes(x = x_utm, y = y_utm, color = as.factor(subplot))) +
   labs(color = "Subplot", x = "UTM x", y = "UTM y")
 ```
 
-Les coordonnées locales des quadrats doivent être mises à jour:
+The local coordinates of the quadrats must be updated:
 
 ```{r}
 # Project UTM to quadrats
@@ -784,9 +783,9 @@ quadrats %>%
 ```
 
 
-# Position des arbres
+# Tree locations
 
-Les coordonnées de terrain des arbres sont mesurées dans chaque quadrat (valeurs comprises théoriquement entre 0 et 10m).
+The field coordinates of the trees are measured within each quadrat (values theoretically ranging from 0 to 10 metres).
 
 ```{r}
 read.csv2("data/trees.csv") %>% 
@@ -804,14 +803,14 @@ read.csv2("data/trees.csv") %>%
 ```
 
 
-## Projection dans les quadrats réels
+## Projection onto the actual quadrats
 
-La position des arbres a été estimée relativement aux bords de chaque quadrat, en supposant que ce sont des carrés de 10m de côté.
-Leur forme réelle a été calculée à l'étape précédente. 
-Les arbres doivent être projetés dans chacun des quadrats réels.
+The position of the trees was estimated relative to the edges of each quadrat, assuming these were squares with sides of 10 metres.
+Their actual shape was calculated in the previous step.
+The trees must be projected onto each of the actual quadrats.
 
-La matrice de projection de chaque quadrat de ses coordonnées de terrain (repère orthonormé, côtés de 10m) dans le quadrat réel est calculée par la fonction `ortho2real()`.
-Ses arguments sont les coordonnées des coins du quadrats calculées précédemment, à l'exception du coin supérieur droit, inutile.
+The projection matrix for each quadrat, mapping its field coordinates (orthonormal coordinate system, 10 m sides) onto the actual quadrat, is calculated by the function `ortho2real()`.
+Its arguments are the coordinates of the quadrat corners calculated previously, with the exception of the top-right corner, which is not required.
 
 ```{r}
 ortho2real <- function(x_ul, x_dr, x_dl, y_ul, y_dr, y_dl) {
@@ -832,10 +831,10 @@ ortho2real <- function(x_ul, x_dr, x_dl, y_ul, y_dr, y_dl) {
 }
 ```
 
-Il n'y a pas de moyen rigoureux d'interpoler ensuite la position des arbres dans les quadrats.
-La simple projection fait l'économie d'hypothèses supplémentaires sur la possibilité que les arbres dont une coordonnée locale est supérieure à 10m se trouve ou non dans le quadrat voisin : si une coordonnée excède celle des piquets, l'arbre est dans le quadrat voisin.
+There is no rigorous method for subsequently interpolating the positions of the trees within the quadrats.
+Simple projection avoids the need for additional assumptions regarding whether or not trees with a local coordinate greater than 10 metres are located within the neighbouring quadrat: if a coordinate exceeds that of the stakes, the tree is in the neighbouring quadrat.
 
-La fonction est appliquée à chaque quadrat:
+The function is applied to each quadrat:
 
 ```{r}
 # Prepare columns
@@ -881,8 +880,8 @@ for (subplot in subplots_field) {
 }
 ```
 
-Les coordonnées des arbres sont relatives aux quadrats à ce stade.
-Il reste à les calculer dans le repère de chaque sous-parcelle.
+At this stage, the tree coordinates are relative to the quadrats.
+They still need to calculate them in the coordinate system of each subplot.
 
 ```{r}
 trees %>% 
@@ -897,7 +896,7 @@ trees %>%
   mutate(x = x_quadrat + x, y = y_quadrat + y) -> trees
 ```
 
-Des cartes locales peuvent être produites, par exemple pour les quadrats du coin du bas à gauche de la sous-parcelle 21:
+Local maps can be produced, for example for the quadrats in the bottom-left corner of subplot 21:
 
 ```{r}
 map_quadrats <- function(trees, the_subplot, x_min, x_max, y_min, y_max) {
@@ -928,9 +927,9 @@ map_quadrats(trees, the_subplot = 23, x_min = 0, x_max = 40, y_min = 0, y_max = 
 ```
 
 
-## Coordonnées UTM
+## UTM coordinates
 
-Finalement, les arbres doivent être projetés dans le repère UTM.
+Finally, the trees must be projected into the UTM coordinate system.
 
 ```{r}
 # Prepare the columns
@@ -964,13 +963,13 @@ ggplot(
   labs(color = "Subplot", x = "UTM x", y = "UTM y")
 ```
 
-Les coordonnées corrigées des arbres sont dans les colonnes `x` et `y` (repère local, valeurs comprises entre 0 et 100) et `x_utm` et `y_utm`.
+The corrected coordinates of the trees are in the `x` and `y` columns (local coordinate system, values between 0 and 100) and the `x_utm` and `y_utm` columns.
 
-# Effet des corrections
+# Effect of corrections
 
-Le déplacement des arbres relativement aux mesures brutes de terrain (dans chaque sous-parcelle, 10 fois le numéro du quadrat plus la position de l'arbre dans le quadrat) est de l'ordre d'un mètre.
-La figure suivante montre la densité de probabilité du déplacement en fonction de la sous-parcelle. 
-La courbe en pointillés rassemble tous les arbres.
+The displacement of trees relative to the raw field measurements (within each subplot, 10 times the quadrat number plus the tree’s position within the quadrat) is of the order of one metre.
+The following figure shows the probability density of the displacement as a function of the subplot.
+The dotted line combines all the trees.
 
 ```{r}
 trees %>% 
