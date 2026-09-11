@@ -24,7 +24,9 @@ Inventory <- read_csv(
   # filter(!is.na(DBHcor)) %>% 
   arrange(DBHcor) %>% 
   group_by(ScientificName) %>% 
-  mutate(N = n()) 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  mutate(Species = str_replace(ScientificName, "_", " "))
 
 PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots"
 ```
@@ -124,13 +126,17 @@ ne prendre que :
 # sort(unique(Inventory$ScientificName))
 
 data <- Inventory %>%
-  filter(Genus=="Xylopia"|Genus=="Parkia"| Genus=="Ocotea")
+  filter(Species=="Vouacapoua americana"|Species=="Bocoa prouacensis") %>% 
+  mutate(Species = factor(Species, levels = c("Vouacapoua americana","Bocoa prouacensis")))
 
 
 ggplot(data, aes(x=DBHcor)) +
+  theme_minimal() +
   geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
-  facet_wrap(vars(ScientificName, N, Strategy), scales = "free") +
-  labs(x ="DBH (cm)", y = "Number of individuals")
+  facet_wrap(vars(Species), scales = "free") +
+  labs(x ="Diameter at Breast Height (cm)", y = "Number of individuals")
+
+ggsave("DBH_distribution_Vouacapoua_Bocoa.png", path = PATH, width = 13, height = 8, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
