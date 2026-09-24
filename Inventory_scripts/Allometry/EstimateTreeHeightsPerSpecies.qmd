@@ -258,28 +258,44 @@ ggplot(same_sp, aes(x=dbh.y, y=TreeHeight)) +
 ```{r}
 pred_test <- pred %>% 
   filter(ScientificName %in% FTH$ScientificName) %>% # among FTH measured species
-  filter(!ScientificName %in% match$ScientificName) %>% # not species with specific allometries
-    mutate(DBH_d = round(DBH)) %>% 
-  select(DBH_d, TreeHeight) %>% 
-  group_by(DBH_d) %>% 
-  summarise(Treeheight_median = median(TreeHeight))
+  # filter(!ScientificName %in% match$ScientificName) %>% # not species with specific allometries
+  mutate(DBH_d = round(DBHcor)) %>% 
+  select(ScientificName, DBH_d, TreeHeight) %>% 
+  group_by(ScientificName, DBH_d) %>% # by species and diameter
+  summarise(Treeheight_median = median(TreeHeight)) %>% # compute the median
+  ungroup() %>% 
+  mutate(type = ifelse(ScientificName %in% match$ScientificName, 'Specific', 'Community')) # allometry type
 
 
-
-FTH_test <- FTH %>% filter(!ScientificName %in% match$ScientificName) %>% # not species with specific allometries
-# par classe genre 1cm ou 5 -ou10
+FTH_test <- FTH %>%
+  # filter(!ScientificName %in% match$ScientificName) %>% # not species with specific allometries
+  filter(!is.na(ScientificName)) %>% 
+  # par classe genre 1cm ou 5 -ou10
   mutate(DBH_d = round(DBH)) %>% 
   arrange(DBH_d) %>% 
-  select(DBH_d, TreeHeight) %>% 
-  group_by(DBH_d) %>% 
+  select(ScientificName, DBH_d, TreeHeight) %>% 
+  group_by(ScientificName, DBH_d) %>% 
   summarise(Treeheight_median = median(TreeHeight)) %>% 
-  left_join(pred_test, by = 'DBH_d', suffix = c('_m', '_e')) %>% 
+  left_join(pred_test, by = c('ScientificName', 'DBH_d'), suffix = c('_m', '_e')) %>% 
   mutate(diff = Treeheight_median_e - Treeheight_median_m)
 
-quantile(FTH_test$diff, na.rm =T)
-# Q0%       Q25%       Q50%       Q75%      Q100% 
-# 0.5       0.7        1.4        2.3       6.4 m
-mean(quantile(FTH_test$diff, na.rm =T)) # 2.3 m
+quantile(FTH_test$diff, na.rm =T) # Q50% = 1.4
+quantile(FTH_test[FTH_test$type=='Community', ]$diff, na.rm =T) # Q50% = 0.9
+quantile(FTH_test[FTH_test$type=='Specific', ]$diff, na.rm =T) # Q50% = 1.6
+
+# Compute median by group
+median <- FTH_test %>% group_by(type)%>%summarise(Diff=median(diff, na.rm =T)) %>% na.omit()
+
+FTH_test %>% filter(!is.na(diff)) %>% 
+ggplot(aes(x= DBH_d, y = diff, group = type, col = type)) + # , group = type
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_hline(data=median, aes(yintercept = Diff, col = type)) +
+  geom_point(alpha=0.2) +
+  geom_smooth() +
+  labs(y = "Tree height estimated - measured (m)", x="DBH (cm)", col = 'Allometry used')
+
+
 
 pred %>% 
   filter(ScientificName %in% FTH$ScientificName) %>% 

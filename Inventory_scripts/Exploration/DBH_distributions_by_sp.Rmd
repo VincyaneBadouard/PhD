@@ -20,13 +20,14 @@ Inventory <- read_csv(
   # "~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou_9ha_CLEAN.csv"
   # "~/PhD/Inventories/Data/Adults_Understory/Paracou/AllP16_filtred.csv"
 ) %>% 
-  filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # 9ha; 40 928
+  # filter(SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # 9ha; 40 928
   # filter(!is.na(DBHcor)) %>% 
   arrange(DBHcor) %>% 
   group_by(ScientificName) %>% 
   mutate(N = n()) %>% 
   ungroup() %>% 
   mutate(Species = str_replace(ScientificName, "_", " "))
+
 
 PATH <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots"
 ```

@@ -23,7 +23,7 @@ library(readr)
 
 # FTH data
 ```{r}
-FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv", delim = ";", escape_double = FALSE, trim_ws = TRUE) %>% # 931
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
   # read_csv("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_20240125.csv") %>% 
   # select(Genus, species, DBH, Htot, Hbranch, r1, r2, r3, r4) %>%
   unite(col = "ScientificName", c("Genus", "species"),
@@ -40,12 +40,11 @@ FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_F
 # Import raw ALT inventory data
 ```{r, message=F}
 Understory <- 
-  read_csv("~/PhD/Inventories/Data/Understory/Paracou/ALT_Paracou9ha_20250107.csv") %>% # last raw data
+  read_csv("~/PhD/Inventories/Data/Understory/Paracou/Raw/ALT_Paracou9ha_20250129_cleancord.csv") %>% # last raw data
   unique() %>% 
   filter(Stem.nb==1) %>% 
   rename(idTree = IdTree) %>% 
-  select(idTree, Guyafor.nb, Stem.nb, Diameter, Comments, Comment) %>% 
-  separate(col = "Guyafor.nb", sep = "_", into = c("TreeFieldNum", "SubPlot"), remove = F)
+  select(idTree, Stem.nb, Xutm, Yutm, Diameter, Comments, Comment)
 
 stems <- Understory %>% filter(!is.na(Guyafor.nb) & Diameter<10)
 bigwithoutGuyafornb <- Understory %>% filter(is.na(Guyafor.nb) & Diameter>15) # max dbh 229.0

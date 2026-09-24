@@ -1,0 +1,126 @@
+---
+title: "TreeHeight_measured_vs_estimated"
+author: "Vincyane"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+
+# Giacomo FTH data
+```{r, message=F}
+FTH <- read_delim("~/PhD/Inventories/Data/Height-Diameter/Understory/Allometry_FTH_GSellan_Paracou_idTree.csv") %>% # 931
+  select(ScientificName, Xutm, Yutm, DBH, TreeHeight) %>% 
+  filter(!is.na(Xutm) & !is.na(Yutm) & !is.na(DBH)) %>% 
+  rename(TreeHeight_m = TreeHeight)
+  # mutate(dbh.y = as.numeric(gsub(",", ".", DBH)))
+```
+
+# Claudia's allometry - Michaelis-Menten LCH and species identity (MM4)
+**//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia**
+```{r}
+load("//amap-data.cirad.fr/work/users/VincyaneBadouard/modèlesAlloClaudia/model4_MM_dataCCmean.Rdata")
+fit <- fit2_MM4_5s_2023
+rm(fit2_MM4_5s_2023)
+
+# model4_MM_nsing_CCmean <- readRDS("D:/Mes Donnees/PhD/Inventories/Data/Height-Diameter/CanopyConstructor/Claudia/model4_MM_nsing_CCmean.rds")
+# View(model4_MM_nsing_CCmean$data)
+```
+
+# Scpecies correspondance
+```{r}
+match <- read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/Species_correspondence_Claudia.csv") # 399
+```
+
+```{r}
+FTH <- FTH %>% 
+  left_join(match, by= "ScientificName") %>% # add species_noSing
+  rename(dbh.y = DBH)
+```
+
+# Predictions
+## Hauteur médiane de canopée avoisinante (LCH)
+```{r}
+# P16 25ha CHM 1m res (SpatRaster)
+CHM <- rast("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Paracou_P16_2023_25ha_50mbuffer_HighAlt_CHM_1mres.tif")
+
+#  focal ("moving window") weight matrix   
+disk_weights <- terra::focalMat(terra::rast(matrix(0, nrow=61, ncol=61)), 30, type = "circle") # 30m radius of the circle
+# with target tree
+disk_weights[disk_weights[]>0] <- 1
+
+# Calculate focal ("moving window") values for each cell
+CHMPP_median30cir <- focal(CHM, w=disk_weights, fun="median", na.policy="all",
+                           fillvalue=NA, expand=FALSE, silent=TRUE)
+# values in the focal window will be multiplied by the corresponding weight prior to 'fun' being applied.
+
+plot(CHM) ; plot(CHMPP_median30cir)
+```
+
+```{r}
+FTH_sf <- FTH %>% # as sf
+  filter(!is.na(Xutm) & !is.na(Yutm)) %>% 
+  st_as_sf(coords = c("Xutm", "Yutm")) %>% 
+  st_set_crs(st_crs(CHM))
+
+LCH <- raster::extract(CHMPP_median30cir, FTH_sf) %>% 
+  rename(HC = focal_median) %>% dplyr::select(-ID)
+
+FTH <- FTH %>% # add LCH to inventory
+  cbind(LCH)
+
+```
+
+# Predict tree height for Claudia's species
+```{r same vs other sp}
+same_sp <- FTH %>% # 36673
+  filter(!is.na(species_noSing)) %>% 
+  mutate(type = "Specific")
+  
+
+other_sp <- FTH %>% 
+  filter(is.na(species_noSing)) %>% # 11177
+  mutate(type = "Community") 
+
+nrow(FTH) == nrow(same_sp) + nrow(other_sp)
+```
+
+```{r prediction with posterior median}
+same_sp_pred <- predict(fit, newdata = same_sp, robust=T, na.action = na.omit) # 1 min, robust=T to take the posterior median, mean if F
+same_sp$TreeHeight_e <- same_sp_pred[,1]
+```
+
+# Predict tree height for species absent of the Claudia's selection (works)
+si tu prends pas en compte l'effet de l'espèce, tu ne garde que l'effet moyen entre espèce (le mu de ta distribution des effets aléatoires des espèces). Donc tu considères toutes les espèces comme des espèces "moyennes"
+```{r}
+other_sp_pred <- predict(fit, newdata = other_sp, re_formula = NA, robust=T, na.action = na.omit) # 1 min; , robust=T to take the posterior median
+other_sp$TreeHeight_e <- other_sp_pred[,1]
+```
+
+# Rebind & rename columns
+```{r}
+FTH_test <- same_sp %>%
+  bind_rows(other_sp) %>% 
+  rename(DBHcor = dbh.y) %>% 
+  mutate(diff = TreeHeight_e - TreeHeight_m)
+
+
+nrow(FTH_test) == nrow(FTH)
+length(unique(FTH_test$ScientificName)) == length(unique(FTH$ScientificName)) 
+```
+
+# Plot
+```{r}
+# Compute median by group
+median <- FTH_test %>% group_by(type)%>%summarise(Diff=median(diff, na.rm =T)) %>% na.omit()
+
+FTH_test %>% filter(!is.na(diff)) %>% 
+ggplot(aes(x= DBHcor, y = diff, group = type, col = type)) + # , group = type
+  theme_minimal() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  geom_hline(data=median, aes(yintercept = Diff, col = type)) +
+  geom_point(alpha=0.2) +
+  geom_smooth() +
+  labs(y = "Tree height estimated - measured (m)", x="DBH (cm)", col = 'Allometry used')
+```
+
