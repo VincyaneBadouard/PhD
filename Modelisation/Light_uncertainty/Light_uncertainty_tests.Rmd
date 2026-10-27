@@ -33,6 +33,7 @@ library(grid)
 library(bayesplot)
 library(patchwork)
 library(stringr)
+library(patchwork)
 
 sp <- c("Tachigali_melinonii","Anaxagorea_dolichocarpa")
 N = 100
@@ -579,12 +580,13 @@ for(s in sp){
       geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.8) +
       geom_density(data = datalocal_init, aes(fill="Initial"),
                    color="#e9ecef", alpha=0.5) +
-      scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
-                                   "Uncertainty propagation" = "#D55E00"),
-                        breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
+      scale_fill_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+                                   "With" = "#D55E00"),
+                        breaks=c("Without", "With")) + # pour ordonner
       facet_wrap(~Sample) +
       theme(legend.position="bottom") +
-      labs(title=paste(s, "Tree height uncertainty propagation"), fill = "Tree height")
+      labs(title=paste(s, "Tree height uncertainty propagation"),
+           fill = "Height estimation uncertainty")
   )
 } # A mettre si besoin en pdf sur plsrs pages
 ```
@@ -724,15 +726,28 @@ for(S in names(fits)){
         # filter(.iteration == 2000) %>% # only the last value of each chain
         group_by(.chain) %>% 
         sample_n((8000/N/4), replace = F) %>% # 8 000/sp = 80/itération = 20/chain randomly
-        mutate(Species = S) %>% 
+        mutate(Species = str_replace(S, "_", " ")) %>% 
         mutate(Sample = D) %>% 
         select(-.draw)
       
     }}}
-draws <- list_rbind(list_flatten(d))
+draws <- list_rbind(list_flatten(d)) # %>% 
+# pivot_longer(cols = c("a", "O", "tau"),
+#              names_to = "param",
+#              values_to = "value") 
 
 # sample(nrow(data), 0.1 * nrow(data))
 # sample_n(20, replace = F)
+```
+
+```{r}
+# Correlation between a and tau for each species and chain
+cor_a_tau <- draws %>% 
+  group_by(Species, `.chain`) %>% 
+  summarise(Cor_a_tau = cor.test(a, tau)$estimate,
+            CorP_a_tau = cor.test(a, tau)$p.value)
+
+range(cor_a_tau$Cor_a_tau) # -0.01723151  0.02482420
 ```
 
 ```{r}
@@ -745,30 +760,34 @@ for(S in names(initialfits)){
   
   d[[S]] <- initialfits[[S]]$draws(c("a", "O", "tau"), format = "df") %>% 
     # filter(.iteration == 2000) %>% # only the last value of each chain
-    mutate(Species = S) %>% 
+    mutate(Species = str_replace(S, "_", " ")) %>% 
     select(-.draw)
   
 }
-initialdraws <- list_rbind(list_flatten(d)) # 16 000 values per species
+initialdraws <- list_rbind(list_flatten(d)) # %>% # 16 000 values per species
+# pivot_longer(cols = c("a", "O", "tau"),
+#              names_to = "param",
+#              values_to = "value") 
 
 nrow(draws)==nrow(initialdraws)
 ```
 
 ```{r}
-ggplot(draws, aes(x= O)) +
+P_O <- ggplot(draws, aes(x= O)) +
   theme_minimal() +
-  geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_density(data = initialdraws, aes(fill="Initial"),
-               color="#e9ecef", alpha=0.8) +
+  geom_density(aes(fill="With"), color = NA, alpha=0.9) +
+  geom_density(data = initialdraws, aes(fill="Without"), color = NA, alpha=0.8) +
   scale_x_continuous(n.breaks = 5, limits = c(-6,0), labels = ~round(exp(.)*100,2)) + # delog
-  facet_wrap(~ Species, scales = "free_y") +
-  scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
-                               "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
-  theme(legend.position="bottom") +
-  labs(fill = "Tree height", y = 'Density')
+  facet_wrap(~ Species, scales = "free") + #   facet_wrap(~ Species + param, scales = "free") +
+  
+  scale_fill_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+                               "With" = "#D55E00"),
+                    breaks=c("Without", "With")) + # pour ordonner
+  theme(legend.position="bottom", strip.text = element_text(face = "italic")) +
+  labs(fill = "Height estimation uncertainty", y = 'Density')  +
+  guides(fill = FALSE)
 
-ggsave("Comparison_O_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
+# ggsave("Comparison_O_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
@@ -779,11 +798,11 @@ ggsave("Comparison_O_posteriors.png", path = path, width = 15, height = 10, unit
 #                  binwidth=1, color="#e9ecef", alpha=0.9) +
 #   scale_x_continuous(n.breaks = 5, labels = ~round(exp(.)*100,2)) + # delog
 #   facet_wrap(~ Species) +
-#   scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
-#                                "Uncertainty propagation" = "#D55E00"),
-#                     breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
+#   scale_fill_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+#                                "With" = "#D55E00"),
+#                     breaks=c("Without", "With")) + # pour ordonner
 #   theme(legend.position="bottom") +
-#   labs(title="Tree height uncertainty propagation", fill = "Tree height")
+#   labs(title="Tree height uncertainty propagation", fill = "Height estimation uncertainty")
 ```
 
 ```{r}
@@ -827,47 +846,57 @@ initialdraws %>%
 #   geom_histogram(data = initialdraws, aes(fill="Initial"),
 #                  binwidth=.2, color="#e9ecef", alpha=0.9) +
 #   facet_wrap(~ Species) +
-#   scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
-#                                "Uncertainty propagation" = "#D55E00"),
-#                     breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
+#   scale_fill_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+#                                "With" = "#D55E00"),
+#                     breaks=c("Without", "With")) + # pour ordonner
 #   theme(legend.position="bottom") +
-#   labs(title="Tree height uncertainty propagation", fill = "Tree height")
+#   labs(title="Tree height uncertainty propagation", fill = "Height estimation uncertainty")
 ```
 
 ```{r}
-ggplot(draws, aes(x= a)) +
+P_a <- ggplot(draws, aes(x= a)) +
   theme_minimal() +
-  geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_density(data = initialdraws, aes(fill="Initial"),
-               color="#e9ecef", alpha=0.9) +
+  geom_density(aes(fill="With"), color=NA, alpha=0.9) +
+  geom_density(data = initialdraws, aes(fill="Without"),
+               color=NA, alpha=0.9) +
   facet_wrap(~ Species) +
   scale_x_continuous(limits = c(-0.5, 0), breaks = c(-0.5, -0.4,-0.3,-0.2,-0.1, 0)) +
-  scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
-                               "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
-  theme(legend.position="bottom") +
-  labs(fill = "Tree height", y = 'Density')
+  scale_fill_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+                               "With" = "#D55E00"),
+                    breaks=c("Without", "With")) + # pour ordonner
+  geom_vline(xintercept = -0.02, linetype = "dashed", color = 'grey') +
+  theme(legend.position="bottom", strip.text.x = element_blank()) +
+  labs(fill = "Height estimation uncertainty", y = 'Density') +
+  guides(color = FALSE, fill = FALSE)
 
-ggsave("Comparison_a_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
+# ggsave("Comparison_a_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
-ggplot(draws, aes(x= tau)) +
+P_tau <- ggplot(draws, aes(x= tau)) +
   theme_minimal() +
-  geom_density(aes(fill="Uncertainty propagation"), color="#e9ecef", alpha=0.9) +
-  geom_density(data = initialdraws, aes(fill="Initial"),
-               color="#e9ecef", alpha=0.8) +
+  geom_density(aes(fill="With"), color=NA, alpha=0.9) +
+  geom_density(data = initialdraws, aes(fill="Without"),
+               color=NA, alpha=0.8) +
   facet_wrap(~ Species, scales = "free_y") +
-  scale_fill_manual(values = c("Initial" = "#009E73", # pour donner un nom à chaque intitulé
-                               "Uncertainty propagation" = "#D55E00"),
-                    breaks=c("Initial", "Uncertainty propagation")) + # pour ordonner
-  theme(legend.position="bottom") +
+  scale_fill_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+                               "With" = "#D55E00"),
+                    breaks=c("Without", "With")) + # pour ordonner
+  theme(legend.position="bottom", strip.text.x = element_blank()) +
   scale_x_continuous(limits = c(-5, 3.8), breaks = c(-5, -2.5, 0, 2.5, 3.8)) +
   geom_vline(xintercept = 0, linetype = "dashed", color = 'grey') +
-  labs(fill = "Tree height", y = 'Density', x=expression(tau))
+  labs(fill = "Height estimation uncertainty", y = 'Density', x=expression(tau))
 
-ggsave("Comparison_tau_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
+# ggsave("Comparison_tau_posteriors.png", path = path, width = 15, height = 10, units = "cm", dpi=800, bg="white")
 
+```
+
+```{r}
+P_O/
+  P_a/
+  P_tau # + plot_spacer() + plot_layout(widths = c(2, -1, 2, -1,2))
+
+ggsave("Comparison_all_posteriors.png", path = path, width = 15, height = 15, units = "cm", dpi=800, bg="white")
 ```
 
 ## Posteriors with O deloged and -a logged
@@ -911,22 +940,11 @@ datap <- O %>%
   bind_rows(a) %>%
   bind_rows(tau) %>%
   mutate(Source = 'Propagation')%>% 
-  mutate(Species = paste0(gsub("_", " ", Species), "\npropagation"))
+  mutate(Species = paste0(gsub("_", " ", Species), "\n with propagation"))
 ```
 
 Ajouter les posterieurs de la propagation d'incertitude 
 ```{r}
-# 0 line
-x_lim <- range(c(datap_initial$ll, datap_initial$hh))
-x_range <- diff(x_lim)
-x_lim[1] <- x_lim[1] - 0.05 * x_range
-x_lim[2] <- x_lim[2] + 0.05 * x_range
-
-# 0 line
-layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
-  vline_0(color = "darkred", linewidth = 0.5, linetype = "dashed")
-}
-
 datap_ord <- datap_initial %>% 
   mutate(parameter = factor(parameter,
                             levels=c("O","a", "tau")
@@ -938,7 +956,7 @@ datap_ord <- datap_initial %>%
   ) %>%
   ungroup() %>%
   mutate(Species=factor(Species, levels=unique(Species))) %>% 
-  mutate(Species = paste0(Species, "\ninitial")) %>% 
+  mutate(Species = paste0(Species, "\nwithout propagation")) %>% 
   bind_rows(datap)
 
 xs <- split(datap_ord, f = datap_ord$parameter)
@@ -951,7 +969,6 @@ p1 <- xs$O %>%
   ggplot(aes(y = Species)) + # , alpha = Source, group = Source
   theme_minimal() + 
   # xlim(range(c(datap$ll, datap$hh))) +
-  layer_vertical_line +
   geom_segment(aes(x=ll, xend=hh, y=Species, yend=Species,
                    color = "80%"), size = 0.5) +
   geom_segment(aes(x=l, xend=h, y=Species, yend=Species,
@@ -966,12 +983,14 @@ p1 <- xs$O %>%
 
 p2 <- p1 %+% xs$a +
   ggtitle("a") +
+  geom_vline(xintercept = -0.02, linetype = "dashed", color = 'darkred', linewidth = 0.5) +
   scale_x_continuous(limits = c(-0.5, 0), breaks = c(-0.5, -0.3,-0.1, 0)) +
   theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
         axis.ticks.y=element_blank()) 
 
 p3 <- p1 %+% xs$tau  +
   ggtitle(expression(tau)) +
+  geom_vline(xintercept = 0, linetype = "dashed", color = 'darkred', linewidth = 0.5) +
   scale_x_continuous(limits = c(-5, 3.8), breaks = c(-5, -2.5, 0, 3)) +
   theme(axis.title.y=element_blank(), axis.text.y=element_blank(),
         axis.ticks.y=element_blank()) + 
@@ -988,6 +1007,19 @@ ggsave("Light_uncertainty_posteriors_delog.png", path = path,
        width = 16, height = 10, units = "cm", dpi=800, bg="white")
 
 ```
+
+```{r}
+library("rstanarm")
+
+posterior <- as.matrix(fits$Tachigali_melinonii$TreeHeight_1)
+class(fits$Tachigali_melinonii$TreeHeight_1) # "CmdStanMCMC_CSV" "CmdStanMCMC"     "CmdStanFit"      "R6" 
+mcmc_areas(fits$Tachigali_melinonii, 
+           pars = c("a", "O", "tau"), 
+           prob = 0.8)
+
+trace(bayesplot::mcmc_areas, edit=T)
+```
+
 # Posteriors overlap
 ```{r}
 d <- list()
@@ -1031,6 +1063,12 @@ data <- list_rbind(list_flatten(d))
 data
 
 ```
+# a and tau correlation
+au sein de l’espèce à l’échelle des chaînes
+```{r}
+```
+
+
 
 # Eigenvectors per sample
 ```{r}

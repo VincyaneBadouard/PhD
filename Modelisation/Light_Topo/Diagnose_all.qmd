@@ -79,6 +79,33 @@ for(S in sp){
 saveRDS(fits, file = paste(PATH, "/fits.rds", sep=''))
 ```
 
+# Correlation between a and tau for each species and chain
+```{r}
+# fits <- readRDS(paste(PATH, "/fits.rds",sep=""))
+
+fits <- fits[names(fits) %in% sp]
+
+d <- list()
+for(S in names(fits)){
+  
+  d[[S]] <- fits[[S]]$draws(c("a", "O", "tau"), format = "df") %>% 
+    mutate(Species = S) %>% 
+    select(-.draw)
+  
+}
+initialdraws <- list_rbind(list_flatten(d)) 
+
+# Correlation between a and tau for each species and chain
+cor_a_tau <- initialdraws %>% 
+  group_by(Species, `.chain`) %>% 
+  summarise(Cor_a_tau = cor.test(a, tau)$estimate,
+            CorP_a_tau = cor.test(a, tau)$p.value)
+
+range(cor_a_tau$Cor_a_tau) # -0.2406032  0.1202722
+range(cor_a_tau[abs(cor_a_tau$Cor_a_tau)>0.1,]$CorP_a_tau) # 9.871637e-28 4.640711e-06
+
+```
+
 # Divergence
 ```{r divergence}
 Div <- lapply(names(fits), function(x)
