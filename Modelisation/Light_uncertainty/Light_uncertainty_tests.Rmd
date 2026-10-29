@@ -728,6 +728,7 @@ for(S in names(fits)){
         sample_n((8000/N/4), replace = F) %>% # 8 000/sp = 80/itération = 20/chain randomly
         mutate(Species = str_replace(S, "_", " ")) %>% 
         mutate(Sample = D) %>% 
+        mutate(lambda2_p = log(-a)) %>%  # -exp(lambda2_p) = a
         select(-.draw)
       
     }}}
@@ -740,14 +741,22 @@ draws <- list_rbind(list_flatten(d)) # %>%
 # sample_n(20, replace = F)
 ```
 
-```{r}
-# Correlation between a and tau for each species and chain
-cor_a_tau <- draws %>% 
-  group_by(Species, `.chain`) %>% 
-  summarise(Cor_a_tau = cor.test(a, tau)$estimate,
-            CorP_a_tau = cor.test(a, tau)$p.value)
+```{r complete draws}
+d <- list()
+for(S in names(fits)){
+  for(D in paste0("TreeHeight_", 1:N)){
+    if(D %in% names(fits[[S]])){
+      # S = sp[1]
+      # D = 'TreeHeight_1'
+      
+      d[[S]][[D]] <- fits[[S]][[D]]$draws(c("a", "O", "tau"), format = "df") %>% 
+        mutate(Species = str_replace(S, "_", " ")) %>% 
+        mutate(Sample = D) %>% 
+        select(-.draw)
+      
+    }}}
 
-range(cor_a_tau$Cor_a_tau) # -0.01723151  0.02482420
+draws_complete <- list_rbind(list_flatten(d)) 
 ```
 
 ```{r}
@@ -761,6 +770,7 @@ for(S in names(initialfits)){
   d[[S]] <- initialfits[[S]]$draws(c("a", "O", "tau"), format = "df") %>% 
     # filter(.iteration == 2000) %>% # only the last value of each chain
     mutate(Species = str_replace(S, "_", " ")) %>% 
+    mutate(lambda2_p = log(-a)) %>%  # -exp(lambda2_p) = a
     select(-.draw)
   
 }
@@ -770,6 +780,37 @@ initialdraws <- list_rbind(list_flatten(d)) # %>% # 16 000 values per species
 #              values_to = "value") 
 
 nrow(draws)==nrow(initialdraws)
+```
+```{r cor a vs tau}
+# Correlation between a and tau for each species and chain
+cor_a_tau <- draws %>% 
+  group_by(Species, `.chain`) %>% 
+  summarise(Cor_a_tau = cor.test(a, tau)$estimate,
+            CorP_a_tau = cor.test(a, tau)$p.value)
+
+range(cor_a_tau$Cor_a_tau) # -0.01723151  0.02482420
+
+# voir pour le cas spécifique de la niche lumineuse plate que fait tau (un biplot a en x, tau en y)
+# filter(Species == "Qualea_rosea") %>% 
+ggplot(draws, aes(x = lambda2_p, y = tau)) + 
+  theme_minimal() + 
+  geom_point(data = initialdraws, aes(col="Without"), alpha = .05) +
+  geom_point(data = draws, aes(col="With"), alpha = .05) +
+  scale_colour_manual(values = c("Without" = "#009E73", # pour donner un nom à chaque intitulé
+                                 "With" = "#D55E00"),
+                      breaks=c("Without", "With"), # pour ordonner
+                      guide = guide_legend(override.aes = list(size = 3, alpha = 1))) + 
+  
+  geom_vline(xintercept = log(0.02), linetype = "dashed", color = 'grey') + # limite niche plate
+  geom_hline(yintercept = 0, linetype = "dashed", color = 'grey') + 
+  facet_wrap(~ Species, scales = "free") +
+  labs(col = "Height estimation uncertainty", y=expression(tau), x= expression(italic(lambda2_p))) +
+  theme(legend.position="bottom", strip.text = element_text(face = "italic")) 
+
+
+ggsave("Biplot_a_tau_uncertainty.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_uncertainty",
+       width = 15, height = 10, units = "cm", dpi=800, bg="white")
 ```
 
 ```{r}
@@ -909,7 +950,7 @@ datap_initial <- read_csv(paste(PATH, "Modelisation/Plots/Light_topo/Autocor/dat
 # trace(bayesplot::mcmc_intervals_data, edit=T)
 probs <- c(0.5 - 0.8/2, 0.5 - 0.5/2, 0.5 + 0.5/2, 0.5 + 0.8/2)
 
-datap <- draws %>% 
+datap <- draws_complete %>% 
   group_by(Species) %>% 
   summarise(across(c("O", "a", "tau"),
                    list(m = ~ median(.),
@@ -1063,12 +1104,6 @@ data <- list_rbind(list_flatten(d))
 data
 
 ```
-# a and tau correlation
-au sein de l’espèce à l’échelle des chaînes
-```{r}
-```
-
-
 
 # Eigenvectors per sample
 ```{r}

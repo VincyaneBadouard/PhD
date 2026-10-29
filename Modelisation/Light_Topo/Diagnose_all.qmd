@@ -90,8 +90,8 @@ for(S in names(fits)){
   
   d[[S]] <- fits[[S]]$draws(c("a", "O", "tau"), format = "df") %>% 
     mutate(Species = S) %>% 
-    select(-.draw)
-  
+    select(-.draw) %>% 
+    mutate(lambda2_p = log(-a)) # -exp(lambda2_p) = a
 }
 initialdraws <- list_rbind(list_flatten(d)) 
 
@@ -104,6 +104,18 @@ cor_a_tau <- initialdraws %>%
 range(cor_a_tau$Cor_a_tau) # -0.2406032  0.1202722
 range(cor_a_tau[abs(cor_a_tau$Cor_a_tau)>0.1,]$CorP_a_tau) # 9.871637e-28 4.640711e-06
 
+# voir pour le cas spécifique de la niche lumineuse plate que fait tau (un biplot a en x, tau en y)
+initialdraws %>% 
+  filter(Species == "Qualea_rosea") %>% 
+  ggplot(aes(x = lambda2_p, y = tau)) + # , alpha = Source, group = Source
+  theme_minimal() + 
+  geom_point(alpha = .05) +
+  geom_vline(xintercept = log(0.02), linetype = "dashed", color = 'grey') + # limite niche plate
+  labs(y=expression(tau))
+
+ggsave("Biplot_a_tau.png",
+       path = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Modelisation/Plots/Light_uncertainty",
+       width = 10, height = 8, units = "cm", dpi=800, bg="white")
 ```
 
 # Divergence
