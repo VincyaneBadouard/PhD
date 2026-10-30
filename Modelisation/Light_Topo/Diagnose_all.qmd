@@ -175,7 +175,7 @@ no_light_effect <- c("Iryanthera_sagotiana", "Symphonia_sp.1", "Inga_loubryana",
 # Plot data
 datap <- lapply(names(fits), function(x)
   mcmc_intervals_data(fits[[x]]$draws(), # c("a", "O", "tau")
-                      prob = 0.50, prob_outer = 0.80, point_est = "median") %>% 
+                      prob = 0.50, prob_outer = 0.8, point_est = "median") %>% 
     mutate(Species = x)
 )  %>% 
   bind_rows() %>% 
@@ -229,6 +229,7 @@ layer_vertical_line <- if (0 > x_lim[1] && 0 < x_lim[2]) {
 # range((datap %>% filter(Species %in% no_light_effect & parameter=='O') %>% mutate(incertitude = hh-ll))$incertitude) # O incertitude : 4.5-6.5
 
 write_csv(datap, paste(PATH, "/dataplot.csv",sep=''))
+# write_csv(datap, paste(PATH, "/dataplot_CI99.csv",sep='')) 
 ```
 
 

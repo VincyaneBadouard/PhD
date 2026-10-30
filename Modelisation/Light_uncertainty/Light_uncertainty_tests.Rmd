@@ -944,6 +944,9 @@ ggsave("Comparison_all_posteriors.png", path = path, width = 15, height = 15, un
 ```{r}
 datap_initial <- read_csv(paste(PATH, "Modelisation/Plots/Light_topo/Autocor/dataplot.csv",sep="")) %>% 
   filter(ScientificName %in% sp)
+
+# datap_initial <- read_csv(paste(PATH, "Modelisation/Plots/Light_topo/Autocor/dataplot_CI99.csv",sep="")) %>% 
+#   filter(ScientificName %in% sp)
 ```
 
 ```{r}
@@ -1044,7 +1047,7 @@ p1 <- p1 + ggtitle("O (% transmittance)") +
 
 p1+p2+p3
 
-ggsave("Light_uncertainty_posteriors_delog.png", path = path,
+ggsave("Light_uncertainty_posteriors_delog.png", path = path, # _CI99
        width = 16, height = 10, units = "cm", dpi=800, bg="white")
 
 ```
