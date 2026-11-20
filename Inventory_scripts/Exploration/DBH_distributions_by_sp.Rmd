@@ -139,7 +139,6 @@ ggplot(data, aes(x=DBHcor)) +
 
 ggsave("DBH_distribution_Vouacapoua_Bocoa.png", path = PATH, width = 13, height = 8, units = "cm", dpi=800, bg="white")
 ```
-
 ```{r}
 sp <- (read.csv("D:/Mes Donnees/PhD/Inventories/Data/Understory/Paracou/InterestSpecies.csv")[,3]) # 75
 
@@ -148,7 +147,10 @@ Inventory <- Inventory %>% filter(ScientificName %in% sp) %>%
   arrange(desc(N)) %>% 
   mutate(Species = factor(Species, levels=c(unique(.$Species)))) %>% 
   mutate(N = paste('N=',N,sep=''))
+```
 
+# Plot DBH distribution by species 9ha
+```{r}
 # Define nrow and ncol for the facet
 n <- length(unique(sp))
 if(n<4) {i = 1}else{ i = 4}
@@ -159,7 +161,7 @@ pdf("//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots/DB
 for(p in 1:(ceiling(length(unique(sp))/16))){
   print(
     ggplot(Inventory, aes(x=DBHcor)) +
-        theme_minimal() +
+      theme_minimal() +
       geom_histogram(binwidth=1, fill="#69b3a2", color="#e9ecef", alpha=0.9) + # color to have the lines of the bars
       
       ggforce::facet_wrap_paginate(vars(Species, N, Strategy),
@@ -172,5 +174,113 @@ for(p in 1:(ceiling(length(unique(sp))/16))){
 }
 dev.off() # Close the final graphics device
 ```
+
+# Paracou data
+plots 1, 6, 11, 13, 14, 15, 16 (not human impacted plots)) in 2020
+```{r Paracou}
+Paracou <- vroom::vroom("~/PhD/Inventories/Data/Adults/Paracou/All_Paracou.csv")
+
+# Paracou %>% 
+#   group_by(Plot) %>% 
+#   summarise(maxYear = max(CensusYear, na.rm = T)) # not always 2023
+
+# unique((Paracou %>% filter(CensusYear==2020))$Plot) # Only control & biodiversity plots (1, 6, 11, 13, 14, 15, 16)
+
+
+Paracou <- Paracou %>% 
+  select(Forest, SubPlot, Plot, CensusYear, idTree, Genus, Species, CircCorr, Circ) %>% 
+  filter(CensusYear==2020) %>% 
+  filter(!SubPlot %in% c(13,14,15,18,19,20,23,24,25)) %>% # not in ALT
+  unite(col = "ScientificName", c("Genus", "Species"),
+        sep = "_", na.rm = TRUE, remove = F) %>%
+  unite(col = "Species", c("Genus", "Species"),
+        sep = " ", na.rm = TRUE, remove = T) %>% 
+  
+  # Only ALT species
+  filter(ScientificName %in% sp) %>% 
+  
+  mutate(DBHcor = ifelse(!is.na(CircCorr), CircCorr/pi, Circ/pi)) %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup() %>% 
+  filter(N>2)
+
+
+```
+
+```{r}
+data <- Inventory %>%
+  filter(DBHcor >=10) %>% 
+  filter(Species=="Vouacapoua americana"|Species=="Bocoa prouacensis") %>% 
+  mutate(Species = factor(Species, levels = c("Vouacapoua americana","Bocoa prouacensis")))
+
+data2 <- Paracou %>%
+  filter(Species=="Vouacapoua americana"|Species=="Bocoa prouacensis") %>% 
+  mutate(Species = factor(Species, levels = c("Vouacapoua americana","Bocoa prouacensis")))
+
+ggplot(data2, aes(x=DBHcor)) +
+  theme_minimal() +
+  geom_density(aes(fill="Paracou"), color=NA, alpha=0.4) +
+  geom_density(data = data, aes(fill="P16 9ha"),
+               color=NA, alpha=0.4) +
+  
+  # geom_histogram(binwidth=3, aes(fill="Paracou"), color=NA, alpha=0.4) + # color to have the lines of the bars
+  # geom_histogram(binwidth=3, data = data, aes(fill="P16 9ha"),
+  #              color=NA, alpha=0.4) +
+  
+  
+  scale_fill_manual(values = c("P16 9ha" = "#009E73", # pour donner un nom à chaque intitulé
+                               "Paracou" = "#D55E00"),
+                    breaks=c("P16 9ha", "Paracou")) + # pour ordonner
+  theme(legend.position="bottom") +
+  
+  facet_wrap(vars(Species), scales = "free") +
+  labs(x ="Diameter at Breast Height (cm)", y = "Density", fill='Dataset')
+
+```
+
+# Plot DBH distribution by species 9ha vs Paracou
+```{r}
+data <- Inventory %>%
+  filter(DBHcor >=10) %>% 
+    # Only Paracou species
+  filter(ScientificName %in% Paracou$ScientificName) %>% 
+  group_by(ScientificName) %>% 
+  mutate(N = n()) %>% 
+  ungroup()
+
+
+# Define nrow and ncol for the facet
+n <- length(unique(data$ScientificName)) # 54
+if(n<4) {i = 1}else{ i = 4}
+
+pdf(
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Inventories/Explo_plots/DBH_distributions_by_species_9ha_vs Paracou_interestsp.pdf",
+    width = 15, height = 10)
+for(p in 1:(ceiling(length(unique(sp))/16))){
+  print(
+    ggplot(Paracou, aes(x=DBHcor)) +
+      theme_minimal() +
+      geom_density(aes(fill="Paracou"), color=NA, alpha=0.4) +
+      geom_density(data = data, aes(fill="P16 9ha"),
+                   color=NA, alpha=0.4) +
+      
+      scale_fill_manual(values = c("P16 9ha" = "#009E73", # pour donner un nom à chaque intitulé
+                                   "Paracou" = "#D55E00"),
+                        breaks=c("P16 9ha", "Paracou")) + # pour ordonner
+      theme(legend.position="bottom") +
+      
+      labs(x ="Diameter at Breast Height (cm)", y = "Density", fill='Dataset') +
+      
+      
+      ggforce::facet_wrap_paginate(~Species, # , N, Strategy
+                                   scales = "free",
+                                   ncol = min(n,4), nrow = 3, page = p)
+    
+  )
+}
+dev.off() # Close the final graphics device
+```
+
 
 

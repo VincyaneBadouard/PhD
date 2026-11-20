@@ -35,15 +35,18 @@ library(RColorBrewer)
 
 # Paths
 ```{r, eval=F}
-local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/"
+local <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/"
 
 folders <- 
   # "P16_C14C15/Processed/"
-  "P16_C19C20/Processed/"
+  # "P16_C19C20/Processed/"
+  "P16/Processed/"
+
 
 file <-
   # "UAV_C14C15"
-  "UAV_C19C20"
+  # "UAV_C19C20"
+  "ALS"
 ```
 
 # Load points cloud
@@ -51,9 +54,12 @@ ctg : catalog of laz files
 ```{r}
 # Si en dalles :
 ST <- readLAScatalog( # # las catalog. filter only 1st returns
+  
+  folder ="//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2025/NDP_ALT", filter = "keep"
+  # folder = "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Raw_laz/Tiles", filter = "keep"
     # folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/Laz", filter = "keep"
     
-    folder = "//amap-data.cirad.fr/safe/DATAverse_tempo/ALSPar2019/laz", filter = "keep"
+    # folder = "//amap-data.cirad.fr/safe/DATAverse_tempo/ALSPar2019/laz", filter = "keep"
 
   # folder = "//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2023/LazClassifiedWithExtraByte", filter = "keep"
     # folder = "D:/Mes Donnees/PhD/Lidar/ALS2023/HighAlt/", filter = "keep"
@@ -91,6 +97,7 @@ class(ROI) # SpatVector (terra)
 
 ROI <- st_as_sf(ROI) # as sf object
 ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+# crs(ROI)
 
 # plot(PC@data, )
 # plot(ROI, add=T)
@@ -98,11 +105,12 @@ ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
 
 # Clip the point cloud in region of interest
 ```{r, crop laz}
+gc()
 ST <- catalog_intersect(ST, ROI) # if laz catalog
 plot(ST)
 PC <- lidR::clip_roi(las = ST, geometry = ROI) # très long
 ST;PC
-rm(ST)
+plot(PC)
 ```
 
 ```{r}
@@ -111,8 +119,6 @@ rm(ST);gc()
 
 # Pas toujours nécessaire
 ```{r, crop laz}
-plot(PC)
-
 ## For 1 file
 str(PC) # List of 4 las
 
@@ -133,12 +139,13 @@ PC@data <- PC@data[Classification != 7,]
 # plot(PC)
 
 writeLAS(PC,
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raw_laz/P16_2019_25ha_buffer_raw.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Raw_laz/P16_2025_25ha_buffer_raw.laz"
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raw_laz/P16_2019_25ha_buffer_raw.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/Raw_laz/P16_2023_25ha_HighAlt_buffer_raw_withoutextrabytes.laz"
 )
 
 # PC <- readLAS(
-#   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Raw_laz/P16_2019_25ha_buffer_raw.laz"
+#   "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Raw_laz/P16_2025_25ha_buffer_raw.laz"
 # )
 ```
 
@@ -202,9 +209,10 @@ writeRaster(raster(mntROI),
 # Read, bind and rewrite the trajectory files in the folder
 ```{r , include = F}
 # if multiple files :
-trajfilenames <- list.files("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/trajecto", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
+trajfilenames <- list.files("//amap-data.cirad.fr/safe/lidar/ALS/Paracou/2025/TRAJECTO", pattern="*.txt", full.names=TRUE) # catch the name of all the files of the folder
 df_list <- lapply(trajfilenames, fread) # read all the folder files
 traj <- bind_rows(df_list)
+traj <- setDF(traj)
 
 # if one file :
 path <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/trajecto1000m.txt"
@@ -217,7 +225,7 @@ range(traj$x) # 283900.7434999999823049 317113.9602999999769963
 range(traj$y) #  560039.9923999999882653 588274.3286999999545515
 
 traj <- traj %>% 
-  select(V1,V2,V3,V4) %>% 
+  dplyr::select(-c(V5,V6,V7)) %>%
   rename(time = V1) %>% 
   rename(X = V2) %>% 
   rename(Y = V3) %>% 
@@ -228,7 +236,7 @@ view(traj)
 options(digits=22)
 range(traj$t) # 382365103.0212569832802 382378020.8453729748726
 range(PC@data$gpstime) # 382366761.4412953257561 382376006.5801081061363
-traj <- traj[t<=max(PC@data$gpstime) & t>=min(PC@data$gpstime),]
+traj <- traj[traj$t<=max(PC@data$gpstime) & traj$t>=min(PC@data$gpstime),]
 
 # Keep only points inside the polygon (faut pas faire ça)
 # traj_sf <- st_as_sf(traj, coords = c("X","Y"))
@@ -242,9 +250,14 @@ traj <- traj[t<=max(PC@data$gpstime) & t>=min(PC@data$gpstime),]
 
 # fwrite(traj_crop, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/traj_crop.txt")
 
-fwrite(traj, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ALS_P16_2023_4ha_HighAlt_buffer_traj.txt")
+fwrite(traj, 
+       "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Traj/ALS_P16_2025_25ha_buffer_traj.txt"
+       # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ALS_P16_2023_4ha_HighAlt_buffer_traj.txt"
+       )
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2022/ALS_P16_2022_4ha_buffer_traj.txt"
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/trajecto/ALS_P16_2023_traj.txt"
+
+# traj <- fread("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Traj/ALS_P16_2025_25ha_buffer_traj.txt")
 ```
 
 # Check points cloud data
@@ -273,6 +286,7 @@ table(PC_norm@data$Classification) # 7 = bruit, 2 = sol, vegetation = 0,3,4,5
 
 # Dénormaliser la hauteur du sol
 PC <- lidR::unnormalize_height(PC_norm) 
+hist(PC@data$Z)
 rm(PC_norm)
 plot(PC)
 ```
@@ -344,6 +358,7 @@ table(PC@data$Classification)
 # range(PC@data$Intensity) # 0-40
 PC@data[, Intensity := ifelse(Intensity == 0L, 1L, Intensity)] # != 0 and integer
 
+gc()
 writeLAS(PC,
          # paste(local,"AMAPVox/LAZ/P16_2023_",file,"_buffer_intensitycor.laz", sep="")
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/HovermapUAV2023/AMAPVox/LAZ/P16_2023_UAV_C14C15_buffer_intensitycor.laz"
@@ -353,8 +368,8 @@ writeLAS(PC,
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/DZ_test/LAZ/HighFlight_DZ_buffer_2023_intensitycor.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_withoutextrabytes.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/LAZ/P16_2023_25ha_HighAlt_buffer50m_intensitycor.laz"
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/LAZ/P16_2019_25ha_buffer50m_intensitycor.laz"
-         
+         # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/LAZ/P16_2019_25ha_buffer50m_intensitycor.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/LAZ/P16_2025_25ha_buffer_intensitycor.laz"
 )
 ```
 
