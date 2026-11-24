@@ -199,11 +199,13 @@ vxsp <- readVoxelSpace(
   # laz pour 25 ha high alt intensity
    # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16C19_2023_1ha_HighAlt_intensity2m_testnewEB.vox"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_4ha_buffer_intensity1m_testnewEB.vox"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity1m_testnewEB.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity1m_testnewEB.vox"
   
   # ALS 2019
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Vox/P16_2019_25ha_buffer_intensity2m.vox"
   
+# ALS2025_Julien  
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Vox/P16_2025_9ha_buffer_intensity2m.vox"
 )
 
 plot(vxsp)
@@ -548,8 +550,9 @@ path <-
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/Vox/P16_2023_HighAlt_25ha_buffer_PadHLE_intensity1m_testnewEB.vox"
 
 # ALS 2019
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Vox/P16_2019_25ha_buffer_PadHLE_intensity2m.vox"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Vox/P16_2019_25ha_buffer_PadHLE_intensity2m.vox"
 
+"//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Vox/P16_2025_9ha_buffer_PadHLE_intensity2m.vox"
 writeVoxelSpace(vxsp, path)
 
 # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/lowAltitudeFlight/P16_2023_4ha_buffer_LowAlt_PadHLE.vox"
@@ -587,7 +590,7 @@ data <- vxsp@data %>%
   ungroup()
 
 data %>% 
-  select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD) %>% 
+  dplyr::select(ground_distance_disc, MeanPAD, MinPAD, MaxPAD) %>% 
   filter(ground_distance_disc>=0 & ground_distance_disc<=60) %>% 
   unique() %>% 
   ggplot(aes(x= ground_distance_disc, y= MeanPAD)) +

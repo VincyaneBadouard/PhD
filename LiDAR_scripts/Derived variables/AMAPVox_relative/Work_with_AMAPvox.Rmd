@@ -91,12 +91,14 @@ Ne garder que la zone d'intéret dans le nuage de point, en le clipant sur un fi
 ROI : Region of Interest
 ```{r, create ROI}
 # Region of Interest (ROI)
-ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_25ha_buffer.shp") # interest zone + 100m buffer
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_9ha_buffer_100m.shp") # interest zone + 100m buffer # Plot16_25ha_buffer.shp
 plot(ROI)
 class(ROI) # SpatVector (terra)
 
 ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_union(ROI)
 ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+
 # crs(ROI)
 
 # plot(PC@data, )
@@ -369,8 +371,11 @@ writeLAS(PC,
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/LAZ/P16_2023_25ha_HighAlt_buffer_withoutextrabytes.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/LAZ/P16_2023_25ha_HighAlt_buffer50m_intensitycor.laz"
          # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/LAZ/P16_2019_25ha_buffer50m_intensitycor.laz"
-         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/LAZ/P16_2025_25ha_buffer_intensitycor.laz"
+         "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/LAZ/P16_2025_9ha_buffer_intensitycor.laz"
 )
+
+
+# ST <- readLAS("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/LAZ/P16_2025_25ha_buffer_intensitycor.laz")
 ```
 
 # Calculer la matrice de pondération des échos (matrice de poids) (pas la meilleur méthode)
@@ -541,7 +546,8 @@ AMAPVox::run(jvm.option = "-Xms16g") # pour allouer 16Go de RAM #
 # AMAPVox::run(jvm.option = "-Xms16g", version = "1.10.4")  
 
 # Get the configuration file
-xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Vox_equalecho1m"
+xmlfile <- "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/XML/P16_2025_9ha_buffer_Vox_intensity2m.xml"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Vox_equalecho1m"
 # Run with the previous configuration file
 AMAPVox::run(xml = xmlfile, jvm.option = "-Xms16g")
 

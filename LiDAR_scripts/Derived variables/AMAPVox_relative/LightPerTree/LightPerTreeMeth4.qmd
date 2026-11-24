@@ -38,7 +38,8 @@ source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/ReadLightFile.R")
 path <-
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16C19_2023_1ha_HighAlt_Light_intensity2m_all2m.txt"
   # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/HighAltitudeFlight/ForTrees/P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt"
-  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
+  # "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2019/Light/P16_2019_25ha_buffer_Light_grid_intensity2m.txt"
+  "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Light/P16_2025_9ha_buffer_Light_grid_intensity2m.txt"
 
 # P16_2023_1ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 10201 obs
 # P16_2023_25ha_buffer_HighAlt_Light_intensity1m_all1m.txt # 491 401 obs
@@ -404,11 +405,40 @@ for (i in 1:nrow(datalocal)) {
 ## Coordinates in UTM (use VOP)
 ```{r}
 source("~/PhD/R_codes/PhD/LiDAR_scripts/Functions/Relative2UTM.R")
-VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_25ha.txt"))
+VOP <- as.matrix(read.table("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/VOP/VOP_P16_9ha.txt"))
 
 Light <- Relativ2UTM(data = Light,VOP) %>% 
   select(-Zutm)
 ```
+
+```{r}
+ROI <- vect("//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2023/Shapefiles/Plot16_9ha_buffer_100m.shp") # interest zone + 100m buffer # Plot16_25ha_buffer.shp
+
+ROI <- st_as_sf(ROI) # as sf object
+ROI <- st_union(ROI)
+ROI <- st_set_crs(ROI, 2972) # attribuer le dernier crs
+
+test <- Light %>% 
+  # select(-Z) %>% 
+  # unique() %>% 
+  st_as_sf(coords = c('Xutm','Yutm')) %>% 
+  st_set_crs(2972) %>% 
+  st_intersection(ROI)
+  
+
+ggplot() +
+  geom_sf(data = ROI, color = "red") +
+  geom_sf(data = test, size = .001, alpha = .1)  
+
+# from sf to df with original coordinates
+XY <- st_coordinates(test) %>% as_data_frame() %>%  rename(Xutm = X, Yutm = Y)# stock coordinates
+st_geometry(test) <- NULL # no more sf object
+data <- cbind(test, XY) # bind XY coord
+
+write.table(data, "//amap-data.cirad.fr/work/users/VincyaneBadouard/Lidar/ALS2025_Julien/Light/P16_2025_9ha_buffer_Light_grid_intensity2m_crop.txt",sep=";")
+
+```
+
 
 ## Extract Zutm for each tree
 ```{r}
